@@ -8,7 +8,11 @@ runner = "probe-rs run --no-location --chip STM32F405RGTx"
 opt-level = "s"
 
 [profile.release]
+opt-level = 3
 debug = 2
+lto = "fat"
+codegen-units = 1
+panic = "abort"
 
 [env]
 DEFMT_LOG = "info"

@@ -9,28 +9,64 @@
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 
+extern crate alloc;
+
 #[allow(unused_imports)]
 use defmt::{debug, error, info, trace, warn};
 use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_executor::main as embassy_main;
 use embassy_stm32::gpio::Flex;
+use embassy_stm32::rcc;
 use embassy_time::{Duration, Instant, Timer};
+use embedded_alloc::LlffHeap as Heap;
+
 use panic_probe as _;
 
-mod checksum;
+mod database;
 mod error;
 mod rom;
 
-pub use checksum::{checksum, identify_rom};
+pub use database::{checksum, identify_rom, sha1_digest};
 pub use error::Error;
 pub use rom::{Cs, CsActive, Rom};
 
+#[global_allocator]
+static HEAP: Heap = Heap::empty();
+
 #[embassy_main]
 async fn main(_spawner: Spawner) {
+    // Initialize the heap allocator
+    {
+        use core::mem::MaybeUninit;
+        const HEAP_SIZE: usize = 1024;
+        static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
+        unsafe { HEAP.init(&raw mut HEAP_MEM as usize, HEAP_SIZE) }
+    }
+
     info!("One ROM Lab");
 
-    let p = embassy_stm32::init(Default::default());
+    // Set up the clocks - assume we are running on an F405RG with max clock
+    // of 168MHz
+    let mut config = embassy_stm32::Config::default();
+    config.rcc.hsi = true;
+    config.rcc.pll_src = embassy_stm32::rcc::PllSource::HSI;
+    config.rcc.pll = Some(embassy_stm32::rcc::Pll {
+        prediv: embassy_stm32::rcc::PllPreDiv::DIV16,
+        mul: embassy_stm32::rcc::PllMul::MUL336,
+        divp: Some(embassy_stm32::rcc::PllPDiv::DIV2),
+        divq: Some(embassy_stm32::rcc::PllQDiv::DIV7),
+        divr: None,
+    });
+    config.rcc.sys = embassy_stm32::rcc::Sysclk::PLL1_P;
+    config.rcc.ahb_pre = embassy_stm32::rcc::AHBPrescaler::DIV1; // 168MHz
+    config.rcc.apb1_pre = embassy_stm32::rcc::APBPrescaler::DIV4; // 42MHz (max for APB1)
+    config.rcc.apb2_pre = embassy_stm32::rcc::APBPrescaler::DIV2; // 84MHz (max for APB2)
+
+    let p = embassy_stm32::init(config);
+
+    let clocks = rcc::clocks(&p.RCC);
+    info!("Clocks: {}", clocks);
 
     // Collate the address and data pins, and create CS pin
     let addr_pins = [
@@ -69,25 +105,45 @@ async fn main(_spawner: Spawner) {
     loop {
         // Read the ROM
         let mut buf = [0u8; 8192];
+        info!("-----");
         info!("Reading ROM...");
         let start = Instant::now();
-        if let Err(e) = rom.read(&mut buf).await {
+        if let Err(e) = rom.read_single_cs(&mut buf).await {
             panic!("Failed to read ROM: {e:?}");
         }
         let end = Instant::now();
-
         let time_taken = end - start;
-        info!("Read took {:?}", time_taken);
+
+        let mut buf2 = [0u8; 8192];
+        let start2 = Instant::now();
+        if let Err(e) = rom.read_toggle_cs(&mut buf2).await {
+            panic!("Failed to read ROM: {e:?}");
+        }
+        let end2 = Instant::now();
+        let time_taken2 = end2 - start2;
+        debug!(
+            "Reads took: single CS {}us, toggle CS {}us",
+            time_taken.as_micros(),
+            time_taken2.as_micros()
+        );
 
         // Output checksums
-        let sum8: u8 = checksum(&buf);
-        debug!("8-bit checksum:  {:#04x}", sum8);
-        let sum16: u16 = checksum(&buf);
-        debug!("16-bit checksum: {:#06x}", sum16);
-        let sum32: u32 = checksum(&buf);
-        debug!("32-bit checksum: {:#08x}", sum32);
+        let sum: u32 = checksum(&buf);
+        let sum2: u32 = checksum(&buf2);
+        if sum2 != sum {
+            warn!(
+                "Data mismatch between read methods: single CS {:#010X}, toggle CS {:#010X}",
+                sum, sum2
+            );
+        }
+        debug!("32-bit checksum: {:#08x}", sum);
 
-        log_rom_info(sum32);
+        let sha1 = sha1_digest(&buf);
+        let buf2_sha1 = sha1_digest(&buf2);
+        log_rom_info(&sha1, sum);
+        if sha1 != buf2_sha1 {
+            log_rom_info(&buf2_sha1, sum2);
+        }
 
         dump_rom_data(&buf);
 
@@ -95,21 +151,26 @@ async fn main(_spawner: Spawner) {
     }
 }
 
-fn log_rom_info(sum32: u32) {
-    let match_count = identify_rom(sum32).count();
-
-    match match_count {
-        0 => info!("Unknown ROM ({:#010X})", sum32),
-        1 => {
-            let rom = identify_rom(sum32).next().unwrap();
-            info!("Identified ROM ({:#010X}): {} {}", sum32, rom.name(), rom.part());
-        }
-        _ => {
-            info!("Multiple ROM matches ({:#010X}):", sum32);
-            for rom in identify_rom(sum32) {
-                info!("  - {} {}", rom.name(), rom.part());
-            }
-        }
+fn log_rom_info(sha1: &[u8; 20], sum: u32) {
+    debug!(
+        "Identifying ROM SHA1: {} 32-bit checksum: {:#010X}",
+        hex::encode(sha1),
+        sum
+    );
+    let rom = identify_rom(sha1, sum);
+    match rom {
+        None => warn!(
+            "Unknown ROM Checksum: {:010x} SHA1: {}",
+            sum,
+            hex::encode(sha1)
+        ),
+        Some(rom) => info!(
+            "{} {} Checksum: {:#010x} SHA1: {}",
+            rom.name(),
+            rom.part(),
+            sum,
+            hex::encode(sha1),
+        ),
     }
 }
 
