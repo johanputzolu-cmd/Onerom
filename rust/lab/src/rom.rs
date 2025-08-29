@@ -7,6 +7,7 @@
 use embassy_stm32::gpio::{Flex, Pull, Speed};
 
 use crate::error::Error;
+use crate::CsActive;
 
 pub struct Rom {
     address: AddressLines,
@@ -117,15 +118,6 @@ impl Rom {
         self.address.set_cs(false);
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum CsActive {
-    #[allow(dead_code)]
-    High,
-
-    #[default]
-    Low,
 }
 
 pub struct Cs {

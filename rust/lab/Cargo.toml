@@ -35,3 +35,6 @@ critical-section = { version = "1.2.0" }
 hex = { version = "0.4", default-features = false, features = [ "alloc" ] }
 hex-literal = "1.0.0"
 sha1 = { version = "0.10", default-features = false }
+
+[build-dependencies]
+csv = "1.3"

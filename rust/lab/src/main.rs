@@ -25,11 +25,13 @@ use panic_probe as _;
 
 mod database;
 mod error;
+mod types;
 mod rom;
 
 pub use database::{checksum, identify_rom, sha1_digest};
 pub use error::Error;
-pub use rom::{Cs, CsActive, Rom};
+pub use rom::{Cs, Rom};
+pub use types::{CsActive, RomType};
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();

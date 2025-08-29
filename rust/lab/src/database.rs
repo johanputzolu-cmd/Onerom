@@ -1,4 +1,12 @@
 //! One ROM Lab - ROM Database
+//! 
+//! The primary approach taken to identifying ROMs is to use a SHA1 digest of
+//! it.  If that fails to provide a match, we try a 32-bit summing checksum.
+//!
+//! This combination will always, uniquely, identify a ROM - in fact the SHA1
+//! digest should.  This has the side effect of a unique ROM image needing a
+//! single name and part number in the database.  If this turns out to be an
+//! unsound assumption, we may need to add the concept of aliases.
 
 // Copyright (c) 2025 Piers Finlayson <piers@piers.rocks>
 //
@@ -10,46 +18,16 @@ use defmt::{debug, error, info, trace, warn};
 use hex_literal::hex;
 use sha1::{Digest, Sha1};
 
-/// Known ROM database
-///
-/// Produced either by checksumming ROMs that I own, or from zimmers.net
-///
-/// This script was used to generate a 32-bit wrapping checksum:
-/// ```bash
-/// python -c "import sys; print(f'0x{sum(open(sys.argv[1], \"rb\").read()) & 0xFFFFFFFF:08x}')"
-/// ```
-pub const KNOWN_ROMS: &[Entry] = &[
-    Entry::new(
-        "C64 BASIC",
-        "901226-01",
-        0x000e3d56,
-        hex!("79015323128650c742a3694c9429aa91f355905e"),
-    ),
-    Entry::new(
-        "C64 KERNAL (Rev 1)",
-        "901227-01",
-        0x000fd4fd,
-        hex!("87cc04d61fc748b82df09856847bb5c2754a2033"),
-    ),
-    Entry::new(
-        "C64 KERNAL (Rev 2)",
-        "901227-02",
-        0x000fc70b,
-        hex!("0e2e4ee3f2d41f00bed72f9ab588b83e306fdb13"),
-    ),
-    Entry::new(
-        "C64 KERNAL (Rev 3)",
-        "901227-03",
-        0x000fc70a,
-        hex!("1d503e56df85a62fee696e7618dc5b4e781df1bb"),
-    ),
-    Entry::new(
-        "C64 Character English",
-        "901225-01",
-        0x0007f7f8,
-        hex!("adc7c31e18c7c7413d54802ef2f4193da14711aa"),
-    ),
-];
+use crate::{CsActive, RomType};
+
+// Known ROM database
+//
+// This script was used to generate a 32-bit wrapping checksum:
+// ```bash
+// python -c "import sys; print(f'0x{sum(open(sys.argv[1], \"rb\").read()) & 0xFFFFFFFF:08x}')" filename
+// ```
+include!(concat!(env!("OUT_DIR"), "/roms.rs"));
+
 
 // Type agonostic wrapping checksum function
 pub fn checksum<T>(data: &[u8]) -> T
@@ -78,15 +56,17 @@ pub struct Entry {
     part: &'static str,
     sum: u32,
     sha1: [u8; 20],
+    rom_type: RomType,
 }
 
 impl Entry {
-    pub const fn new(name: &'static str, part: &'static str, sum: u32, sha1: [u8; 20]) -> Self {
+    pub const fn new(name: &'static str, part: &'static str, sum: u32, sha1: [u8; 20], rom_type: RomType) -> Self {
         Self {
             name,
             part,
             sum,
             sha1,
+            rom_type,
         }
     }
 
@@ -121,16 +101,20 @@ impl Entry {
     pub fn sha1(&self) -> &[u8; 20] {
         &self.sha1
     }
+
+    pub fn rom_type(&self) -> RomType {
+        self.rom_type
+    }
 }
 
 fn identify_rom_checksum(sum: u32) -> impl Iterator<Item = &'static Entry> {
-    KNOWN_ROMS
+    ROMS
         .iter()
         .filter(move |rom| rom.matches_checksum(sum))
 }
 
 fn identify_rom_sha1(sha1: &[u8; 20]) -> impl Iterator<Item = &'static Entry> {
-    KNOWN_ROMS.iter().filter(move |rom| rom.matches_sha1(sha1))
+    ROMS.iter().filter(move |rom| rom.matches_sha1(sha1))
 }
 
 /// Function to identify a ROM by SHA1, falling back to checksum if no SHA1 match.
@@ -146,7 +130,7 @@ pub fn identify_rom(sha1: &[u8; 20], sum: u32) -> Option<&Entry> {
     };
 
     if second.is_some() {
-        error!("Multiple ROM matches for SHA1 {}:", hex::encode(sha1));
+        error!("Multiple ROM matches for SHA1 {}, Checksum {:#010x}", hex::encode(sha1), sum);
     }
     Some(first)
 }
