@@ -5,7 +5,8 @@ members = [
     "sdrr-info", 
     "sdrr-common",
     "sdrr-fw-parser",
-    "sdrr-check"
+    "sdrr-check",
+    "lab"
 ]
 default-members = [
     "sdrr-gen",

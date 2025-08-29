@@ -1661,6 +1661,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "lab"
+version = "0.4.1"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "defmt 1.0.1",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-stm32",
+ "embassy-time",
+ "embedded-alloc",
+ "embedded-hal 1.0.0",
+ "panic-probe",
+ "portable-atomic",
+ "static_cell",
+]
+
+[[package]]
 name = "libbz2-rs-sys"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

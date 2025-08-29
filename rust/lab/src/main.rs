@@ -7,6 +7,7 @@
 #![no_std]
 #![no_main]
 #![feature(type_alias_impl_trait)]
+#![feature(impl_trait_in_assoc_type)]
 
 #[allow(unused_imports)]
 use defmt::{debug, error, info, trace, warn};
@@ -17,9 +18,11 @@ use embassy_stm32::gpio::Flex;
 use embassy_time::{Duration, Instant, Timer};
 use panic_probe as _;
 
+mod checksum;
 mod error;
 mod rom;
 
+pub use checksum::{checksum, identify_rom};
 pub use error::Error;
 pub use rom::{Cs, CsActive, Rom};
 
@@ -63,36 +66,54 @@ async fn main(_spawner: Spawner) {
 
     info!("ROM type {}, CS active low", rom.rom_type());
 
-    // Read the ROM
-    let mut buf = [0u8; 8192];
-    let start = Instant::now();
-    if let Err(e) = rom.read(&mut buf) {
-        panic!("Failed to read ROM: {e:?}");
-    }
-    let end = Instant::now();
-
-    let time_taken = end - start;
-    info!("Read took {:?}", time_taken);
-
-    let checksum = checksum_16(&buf);
-    info!("16-bit checksum: {:#06x}", checksum);
-
-    dump_rom(&buf);
-
     loop {
+        // Read the ROM
+        let mut buf = [0u8; 8192];
+        info!("Reading ROM...");
+        let start = Instant::now();
+        if let Err(e) = rom.read(&mut buf).await {
+            panic!("Failed to read ROM: {e:?}");
+        }
+        let end = Instant::now();
+
+        let time_taken = end - start;
+        info!("Read took {:?}", time_taken);
+
+        // Output checksums
+        let sum8: u8 = checksum(&buf);
+        debug!("8-bit checksum:  {:#04x}", sum8);
+        let sum16: u16 = checksum(&buf);
+        debug!("16-bit checksum: {:#06x}", sum16);
+        let sum32: u32 = checksum(&buf);
+        debug!("32-bit checksum: {:#08x}", sum32);
+
+        log_rom_info(sum32);
+
+        dump_rom_data(&buf);
+
         Timer::after(Duration::from_secs(1)).await;
     }
 }
 
-fn checksum_16(data: &[u8]) -> u16 {
-    let mut checksum = 0u16;
-    for &byte in data {
-        checksum = checksum.wrapping_add(byte as u16);
+fn log_rom_info(sum32: u32) {
+    let match_count = identify_rom(sum32).count();
+
+    match match_count {
+        0 => info!("Unknown ROM ({:#010X})", sum32),
+        1 => {
+            let rom = identify_rom(sum32).next().unwrap();
+            info!("Identified ROM ({:#010X}): {} {}", sum32, rom.name(), rom.part());
+        }
+        _ => {
+            info!("Multiple ROM matches ({:#010X}):", sum32);
+            for rom in identify_rom(sum32) {
+                info!("  - {} {}", rom.name(), rom.part());
+            }
+        }
     }
-    checksum
 }
 
-fn dump_rom(buf: &[u8]) {
+fn dump_rom_data(buf: &[u8]) {
     for (addr, chunk) in buf.chunks(16).enumerate() {
         let base_addr = addr * 16;
         if chunk.len() == 16 {

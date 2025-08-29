@@ -11,6 +11,7 @@ To update the version:
 - Update the version in [sddr-fw-parser/Cargo.toml](/rust/sdrr-fw-parser/Cargo.toml).
 - Update the version in [sddr-gen/Cargo.toml](/rust/sdrr-gen/Cargo.toml).
 - Update the version in [sddr-info/Cargo.toml](/rust/sdrr-info/Cargo.toml).
+- Update the version in [lab/Cargo.toml](/rust/lab/Cargo.toml).
 - Update the version consts `MAX_VERSION_*` in [rust/sdrr-fw-parser/src/lib.rs](/rust/sdrr-fw-parser/src/lib.rs).
 
 ## Release Process

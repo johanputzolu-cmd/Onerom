@@ -2,7 +2,7 @@
 target = "thumbv7em-none-eabi"
 
 [target.thumbv7em-none-eabi]
-runner = "probe-rs run --no-location --chip STM32F411RETx"
+runner = "probe-rs run --no-location --chip STM32F405RGTx"
 
 [profile.dev]
 opt-level = "s"
