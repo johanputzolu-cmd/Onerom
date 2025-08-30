@@ -27,6 +27,7 @@ use panic_probe as _;
 
 mod database;
 mod error;
+mod info;
 mod rom;
 mod types;
 
@@ -34,6 +35,8 @@ pub use database::Entry as RomEntry;
 pub use error::Error;
 pub use rom::{Id as RomId, Rom};
 pub use types::{CsActive, RomType};
+
+use info::PKG_VERSION;
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
@@ -48,7 +51,10 @@ async fn main(_spawner: Spawner) {
         unsafe { HEAP.init(&raw mut HEAP_MEM as usize, HEAP_SIZE) }
     }
 
-    info!("One ROM Lab");
+    info!("-----");
+    info!("One ROM Lab v{}", PKG_VERSION);
+    info!("Copyright (c) 2025 Piers Finlayson");
+    info!("-----");
 
     // Set up the clocks - assume we are running on an F405RG with max clock
     // of 168MHz

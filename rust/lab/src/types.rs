@@ -172,3 +172,26 @@ const ALL_ROM_TYPES: [RomType; NUM_ROM_TYPES] = [
         cs3: CsActive::High,
     },
 ];
+
+/// Information about One ROM Lab's firmware.
+/// 
+/// Note &'static str is a "fat" pointer, with 4 bytes pointer and 4 bytes
+/// length.
+#[repr(C)]
+pub struct FlashInfo {
+    pub magic: [u8; 4],
+    pub major_version: &'static str,
+    pub minor_version: &'static str,
+    pub patch_version: &'static str,
+    pub build_number: &'static str,
+    pub mcu: &'static str,
+    pub hw_rev: &'static str,
+    pub reserved: [u8; 204],
+}
+
+/// Information about One ROM Lab's runtime state.
+#[repr(C)]
+pub struct RamInfo {
+    pub magic: [u8; 4],
+    pub reserved: [u8; 252],
+}

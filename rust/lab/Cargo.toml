@@ -3,7 +3,7 @@ name = "lab"
 version = "0.4.1"
 edition = "2024"
 authors = ["Piers Finlayson <piers@piers.rocks>"]
-description = "One ROM Lab firmware"
+description = "One ROM Lab"
 repository = "https://github.com/piersfinlayson/one-rom"
 readme = "README.md"
 license = "MIT"
@@ -37,4 +37,5 @@ hex-literal = "1.0.0"
 sha1 = { version = "0.10", default-features = false }
 
 [build-dependencies]
+built = "0.8"
 csv = "1.3"
