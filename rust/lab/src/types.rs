@@ -32,7 +32,8 @@ impl CsActive {
     }
 }
 
-/// Supported types of ROMs
+/// Supported types of ROMs.  This type includes the chip select behaviour of
+/// the ROM, which was mask programmed at factory for the original ROM chips.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RomType {
     // A 2364 ROM
@@ -74,11 +75,13 @@ impl RomType {
     const CS2_2316_ADDR: usize = 11;
     const CS3_2316_ADDR: usize = 12;
 
+    /// Returns the max size of ROM supported by this object.
     pub const fn max_size() -> usize {
         8192
     }
 
-    pub fn size(&self) -> usize {
+    /// Returns the size of this ROM.
+    pub const fn size(&self) -> usize {
         match self {
             RomType::Type2364 { .. } => 8192,
             RomType::Type2332 { .. } => 4096,
@@ -86,7 +89,8 @@ impl RomType {
         }
     }
 
-    pub fn cs_mask(&self) -> usize {
+    /// Returns the active CS mask for this ROM type.
+    pub fn cs_active_mask(&self) -> usize {
         match self {
             RomType::Type2364 { cs } => cs.bit() << Self::CS_2364_ADDR,
             RomType::Type2332 { cs1, cs2 } => {
@@ -100,12 +104,14 @@ impl RomType {
         }
     }
 
+    /// Returns all supported ROM types.
     pub const fn all() -> &'static [RomType] {
         &ALL_ROM_TYPES
     }
 }
 
-pub const NUM_ROM_TYPES: usize = 14;
+// Enumeration of all possible ROM types.
+const NUM_ROM_TYPES: usize = 14;
 const ALL_ROM_TYPES: [RomType; NUM_ROM_TYPES] = [
     RomType::Type2364 { cs: CsActive::Low },
     RomType::Type2364 { cs: CsActive::High },

@@ -23,13 +23,13 @@ use crate::{CsActive, RomType};
 
 // Known ROM database
 //
-// This script was used to generate a 32-bit wrapping checksum:
-// ```bash
-// python -c "import sys; print(f'0x{sum(open(sys.argv[1], \"rb\").read()) & 0xFFFFFFFF:08x}')" filename
-// ```
+// - ROMs are in `roms/*.csv` files
+// - See `scripts/url_checksum.py` for the script that generated the checksums
+//   and SHA1 digests
 include!(concat!(env!("OUT_DIR"), "/roms.rs"));
 
-// Type agonostic wrapping checksum function
+/// Type agonostic wrapping checksum function.  We typically only use the u32
+/// version, as u16 and u8 values are the same, with the top bytes masked off.
 pub fn checksum<T>(data: &[u8]) -> T
 where
     T: Default + From<u8> + Copy,
@@ -51,17 +51,32 @@ pub fn sha1_digest(data: &[u8]) -> [u8; 20] {
     sha1
 }
 
+/// A ROM database entry
 #[derive(Debug)]
 pub struct Entry {
+    // Human readable name for this ROM
     name: &'static str,
+
+    // Part number for this ROM image, likely assigned by the OEM to the
+    // original chip
     part: &'static str,
+
+    // Wrapping 32-bit checksum of the ROM image.  If you require 16-bit or
+    // 8-bit simply mask off the unnecessary bytes.
     sum: u32,
+
+    // SHA1 digest for this ROM image.  In reality likely to be unique, except
+    // where the same image is used for different ROM types (i.e. chip select
+    // behaviour).
     sha1: [u8; 20],
+
+    // The ROM type - both the model (2364/2332/2316) and the chip select line
+    // behaviour.
     rom_type: RomType,
 }
 
 impl Entry {
-    pub const fn new(
+    const fn new(
         name: &'static str,
         part: &'static str,
         sum: u32,
@@ -77,38 +92,49 @@ impl Entry {
         }
     }
 
-    pub fn sum8(&self) -> u8 {
-        (self.sum & 0xFF) as u8
-    }
-
-    pub fn sum16(&self) -> u16 {
-        (self.sum & 0xFFFF) as u16
-    }
-
-    pub fn sum(&self) -> u32 {
-        self.sum
-    }
-
+    /// Returns whether the given checksum matches this ROM image.
     pub fn matches_checksum(&self, sum: u32) -> bool {
         self.sum == sum
     }
 
+    /// Returns whether the given SHA1 matches this ROM image.
     pub fn matches_sha1(&self, sha1: &[u8; 20]) -> bool {
         self.sha1 == *sha1
     }
 
+    /// Returns the human readable name for this ROM.
     pub fn name(&self) -> &'static str {
         self.name
     }
 
+    /// Returns the part number for this ROM, likely assigned by the OEM to
+    /// the original chip
     pub fn part(&self) -> &'static str {
         self.part
     }
 
+    /// Returns wrapping 8-bit checksum of the ROM image.
+    pub fn sum8(&self) -> u8 {
+        (self.sum & 0xFF) as u8
+    }
+
+    /// Returns wrapping 16-bit checksum of the ROM image.
+    pub fn sum16(&self) -> u16 {
+        (self.sum & 0xFFFF) as u16
+    }
+
+    /// Returns wrapping 32-bit checksum of the ROM image.
+    pub fn sum(&self) -> u32 {
+        self.sum
+    }
+
+    /// Returns the SHA1 digest for this ROM image.
     pub fn sha1(&self) -> &[u8; 20] {
         &self.sha1
     }
 
+    /// Returns the ROM type for this ROM image.  Includes IC type (2364,
+    /// 2332, 2316) and chip select line behaviour.
     pub fn rom_type(&self) -> RomType {
         self.rom_type
     }
@@ -124,6 +150,10 @@ fn identify_rom_sha1(sha1: &[u8; 20]) -> impl Iterator<Item = &'static Entry> {
 
 /// Function to identify a ROM by SHA1, falling back to checksum if no SHA1
 /// match.
+///
+/// Returns a tuple of matching ROM entries and those that matched, but with
+/// the wrong type.  These "bad" matches are likely due to chip select line
+/// differences between the ROM tested and the information in the database.
 pub fn identify_rom(
     rom_type: &RomType,
     sum: u32,

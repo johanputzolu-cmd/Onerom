@@ -11,6 +11,13 @@ use embassy_time::{Duration, Instant};
 use crate::database::{checksum, identify_rom, sha1_digest};
 use crate::{CsActive, RomEntry, RomType};
 
+/// Identification information for a particular ROM type.  Includes:
+/// - The type of the ROM used to construct the ROM image (in particular, using
+///   the ROM type's size and chip select behaviour).
+/// - The wrapping 32-bit checksum of the ROM image.
+/// - The SHA1 digest of the ROM image.
+/// - A flag indicating whether the ROM image is all zeros.
+/// - A flag indicating whether the ROM image is all ones (0xFF).
 #[derive(Debug)]
 pub struct Id {
     rom_type: RomType,
@@ -54,6 +61,7 @@ impl Id {
     }
 }
 
+/// Results for ROM detection.
 #[derive(Debug, Default)]
 pub struct Matches {
     good: Vec<&'static RomEntry>,
@@ -61,6 +69,7 @@ pub struct Matches {
     ids: [Id; RomType::all().len()],
 }
 
+/// Object representing the ROM.  Used to read and detect connected ROMs.
 pub struct Rom {
     address: AddressLines,
     data: DataLines,
@@ -70,7 +79,12 @@ pub struct Rom {
 }
 
 impl Rom {
-    /// Creates a new 2364 ROM object
+    /// Creates a new ROM object.
+    ///
+    /// Arguments:
+    /// - `addr_pins`: An array of the physical pins connected to A0-A13.  A13
+    ///   is actually the 2364 chip select pin.
+    /// - `data_pins`: An array of the physical pins connected to D0-D7.
     pub fn new(
         addr_pins: [Flex<'static>; AddressLines::NUM_ADDR_LINES],
         data_pins: [Flex<'static>; DataLines::NUM_DATA_LINES],
@@ -84,11 +98,15 @@ impl Rom {
         }
     }
 
+    /// Initializes the ROM object.  Must be called after creation, before
+    /// calling other methods.
     pub fn init(&mut self) {
         self.address.init();
         self.data.init();
     }
 
+    // Reads the ROM data without any delays between settings address lines
+    // and reading the data.
     async fn read_fast(&mut self) {
         let max_addr = 1 << AddressLines::NUM_ADDR_LINES;
         assert!(self.buf.len() == max_addr);
@@ -106,6 +124,8 @@ impl Rom {
         self.last_read_duration = Some(end - start);
     }
 
+    // Reads the ROM data with, resetting address lines to inputs (i.e. tri-
+    // stating them) in between reads.
     #[allow(dead_code)]
     async fn read_slow(&mut self) {
         let max_addr = 1 << AddressLines::NUM_ADDR_LINES;
@@ -125,6 +145,24 @@ impl Rom {
         self.last_read_duration = Some(end - start);
     }
 
+    // Identifies the read ROM image.  Must only be called after either
+    // `Self::read_fast()` or `Self::read_slow()`.
+    //
+    // The existing ROM image buffer contains a 16KB image, based on the
+    // entire address space, including all CS lines, being enumerated.  This
+    // function takes that image, and turns it into an equivalent ROM image
+    // for every supported ROM type (including each possible chip select
+    // configuration) in turn.
+    //
+    // It then attempted to match each image against the database.  Hence, it
+    // should detect any of the different ROM types, if any of them match.
+    // There may be multiple matches, for example if:
+    // - the ROM image is a larger image, containing multiple copies of a
+    //   smaller one (i.e. a 2364 image containing two 2332 images, one for
+    //   each 2332 CS2 chip select value)
+    // - the actual bytes data (and hence SHA1/checksum) was a match, but the
+    //   actually CS cofiguration required to serve it differed from that in
+    //   the database (this is a "bad" match).
     fn id(&mut self) {
         // Scratch buffer
         let mut buf = [0u8; RomType::max_size()];
@@ -137,7 +175,7 @@ impl Rom {
             let size = rom_type.size();
             #[allow(clippy::needless_range_loop)]
             for jj in 0..size {
-                let addr = jj | rom_type.cs_mask();
+                let addr = jj | rom_type.cs_active_mask();
                 buf[jj] = self.buf[addr];
             }
 
@@ -161,12 +199,16 @@ impl Rom {
     }
 
     /// Reads any connected ROM and detects any matches.
+    ///
+    /// Use `Self::good_matches()`, `Self::bad_matches()` and `Self::ids()` for
+    /// the results.  `Self::last_read_duration()` provides the time taken to
+    /// do the read of the ROM.
     pub async fn detect(&mut self) {
         self.read_fast().await;
         self.id();
     }
 
-    /// Gets last read duration
+    /// Returns last read duration
     pub fn last_read_duration(&self) -> Option<Duration> {
         self.last_read_duration
     }
@@ -176,26 +218,29 @@ impl Rom {
         self.matches.as_ref().map(|m| &m.good)
     }
 
-    /// Returns bad matches - those where SHA1 or checksum matches, but the
-    /// ROM type didn't
+    /// Returns bad matches - those where SHA1 or checksum matches a database
+    /// entry, but the ROM type (probably chip select line configuration)
+    /// didn't.
     pub fn bad_matches(&self) -> Option<&Vec<(&'static RomEntry, RomType)>> {
         self.matches.as_ref().map(|m| &m.bad)
     }
 
-    /// Returns IDs of various ROM types
+    /// Returns the identification information of the various ROM types for
+    /// this ROM image
     pub fn ids(&self) -> Option<&[Id; RomType::all().len()]> {
         self.matches.as_ref().map(|m| &m.ids)
     }
 }
 
-pub struct AddressLines {
+// Address - and CS lines - for the ROM object to use.
+struct AddressLines {
     // Array of GPIOs corresponding to A0, A2, ... A13.
     // A13 is the address line used for 2364's CS line.
     address: [Flex<'static>; Self::NUM_ADDR_LINES],
 }
 
 impl AddressLines {
-    pub const NUM_ADDR_LINES: usize = 14;
+    const NUM_ADDR_LINES: usize = 14;
 
     fn init(&mut self) {
         for pin in self.address.iter_mut() {
@@ -224,12 +269,13 @@ impl AddressLines {
     }
 }
 
-pub struct DataLines {
+// Data lines for the ROM object to use.
+struct DataLines {
     data: [Flex<'static>; Self::NUM_DATA_LINES],
 }
 
 impl DataLines {
-    pub const NUM_DATA_LINES: usize = 8;
+    const NUM_DATA_LINES: usize = 8;
 
     fn new(data_pins: [Flex<'static>; Self::NUM_DATA_LINES]) -> Self {
         Self { data: data_pins }

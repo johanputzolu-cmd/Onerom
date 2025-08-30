@@ -17,7 +17,9 @@ use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_executor::main as embassy_main;
 use embassy_stm32::gpio::Flex;
-use embassy_stm32::rcc;
+use embassy_stm32::rcc::{
+    AHBPrescaler, APBPrescaler, Pll, PllMul, PllPDiv, PllPreDiv, PllQDiv, PllSource, Sysclk, clocks,
+};
 use embassy_time::{Duration, Timer};
 use embedded_alloc::LlffHeap as Heap;
 
@@ -52,25 +54,25 @@ async fn main(_spawner: Spawner) {
     // of 168MHz
     let mut config = embassy_stm32::Config::default();
     config.rcc.hsi = true;
-    config.rcc.pll_src = embassy_stm32::rcc::PllSource::HSI;
-    config.rcc.pll = Some(embassy_stm32::rcc::Pll {
-        prediv: embassy_stm32::rcc::PllPreDiv::DIV16,
-        mul: embassy_stm32::rcc::PllMul::MUL336,
-        divp: Some(embassy_stm32::rcc::PllPDiv::DIV2),
-        divq: Some(embassy_stm32::rcc::PllQDiv::DIV7),
+    config.rcc.pll_src = PllSource::HSI;
+    config.rcc.pll = Some(Pll {
+        prediv: PllPreDiv::DIV16,
+        mul: PllMul::MUL336,
+        divp: Some(PllPDiv::DIV2),
+        divq: Some(PllQDiv::DIV7),
         divr: None,
     });
-    config.rcc.sys = embassy_stm32::rcc::Sysclk::PLL1_P;
-    config.rcc.ahb_pre = embassy_stm32::rcc::AHBPrescaler::DIV1; // 168MHz
-    config.rcc.apb1_pre = embassy_stm32::rcc::APBPrescaler::DIV4; // 42MHz (max for APB1)
-    config.rcc.apb2_pre = embassy_stm32::rcc::APBPrescaler::DIV2; // 84MHz (max for APB2)
+    config.rcc.sys = Sysclk::PLL1_P;
+    config.rcc.ahb_pre = AHBPrescaler::DIV1; // 168MHz
+    config.rcc.apb1_pre = APBPrescaler::DIV4; // 42MHz (max for APB1)
+    config.rcc.apb2_pre = APBPrescaler::DIV2; // 84MHz (max for APB2)
 
     let p = embassy_stm32::init(config);
 
-    let clocks = rcc::clocks(&p.RCC);
-    info!("Clocks: {}", clocks);
+    let clocks = clocks(&p.RCC);
+    info!("STM32 clock state: {}", clocks);
 
-    // Collate the address and data pins, and create CS pin
+    // Collate the address and data pins
     let addr_pins = [
         Flex::new(p.PC5),
         Flex::new(p.PC4),
@@ -85,7 +87,7 @@ async fn main(_spawner: Spawner) {
         Flex::new(p.PC11),
         Flex::new(p.PC12),
         Flex::new(p.PC9),
-        Flex::new(p.PC10),
+        Flex::new(p.PC10), // 2364 CS pin, set as "A13"
     ];
     let data_pins = [
         Flex::new(p.PA7),
@@ -98,35 +100,37 @@ async fn main(_spawner: Spawner) {
         Flex::new(p.PA0),
     ];
 
-    // Create the ROM
+    // Create the ROM object
     let mut rom = Rom::new(addr_pins, data_pins);
     rom.init();
 
     loop {
+        // Read any connected ROM
         info!("-----");
         info!("Reading ROM...");
         rom.detect().await;
         let dur = rom.last_read_duration().unwrap();
         debug!("Read took {}us", dur.as_micros());
 
+        // Output any good matches
         let good_matches = rom.good_matches().unwrap();
         if !good_matches.is_empty() {
             info!("ROM matches found:");
             for entry in good_matches {
                 log_good_rom_match(entry);
             }
-        } else {
-            info!("No ROM matches found");
         }
 
+        // Also output any bad matches
         let bad_matches = rom.bad_matches().unwrap();
         if !bad_matches.is_empty() {
-            info!("ROM matches found with wrong ROM type");
+            warn!("ROM matches found with wrong ROM type");
             for (entry, rom_type) in bad_matches {
                 log_bad_rom_match(entry, rom_type);
             }
         }
 
+        // If we got none of either, log why
         if good_matches.is_empty() && bad_matches.is_empty() {
             let ids = rom.ids().unwrap();
             let mut all_zeros_count = 0;
@@ -140,9 +144,9 @@ async fn main(_spawner: Spawner) {
                 }
             }
             if all_zeros_count == ids.len() {
-                info!("ROM read as all zeros - is a ROM connected?");
+                warn!("ROM read as all zeros - is a ROM connected?");
             } else if all_ones_count == ids.len() {
-                info!("ROM read 0xFF - is ROM programmed?");
+                warn!("ROM read 0xFF - is ROM programmed?");
             } else {
                 for id in ids {
                     info!("No matches found in database - ROM information follows:");
@@ -153,6 +157,7 @@ async fn main(_spawner: Spawner) {
             }
         }
 
+        // Pause before restarting
         Timer::after(Duration::from_secs(1)).await;
     }
 }
