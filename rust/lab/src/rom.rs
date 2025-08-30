@@ -16,6 +16,8 @@ pub struct Id {
     rom_type: RomType,
     sum: u32,
     sha1: [u8; 20],
+    all_zeros: bool,
+    all_ones: bool,
 }
 
 impl Default for Id {
@@ -24,6 +26,8 @@ impl Default for Id {
             rom_type: RomType::Type2364 { cs: CsActive::Low },
             sum: 0,
             sha1: [0u8; 20],
+            all_zeros: false,
+            all_ones: false,
         }
     }
 }
@@ -39,6 +43,14 @@ impl Id {
 
     pub fn sha1(&self) -> &[u8; 20] {
         &self.sha1
+    }
+
+    pub fn all_ones(&self) -> bool {
+        self.all_ones
+    }
+
+    pub fn all_zeros(&self) -> bool {
+        self.all_zeros
     }
 }
 
@@ -140,6 +152,8 @@ impl Rom {
                 rom_type: *rom_type,
                 sum,
                 sha1,
+                all_zeros: buf.iter().all(|&b| b == 0),
+                all_ones: buf.iter().all(|&b| b == 0xFF),
             };
         }
 
