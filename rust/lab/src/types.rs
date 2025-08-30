@@ -174,7 +174,7 @@ const ALL_ROM_TYPES: [RomType; NUM_ROM_TYPES] = [
 ];
 
 /// Information about One ROM Lab's firmware.
-/// 
+///
 /// Note &'static str is a "fat" pointer, with 4 bytes pointer and 4 bytes
 /// length.
 #[repr(C)]

@@ -49,7 +49,7 @@ const RAM_INFO_SECTION: &str = ".lab_ram_info";
 const POST_FLASH_INFO: usize = FLASH_INFO_START + FLASH_INFO_SIZE;
 
 // Creates a custom memory.x file for this firmware.  We do this so we can
-// place LAB_FLASH_INFO at a 0x200 offset from the start of flash, and 
+// place LAB_FLASH_INFO at a 0x200 offset from the start of flash, and
 // LAB_RAM_INFO at the beginning of RAM.  This allows Airfrog to find it and
 // decode the firmware and runtime information.
 //
@@ -59,8 +59,9 @@ const POST_FLASH_INFO: usize = FLASH_INFO_START + FLASH_INFO_SIZE;
 fn generate_memory_x() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let memory_path = Path::new(&out_dir).join("memory.x");
-    
-    let memory_x = format!(r#"
+
+    let memory_x = format!(
+        r#"
 /* Standard STM32F405RG memory layout */
 MEMORY
 {{
@@ -95,7 +96,7 @@ _SEGGER_RTT_ADDRESS = ABSOLUTE(_SEGGER_RTT);
 
     fs::write(memory_path, memory_x).unwrap();
 
-    println!("cargo:rustc-link-search={}", out_dir);
+    println!("cargo:rustc-link-search={out_dir}");
 }
 
 // Create the ROM database, by parsing all files in `roms/`.  This is then
