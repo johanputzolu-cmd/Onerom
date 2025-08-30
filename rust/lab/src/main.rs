@@ -18,19 +18,19 @@ use embassy_executor::Spawner;
 use embassy_executor::main as embassy_main;
 use embassy_stm32::gpio::Flex;
 use embassy_stm32::rcc;
-use embassy_time::{Duration, Instant, Timer};
+use embassy_time::{Duration, Timer};
 use embedded_alloc::LlffHeap as Heap;
 
 use panic_probe as _;
 
 mod database;
 mod error;
-mod types;
 mod rom;
+mod types;
 
-pub use database::{checksum, identify_rom, sha1_digest};
+pub use database::Entry as RomEntry;
 pub use error::Error;
-pub use rom::{Cs, Rom};
+pub use rom::{Id as RomId, Rom};
 pub use types::{CsActive, RomType};
 
 #[global_allocator]
@@ -85,6 +85,7 @@ async fn main(_spawner: Spawner) {
         Flex::new(p.PC11),
         Flex::new(p.PC12),
         Flex::new(p.PC9),
+        Flex::new(p.PC10),
     ];
     let data_pins = [
         Flex::new(p.PA7),
@@ -96,112 +97,76 @@ async fn main(_spawner: Spawner) {
         Flex::new(p.PA1),
         Flex::new(p.PA0),
     ];
-    let cs_pin = Cs::new(Flex::new(p.PC10), CsActive::Low);
 
     // Create the ROM
-    let mut rom = Rom::new_2364(addr_pins, cs_pin, data_pins);
+    let mut rom = Rom::new(addr_pins, data_pins);
     rom.init();
 
-    info!("ROM type {}, CS active low", rom.rom_type());
-
     loop {
-        // Read the ROM
-        let mut buf = [0u8; 8192];
         info!("-----");
         info!("Reading ROM...");
-        let start = Instant::now();
-        if let Err(e) = rom.read_single_cs(&mut buf).await {
-            panic!("Failed to read ROM: {e:?}");
-        }
-        let end = Instant::now();
-        let time_taken = end - start;
+        rom.detect().await;
+        let dur = rom.last_read_duration().unwrap();
+        debug!("Read took {}us", dur.as_micros());
 
-        let mut buf2 = [0u8; 8192];
-        let start2 = Instant::now();
-        if let Err(e) = rom.read_toggle_cs(&mut buf2).await {
-            panic!("Failed to read ROM: {e:?}");
-        }
-        let end2 = Instant::now();
-        let time_taken2 = end2 - start2;
-        debug!(
-            "Reads took: single CS {}us, toggle CS {}us",
-            time_taken.as_micros(),
-            time_taken2.as_micros()
-        );
-
-        // Output checksums
-        let sum: u32 = checksum(&buf);
-        let sum2: u32 = checksum(&buf2);
-        if sum2 != sum {
-            warn!(
-                "Data mismatch between read methods: single CS {:#010X}, toggle CS {:#010X}",
-                sum, sum2
-            );
-        }
-        debug!("32-bit checksum: {:#08x}", sum);
-
-        let sha1 = sha1_digest(&buf);
-        let buf2_sha1 = sha1_digest(&buf2);
-        log_rom_info(&sha1, sum);
-        if sha1 != buf2_sha1 {
-            log_rom_info(&buf2_sha1, sum2);
+        let good_matches = rom.good_matches().unwrap();
+        if !good_matches.is_empty() {
+            info!("ROM matches found:");
+            for entry in good_matches {
+                log_good_rom_match(entry);
+            }
+        } else {
+            info!("No ROM matches found");
         }
 
-        dump_rom_data(&buf);
+        let bad_matches = rom.bad_matches().unwrap();
+        if !bad_matches.is_empty() {
+            info!("ROM matches found with wrong ROM type");
+            for (entry, rom_type) in bad_matches {
+                log_bad_rom_match(entry, rom_type);
+            }
+        }
+
+        if good_matches.is_empty() && bad_matches.is_empty() {
+            info!("No matches found in database - ROM information follows:");
+            let ids = rom.ids().unwrap();
+            for id in ids {
+                log_rom_id(id);
+            }
+        }
 
         Timer::after(Duration::from_secs(1)).await;
     }
 }
 
-fn log_rom_info(sha1: &[u8; 20], sum: u32) {
-    debug!(
-        "Identifying ROM SHA1: {} 32-bit checksum: {:#010X}",
-        hex::encode(sha1),
-        sum
+fn log_good_rom_match(entry: &RomEntry) {
+    info!(
+        "- {} {} {} Checksum: {:#010x} SHA1: {}",
+        entry.name(),
+        entry.part(),
+        entry.rom_type(),
+        entry.sum(),
+        hex::encode(entry.sha1())
     );
-    let rom = identify_rom(sha1, sum);
-    match rom {
-        None => warn!(
-            "Unknown ROM Checksum: {:010x} SHA1: {}",
-            sum,
-            hex::encode(sha1)
-        ),
-        Some(rom) => info!(
-            "{} {} Checksum: {:#010x} SHA1: {}",
-            rom.name(),
-            rom.part(),
-            sum,
-            hex::encode(sha1),
-        ),
-    }
 }
 
-fn dump_rom_data(buf: &[u8]) {
-    for (addr, chunk) in buf.chunks(16).enumerate() {
-        let base_addr = addr * 16;
-        if chunk.len() == 16 {
-            debug!(
-                "{:04x}:  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}",
-                base_addr,
-                chunk[0],
-                chunk[1],
-                chunk[2],
-                chunk[3],
-                chunk[4],
-                chunk[5],
-                chunk[6],
-                chunk[7],
-                chunk[8],
-                chunk[9],
-                chunk[10],
-                chunk[11],
-                chunk[12],
-                chunk[13],
-                chunk[14],
-                chunk[15]
-            );
-        } else {
-            debug!("{:04x}: [partial {} bytes]", base_addr, chunk.len());
-        }
-    }
+fn log_bad_rom_match(entry: &RomEntry, rom_type: &RomType) {
+    info!(
+        "- {} {} Database: {} Found: {} Checksum: {:#010x} SHA1: {}",
+        entry.name(),
+        entry.part(),
+        entry.rom_type(),
+        rom_type,
+        entry.sum(),
+        hex::encode(entry.sha1())
+    );
+}
+
+fn log_rom_id(id: &RomId) {
+    info!(
+        "- {} Checksum: {:#010x} SHA1: {}",
+        id.rom_type(),
+        id.sum(),
+        hex::encode(id.sha1())
+    );
 }

@@ -1,5 +1,5 @@
 //! One ROM Lab - ROM Database
-//! 
+//!
 //! The primary approach taken to identifying ROMs is to use a SHA1 digest of
 //! it.  If that fails to provide a match, we try a 32-bit summing checksum.
 //!
@@ -12,6 +12,7 @@
 //
 // MIT licence
 
+use alloc::vec::Vec;
 use core::num::Wrapping;
 #[allow(unused_imports)]
 use defmt::{debug, error, info, trace, warn};
@@ -27,7 +28,6 @@ use crate::{CsActive, RomType};
 // python -c "import sys; print(f'0x{sum(open(sys.argv[1], \"rb\").read()) & 0xFFFFFFFF:08x}')" filename
 // ```
 include!(concat!(env!("OUT_DIR"), "/roms.rs"));
-
 
 // Type agonostic wrapping checksum function
 pub fn checksum<T>(data: &[u8]) -> T
@@ -51,6 +51,7 @@ pub fn sha1_digest(data: &[u8]) -> [u8; 20] {
     sha1
 }
 
+#[derive(Debug)]
 pub struct Entry {
     name: &'static str,
     part: &'static str,
@@ -60,7 +61,13 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub const fn new(name: &'static str, part: &'static str, sum: u32, sha1: [u8; 20], rom_type: RomType) -> Self {
+    pub const fn new(
+        name: &'static str,
+        part: &'static str,
+        sum: u32,
+        sha1: [u8; 20],
+        rom_type: RomType,
+    ) -> Self {
         Self {
             name,
             part,
@@ -108,29 +115,36 @@ impl Entry {
 }
 
 fn identify_rom_checksum(sum: u32) -> impl Iterator<Item = &'static Entry> {
-    ROMS
-        .iter()
-        .filter(move |rom| rom.matches_checksum(sum))
+    ROMS.iter().filter(move |rom| rom.matches_checksum(sum))
 }
 
 fn identify_rom_sha1(sha1: &[u8; 20]) -> impl Iterator<Item = &'static Entry> {
     ROMS.iter().filter(move |rom| rom.matches_sha1(sha1))
 }
 
-/// Function to identify a ROM by SHA1, falling back to checksum if no SHA1 match.
-pub fn identify_rom(sha1: &[u8; 20], sum: u32) -> Option<&Entry> {
-    let mut roms = identify_rom_sha1(sha1);
-    let (first, second) = match roms.next() {
-        None => {
-            let mut roms = identify_rom_checksum(sum);
-            let rom = roms.next()?;
-            (rom, roms.next())
-        }
-        Some(rom) => (rom, roms.next()),
-    };
+/// Function to identify a ROM by SHA1, falling back to checksum if no SHA1
+/// match.
+pub fn identify_rom(
+    rom_type: &RomType,
+    sum: u32,
+    sha1: [u8; 20],
+) -> (Vec<&'static Entry>, Vec<(&'static Entry, RomType)>) {
+    let mut candidates = identify_rom_sha1(&sha1).collect::<Vec<_>>();
 
-    if second.is_some() {
-        error!("Multiple ROM matches for SHA1 {}, Checksum {:#010x}", hex::encode(sha1), sum);
+    if candidates.is_empty() {
+        candidates = identify_rom_checksum(sum).collect::<Vec<_>>();
     }
-    Some(first)
+
+    let mut matches = Vec::new();
+    let mut wrong_type_matches = Vec::new();
+
+    for entry in candidates {
+        if entry.rom_type == *rom_type {
+            matches.push(entry);
+        } else {
+            wrong_type_matches.push((entry, entry.rom_type));
+        }
+    }
+
+    (matches, wrong_type_matches)
 }
