@@ -152,8 +152,8 @@ impl Rom {
                 rom_type: *rom_type,
                 sum,
                 sha1,
-                all_zeros: buf.iter().all(|&b| b == 0),
-                all_ones: buf.iter().all(|&b| b == 0xFF),
+                all_zeros: buf[0..size].iter().all(|&b| b == 0),
+                all_ones: buf[0..size].iter().all(|&b| b == 0xFF),
             };
         }
 

@@ -128,7 +128,6 @@ async fn main(_spawner: Spawner) {
         }
 
         if good_matches.is_empty() && bad_matches.is_empty() {
-            info!("No matches found in database - ROM information follows:");
             let ids = rom.ids().unwrap();
             let mut all_zeros_count = 0;
             let mut all_ones_count = 0;
@@ -139,15 +138,18 @@ async fn main(_spawner: Spawner) {
                 if id.all_ones() {
                     all_ones_count += 1;
                 }
-                if !id.all_zeros() && !id.all_ones() {
-                    log_rom_id(id);
-                }
             }
             if all_zeros_count == ids.len() {
-                info!("- ROM images are all-zeros - is a ROM connected?");
-            }
-            if all_ones_count == ids.len() {
-                info!("- ROM images are all-ones - is ROM empty?");
+                info!("ROM read as all zeros - is a ROM connected?");
+            } else if all_ones_count == ids.len() {
+                info!("ROM read 0xFF - is ROM programmed?");
+            } else {
+                for id in ids {
+                    info!("No matches found in database - ROM information follows:");
+                    if !id.all_zeros() && !id.all_ones() {
+                        log_rom_id(id);
+                    }
+                }
             }
         }
 
