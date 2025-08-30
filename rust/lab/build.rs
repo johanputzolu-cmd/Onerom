@@ -29,6 +29,8 @@ fn main() {
     generate_rom_db();
 }
 
+// Create the ROM database, by parsing all files in `roms/`.  This is then
+// included by `src/database.rs`.
 fn generate_rom_db() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("roms.rs");
@@ -72,6 +74,7 @@ fn generate_rom_db() {
     fs::write(&dest_path, generated).expect("Failed to write ROMS database");
 }
 
+// Create ROM database entries for a single CSV file
 fn process_rom_csv(filename: &str) -> Vec<String> {
     let csv_data =
         fs::read_to_string(filename).unwrap_or_else(|_| panic!("Failed to read {filename}"));
