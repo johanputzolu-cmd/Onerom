@@ -74,6 +74,10 @@ impl RomType {
     const CS2_2316_ADDR: usize = 11;
     const CS3_2316_ADDR: usize = 12;
 
+    pub const fn max_size() -> usize {
+        8192
+    }
+
     pub fn size(&self) -> usize {
         match self {
             RomType::Type2364 { .. } => 8192,

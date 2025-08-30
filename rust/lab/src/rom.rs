@@ -127,7 +127,7 @@ impl Rom {
 
     fn id(&mut self) {
         // Scratch buffer
-        let mut buf = [0u8; 8192];
+        let mut buf = [0u8; RomType::max_size()];
 
         let mut matches = Matches::default();
 
