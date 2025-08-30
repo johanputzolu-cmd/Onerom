@@ -87,7 +87,10 @@ SECTIONS
         *({RAM_INFO_SECTION}*)
     }} > RAM
 }}
-INSERT AFTER .rodata;"#
+INSERT AFTER .rodata;
+
+_SEGGER_RTT_ADDRESS = ABSOLUTE(_SEGGER_RTT);
+"#
     );
 
     fs::write(memory_path, memory_x).unwrap();

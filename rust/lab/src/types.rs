@@ -186,8 +186,12 @@ pub struct FlashInfo {
     pub build_number: &'static str,
     pub mcu: &'static str,
     pub hw_rev: &'static str,
-    pub reserved: [u8; 204],
+    pub rtt: *const core::ffi::c_void,
+    pub reserved: [u8; 200],
 }
+
+// Required to allow us to store a C pointer in the static LAB_FLASH_INFO
+unsafe impl Sync for FlashInfo {}
 
 /// Information about One ROM Lab's runtime state.
 #[repr(C)]
