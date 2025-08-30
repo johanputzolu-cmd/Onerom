@@ -43,8 +43,8 @@ use std::path::Path;
 
 use args::{Args, Command, parse_args};
 use load::load_sdrr_firmware;
+use sdrr_fw_parser::{McuLine, SdrrAddress, SdrrCsSet, SdrrInfo, SdrrMcuPort, SdrrServe};
 use sdrr_fw_parser::{Parser, readers::MemoryReader};
-use sdrr_fw_parser::{SdrrAddress, SdrrCsSet, SdrrInfo, SdrrServe, SdrrMcuPort, McuLine};
 use utils::add_commas;
 
 // SDRR info structure offset in firmware binary
@@ -182,16 +182,13 @@ fn print_sdrr_info(fw_data: &FirmwareData, args: &Args) {
     );
 
     match info.stm_line {
-        McuLine::F401BC |
-        McuLine::F401DE => println!(
+        McuLine::F401BC | McuLine::F401DE => println!(
             "MCU:           F401R{} ({}KB flash, {}KB RAM)",
             info.stm_storage.package_code(),
             info.stm_storage.kb(),
             info.stm_line.ram_kb()
         ),
-        McuLine::F405 |
-        McuLine::F411 |
-        McuLine::F446 => println!(
+        McuLine::F405 | McuLine::F411 | McuLine::F446 => println!(
             "MCU:           {:?}R{} ({}KB flash, {}KB RAM)",
             info.stm_line,
             info.stm_storage.package_code(),
@@ -313,7 +310,10 @@ fn print_sdrr_info(fw_data: &FirmwareData, args: &Args) {
                 println!("  Multi X2: P{}:{}", pins.cs_port, pins.x2);
             }
             if pins.x_jumper_pull != 0xFF {
-                println!("  X1/2 Jumper Pull: P{}:{}", pins.cs_port, pins.x_jumper_pull);
+                println!(
+                    "  X1/2 Jumper Pull: P{}:{}",
+                    pins.cs_port, pins.x_jumper_pull
+                );
             }
             println!();
             println!("Image select pins:");

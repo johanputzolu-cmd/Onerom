@@ -1723,32 +1723,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lab"
-version = "0.4.1"
-dependencies = [
- "built",
- "cortex-m",
- "cortex-m-rt",
- "critical-section",
- "csv",
- "defmt 1.0.1",
- "defmt-rtt",
- "embassy-executor 0.9.0",
- "embassy-futures",
- "embassy-stm32",
- "embassy-sync",
- "embassy-time 0.5.0",
- "embedded-alloc",
- "embedded-hal 1.0.0",
- "hex",
- "hex-literal",
- "panic-probe",
- "portable-atomic",
- "sha1",
- "static_cell",
-]
-
-[[package]]
 name = "libbz2-rs-sys"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1910,6 +1884,32 @@ name = "once_cell_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
+
+[[package]]
+name = "onerom-lab"
+version = "0.4.2"
+dependencies = [
+ "built",
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "csv",
+ "defmt 1.0.1",
+ "defmt-rtt",
+ "embassy-executor 0.9.0",
+ "embassy-futures",
+ "embassy-stm32",
+ "embassy-sync",
+ "embassy-time 0.5.0",
+ "embedded-alloc",
+ "embedded-hal 1.0.0",
+ "hex",
+ "hex-literal",
+ "panic-probe",
+ "portable-atomic",
+ "sha1",
+ "static_cell",
+]
 
 [[package]]
 name = "panic-probe"
@@ -2357,7 +2357,7 @@ checksum = "b328e2cb950eeccd55b7f55c3a963691455dcd044cfb5354f0c5e68d2c2d6ee2"
 
 [[package]]
 name = "sdrr-check"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -2377,7 +2377,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-common"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "serde",
@@ -2386,7 +2386,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "deku",
  "esp-println",
@@ -2397,7 +2397,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-gen"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2412,7 +2412,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-info"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "chrono",

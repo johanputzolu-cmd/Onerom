@@ -8,11 +8,11 @@
 
 use deku::prelude::*;
 
-use crate::{ParseError, Parser, Reader};
 use crate::{
-    SdrrAddress, SdrrCsState, SdrrLogicalAddress, SdrrRomType, SdrrServe, SdrrMcuPort, McuLine,
-    McuStorage,
+    McuLine, McuStorage, SdrrAddress, SdrrCsState, SdrrLogicalAddress, SdrrMcuPort, SdrrRomType,
+    SdrrServe,
 };
+use crate::{ParseError, Parser, Reader};
 
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec, vec::Vec};
@@ -26,7 +26,7 @@ pub struct Sdrr {
 
 /// Main SDRR runtime information data structure.  Contains all data parsed
 /// from RAM.
-/// 
+///
 /// Reflects `sdrr_runtime_info_t` from `sdrr/include/config_base.h`
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct SdrrRuntimeInfo {

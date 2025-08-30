@@ -2,7 +2,16 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.4.1 - 2025-08-??
+## v0.4.2 - 2025-??-??
+
+### Changes
+
+- Added fw-parser for One ROM Lab
+
+### Fixes
+
+
+## v0.4.1 - 2025-08-28
 
 ### Changes
 

@@ -17,7 +17,7 @@ include!(concat!(env!("OUT_DIR"), "/built.rs"));
 #[unsafe(link_section = ".lab_flash_info")]
 #[used]
 static LAB_FLASH_INFO: FlashInfo = FlashInfo {
-    magic: *b"SDRL",
+    magic: *b"ONEL",
     major_version: PKG_VERSION_MAJOR,
     minor_version: PKG_VERSION_MINOR,
     patch_version: PKG_VERSION_PATCH,
@@ -31,6 +31,6 @@ static LAB_FLASH_INFO: FlashInfo = FlashInfo {
 #[unsafe(link_section = ".lab_ram_info")]
 #[used]
 static mut LAB_RAM_INFO: RamInfo = RamInfo {
-    magic: *b"sdrl",
+    magic: *b"onel",
     reserved: [0; 252],
 };

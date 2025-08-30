@@ -37,10 +37,11 @@ use esp_println as _;
 /// Maximum SDRR firmware versions supported by this version of`sdrr-fw-parser`
 pub const MAX_VERSION_MAJOR: u16 = 0;
 pub const MAX_VERSION_MINOR: u16 = 4;
-pub const MAX_VERSION_PATCH: u16 = 1;
+pub const MAX_VERSION_PATCH: u16 = 2;
 
 // lib.rs - Public API and core traits
 pub mod info;
+pub mod lab;
 mod parsing;
 pub mod readers;
 pub mod types;
@@ -53,13 +54,17 @@ use core::fmt;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
-pub use info::{Sdrr, SdrrInfo, SdrrPins, SdrrRomInfo, SdrrRomSet, SdrrRuntimeInfo, SdrrExtraInfo};
+pub use info::{Sdrr, SdrrExtraInfo, SdrrInfo, SdrrPins, SdrrRomInfo, SdrrRomSet, SdrrRuntimeInfo};
+pub use lab::{LabFlash, LabParser, LabRam, OneRomLab};
 pub use types::{
-    SdrrAddress, SdrrCsSet, SdrrCsState, SdrrLogicalAddress, SdrrRomType, SdrrServe, SdrrMcuPort,
-    McuLine, McuStorage,
+    McuLine, McuStorage, SdrrAddress, SdrrCsSet, SdrrCsState, SdrrLogicalAddress, SdrrMcuPort,
+    SdrrRomType, SdrrServe, Source,
 };
 
-use crate::parsing::{parse_and_validate_header, parse_and_validate_runtime_info, SdrrInfoHeader, SdrrRuntimeInfoHeader};
+use crate::parsing::{
+    SdrrInfoHeader, SdrrRuntimeInfoHeader, parse_and_validate_header,
+    parse_and_validate_runtime_info,
+};
 
 /// Offset from start of the firmware where the SDRR info header is located.
 ///
@@ -67,7 +72,7 @@ use crate::parsing::{parse_and_validate_header, parse_and_validate_runtime_info,
 pub const SDRR_INFO_FW_OFFSET: u32 = 0x200;
 
 /// Offset from the start of RAM where the SDRR runtime info header is located.
-/// 
+///
 /// The first 4 "magic" bytes are b"sdrr" (lower case).
 pub const SDRR_RUNTIME_INFO_FW_OFFSET: u32 = 0x0;
 
@@ -152,7 +157,6 @@ pub trait Reader {
     /// Updates the reader's base address if it is later detected that it needs
     /// to change.
     fn update_base_address(&mut self, new_base: u32);
-
 }
 
 /// Parser for Software Defined Retro ROM (SDRR) firmware images.
@@ -251,7 +255,11 @@ impl<R: Reader> Parser<R> {
     /// * `reader` - Implementation of [`Reader`] trait that provides access to firmware bytes
     /// * `base_flash_address` - Base address where flash memory begins (e.g., 0x08000000 for STM32F4)
     /// * `base_ram_address` - Base address where RAM begins (e.g., 0x20000000 for STM32F4)
-    pub fn with_base_flash_address(reader: R, base_flash_address: u32, base_ram_address: u32) -> Self {
+    pub fn with_base_flash_address(
+        reader: R,
+        base_flash_address: u32,
+        base_ram_address: u32,
+    ) -> Self {
         Self {
             reader,
             base_flash_address,
@@ -318,10 +326,7 @@ impl<R: Reader> Parser<R> {
             }
         };
 
-        Sdrr {
-            flash,
-            ram,
-        }
+        Sdrr { flash, ram }
     }
 
     /// Parse SDRR metadata from the firmware.
@@ -442,14 +447,16 @@ impl<R: Reader> Parser<R> {
 
         // Parse pins
         let pins =
-            match parsing::read_pins(&mut self.reader, header.pins_ptr, self.base_flash_address).await {
+            match parsing::read_pins(&mut self.reader, header.pins_ptr, self.base_flash_address)
+                .await
+            {
                 Ok(p) => Some(p),
                 Err(e) => {
                     parse_errors.push(ParseError::new("Pins", e));
                     None
                 }
             };
- 
+
         Ok(SdrrInfo {
             major_version: header.major_version,
             minor_version: header.minor_version,
@@ -487,7 +494,8 @@ impl<R: Reader> Parser<R> {
             rom_set_index: runtime_info.rom_set_index,
             count_rom_access: runtime_info.count_rom_access,
             last_parsed_access_count: runtime_info.access_count,
-            account_count_address: STM32F4_RAM_BASE + SdrrRuntimeInfoHeader::access_count_offset() as u32,
+            account_count_address: STM32F4_RAM_BASE
+                + SdrrRuntimeInfoHeader::access_count_offset() as u32,
             rom_table_address: runtime_info.rom_table_ptr,
             rom_table_size: runtime_info.rom_table_size,
         })
@@ -498,32 +506,7 @@ impl<R: Reader> Parser<R> {
             return Err(format!("Invalid pointer: 0x{:08X}", ptr));
         }
 
-        // Read in chunks to find null terminator
-        let mut result = Vec::new();
-        let mut addr = ptr;
-        let mut buf = [0u8; 64];
-
-        loop {
-            let chunk_size = buf.len().min(1024 - result.len()); // Limit total size
-            self.reader
-                .read(addr, &mut buf[..chunk_size])
-                .await
-                .map_err(|_| format!("Failed to read string at 0x{ptr:08X}"))?;
-
-            if let Some(null_pos) = buf[..chunk_size].iter().position(|&b| b == 0) {
-                result.extend_from_slice(&buf[..null_pos]);
-                break;
-            }
-
-            result.extend_from_slice(&buf[..chunk_size]);
-            addr += chunk_size as u32;
-
-            if result.len() >= 1024 {
-                return Err("String too long (>1KB)".into());
-            }
-        }
-
-        String::from_utf8(result).map_err(|_| "Invalid UTF-8 string".into())
+        read_string_at_ptr(&mut self.reader, ptr).await
     }
 }
 
@@ -579,4 +562,33 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}: {}", self.field, self.reason)
     }
+}
+
+async fn read_string_at_ptr<R: Reader>(reader: &mut R, ptr: u32) -> Result<String, String> {
+    // Read in chunks to find null terminator
+    let mut result = Vec::new();
+    let mut addr = ptr;
+    let mut buf = [0u8; 64];
+
+    loop {
+        let chunk_size = buf.len().min(1024 - result.len()); // Limit total size
+        reader
+            .read(addr, &mut buf[..chunk_size])
+            .await
+            .map_err(|_| format!("Failed to read string at 0x{ptr:08X}"))?;
+
+        if let Some(null_pos) = buf[..chunk_size].iter().position(|&b| b == 0) {
+            result.extend_from_slice(&buf[..null_pos]);
+            break;
+        }
+
+        result.extend_from_slice(&buf[..chunk_size]);
+        addr += chunk_size as u32;
+
+        if result.len() >= 1024 {
+            return Err("String too long (>1KB)".into());
+        }
+    }
+
+    String::from_utf8(result).map_err(|_| "Invalid UTF-8 string".into())
 }

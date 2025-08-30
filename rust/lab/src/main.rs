@@ -195,16 +195,33 @@ fn log_rom_id(id: &RomId) {
 pub fn dump_buf(buf: &[u8]) {
     for (i, chunk) in buf.chunks(16).enumerate() {
         let addr = i * 16;
-        
+
         // Pad chunk to 16 bytes for consistent formatting
         let mut line = [0u8; 16];
         line[..chunk.len()].copy_from_slice(chunk);
         let len = chunk.len();
-        
+
         if len == 16 {
-            debug!("{:04x}:  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}", 
-                addr, line[0], line[1], line[2], line[3], line[4], line[5], line[6], line[7], 
-                line[8], line[9], line[10], line[11], line[12], line[13], line[14], line[15]);
+            debug!(
+                "{:04x}:  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}",
+                addr,
+                line[0],
+                line[1],
+                line[2],
+                line[3],
+                line[4],
+                line[5],
+                line[6],
+                line[7],
+                line[8],
+                line[9],
+                line[10],
+                line[11],
+                line[12],
+                line[13],
+                line[14],
+                line[15]
+            );
         } else {
             // Handle partial lines
             debug!("{:04x}:  partial line, {} bytes", addr, len);
