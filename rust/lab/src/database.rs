@@ -140,6 +140,7 @@ impl Entry {
     }
 }
 
+#[allow(dead_code)]
 fn identify_rom_checksum(sum: u32) -> impl Iterator<Item = &'static Entry> {
     ROMS.iter().filter(move |rom| rom.matches_checksum(sum))
 }
@@ -148,22 +149,19 @@ fn identify_rom_sha1(sha1: &[u8; 20]) -> impl Iterator<Item = &'static Entry> {
     ROMS.iter().filter(move |rom| rom.matches_sha1(sha1))
 }
 
-/// Function to identify a ROM by SHA1, falling back to checksum if no SHA1
-/// match.
+/// Function to identify a ROM by SHA1.  We do not do checksum matching at all
+/// because clashes are likely, and it complicates our logic (we have to only
+/// do checksum matching if SHA1 fails for _all_ ROM types).
 ///
 /// Returns a tuple of matching ROM entries and those that matched, but with
 /// the wrong type.  These "bad" matches are likely due to chip select line
 /// differences between the ROM tested and the information in the database.
 pub fn identify_rom(
     rom_type: &RomType,
-    sum: u32,
+    _sum: u32,
     sha1: [u8; 20],
 ) -> (Vec<&'static Entry>, Vec<(&'static Entry, RomType)>) {
-    let mut candidates = identify_rom_sha1(&sha1).collect::<Vec<_>>();
-
-    if candidates.is_empty() {
-        candidates = identify_rom_checksum(sum).collect::<Vec<_>>();
-    }
+    let candidates = identify_rom_sha1(&sha1).collect::<Vec<_>>();
 
     let mut matches = Vec::new();
     let mut wrong_type_matches = Vec::new();
@@ -172,7 +170,7 @@ pub fn identify_rom(
         if entry.rom_type == *rom_type {
             matches.push(entry);
         } else {
-            wrong_type_matches.push((entry, entry.rom_type));
+            wrong_type_matches.push((entry, *rom_type));
         }
     }
 

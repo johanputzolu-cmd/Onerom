@@ -57,13 +57,7 @@ pub enum RomType {
 
 impl defmt::Format for RomType {
     fn format(&self, f: defmt::Formatter<'_>) {
-        match self {
-            RomType::Type2364 { cs } => defmt::write!(f, "2364 (CS {})", cs),
-            RomType::Type2332 { cs1, cs2 } => defmt::write!(f, "2332 (CS1 {}, CS2 {})", cs1, cs2),
-            RomType::Type2316 { cs1, cs2, cs3 } => {
-                defmt::write!(f, "2316 (CS1 {}, CS2 {}, CS3 {})", cs1, cs2, cs3)
-            }
-        }
+        defmt::write!(f, "{} ({})", self.type_str(), self.cs_str());
     }
 }
 
@@ -107,6 +101,39 @@ impl RomType {
     /// Returns all supported ROM types.
     pub const fn all() -> &'static [RomType] {
         &ALL_ROM_TYPES
+    }
+
+    pub const fn type_str(&self) -> &'static str {
+        match self {
+            RomType::Type2364 { .. } => "2364",
+            RomType::Type2332 { .. } => "2332",
+            RomType::Type2316 { .. } => "2316",
+        }
+    }
+
+    pub const fn cs_str(&self) -> &'static str {
+        match self {
+            RomType::Type2364 { cs } => match cs {
+                CsActive::Low => "CS Low",
+                CsActive::High => "CS High",
+            },
+            RomType::Type2332 { cs1, cs2 } => match (cs1, cs2) {
+                (CsActive::Low, CsActive::Low) => "CS1 Low, CS2 Low",
+                (CsActive::Low, CsActive::High) => "CS1 Low, CS2 High",
+                (CsActive::High, CsActive::Low) => "CS1 High, CS2 Low",
+                (CsActive::High, CsActive::High) => "CS1 High, CS2 High",
+            },
+            RomType::Type2316 { cs1, cs2, cs3 } => match (cs1, cs2, cs3) {
+                (CsActive::Low, CsActive::Low, CsActive::Low) => "CS1 Low, CS2 Low, CS3 Low",
+                (CsActive::Low, CsActive::Low, CsActive::High) => "CS1 Low, CS2 Low, CS3 High",
+                (CsActive::Low, CsActive::High, CsActive::Low) => "CS1 Low, CS2 High, CS3 Low",
+                (CsActive::Low, CsActive::High, CsActive::High) => "CS1 Low, CS2 High, CS3 High",
+                (CsActive::High, CsActive::Low, CsActive::Low) => "CS1 High, CS2 Low, CS3 Low",
+                (CsActive::High, CsActive::Low, CsActive::High) => "CS1 High, CS2 Low, CS3 High",
+                (CsActive::High, CsActive::High, CsActive::Low) => "CS1 High, CS2 High, CS3 Low",
+                (CsActive::High, CsActive::High, CsActive::High) => "CS1 High, CS2 High, CS3 High",
+            },
+        }
     }
 }
 

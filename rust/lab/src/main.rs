@@ -54,7 +54,6 @@ async fn main(_spawner: Spawner) {
     info!("-----");
     info!("One ROM Lab v{}", PKG_VERSION);
     info!("Copyright (c) 2025 Piers Finlayson");
-    info!("-----");
 
     // Set up the clocks - assume we are running on an F405RG with max clock
     // of 168MHz
@@ -76,7 +75,8 @@ async fn main(_spawner: Spawner) {
     let p = embassy_stm32::init(config);
 
     let clocks = clocks(&p.RCC);
-    info!("STM32 clock state: {}", clocks);
+    debug!("-----");
+    debug!("SYSCLK: {}", clocks.sys);
 
     // Collate the address and data pins
     let addr_pins = [
@@ -121,7 +121,6 @@ async fn main(_spawner: Spawner) {
         // Output any good matches
         let good_matches = rom.good_matches().unwrap();
         if !good_matches.is_empty() {
-            info!("ROM matches found:");
             for entry in good_matches {
                 log_good_rom_match(entry);
             }
@@ -130,7 +129,6 @@ async fn main(_spawner: Spawner) {
         // Also output any bad matches
         let bad_matches = rom.bad_matches().unwrap();
         if !bad_matches.is_empty() {
-            warn!("ROM matches found with wrong ROM type");
             for (entry, rom_type) in bad_matches {
                 log_bad_rom_match(entry, rom_type);
             }
@@ -150,12 +148,12 @@ async fn main(_spawner: Spawner) {
                 }
             }
             if all_zeros_count == ids.len() {
-                warn!("ROM read as all zeros - is a ROM connected?");
+                warn!("ROM data is all zeros - check ROM is connected");
             } else if all_ones_count == ids.len() {
-                warn!("ROM read 0xFF - is ROM programmed?");
+                warn!("ROM data is all 0xFF - ROM may be blank or unprogrammed");
             } else {
+                info!("No matches found in database - ROM information follows:");
                 for id in ids {
-                    info!("No matches found in database - ROM information follows:");
                     if !id.all_zeros() && !id.all_ones() {
                         log_rom_id(id);
                     }
@@ -169,33 +167,47 @@ async fn main(_spawner: Spawner) {
 }
 
 fn log_good_rom_match(entry: &RomEntry) {
-    info!(
-        "- {} {} {} Checksum: {:#010x} SHA1: {}",
-        entry.name(),
-        entry.part(),
-        entry.rom_type(),
-        entry.sum(),
-        hex::encode(entry.sha1())
-    );
+    info!("ROM match found:");
+    info!("  Name:        {}", entry.name());
+    info!("  Part:        {}", entry.part());
+    info!("  Type:        {}", entry.rom_type());
+    info!("  Checksum:    {:#010x}", entry.sum());
+    info!("  SHA1:        {}", hex::encode(entry.sha1()));
 }
 
 fn log_bad_rom_match(entry: &RomEntry, rom_type: &RomType) {
-    info!(
-        "- {} {} Database: {} Found: {} Checksum: {:#010x} SHA1: {}",
-        entry.name(),
-        entry.part(),
-        entry.rom_type(),
-        rom_type,
-        entry.sum(),
-        hex::encode(entry.sha1())
-    );
+    info!("ROM mismatch found:");
+    info!("  Name:        {}", entry.name());
+    info!("  Part:        {}", entry.part());
+    info!("  Expected:    {}", entry.rom_type());
+    info!("  Found:       {}", rom_type);
+    info!("  Checksum:    {:#010x}", entry.sum());
+    info!("  SHA1:        {}", hex::encode(entry.sha1()));
 }
 
 fn log_rom_id(id: &RomId) {
-    info!(
-        "- {} Checksum: {:#010x} SHA1: {}",
-        id.rom_type(),
-        id.sum(),
-        hex::encode(id.sha1())
-    );
+    info!("{}", id.rom_type().type_str());
+    info!("  Chip Select: {}", id.rom_type().cs_str());
+    info!("  Checksum:    {:#010x}", id.sum());
+    info!("  SHA1:        {}", hex::encode(id.sha1()));
+}
+
+pub fn dump_buf(buf: &[u8]) {
+    for (i, chunk) in buf.chunks(16).enumerate() {
+        let addr = i * 16;
+        
+        // Pad chunk to 16 bytes for consistent formatting
+        let mut line = [0u8; 16];
+        line[..chunk.len()].copy_from_slice(chunk);
+        let len = chunk.len();
+        
+        if len == 16 {
+            debug!("{:04x}:  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x}", 
+                addr, line[0], line[1], line[2], line[3], line[4], line[5], line[6], line[7], 
+                line[8], line[9], line[10], line[11], line[12], line[13], line[14], line[15]);
+        } else {
+            // Handle partial lines
+            debug!("{:04x}:  partial line, {} bytes", addr, len);
+        }
+    }
 }

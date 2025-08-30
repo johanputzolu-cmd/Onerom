@@ -5,8 +5,10 @@
 // MIT licence
 
 use alloc::vec::Vec;
+#[allow(unused_imports)]
+use defmt::{debug, error, info, trace, warn};
 use embassy_stm32::gpio::{Flex, Pull, Speed};
-use embassy_time::{Duration, Instant};
+use embassy_time::{Duration, Instant, Timer};
 
 use crate::database::{checksum, identify_rom, sha1_digest};
 use crate::{CsActive, RomEntry, RomType};
@@ -107,6 +109,7 @@ impl Rom {
 
     // Reads the ROM data without any delays between settings address lines
     // and reading the data.
+    #[allow(dead_code)]
     async fn read_fast(&mut self) {
         let max_addr = 1 << AddressLines::NUM_ADDR_LINES;
         assert!(self.buf.len() == max_addr);
@@ -131,13 +134,17 @@ impl Rom {
         let max_addr = 1 << AddressLines::NUM_ADDR_LINES;
         assert!(self.buf.len() == max_addr);
 
+        self.address.set(0x3FFF); // Set all address lines high
+        Timer::after_micros(1).await;
+
         let start = Instant::now();
 
         // Now read the ROM
         for ii in 0..max_addr {
             self.address.set(ii);
+            Timer::after_micros(1).await;
             self.buf[ii] = self.data.read();
-            self.address.init();
+            Timer::after_micros(1).await;
         }
         self.address.init();
 
@@ -244,7 +251,7 @@ impl AddressLines {
 
     fn init(&mut self) {
         for pin in self.address.iter_mut() {
-            pin.set_as_input(Pull::Down);
+            pin.set_as_input(Pull::None);
         }
     }
 
@@ -291,7 +298,7 @@ impl DataLines {
 
     fn init(&mut self) {
         for pin in self.pins_mut() {
-            pin.set_as_input(Pull::None);
+            pin.set_as_input(Pull::Down);
         }
     }
 
