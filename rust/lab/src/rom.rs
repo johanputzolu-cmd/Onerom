@@ -4,12 +4,12 @@
 //
 // MIT licence
 
+use crate::log::{log_bad_rom_match, log_good_rom_match, log_rom_id};
 use alloc::vec::Vec;
 #[allow(unused_imports)]
 use defmt::{debug, error, info, trace, warn};
 use embassy_stm32::gpio::{Flex, Pull, Speed};
 use embassy_time::{Duration, Instant, Timer};
-use crate::log::{log_good_rom_match, log_bad_rom_match, log_rom_id};
 
 use crate::database::{checksum, identify_rom, sha1_digest};
 use crate::{CsActive, RomEntry, RomType};
@@ -300,8 +300,6 @@ impl Rom {
             None
         }
     }
-
-
 }
 
 // Address - and CS lines - for the ROM object to use.
@@ -377,4 +375,3 @@ impl DataLines {
         value
     }
 }
-

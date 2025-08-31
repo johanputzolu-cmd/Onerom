@@ -4,8 +4,8 @@
 
 use std::env;
 use std::fs;
-use std::path::Path;
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 fn main() {
     // Re-run this build script if anything in git changes.
@@ -51,12 +51,15 @@ fn set_cargo_runner() {
     } else if cfg!(feature = "f446re") {
         "STM32F446RETx"
     } else {
-        panic!("Unknown hardware variant - perhaps you need to update `set_cargo_runner()` in `build.rs`?");
+        panic!(
+            "Unknown hardware variant - perhaps you need to update `set_cargo_runner()` in `build.rs`?"
+        );
     };
 
     // Create the script to run the binary using probe-rs
     let runner_cmd = format!("{}{}", RUN_CMD_PREFIX, chip_id);
-    let script = format!(r#"#!/bin/bash
+    let script = format!(
+        r#"#!/bin/bash
 echo "-----"
 echo Running {runner_cmd} "$@"
 echo "-----"

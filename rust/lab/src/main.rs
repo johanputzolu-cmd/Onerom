@@ -40,11 +40,10 @@ pub use error::Error;
 pub use rom::{Id as RomId, Rom};
 pub use types::{CsActive, RomType};
 
-use info::{PKG_VERSION, LAB_RAM_INFO};
+use info::{LAB_RAM_INFO, PKG_VERSION};
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
-
 
 #[embassy_main]
 async fn main(_spawner: Spawner) {
@@ -113,7 +112,9 @@ async fn main(_spawner: Spawner) {
 
     // Create the ROM object
     let mut rom = Rom::new(addr_pins, data_pins);
-    unsafe { LAB_RAM_INFO.rom_data = rom.buf.as_ptr() as *const core::ffi::c_void; }
+    unsafe {
+        LAB_RAM_INFO.rom_data = rom.buf.as_ptr() as *const core::ffi::c_void;
+    }
     rom.init();
 
     #[cfg(not(feature = "control"))]
@@ -141,4 +142,3 @@ async fn main(_spawner: Spawner) {
         control.run().await;
     }
 }
-

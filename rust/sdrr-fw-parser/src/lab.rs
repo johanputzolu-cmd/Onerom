@@ -115,8 +115,7 @@ impl LabFlashInt {
 //
 // Reflects `onerom_lab::FlashInfo`
 struct LabRamInt {
-
-    rom_data_ptr: u32, 
+    rom_data_ptr: u32,
     rpc_cmd_channel_ptr: u32,
     rpc_rsp_channel_ptr: u32,
 }
@@ -221,7 +220,8 @@ impl<R: Reader> LabParser<R> {
     }
 
     async fn parse_flash(&mut self) -> Result<LabFlash, String> {
-        let info = self.retrieve_flash_info()
+        let info = self
+            .retrieve_flash_info()
             .await
             .inspect_err(|e| warn!("Failed to retrieve flash: {e}"))?;
 

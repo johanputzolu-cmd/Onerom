@@ -530,7 +530,7 @@ async fn read_str_at_ptr<R: Reader>(reader: &mut R, len: u32, ptr: u32) -> Resul
     } else if len == 0 {
         return Ok(String::new());
     }
-    
+
     let mut buf = vec![0u8; len as usize];
     reader
         .read(ptr, &mut buf)
