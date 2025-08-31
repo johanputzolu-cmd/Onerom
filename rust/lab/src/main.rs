@@ -163,7 +163,7 @@ async fn main(_spawner: Spawner) {
         }
 
         // Pause before restarting
-        Timer::after(Duration::from_secs(1)).await;
+        Timer::after(Duration::from_secs(3600)).await;
     }
 }
 
