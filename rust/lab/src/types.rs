@@ -224,5 +224,6 @@ unsafe impl Sync for FlashInfo {}
 #[repr(C)]
 pub struct RamInfo {
     pub magic: [u8; 4],
-    pub reserved: [u8; 252],
+    pub rom_data: *const core::ffi::c_void,
+    pub reserved: [u8; 248],
 }

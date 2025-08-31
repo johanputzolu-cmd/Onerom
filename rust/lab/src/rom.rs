@@ -75,7 +75,7 @@ pub struct Matches {
 pub struct Rom {
     address: AddressLines,
     data: DataLines,
-    buf: [u8; 1 << AddressLines::NUM_ADDR_LINES],
+    pub buf: [u8; 1 << AddressLines::NUM_ADDR_LINES],
     matches: Option<Matches>,
     last_read_duration: Option<Duration>,
 }

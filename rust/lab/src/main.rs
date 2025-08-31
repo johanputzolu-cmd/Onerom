@@ -36,7 +36,7 @@ pub use error::Error;
 pub use rom::{Id as RomId, Rom};
 pub use types::{CsActive, RomType};
 
-use info::PKG_VERSION;
+use info::{PKG_VERSION, LAB_RAM_INFO};
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
@@ -108,6 +108,7 @@ async fn main(_spawner: Spawner) {
 
     // Create the ROM object
     let mut rom = Rom::new(addr_pins, data_pins);
+    unsafe { LAB_RAM_INFO.rom_data = rom.buf.as_ptr() as *const core::ffi::c_void; }
     rom.init();
 
     loop {

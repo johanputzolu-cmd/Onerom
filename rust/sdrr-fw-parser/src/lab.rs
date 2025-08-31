@@ -6,8 +6,6 @@
 
 use deku::prelude::*;
 
-#[cfg(not(feature = "std"))]
-use alloc::{format, string::String, vec, vec::Vec};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 

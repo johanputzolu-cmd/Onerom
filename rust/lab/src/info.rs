@@ -30,7 +30,9 @@ static LAB_FLASH_INFO: FlashInfo = FlashInfo {
 
 #[unsafe(link_section = ".lab_ram_info")]
 #[used]
-static mut LAB_RAM_INFO: RamInfo = RamInfo {
+pub static mut LAB_RAM_INFO: RamInfo = RamInfo {
     magic: *b"onel",
-    reserved: [0; 252],
+    rom_data: core::ptr::null(),
+    reserved: [0; 248],
 };
+
