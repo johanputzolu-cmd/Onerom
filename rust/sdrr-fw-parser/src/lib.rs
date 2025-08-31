@@ -49,6 +49,8 @@ pub mod types;
 // Use alloc if no-std.
 #[cfg(not(feature = "std"))]
 extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::vec;
 
 use core::fmt;
 #[allow(unused_imports)]
@@ -591,4 +593,20 @@ async fn read_string_at_ptr<R: Reader>(reader: &mut R, ptr: u32) -> Result<Strin
     }
 
     String::from_utf8(result).map_err(|_| "Invalid UTF-8 string".into())
+}
+
+async fn read_str_at_ptr<R: Reader>(reader: &mut R, len: u32, ptr: u32) -> Result<String, String> {
+    if len > 1024 {
+        return Err("String too long (>1KB)".into());
+    } else if len == 0 {
+        return Ok(String::new());
+    }
+    
+    let mut buf = vec![0u8; len as usize];
+    reader
+        .read(ptr, &mut buf)
+        .await
+        .map_err(|_| format!("Failed to read string at 0x{ptr:08X}"))?;
+
+    String::from_utf8(buf).map_err(|_| "Invalid UTF-8 string".into())
 }

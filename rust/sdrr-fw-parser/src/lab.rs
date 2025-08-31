@@ -6,10 +6,12 @@
 
 use deku::prelude::*;
 
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
-use crate::{Reader, STM32F4_FLASH_BASE, STM32F4_RAM_BASE, Source, read_string_at_ptr};
+use crate::{Reader, STM32F4_FLASH_BASE, STM32F4_RAM_BASE, Source, read_str_at_ptr};
 
 /// Container for both the parsed (flash) firmware information and (RAM)
 /// runtime information.
@@ -25,12 +27,12 @@ pub struct OneRomLab {
 /// Reflects `onerom_lab::FlashInfo`
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct LabFlash {
-    pub major_version: Option<String>,
-    pub minor_version: Option<String>,
-    pub patch_version: Option<String>,
-    pub build_number: Option<String>,
-    pub mcu: Option<String>,
-    pub hw_rev: Option<String>,
+    pub major_version: String,
+    pub minor_version: String,
+    pub patch_version: String,
+    pub build_number: String,
+    pub mcu: String,
+    pub hw_rev: String,
     pub rtt_ptr: u32,
 }
 
@@ -38,26 +40,49 @@ pub struct LabFlash {
 ///
 /// Reflects `onerom_lab::RamInfo`
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct LabRam {}
+pub struct LabRam {
+    pub rom_data_ptr: u32,
+}
 
 #[derive(Debug, DekuRead, DekuWrite)]
 #[deku(endian = "little", magic = b"ONEL")]
 // Used internally to construct [`LabFlash`]
 //
 // Reflects `onerom_lab::FlashInfo`
+//
+// &str in the original struct is a fat pointer (ptr + len), so we split into
+// 2 fields here and use `crate::read_str_at_ptr` to read the actual string.
 struct LabFlashInt {
     #[deku(endian = "little")]
     major_version_ptr: u32,
     #[deku(endian = "little")]
+    major_version_len: u32,
+
+    #[deku(endian = "little")]
     minor_version_ptr: u32,
+    #[deku(endian = "little")]
+    minor_version_len: u32,
+
     #[deku(endian = "little")]
     patch_version_ptr: u32,
     #[deku(endian = "little")]
+    patch_version_len: u32,
+
+    #[deku(endian = "little")]
     build_number_ptr: u32,
+    #[deku(endian = "little")]
+    build_number_len: u32,
+
     #[deku(endian = "little")]
     mcu_ptr: u32,
     #[deku(endian = "little")]
+    mcu_len: u32,
+
+    #[deku(endian = "little")]
     hw_rev_ptr: u32,
+    #[deku(endian = "little")]
+    hw_rev_len: u32,
+
     #[deku(endian = "little")]
     rtt_ptr: u32,
     reserved: [u8; 200],
@@ -98,7 +123,9 @@ impl LabFlashInt {
 //
 // Reflects `onerom_lab::FlashInfo`
 struct LabRamInt {
-    reserved: [u8; 252],
+    rom_data_ptr: u32, 
+    #[deku(endian = "little")]
+    reserved: [u8; 248],
 }
 
 impl LabRamInt {
@@ -201,38 +228,34 @@ impl<R: Reader> LabParser<R> {
     }
 
     async fn parse_flash(&mut self) -> Result<LabFlash, String> {
-        let info = self.retrieve_flash_info().await?;
+        let info = self.retrieve_flash_info()
+            .await
+            .inspect_err(|e| warn!("Failed to retrieve flash: {e}"))?;
 
         let major_version = self
-            .read_flash_string_at_ptr(info.major_version_ptr)
+            .read_flash_str_at_ptr(info.major_version_len, info.major_version_ptr)
             .await
-            .inspect_err(|e| warn!("Failed to read major version: {e}"))
-            .ok();
+            .inspect_err(|e| warn!("Failed to read major version: {e}"))?;
         let minor_version = self
-            .read_flash_string_at_ptr(info.minor_version_ptr)
+            .read_flash_str_at_ptr(info.minor_version_len, info.minor_version_ptr)
             .await
-            .inspect_err(|e| warn!("Failed to read minor version: {e}"))
-            .ok();
+            .inspect_err(|e| warn!("Failed to read minor version: {e}"))?;
         let patch_version = self
-            .read_flash_string_at_ptr(info.patch_version_ptr)
+            .read_flash_str_at_ptr(info.patch_version_len, info.patch_version_ptr)
             .await
-            .inspect_err(|e| warn!("Failed to read patch version: {e}"))
-            .ok();
+            .inspect_err(|e| warn!("Failed to read patch version: {e}"))?;
         let build_number = self
-            .read_flash_string_at_ptr(info.build_number_ptr)
+            .read_flash_str_at_ptr(info.build_number_len, info.build_number_ptr)
             .await
-            .inspect_err(|e| warn!("Failed to read build number: {e}"))
-            .ok();
+            .inspect_err(|e| warn!("Failed to read build number: {e}"))?;
         let mcu = self
-            .read_flash_string_at_ptr(info.mcu_ptr)
+            .read_flash_str_at_ptr(info.mcu_len, info.mcu_ptr)
             .await
-            .inspect_err(|e| warn!("Failed to read MCU: {e}"))
-            .ok();
+            .inspect_err(|e| warn!("Failed to read MCU: {e}"))?;
         let hw_rev = self
-            .read_flash_string_at_ptr(info.hw_rev_ptr)
+            .read_flash_str_at_ptr(info.hw_rev_len, info.hw_rev_ptr)
             .await
-            .inspect_err(|e| warn!("Failed to read HW revision: {e}"))
-            .ok();
+            .inspect_err(|e| warn!("Failed to read HW revision: {e}"))?;
 
         let flash = LabFlash {
             major_version,
@@ -248,18 +271,20 @@ impl<R: Reader> LabParser<R> {
     }
 
     async fn parse_ram(&mut self) -> Result<LabRam, String> {
-        let _info = self.retrieve_ram_info().await?;
+        let info = self.retrieve_ram_info().await?;
 
-        let ram = LabRam {};
+        let ram = LabRam {
+            rom_data_ptr: info.rom_data_ptr,
+        };
 
         Ok(ram)
     }
 
-    async fn read_flash_string_at_ptr(&mut self, ptr: u32) -> Result<String, String> {
-        if ptr < self.base_flash_address {
+    async fn read_flash_str_at_ptr(&mut self, len: u32, ptr: u32) -> Result<String, String> {
+        if len > 0 && ptr < self.base_flash_address {
             return Err(format!("Invalid pointer: 0x{:08X}", ptr));
         }
 
-        read_string_at_ptr(&mut self.reader, ptr).await
+        read_str_at_ptr(&mut self.reader, len, ptr).await
     }
 }
