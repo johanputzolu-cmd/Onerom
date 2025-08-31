@@ -5,6 +5,7 @@
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::os::unix::fs::PermissionsExt;
 
 fn main() {
     // Re-run this build script if anything in git changes.
@@ -25,6 +26,9 @@ fn main() {
     // Re-run if the ROMs change
     println!("cargo:rerun-if-changed=roms");
 
+    // Set the cargo runner
+    set_cargo_runner();
+
     // Generate memory.x
     generate_memory_x();
 
@@ -33,6 +37,38 @@ fn main() {
 
     // Generate built information
     built::write_built_file().expect("Failed to acquire build-time information");
+}
+
+fn set_cargo_runner() {
+    const RUN_CMD_PREFIX: &str = "probe-rs run --no-location --chip ";
+
+    let chip_id = if cfg!(feature = "f401re") {
+        "STM32F401RETx"
+    } else if cfg!(feature = "f405rg") {
+        "STM32F405RGTx"
+    } else if cfg!(feature = "f411re") {
+        "STM32F411RETx"
+    } else if cfg!(feature = "f446re") {
+        "STM32F446RETx"
+    } else {
+        panic!("Unknown hardware variant - perhaps you need to update `set_cargo_runner()` in `build.rs`?");
+    };
+
+    // Create the script to run the binary using probe-rs
+    let runner_cmd = format!("{}{}", RUN_CMD_PREFIX, chip_id);
+    let script = format!(r#"#!/bin/bash
+echo "-----"
+echo Running {runner_cmd} "$@"
+echo "-----"
+{runner_cmd} "$@"
+"#
+    );
+
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let runner_path = format!("{}/runner.sh", out_dir);
+
+    fs::write(&runner_path, script).unwrap();
+    fs::set_permissions(&runner_path, fs::Permissions::from_mode(0o755)).unwrap();
 }
 
 // Consts for `generate_memory_x()`

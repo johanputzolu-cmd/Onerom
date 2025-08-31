@@ -34,6 +34,8 @@
 #[cfg(feature = "esp32")]
 use esp_println as _;
 
+use airfrog_rpc::io::Reader;
+
 /// Maximum SDRR firmware versions supported by this version of`sdrr-fw-parser`
 pub const MAX_VERSION_MAJOR: u16 = 0;
 pub const MAX_VERSION_MINOR: u16 = 4;
@@ -87,79 +89,6 @@ pub(crate) const STM32F4_FLASH_BASE: u32 = 0x08000000;
 
 // STM32F4 RAM base address.  Required to find offset from pointers
 pub(crate) const STM32F4_RAM_BASE: u32 = 0x20000000;
-
-/// Trait for reading firmware data from a source.
-///
-/// This trait abstracts over different ways of reading SDRR firmware data,
-/// allowing the parser to work with various sources without knowing the
-/// underlying implementation details.
-///
-/// # Implementations
-///
-/// - For PC applications: Read from in-memory buffers or memory-mapped files
-/// - For embedded devices: Read from flash via SWD, JTAG, or other debug interfaces
-/// - For bootloaders: Read directly from flash memory
-///
-/// # Address Space
-///
-/// The `read` method uses absolute addresses as they appear in the target's
-/// memory map. For STM32F4 devices, flash typically starts at `0x08000000`.
-/// The implementation is responsible for translating these addresses to
-/// whatever internal representation it uses (file offsets, SWD commands, etc.).
-///
-/// # Example
-///
-/// ```rust,no_run
-/// # struct MyReader;
-/// # impl Reader for MyReader {
-/// #     type Error = std::io::Error;
-/// #     fn read(&mut self, addr: u32, buf: &mut [u8]) -> Result<(), Self::Error> {
-/// #         Ok(())
-/// #     }
-/// # }
-/// use sdrr_fw_parser::{Reader, SdrrInfo};
-///
-/// let mut reader = MyReader::new();
-/// let sdrr_info = SdrrInfo::from_reader(&mut reader)?;
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-pub trait Reader {
-    /// The error type returned by read operations.
-    ///
-    /// This allows implementations to use their own error types
-    /// (e.g., `std::io::Error` for file I/O, custom errors for SWD).
-    type Error;
-
-    /// Read bytes from the firmware at the specified absolute address.
-    ///
-    /// # Arguments
-    ///
-    /// * `addr` - The absolute address to read from (e.g., `0x08000200`)
-    /// * `buf` - Buffer to fill with the read data
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The address is out of bounds for the firmware
-    /// - The underlying read operation fails (I/O error, communication error, etc.)
-    /// - The requested read size would exceed firmware boundaries
-    ///
-    /// # Performance Notes
-    ///
-    /// Implementations should optimize for small reads (1-256 bytes) as the parser
-    /// typically reads headers and metadata in small chunks. For embedded implementations
-    /// reading via debug interfaces, consider implementing bulk reads and internal
-    /// buffering to reduce round-trip overhead.
-    fn read(
-        &mut self,
-        addr: u32,
-        buf: &mut [u8],
-    ) -> impl core::future::Future<Output = Result<(), Self::Error>> + Send;
-
-    /// Updates the reader's base address if it is later detected that it needs
-    /// to change.
-    fn update_base_address(&mut self, new_base: u32);
-}
 
 /// Parser for Software Defined Retro ROM (SDRR) firmware images.
 ///

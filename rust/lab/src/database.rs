@@ -52,7 +52,7 @@ pub fn sha1_digest(data: &[u8]) -> [u8; 20] {
 }
 
 /// A ROM database entry
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
     // Human readable name for this ROM
     name: &'static str,
@@ -90,6 +90,39 @@ impl Entry {
             sha1,
             rom_type,
         }
+    }
+
+    /// Returns the number of bytes required to encode the metadata
+    pub fn metadata_size(&self) -> usize {
+        self.name.len() + 1 + self.part.len() + 1 + 4 + 20
+    }
+
+    /// Builds a Vec<u8> containing the ROM metadata:
+    /// - Name string as bytes, followed by 0
+    /// - Part number string as bytes, followed by 0
+    /// - 32-bit wrapping checksum as little endian u32
+    /// - 20 byte SHA1 digest
+    pub fn metadata_bytes(&self, buf: &mut [u8]) {
+        assert!(buf.len() >= self.metadata_size());
+        let mut offset = 0;
+
+        // Copy name
+        buf[offset..offset + self.name.len()].copy_from_slice(self.name.as_bytes());
+        offset += self.name.len();
+        buf[offset] = 0; // Null terminator
+        offset += 1;
+
+        // Copy part
+        buf[offset..offset + self.part.len()].copy_from_slice(self.part.as_bytes());
+        buf[offset + self.part.len()] = 0; // Null terminator
+        offset += self.part.len() + 1;
+
+        // Copy sum
+        buf[offset..offset + 4].copy_from_slice(&self.sum.to_le_bytes());
+        offset += 4;
+
+        // Copy sha1
+        buf[offset..offset + 20].copy_from_slice(&self.sha1);
     }
 
     /// Returns whether the given checksum matches this ROM image.

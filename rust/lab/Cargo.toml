@@ -13,10 +13,21 @@ keywords = ["embedded", "rom", "eeprom", "eprom", "flash"]
 name = "onerom-lab"
 path = "src/main.rs"
 
+[lib]
+name = "onerom_lab"
+path = "src/lib.rs"
+
 [features]
-default = [ "embassy-stm32/stm32f405rg" ]
+
+default = [ "f405rg", "control" ]
+f405rg = [ "embassy-stm32/stm32f405rg" ]
+f401re = [ "embassy-stm32/stm32f401re" ]
+f411re = [ "embassy-stm32/stm32f411re" ]
+f446re = [ "embassy-stm32/stm32f446re" ]
+control = []
 
 [dependencies]
+airfrog-rpc = { path = "../../../airfrog-rpc", version = "0.1.0" }
 defmt = { version = "1.0", features = [ "alloc" ] }
 embassy-executor = { version = "0.9.0", features = ["executor-thread", "arch-cortex-m", "defmt", "nightly" ]}
 embassy-futures = { version = "0.1.1", features = ["defmt"] }

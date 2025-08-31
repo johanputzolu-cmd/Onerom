@@ -9,6 +9,7 @@ use alloc::vec::Vec;
 use defmt::{debug, error, info, trace, warn};
 use embassy_stm32::gpio::{Flex, Pull, Speed};
 use embassy_time::{Duration, Instant, Timer};
+use crate::log::{log_good_rom_match, log_bad_rom_match, log_rom_id};
 
 use crate::database::{checksum, identify_rom, sha1_digest};
 use crate::{CsActive, RomEntry, RomType};
@@ -237,6 +238,70 @@ impl Rom {
     pub fn ids(&self) -> Option<&[Id; RomType::all().len()]> {
         self.matches.as_ref().map(|m| &m.ids)
     }
+
+    /// Reads all the data from the ROM and tries to match it.
+    ///
+    /// Returns the first RomEntry found, if multiple exist.  Does not return
+    /// any "bad" matches.
+    pub async fn read_rom(&mut self) -> Option<RomEntry> {
+        // Read any connected ROM
+        info!("-----");
+        info!("Reading ROM...");
+        self.detect().await;
+        let dur = self.last_read_duration().unwrap();
+        debug!("Read took {}us", dur.as_micros());
+
+        // Output any good matches
+        let good_matches = self.good_matches().unwrap();
+        if !good_matches.is_empty() {
+            for entry in good_matches {
+                log_good_rom_match(entry);
+            }
+        }
+
+        // Also output any bad matches
+        let bad_matches = self.bad_matches().unwrap();
+        if !bad_matches.is_empty() {
+            for (entry, rom_type) in bad_matches {
+                log_bad_rom_match(entry, rom_type);
+            }
+        }
+
+        // If we got none of either, log why
+        if good_matches.is_empty() && bad_matches.is_empty() {
+            let ids = self.ids().unwrap();
+            let mut all_zeros_count = 0;
+            let mut all_ones_count = 0;
+            for id in ids {
+                if id.all_zeros() {
+                    all_zeros_count += 1;
+                }
+                if id.all_ones() {
+                    all_ones_count += 1;
+                }
+            }
+            if all_zeros_count == ids.len() {
+                warn!("ROM data is all zeros - check ROM is connected");
+            } else if all_ones_count == ids.len() {
+                warn!("ROM data is all 0xFF - ROM may be blank or unprogrammed");
+            } else {
+                info!("No matches found in database - ROM information follows:");
+                for id in ids {
+                    if !id.all_zeros() && !id.all_ones() {
+                        log_rom_id(id);
+                    }
+                }
+            }
+        }
+
+        if !good_matches.is_empty() {
+            Some(good_matches[0].clone())
+        } else {
+            None
+        }
+    }
+
+
 }
 
 // Address - and CS lines - for the ROM object to use.
@@ -312,3 +377,4 @@ impl DataLines {
         value
     }
 }
+

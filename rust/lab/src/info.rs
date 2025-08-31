@@ -33,6 +33,7 @@ static LAB_FLASH_INFO: FlashInfo = FlashInfo {
 pub static mut LAB_RAM_INFO: RamInfo = RamInfo {
     magic: *b"onel",
     rom_data: core::ptr::null(),
-    reserved: [0; 248],
+    rpc_cmd_channel: core::ptr::null(),
+    rpc_rsp_channel: core::ptr::null(),
+    reserved: [0; 240],
 };
-

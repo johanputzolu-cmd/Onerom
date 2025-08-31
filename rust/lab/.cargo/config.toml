@@ -2,7 +2,8 @@
 target = "thumbv7em-none-eabi"
 
 [target.thumbv7em-none-eabi]
-runner = "probe-rs run --no-location --chip STM32F405RGTx"
+# `runner.sh` is created dynamically by build.rs based on the chosen chip ID
+runner = ["sh", "-c", "${OUT_DIR}/runner.sh \"$@\"", "--"]
 
 [profile.dev]
 opt-level = "s"
