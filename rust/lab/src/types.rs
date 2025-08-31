@@ -213,8 +213,9 @@ pub struct FlashInfo {
     pub build_number: &'static str,
     pub mcu: &'static str,
     pub hw_rev: &'static str,
+    pub features: &'static str,
     pub rtt: *const core::ffi::c_void,
-    pub reserved: [u8; 200],
+    pub reserved: [u8; 192],
 }
 
 // Required to allow us to store a C pointer in the static LAB_FLASH_INFO

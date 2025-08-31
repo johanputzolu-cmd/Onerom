@@ -33,6 +33,7 @@ pub struct LabFlash {
     pub build_number: String,
     pub mcu: String,
     pub hw_rev: String,
+    pub features: String,
     pub rtt_ptr: u32,
 }
 
@@ -42,6 +43,8 @@ pub struct LabFlash {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct LabRam {
     pub rom_data_ptr: u32,
+    pub rpc_cmd_channel_ptr: u32,
+    pub rpc_rsp_channel_ptr: u32,
 }
 
 #[derive(Debug, DekuRead, DekuWrite)]
@@ -53,39 +56,28 @@ pub struct LabRam {
 // &str in the original struct is a fat pointer (ptr + len), so we split into
 // 2 fields here and use `crate::read_str_at_ptr` to read the actual string.
 struct LabFlashInt {
-    #[deku(endian = "little")]
     major_version_ptr: u32,
-    #[deku(endian = "little")]
     major_version_len: u32,
 
-    #[deku(endian = "little")]
     minor_version_ptr: u32,
-    #[deku(endian = "little")]
     minor_version_len: u32,
 
-    #[deku(endian = "little")]
     patch_version_ptr: u32,
-    #[deku(endian = "little")]
     patch_version_len: u32,
 
-    #[deku(endian = "little")]
     build_number_ptr: u32,
-    #[deku(endian = "little")]
     build_number_len: u32,
 
-    #[deku(endian = "little")]
     mcu_ptr: u32,
-    #[deku(endian = "little")]
     mcu_len: u32,
 
-    #[deku(endian = "little")]
     hw_rev_ptr: u32,
-    #[deku(endian = "little")]
     hw_rev_len: u32,
 
-    #[deku(endian = "little")]
+    features_ptr: u32,
+    features_len: u32,
+
     rtt_ptr: u32,
-    reserved: [u8; 200],
 }
 
 impl LabFlashInt {
@@ -123,9 +115,10 @@ impl LabFlashInt {
 //
 // Reflects `onerom_lab::FlashInfo`
 struct LabRamInt {
+
     rom_data_ptr: u32, 
-    #[deku(endian = "little")]
-    reserved: [u8; 248],
+    rpc_cmd_channel_ptr: u32,
+    rpc_rsp_channel_ptr: u32,
 }
 
 impl LabRamInt {
@@ -256,6 +249,10 @@ impl<R: Reader> LabParser<R> {
             .read_flash_str_at_ptr(info.hw_rev_len, info.hw_rev_ptr)
             .await
             .inspect_err(|e| warn!("Failed to read HW revision: {e}"))?;
+        let features = self
+            .read_flash_str_at_ptr(info.features_len, info.features_ptr)
+            .await
+            .inspect_err(|e| warn!("Failed to read features: {e}"))?;
 
         let flash = LabFlash {
             major_version,
@@ -264,6 +261,7 @@ impl<R: Reader> LabParser<R> {
             build_number,
             mcu,
             hw_rev,
+            features,
             rtt_ptr: info.rtt_ptr,
         };
 
@@ -275,6 +273,8 @@ impl<R: Reader> LabParser<R> {
 
         let ram = LabRam {
             rom_data_ptr: info.rom_data_ptr,
+            rpc_cmd_channel_ptr: info.rpc_cmd_channel_ptr,
+            rpc_rsp_channel_ptr: info.rpc_rsp_channel_ptr,
         };
 
         Ok(ram)
