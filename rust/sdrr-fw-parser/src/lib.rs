@@ -143,13 +143,13 @@ pub(crate) const STM32F4_RAM_BASE: u32 = 0x20000000;
 /// ROM addresses and data bytes are "mangled" in the firmware for efficient
 /// real-time serving. The parser handles the translation between logical
 /// addresses/data and their physical representation in the firmware.
-pub struct Parser<R: Reader> {
-    reader: R,
+pub struct Parser<'a, R: Reader> {
+    reader: &'a mut R,
     base_flash_address: u32,
     base_ram_address: u32,
 }
 
-impl<R: Reader> Parser<R> {
+impl<'a, R: Reader> Parser<'a, R> {
     /// Create a new parser with the default STM32F4 base address (0x08000000).
     ///
     /// # Arguments
@@ -168,7 +168,7 @@ impl<R: Reader> Parser<R> {
     /// let reader = MyReader::new();
     /// let mut parser = Parser::new(reader);
     /// ```
-    pub fn new(reader: R) -> Self {
+    pub fn new(reader: &'a mut R) -> Self {
         Self {
             reader,
             base_flash_address: STM32F4_FLASH_BASE,
@@ -187,7 +187,7 @@ impl<R: Reader> Parser<R> {
     /// * `base_flash_address` - Base address where flash memory begins (e.g., 0x08000000 for STM32F4)
     /// * `base_ram_address` - Base address where RAM begins (e.g., 0x20000000 for STM32F4)
     pub fn with_base_flash_address(
-        reader: R,
+        reader: &'a mut R,
         base_flash_address: u32,
         base_ram_address: u32,
     ) -> Self {
@@ -346,7 +346,7 @@ impl<R: Reader> Parser<R> {
 
         // Parse extra info
         let extra_info = match parsing::read_extra_info(
-            &mut self.reader,
+            self.reader,
             header.extra_ptr,
             self.base_flash_address,
         )
@@ -361,7 +361,7 @@ impl<R: Reader> Parser<R> {
 
         // Parse ROM sets with error collection
         let rom_sets = match parsing::read_rom_sets(
-            &mut self.reader,
+            self.reader,
             header.rom_sets_ptr,
             header.rom_set_count,
             self.base_flash_address,
@@ -378,7 +378,7 @@ impl<R: Reader> Parser<R> {
 
         // Parse pins
         let pins =
-            match parsing::read_pins(&mut self.reader, header.pins_ptr, self.base_flash_address)
+            match parsing::read_pins(self.reader, header.pins_ptr, self.base_flash_address)
                 .await
             {
                 Ok(p) => Some(p),
@@ -437,7 +437,7 @@ impl<R: Reader> Parser<R> {
             return Err(format!("Invalid pointer: 0x{:08X}", ptr));
         }
 
-        read_string_at_ptr(&mut self.reader, ptr).await
+        read_string_at_ptr(self.reader, ptr).await
     }
 }
 

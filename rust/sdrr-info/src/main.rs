@@ -75,7 +75,7 @@ impl fmt::Display for FileType {
 struct FirmwareData {
     file_type: FileType,
     file_size: usize,
-    parser: Parser<MemoryReader>,
+    reader: MemoryReader,
     info: SdrrInfo,
 }
 
@@ -407,13 +407,13 @@ async fn lookup_byte_at_address(
     output_mangled_byte: bool,
 ) -> Result<(), String> {
     let info = &mut fw_data.info;
-    let parser = &mut fw_data.parser;
+    let mut parser = Parser::new(&mut fw_data.reader);
 
     // Get the size of this rom set
     let byte = if output_mangled_byte {
-        info.read_rom_byte_raw(parser, set, addr).await
+        info.read_rom_byte_raw(&mut parser, set, addr).await
     } else {
-        info.read_rom_byte_demangled(parser, set, addr).await
+        info.read_rom_byte_demangled(&mut parser, set, addr).await
     }?;
 
     // Get ROM names
@@ -473,7 +473,7 @@ async fn lookup_raw(fw_data: &mut FirmwareData, args: &Args) {
 
 async fn lookup_raw_range(fw_data: &mut FirmwareData, args: &Args) {
     let info = &mut fw_data.info;
-    let parser = &mut fw_data.parser;
+    let mut parser = Parser::new(&mut fw_data.reader);
 
     // Ensure we have the arguments
     let detail = args.detail;
@@ -512,7 +512,7 @@ async fn lookup_raw_range(fw_data: &mut FirmwareData, args: &Args) {
         let mut binary_data = Vec::new();
         for addr in start_addr..=end_addr {
             let byte = info
-                .read_rom_byte_raw(parser, set, SdrrAddress::from_raw(addr))
+                .read_rom_byte_raw(&mut parser, set, SdrrAddress::from_raw(addr))
                 .await
                 .expect("Failed to read byte");
 
@@ -541,7 +541,7 @@ async fn lookup_raw_range(fw_data: &mut FirmwareData, args: &Args) {
         for addr in start_addr..=end_addr {
             let log_addr = SdrrAddress::from_raw(addr);
             let byte = info
-                .read_rom_byte_raw(parser, set, log_addr)
+                .read_rom_byte_raw(&mut parser, set, log_addr)
                 .await
                 .expect("Failed to read byte");
 
@@ -595,7 +595,7 @@ async fn lookup_range(
     output_binary: bool,
 ) -> Result<(), String> {
     let info = &mut fw_data.info;
-    let parser = &mut fw_data.parser;
+    let mut parser = Parser::new(&mut fw_data.reader);
 
     let roms: Vec<String> = info.rom_sets[set as usize]
         .roms
@@ -635,7 +635,7 @@ async fn lookup_range(
 
         for addr in start_addr..=end_addr {
             let log_addr = SdrrAddress::from_logical(addr, cs_set);
-            let byte = info.read_rom_byte_raw(parser, set, log_addr).await?;
+            let byte = info.read_rom_byte_raw(&mut parser, set, log_addr).await?;
 
             let output_byte = if output_mangled {
                 byte
@@ -659,7 +659,7 @@ async fn lookup_range(
 
         for addr in start_addr..=end_addr {
             let log_addr = SdrrAddress::from_logical(addr, cs_set);
-            let byte = info.read_rom_byte_raw(parser, set, log_addr).await?;
+            let byte = info.read_rom_byte_raw(&mut parser, set, log_addr).await?;
 
             let output_byte = if output_mangled {
                 byte

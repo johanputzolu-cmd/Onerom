@@ -7,6 +7,7 @@ All notables changes between versions are documented in this file.
 ### Changes
 
 - Added fw-parser for One ROM Lab
+- Modify sdrr-info/parser to support Airfrog custom firmware changes
 
 ### Fixes
 

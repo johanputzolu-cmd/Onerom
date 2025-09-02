@@ -149,14 +149,14 @@ impl LabRamInt {
     }
 }
 
-pub struct LabParser<R: Reader> {
-    reader: R,
+pub struct LabParser<'a, R: Reader> {
+    reader: &'a mut R,
     base_flash_address: u32,
     base_ram_address: u32,
 }
 
-impl<R: Reader> LabParser<R> {
-    pub fn new(reader: R) -> Self {
+impl<'a, R: Reader> LabParser<'a, R> {
+    pub fn new(reader: &'a mut R) -> Self {
         Self {
             reader,
             base_flash_address: STM32F4_FLASH_BASE,
@@ -165,7 +165,7 @@ impl<R: Reader> LabParser<R> {
     }
 
     pub fn with_base_flash_address(
-        reader: R,
+        reader: &'a mut R,
         base_flash_address: u32,
         base_ram_address: u32,
     ) -> Self {
@@ -285,6 +285,6 @@ impl<R: Reader> LabParser<R> {
             return Err(format!("Invalid pointer: 0x{:08X}", ptr));
         }
 
-        read_str_at_ptr(&mut self.reader, len, ptr).await
+        read_str_at_ptr(self.reader, len, ptr).await
     }
 }
