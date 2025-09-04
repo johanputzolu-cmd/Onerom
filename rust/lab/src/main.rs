@@ -12,8 +12,8 @@
 extern crate alloc;
 
 #[allow(unused_imports)]
-use defmt::{debug, error, info, trace, warn};
-use defmt_rtt as _;
+use log::{debug, error, info, trace, warn};
+
 use embassy_executor::Spawner;
 use embassy_executor::main as embassy_main;
 use embassy_stm32::gpio::Flex;
@@ -23,15 +23,14 @@ use embassy_stm32::rcc::{
 #[cfg(not(feature = "control"))]
 use embassy_time::Timer;
 use embedded_alloc::LlffHeap as Heap;
-
-use panic_probe as _;
+use panic_rtt_target as _;
 
 #[cfg(feature = "control")]
 mod control;
 mod database;
 mod error;
 mod info;
-mod log;
+mod logs;
 mod rom;
 mod types;
 
@@ -55,6 +54,7 @@ async fn main(_spawner: Spawner) {
         unsafe { HEAP.init(&raw mut HEAP_MEM as usize, HEAP_SIZE) }
     }
 
+    rtt_log::init();
     info!("-----");
     info!("One ROM Lab v{}", PKG_VERSION);
     info!("Copyright (c) 2025 Piers Finlayson");
@@ -79,8 +79,17 @@ async fn main(_spawner: Spawner) {
     let p = embassy_stm32::init(config);
 
     let clocks = clocks(&p.RCC);
-    debug!("-----");
-    debug!("SYSCLK: {}", clocks.sys);
+    info!("-----");
+    match clocks.sys.to_hertz() {
+        Some(hz) => debug!("SYSCLK: {}", hz),
+        None => warn!("SYSCLK: Unknown"),
+    }
+
+    debug!("One ROM Lab Flash Info address: {:#010X}", &info::LAB_FLASH_INFO as *const _ as usize);
+    #[allow(static_mut_refs)]
+    unsafe {
+        debug!("One ROM Lab RAM Info address:   {:#010X}", &LAB_RAM_INFO as *const _ as usize);
+    }
 
     // Collate the address and data pins
     let addr_pins = [

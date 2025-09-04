@@ -4,126 +4,160 @@
 //
 // MIT licence
 
-use airfrog_rpc::target::RawMemoryRegion;
-use airfrog_rpc::target::Target;
-use alloc::vec::Vec;
 #[allow(unused_imports)]
-use defmt::{debug, error, info, trace, warn};
-use embassy_time::Timer;
-use onerom_lab::rpc::{Command, Response};
+use log::{debug, error, info, trace, warn};
+
+use airfrog_rpc::channel::{ChannelActor, RamChannel, RamChannelIo};
+use alloc::vec;
+use embassy_time::{Timer, Duration};
+use onerom_protocol::lab::{Command, Response};
+use static_cell::make_static;
 
 use crate::Rom;
 use crate::info::LAB_RAM_INFO;
 
-// Type used to hide RPC type complexity
-#[cfg(feature = "control")]
-type Rpc = Target<RawMemoryRegion, RawMemoryRegion>;
-
 // Buffers used as command channels for Airfrog comms
-const RPC_CHANNEL_SIZE: usize = 512;
+const RPC_CHANNEL_SIZE_U16: u16 = 512;
+const RPC_CHANNEL_SIZE: usize = RPC_CHANNEL_SIZE_U16 as usize;
 static mut RPC_CMD_CHANNEL: [u8; RPC_CHANNEL_SIZE] = [0; RPC_CHANNEL_SIZE];
 static mut RPC_RSP_CHANNEL: [u8; RPC_CHANNEL_SIZE] = [0; RPC_CHANNEL_SIZE];
 
+// Check every so often for commands
+const CONTROL_POLL_INTERVAL: Duration = Duration::from_millis(250);
+
 pub(crate) struct Control {
-    rpc: Rpc,
+    rpc_cmd_ch: RamChannel,
+    rpc_rsp_ch: RamChannel,
     rom: Rom,
 }
 
 impl Control {
     /// Create the Control object.
     pub fn new(rom: Rom) -> Self {
-        // Create RPC channels used to control One ROM Lab.  This involves
+        // Get RPC channel pointers used to control One ROM Lab.  This involves
         // unsafe code, as we have to get a pointer to statically allocated
-        // buffers and pass them to the channel.
+        // buffers, write them to our info structure (so the host can find
+        // them) and pass them to the channel.
         #[allow(static_mut_refs)]
-        let rpc = unsafe {
+        let (cmd_ptr, rsp_ptr) = unsafe {
             LAB_RAM_INFO.rpc_cmd_channel = &RPC_CMD_CHANNEL as *const _ as *const core::ffi::c_void;
             LAB_RAM_INFO.rpc_rsp_channel = &RPC_RSP_CHANNEL as *const _ as *const core::ffi::c_void;
-            let rpc_cmd_channel_ptr = &raw mut RPC_CMD_CHANNEL as u8 as *mut u8;
-            let rpc_rsp_channel_ptr = &raw mut RPC_RSP_CHANNEL as u8 as *mut u8;
-            let cmd_memory = RawMemoryRegion::new(rpc_cmd_channel_ptr, RPC_CHANNEL_SIZE);
-            let rsp_memory = RawMemoryRegion::new(rpc_rsp_channel_ptr, RPC_CHANNEL_SIZE);
-            Target::new(cmd_memory, rsp_memory).expect("Failed to create RPC Channels")
+            LAB_RAM_INFO.rpc_cmd_channel_size = RPC_CHANNEL_SIZE_U16;
+            LAB_RAM_INFO.rpc_rsp_channel_size = RPC_CHANNEL_SIZE_U16;
+
+            let rpc_cmd_channel_ptr = &raw mut RPC_CMD_CHANNEL as *mut u8 as u32;
+            let rpc_rsp_channel_ptr = &raw mut RPC_RSP_CHANNEL as *mut u8 as u32;
+            debug!("RPC Command Channel address:  {rpc_cmd_channel_ptr:#010X} size: {RPC_CHANNEL_SIZE_U16} bytes");
+            debug!("RPC Response Channel address: {rpc_rsp_channel_ptr:#010X} size: {RPC_CHANNEL_SIZE_U16} bytes");
+            (rpc_cmd_channel_ptr, rpc_rsp_channel_ptr)
         };
 
-        Self { rpc, rom }
+        // Two mutably static RamChannel instances.  These store nothing, so
+        // are "free".  They are simply wrappers implementing (unsafe) volatile
+        // reads and writes to RAM
+        let ram_cmd_ch_io = make_static!(RamChannelIo::new());
+        let ram_rsp_ch_io = make_static!(RamChannelIo::new());
+
+        // Create the channels
+        let rpc_cmd_ch = RamChannel::new(
+            ram_cmd_ch_io,
+            ChannelActor::Consumer,
+            cmd_ptr,
+            RPC_CHANNEL_SIZE,
+        )
+        .expect("Failed to create RPC Command Channel");
+        let rpc_rsp_ch = RamChannel::new(
+            ram_rsp_ch_io,
+            ChannelActor::Producer,
+            rsp_ptr,
+            RPC_CHANNEL_SIZE,
+        )
+        .expect("Failed to create RPC Response Channel");
+
+        Self {
+            rpc_cmd_ch,
+            rpc_rsp_ch,
+            rom,
+        }
     }
 
     /// Run the Control handler.  Call from within a task.
     pub async fn run(&mut self) -> ! {
+        info!("Control task started");
         loop {
             // Wait for a command.  Target only returns errors if it can't read
             // RAM - so we're OK to expect().
-            let cmd_size = loop {
+            let data_size = loop {
                 match self
-                    .rpc
-                    .command_size()
+                    .rpc_cmd_ch
+                    .data_available()
                     .expect("RPC Channel error getting command size")
                 {
                     Some(size) => {
-                        if size >= core::mem::size_of::<Command>() {
+                        if size >= Command::size() {
                             break size;
                         } else {
                             warn!("Received under-sized command, ignoring");
-                            ()
                         }
                     }
                     None => (),
                 }
-                Timer::after_millis(1).await;
+                Timer::after(CONTROL_POLL_INTERVAL).await;
             };
 
-            // Read the command from the channel
-            assert!(cmd_size > 0);
-            let mut cmd_data = Vec::with_capacity(cmd_size);
+            // Read the command from the channel - this marks the data as
+            // "consumed" so the producer can send another command.
+            assert!(data_size >= Command::size());
+            debug!("Reading command of size {data_size}");
+            let mut data = vec![0u8; data_size];
             let received = self
-                .rpc
-                .read_command(&mut cmd_data)
-                .expect("RPC Channel error reading command");
-            assert!(received == cmd_size);
+                .rpc_cmd_ch
+                .consume_bytes(&mut data)
+                .expect("RPC Channel error reading data");
+            assert!(received == data_size);
+            debug!("Read command bytes: {received}");
 
             // Convert the command bytes into a Command enum
-            let command_u32 = u32::from_le_bytes(cmd_data[..4].try_into().unwrap());
+            let command_u32 = u32::from_le_bytes(data[..Command::size()].try_into().unwrap());
             let command = Command::from(command_u32);
+            if command == Command::Unknown {
+                warn!(
+                    "Received unknown command 0x{:02x}{:02x}{:02x}{:02x}, ignoring",
+                    data[0], data[1], data[2], data[3]
+                );
+                continue;
+            }
 
             // Handle the command including sending a response
-            self.handle_command(command, &cmd_data).await;
-
-            // Mark the original command as processed (done after any response is
-            // sent).
-            self.rpc
-                .mark_command_processed()
-                .expect("RPC Channel error marking command processed");
+            self.handle_command(command, &data[Command::size()..]).await;
         }
     }
 
-    async fn handle_command(&mut self, command: Command, cmd_data: &[u8]) {
+    async fn handle_command(&mut self, command: Command, _data: &[u8]) {
+        debug!("Handling command: {:?}", command);
         match command {
             Command::Ping => {
+                debug!("Ping command received");
                 self.send_response_no_data(Response::Pong);
             }
             Command::ReadRom => {
+                debug!("ReadRom command received");
                 // Read the ROM
                 if let Some(rom) = self.rom.read_rom().await {
                     // Found a ROM - build the response from the metadata
                     let size = rom.metadata_size();
-                    let mut buf = Vec::with_capacity(size + Response::size());
-                    Response::RomMetadata.to_bytes(&mut buf);
-                    rom.metadata_bytes(&mut buf);
+                    let mut buf = vec![0u8; size + Response::size()];
+                    Response::RomMetadata.to_bytes(&mut buf[..Response::size()]);
+                    rom.metadata_bytes(&mut buf[Response::size()..]);
 
                     // Send it
                     self.send_response_data(&buf);
                 } else {
                     self.send_response_no_data(Response::NoRom);
                 }
+                debug!("ReadRom command complete");
             }
-            Command::Unknown => {
-                // Ignore
-                warn!(
-                    "Received unknown command 0x{:02x}{:02x}{:02x}{:02x}, ignoring",
-                    cmd_data[0], cmd_data[1], cmd_data[2], cmd_data[3]
-                );
-            }
+            Command::Unknown => info!("Unknown command received, ignoring"),
         }
     }
 
@@ -131,14 +165,14 @@ impl Control {
     fn send_response_no_data(&mut self, response: Response) {
         let mut buf = [0u8; Response::size()];
         response.to_bytes(&mut buf);
-        self.rpc
-            .send_response(&buf)
+        self.rpc_rsp_ch
+            .publish_bytes(&buf)
             .expect("RPC Channel error sending response (no data)");
     }
 
     fn send_response_data(&mut self, data: &[u8]) {
-        self.rpc
-            .send_response(data)
+        self.rpc_rsp_ch
+            .publish_bytes(data)
             .expect("RPC Channel error sending response (with data)");
     }
 }

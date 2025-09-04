@@ -12,10 +12,11 @@
 //
 // MIT licence
 
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
+
 use alloc::vec::Vec;
 use core::num::Wrapping;
-#[allow(unused_imports)]
-use defmt::{debug, error, info, trace, warn};
 use hex_literal::hex;
 use sha1::{Digest, Sha1};
 

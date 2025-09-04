@@ -4,14 +4,15 @@
 //
 // MIT licence
 
-use crate::log::{log_bad_rom_match, log_good_rom_match, log_rom_id};
-use alloc::vec::Vec;
 #[allow(unused_imports)]
-use defmt::{debug, error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
+
+use alloc::vec::Vec;
 use embassy_stm32::gpio::{Flex, Pull, Speed};
 use embassy_time::{Duration, Instant, Timer};
 
 use crate::database::{checksum, identify_rom, sha1_digest};
+use crate::logs::{log_bad_rom_match, log_good_rom_match, log_rom_id};
 use crate::{CsActive, RomEntry, RomType};
 
 /// Identification information for a particular ROM type.  Includes:

@@ -13,12 +13,7 @@ keywords = ["embedded", "rom", "eeprom", "eprom", "flash"]
 name = "onerom-lab"
 path = "src/main.rs"
 
-[lib]
-name = "onerom_lab"
-path = "src/lib.rs"
-
 [features]
-
 default = [ "f405rg", "control" ]
 f405rg = [ "embassy-stm32/stm32f405rg" ]
 f401re = [ "embassy-stm32/stm32f401re" ]
@@ -27,25 +22,27 @@ f446re = [ "embassy-stm32/stm32f446re" ]
 control = []
 
 [dependencies]
+onerom-protocol = { path = "../protocol", version = "0.4.2" }
+
 airfrog-rpc = { path = "../../../airfrog-rpc", version = "0.1.0" }
-defmt = { version = "1.0", features = [ "alloc" ] }
-embassy-executor = { version = "0.9.0", features = ["executor-thread", "arch-cortex-m", "defmt", "nightly" ]}
-embassy-futures = { version = "0.1.1", features = ["defmt"] }
-embassy-stm32 = { version = "0.4.0", features = [ "memory-x", "time-driver-any", "unstable-pac", "exti", "defmt" ]}
+embassy-executor = { version = "0.7.0", features = ["executor-thread", "arch-cortex-m", "nightly" ]}
+embassy-futures = { version = "0.1.1" }
+embassy-stm32 = { version = "0.4.0", features = [ "memory-x", "time-driver-any", "unstable-pac", "exti" ]}
 embassy-sync = { version = "0.7.0" }
-embassy-time = { version = "0.5", features = [ "tick-hz-32_768", "defmt" ] }
+embassy-time = { version = "0.5", features = [ "tick-hz-32_768", "generic-queue-8" ] }
 embedded-alloc = { version = "0.6" }
 portable-atomic = { version = "1.10", features = [ "critical-section" ] }
 cortex-m = { version = "0.7.6", features = [ "critical-section-single-core" ] }
 cortex-m-rt = { version = "0.7.0"}
-panic-probe = { version = "1.0", features = [ "print-defmt" ]}
 static_cell = { version = "2.1", features = [ "nightly" ] }
-defmt-rtt = { version = "1.0"}
 embedded-hal = { version = "1.0.0"}
 critical-section = { version = "1.2.0" }
 hex = { version = "0.4", default-features = false, features = [ "alloc" ] }
 hex-literal = "1.0.0"
+log = "0.4"
 sha1 = { version = "0.10", default-features = false }
+rtt-log = "0.5"
+panic-rtt-target = "0.2"
 
 [build-dependencies]
 built = "0.8"

@@ -4,10 +4,11 @@
 //
 // MIT licence
 
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
+
 use crate::database::Entry as RomEntry;
 use crate::{RomId, RomType};
-#[allow(unused_imports)]
-use defmt::{debug, error, info, trace, warn};
 
 pub fn log_good_rom_match(entry: &RomEntry) {
     info!("ROM match found:");

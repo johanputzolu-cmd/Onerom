@@ -4,6 +4,8 @@
 //
 // MIT licence
 
+#[allow(unused_imports)]
+
 /// Whether a CS line is active low or active high
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CsActive {
@@ -14,11 +16,11 @@ pub enum CsActive {
     Low,
 }
 
-impl defmt::Format for CsActive {
-    fn format(&self, f: defmt::Formatter<'_>) {
+impl core::fmt::Display for CsActive {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            CsActive::High => defmt::write!(f, "Active High"),
-            CsActive::Low => defmt::write!(f, "Active Low"),
+            CsActive::High => write!(f, "Active High"),
+            CsActive::Low => write!(f, "Active Low"),
         }
     }
 }
@@ -55,9 +57,9 @@ pub enum RomType {
     },
 }
 
-impl defmt::Format for RomType {
-    fn format(&self, f: defmt::Formatter<'_>) {
-        defmt::write!(f, "{} ({})", self.type_str(), self.cs_str());
+impl core::fmt::Display for RomType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{} ({})", self.type_str(), self.cs_str())
     }
 }
 
@@ -228,5 +230,7 @@ pub struct RamInfo {
     pub rom_data: *const core::ffi::c_void,
     pub rpc_cmd_channel: *const core::ffi::c_void,
     pub rpc_rsp_channel: *const core::ffi::c_void,
-    pub reserved: [u8; 240],
+    pub rpc_cmd_channel_size: u16,
+    pub rpc_rsp_channel_size: u16,
+    pub reserved: [u8; 236],
 }

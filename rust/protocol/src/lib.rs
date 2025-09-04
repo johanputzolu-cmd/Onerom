@@ -1,4 +1,4 @@
-//! One ROM Lab firmware - Library code
+//! One ROM Protocol
 
 // Copyright (c) 2025 Piers Finlayson <piers@piers.rocks>
 //
@@ -6,4 +6,4 @@
 
 #![no_std]
 
-pub mod rpc;
+pub mod lab;

@@ -45,6 +45,8 @@ pub struct LabRam {
     pub rom_data_ptr: u32,
     pub rpc_cmd_channel_ptr: u32,
     pub rpc_rsp_channel_ptr: u32,
+    pub rpc_cmd_channel_size: u16,
+    pub rpc_rsp_channel_size: u16,
 }
 
 #[derive(Debug, DekuRead, DekuWrite)]
@@ -118,6 +120,8 @@ struct LabRamInt {
     rom_data_ptr: u32,
     rpc_cmd_channel_ptr: u32,
     rpc_rsp_channel_ptr: u32,
+    rpc_cmd_channel_size: u16,
+    rpc_rsp_channel_size: u16,
 }
 
 impl LabRamInt {
@@ -224,7 +228,7 @@ impl<'a, R: Reader> LabParser<'a, R> {
             .retrieve_flash_info()
             .await
             .inspect_err(|e| warn!("Failed to retrieve flash: {e}"))?;
-
+        
         let major_version = self
             .read_flash_str_at_ptr(info.major_version_len, info.major_version_ptr)
             .await
@@ -275,6 +279,8 @@ impl<'a, R: Reader> LabParser<'a, R> {
             rom_data_ptr: info.rom_data_ptr,
             rpc_cmd_channel_ptr: info.rpc_cmd_channel_ptr,
             rpc_rsp_channel_ptr: info.rpc_rsp_channel_ptr,
+            rpc_cmd_channel_size: info.rpc_cmd_channel_size,
+            rpc_rsp_channel_size: info.rpc_rsp_channel_size,
         };
 
         Ok(ram)
