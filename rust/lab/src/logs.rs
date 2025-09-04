@@ -7,8 +7,9 @@
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
-use crate::database::Entry as RomEntry;
-use crate::{RomId, RomType};
+use onerom_database::{RomEntry, RomType};
+
+use crate::rom::Id as RomId;
 
 pub fn log_good_rom_match(entry: &RomEntry) {
     info!("ROM match found:");
@@ -72,4 +73,12 @@ pub fn dump_buf(buf: &[u8]) {
             debug!("{:04x}:  partial line, {} bytes", addr, len);
         }
     }
+}
+
+pub fn init() {
+    rtt_target::rtt_init_log!(
+        log::LevelFilter::Debug, 
+        rtt_target::ChannelMode::NoBlockSkip,
+        2048
+    );
 }

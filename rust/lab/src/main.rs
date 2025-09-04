@@ -27,17 +27,14 @@ use panic_rtt_target as _;
 
 #[cfg(feature = "control")]
 mod control;
-mod database;
 mod error;
 mod info;
 mod logs;
 mod rom;
 mod types;
 
-pub use database::Entry as RomEntry;
 pub use error::Error;
 pub use rom::{Id as RomId, Rom};
-pub use types::{CsActive, RomType};
 
 use info::{LAB_RAM_INFO, PKG_VERSION};
 
@@ -54,7 +51,7 @@ async fn main(_spawner: Spawner) {
         unsafe { HEAP.init(&raw mut HEAP_MEM as usize, HEAP_SIZE) }
     }
 
-    rtt_log::init();
+    logs::init();
     info!("-----");
     info!("One ROM Lab v{}", PKG_VERSION);
     info!("Copyright (c) 2025 Piers Finlayson");
@@ -85,10 +82,16 @@ async fn main(_spawner: Spawner) {
         None => warn!("SYSCLK: Unknown"),
     }
 
-    debug!("One ROM Lab Flash Info address: {:#010X}", &info::LAB_FLASH_INFO as *const _ as usize);
+    debug!(
+        "One ROM Lab Flash Info address: {:#010X}",
+        &info::LAB_FLASH_INFO as *const _ as usize
+    );
     #[allow(static_mut_refs)]
     unsafe {
-        debug!("One ROM Lab RAM Info address:   {:#010X}", &LAB_RAM_INFO as *const _ as usize);
+        debug!(
+            "One ROM Lab RAM Info address:   {:#010X}",
+            &LAB_RAM_INFO as *const _ as usize
+        );
     }
 
     // Collate the address and data pins

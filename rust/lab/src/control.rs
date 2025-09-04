@@ -9,9 +9,10 @@ use log::{debug, error, info, trace, warn};
 
 use airfrog_rpc::channel::{ChannelActor, RamChannel, RamChannelIo};
 use alloc::vec;
-use embassy_time::{Timer, Duration};
-use onerom_protocol::lab::{Command, Response};
+use embassy_time::{Duration, Timer};
 use static_cell::make_static;
+
+use onerom_protocol::lab::{Command, Response, RomMetadata};
 
 use crate::Rom;
 use crate::info::LAB_RAM_INFO;
@@ -47,8 +48,12 @@ impl Control {
 
             let rpc_cmd_channel_ptr = &raw mut RPC_CMD_CHANNEL as *mut u8 as u32;
             let rpc_rsp_channel_ptr = &raw mut RPC_RSP_CHANNEL as *mut u8 as u32;
-            debug!("RPC Command Channel address:  {rpc_cmd_channel_ptr:#010X} size: {RPC_CHANNEL_SIZE_U16} bytes");
-            debug!("RPC Response Channel address: {rpc_rsp_channel_ptr:#010X} size: {RPC_CHANNEL_SIZE_U16} bytes");
+            debug!(
+                "RPC Command Channel address:  {rpc_cmd_channel_ptr:#010X} size: {RPC_CHANNEL_SIZE_U16} bytes"
+            );
+            debug!(
+                "RPC Response Channel address: {rpc_rsp_channel_ptr:#010X} size: {RPC_CHANNEL_SIZE_U16} bytes"
+            );
             (rpc_cmd_channel_ptr, rpc_rsp_channel_ptr)
         };
 
@@ -121,10 +126,7 @@ impl Control {
             let command_u32 = u32::from_le_bytes(data[..Command::size()].try_into().unwrap());
             let command = Command::from(command_u32);
             if command == Command::Unknown {
-                warn!(
-                    "Received unknown command 0x{:02x}{:02x}{:02x}{:02x}, ignoring",
-                    data[0], data[1], data[2], data[3]
-                );
+                warn!("Received unknown command 0x{command_u32:#0910X}, ignoring");
                 continue;
             }
 
@@ -145,13 +147,14 @@ impl Control {
                 // Read the ROM
                 if let Some(rom) = self.rom.read_rom().await {
                     // Found a ROM - build the response from the metadata
-                    let size = rom.metadata_size();
-                    let mut buf = vec![0u8; size + Response::size()];
-                    Response::RomMetadata.to_bytes(&mut buf[..Response::size()]);
-                    rom.metadata_bytes(&mut buf[Response::size()..]);
-
-                    // Send it
-                    self.send_response_data(&buf);
+                    let rom_metadata: RomMetadata = rom.into();
+                    match rom_metadata.to_buffer() {
+                        Ok(buf) => self.send_response_data(&buf),
+                        Err(e) => {
+                            error!("Failed to build ROM metadata response: {e:?}");
+                            self.send_response_no_data(Response::Error);
+                        }
+                    }
                 } else {
                     self.send_response_no_data(Response::NoRom);
                 }
@@ -161,7 +164,6 @@ impl Control {
         }
     }
 
-    #[cfg(feature = "control")]
     fn send_response_no_data(&mut self, response: Response) {
         let mut buf = [0u8; Response::size()];
         response.to_bytes(&mut buf);

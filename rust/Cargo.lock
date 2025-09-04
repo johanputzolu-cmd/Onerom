@@ -1863,6 +1863,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 
 [[package]]
+name = "onerom-database"
+version = "0.4.2"
+dependencies = [
+ "csv",
+ "hex-literal",
+ "log",
+ "serde",
+ "sha1",
+]
+
+[[package]]
 name = "onerom-lab"
 version = "0.4.2"
 dependencies = [
@@ -1882,10 +1893,11 @@ dependencies = [
  "hex",
  "hex-literal",
  "log",
+ "onerom-database",
  "onerom-protocol",
  "panic-rtt-target",
  "portable-atomic",
- "rtt-log",
+ "rtt-target",
  "sha1",
  "static_cell",
 ]
@@ -1893,6 +1905,11 @@ dependencies = [
 [[package]]
 name = "onerom-protocol"
 version = "0.4.2"
+dependencies = [
+ "log",
+ "onerom-database",
+ "serde",
+]
 
 [[package]]
 name = "panic-probe"
@@ -2243,23 +2260,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "rtt-log"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c6a8b71b95ffb8164523182084387b03aadd14c57d1274e43f8314eb5fe4e7"
-dependencies = [
- "log",
- "once_cell",
- "rtt-target",
-]
-
-[[package]]
 name = "rtt-target"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4235cd78091930e907d2a510adb0db1369e82668eafa338f109742fa0c83059d"
 dependencies = [
  "critical-section",
+ "log",
+ "once_cell",
  "portable-atomic",
  "ufmt-write",
 ]
