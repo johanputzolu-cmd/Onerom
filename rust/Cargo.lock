@@ -1916,7 +1916,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "log",
- "onerom-database 0.1.0",
+ "onerom-database 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "onerom-protocol",
  "panic-rtt-target",
  "portable-atomic",
@@ -1928,6 +1928,8 @@ dependencies = [
 [[package]]
 name = "onerom-protocol"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9df4843ba1398ca425d37f47fecf8339d4f93725bdefbb2ba8010903b9174de3"
 dependencies = [
  "log",
  "onerom-database 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
