@@ -1,6 +1,6 @@
 [package]
 name = "onerom-protocol"
-version = "0.4.2"
+version = "0.1.0"
 edition = "2024"
 authors = ["Piers Finlayson <piers@piers.rocks>"]
 description = "One ROM Protocol support"
@@ -14,7 +14,7 @@ name = "onerom_protocol"
 path = "src/lib.rs"
 
 [dependencies]
-onerom-database = { path = "../database", version = "0.4.2" }
+onerom-database = { path = "../database", version = "0.1.0" }
 
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 log = { version = "0.4" }

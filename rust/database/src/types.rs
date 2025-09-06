@@ -102,15 +102,10 @@ impl RomTypeByte {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RomType {
     /// A 2364 ROM
-    Type2364 {
-        cs: CsActive,
-    },
+    Type2364 { cs: CsActive },
 
     /// A 2332 ROM
-    Type2332 {
-        cs1: CsActive,
-        cs2: CsActive,
-    },
+    Type2332 { cs1: CsActive, cs2: CsActive },
 
     /// A 2316 ROM
     Type2316 {
@@ -211,8 +206,7 @@ impl RomType {
         if buf.len() < Self::binary_size() {
             return Err(Error::ParseError);
         }
-        match RomTypeByte::from_byte(buf[0])?
-        {
+        match RomTypeByte::from_byte(buf[0])? {
             RomTypeByte::Type2364 => {
                 let cs = CsActiveByte::from_byte(buf[1])?.into();
                 Ok(RomType::Type2364 { cs })
@@ -322,4 +316,3 @@ const ALL_ROM_TYPES: [RomType; NUM_ROM_TYPES] = [
         cs3: CsActive::High,
     },
 ];
-

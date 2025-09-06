@@ -30,7 +30,17 @@ dependencies = [
 
 [[package]]
 name = "airfrog-rpc"
-version = "0.1.0"
+version = "0.1.1"
+dependencies = [
+ "async-trait",
+ "log",
+]
+
+[[package]]
+name = "airfrog-rpc"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb64ace2b3a1dc0e61537001b8e3b39252df166a2ec7744f4c83566c48d52a05"
 dependencies = [
  "async-trait",
  "log",
@@ -1864,7 +1874,7 @@ checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 
 [[package]]
 name = "onerom-database"
-version = "0.4.2"
+version = "0.1.0"
 dependencies = [
  "csv",
  "hex-literal",
@@ -1875,9 +1885,9 @@ dependencies = [
 
 [[package]]
 name = "onerom-lab"
-version = "0.4.2"
+version = "0.1.0"
 dependencies = [
- "airfrog-rpc",
+ "airfrog-rpc 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "built",
  "cortex-m",
  "cortex-m-rt",
@@ -1904,7 +1914,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-protocol"
-version = "0.4.2"
+version = "0.1.0"
 dependencies = [
  "log",
  "onerom-database",
@@ -2412,7 +2422,7 @@ dependencies = [
 name = "sdrr-fw-parser"
 version = "0.4.2"
 dependencies = [
- "airfrog-rpc",
+ "airfrog-rpc 0.1.1",
  "deku",
  "esp-println",
  "log",
