@@ -4,8 +4,6 @@
 //
 // MIT licence
 
-#[allow(unused_imports)]
-
 /// Information about One ROM Lab's firmware.
 ///
 /// Note &'static str is a "fat" pointer, with 4 bytes pointer and 4 bytes

@@ -182,3 +182,9 @@ pub fn identify_rom(
 
     (matches, wrong_type_matches)
 }
+
+/// Database errors
+pub enum Error {
+    /// Failed to parse the buffer into the requested type
+    ParseError,
+}

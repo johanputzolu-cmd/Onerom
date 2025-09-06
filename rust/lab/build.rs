@@ -23,6 +23,17 @@ fn main() {
     // Re-run if the ROMs change
     println!("cargo:rerun-if-changed=roms");
 
+    // Police features
+    let features = [
+        cfg!(feature = "oneshot"),
+        cfg!(feature = "control"),
+        cfg!(feature = "repeat"),
+    ];
+    let count = features.iter().filter(|&&f| f).count();
+    if count != 1 {
+        panic!("Exactly one of 'oneshot', 'control', or 'timer' features must be enabled");
+    }
+
     // Set the cargo runner
     set_cargo_runner();
 
@@ -51,7 +62,7 @@ fn set_cargo_runner() {
     };
 
     // Create the script to run the binary using probe-rs
-    let runner_cmd = format!("{}{}", RUN_CMD_PREFIX, chip_id);
+    let runner_cmd = format!("{RUN_CMD_PREFIX}{chip_id}");
     let script = format!(
         r#"#!/bin/bash
 echo "-----"
@@ -62,7 +73,7 @@ echo "-----"
     );
 
     let out_dir = env::var("OUT_DIR").unwrap();
-    let runner_path = format!("{}/runner.sh", out_dir);
+    let runner_path = format!("{out_dir}/runner.sh");
 
     fs::write(&runner_path, script).unwrap();
     fs::set_permissions(&runner_path, fs::Permissions::from_mode(0o755)).unwrap();

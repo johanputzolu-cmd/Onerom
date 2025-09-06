@@ -4,8 +4,41 @@
 //
 // MIT licence
 
+use crate::Error;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[repr(u8)]
+pub enum CsActiveByte {
+    #[default]
+    Low = 0,
+    High = 1,
+}
+
+impl CsActiveByte {
+    pub fn from_byte(byte: u8) -> Result<Self, Error> {
+        match byte {
+            0 => Ok(CsActiveByte::Low),
+            1 => Ok(CsActiveByte::High),
+            _ => Err(Error::ParseError),
+        }
+    }
+
+    pub fn to_byte(&self) -> u8 {
+        *self as u8
+    }
+}
+
+impl From<CsActive> for CsActiveByte {
+    fn from(cs: CsActive) -> Self {
+        match cs {
+            CsActive::Low => CsActiveByte::Low,
+            CsActive::High => CsActiveByte::High,
+        }
+    }
+}
+
 /// Whether a CS line is active low or active high
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum CsActive {
     #[allow(dead_code)]
     High,
@@ -23,6 +56,15 @@ impl core::fmt::Display for CsActive {
     }
 }
 
+impl From<CsActiveByte> for CsActive {
+    fn from(byte: CsActiveByte) -> Self {
+        match byte {
+            CsActiveByte::Low => CsActive::Low,
+            CsActiveByte::High => CsActive::High,
+        }
+    }
+}
+
 impl CsActive {
     fn bit(&self) -> usize {
         match self {
@@ -32,22 +74,45 @@ impl CsActive {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[repr(u8)]
+pub enum RomTypeByte {
+    Type2364 = 0x00,
+    Type2332 = 0x01,
+    Type2316 = 0x02,
+}
+
+impl RomTypeByte {
+    pub fn from_byte(byte: u8) -> Result<Self, Error> {
+        match byte {
+            0x00 => Ok(RomTypeByte::Type2364),
+            0x01 => Ok(RomTypeByte::Type2332),
+            0x02 => Ok(RomTypeByte::Type2316),
+            _ => Err(Error::ParseError),
+        }
+    }
+
+    pub fn to_byte(&self) -> u8 {
+        *self as u8
+    }
+}
+
 /// Supported types of ROMs.  This type includes the chip select behaviour of
 /// the ROM, which was mask programmed at factory for the original ROM chips.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RomType {
-    // A 2364 ROM
+    /// A 2364 ROM
     Type2364 {
         cs: CsActive,
     },
 
-    // A 2332 ROM
+    /// A 2332 ROM
     Type2332 {
         cs1: CsActive,
         cs2: CsActive,
     },
 
-    // A 2316 ROM
+    /// A 2316 ROM
     Type2316 {
         cs1: CsActive,
         cs2: CsActive,
@@ -134,6 +199,64 @@ impl RomType {
                 (CsActive::High, CsActive::High, CsActive::High) => "CS1 High, CS2 High, CS3 High",
             },
         }
+    }
+
+    /// Retrieves the binary size of this structure when binary serialized.
+    pub const fn binary_size() -> usize {
+        4
+    }
+
+    /// Format is RomTypeByte followed by up to 3 CsActiveByte values.
+    pub fn from_bytes(buf: &[u8]) -> Result<Self, Error> {
+        if buf.len() < Self::binary_size() {
+            return Err(Error::ParseError);
+        }
+        match RomTypeByte::from_byte(buf[0])?
+        {
+            RomTypeByte::Type2364 => {
+                let cs = CsActiveByte::from_byte(buf[1])?.into();
+                Ok(RomType::Type2364 { cs })
+            }
+            RomTypeByte::Type2332 => {
+                let cs1 = CsActiveByte::from_byte(buf[1])?.into();
+                let cs2 = CsActiveByte::from_byte(buf[2])?.into();
+                Ok(RomType::Type2332 { cs1, cs2 })
+            }
+            RomTypeByte::Type2316 => {
+                let cs1 = CsActiveByte::from_byte(buf[1])?.into();
+                let cs2 = CsActiveByte::from_byte(buf[2])?.into();
+                let cs3 = CsActiveByte::from_byte(buf[3])?.into();
+                Ok(RomType::Type2316 { cs1, cs2, cs3 })
+            }
+        }
+    }
+
+    /// Serializes this structure into the given buffer.
+    pub fn to_bytes(&self, buf: &mut [u8]) -> Result<(), Error> {
+        if buf.len() < Self::binary_size() {
+            return Err(Error::ParseError);
+        }
+        match self {
+            RomType::Type2364 { cs } => {
+                buf[0] = RomTypeByte::Type2364.to_byte();
+                buf[1] = CsActiveByte::from(*cs).to_byte();
+                buf[2] = 0;
+                buf[3] = 0;
+            }
+            RomType::Type2332 { cs1, cs2 } => {
+                buf[0] = RomTypeByte::Type2332.to_byte();
+                buf[1] = CsActiveByte::from(*cs1).to_byte();
+                buf[2] = CsActiveByte::from(*cs2).to_byte();
+                buf[3] = 0;
+            }
+            RomType::Type2316 { cs1, cs2, cs3 } => {
+                buf[0] = RomTypeByte::Type2316.to_byte();
+                buf[1] = CsActiveByte::from(*cs1).to_byte();
+                buf[2] = CsActiveByte::from(*cs2).to_byte();
+                buf[3] = CsActiveByte::from(*cs3).to_byte();
+            }
+        }
+        Ok(())
     }
 }
 

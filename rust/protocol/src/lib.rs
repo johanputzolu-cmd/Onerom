@@ -8,6 +8,8 @@
 
 extern crate alloc;
 
+use onerom_database::Error as DbError;
+
 pub mod lab;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,4 +20,16 @@ pub enum Error {
     InvalidResponse,
     /// Invalid data received
     InvalidData,
+    /// No ROM detected
+    NoRom,
+    /// ROM not recognised
+    RomNotRecognised,
+}
+
+impl From<DbError> for Error {
+    fn from(err: DbError) -> Self {
+        match err {
+            DbError::ParseError => Error::InvalidData,
+        }
+    }
 }

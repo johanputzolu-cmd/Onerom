@@ -20,6 +20,8 @@ f401re = [ "embassy-stm32/stm32f401re" ]
 f411re = [ "embassy-stm32/stm32f411re" ]
 f446re = [ "embassy-stm32/stm32f446re" ]
 control = []
+oneshot = []
+repeat = []
 
 [dependencies]
 onerom-protocol = { path = "../protocol", version = "0.4.2" }

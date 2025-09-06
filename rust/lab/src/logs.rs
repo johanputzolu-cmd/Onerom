@@ -25,7 +25,7 @@ pub fn log_bad_rom_match(entry: &RomEntry, rom_type: &RomType) {
     info!("  Name:        {}", entry.name());
     info!("  Part:        {}", entry.part());
     info!("  Expected:    {}", entry.rom_type());
-    info!("  Found:       {}", rom_type);
+    info!("  Found:       {rom_type}");
     info!("  Checksum:    {:#010x}", entry.sum());
     info!("  SHA1:        {}", hex::encode(entry.sha1()));
 }
@@ -70,14 +70,14 @@ pub fn dump_buf(buf: &[u8]) {
             );
         } else {
             // Handle partial lines
-            debug!("{:04x}:  partial line, {} bytes", addr, len);
+            debug!("{addr:04x}:  partial line, {len} bytes");
         }
     }
 }
 
 pub fn init() {
     rtt_target::rtt_init_log!(
-        log::LevelFilter::Debug, 
+        log::LevelFilter::Debug,
         rtt_target::ChannelMode::NoBlockSkip,
         2048
     );

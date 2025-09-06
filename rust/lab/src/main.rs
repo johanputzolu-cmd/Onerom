@@ -78,7 +78,7 @@ async fn main(_spawner: Spawner) {
     let clocks = clocks(&p.RCC);
     info!("-----");
     match clocks.sys.to_hertz() {
-        Some(hz) => debug!("SYSCLK: {}", hz),
+        Some(hz) => debug!("SYSCLK: {hz}"),
         None => warn!("SYSCLK: Unknown"),
     }
 
@@ -144,8 +144,16 @@ async fn main(_spawner: Spawner) {
         }
         // In non-airfrog mode, just try to read the ROM until successful and
         // then stop
-        info!("Done");
-        return;
+        #[cfg(feature = "oneshot")]
+        {
+            info!("Done");
+            return;
+        }
+        #[cfg(feature = "repeat")]
+        {
+            info!("Waiting 5 seconds before reading again");
+            Timer::after_secs(5).await;
+        }
     }
 
     #[cfg(feature = "control")]
@@ -154,3 +162,6 @@ async fn main(_spawner: Spawner) {
         control.run().await;
     }
 }
+
+#[cfg(all(feature = "control", feature = "oneshot"))]
+compile_error!("Features 'control' and 'oneshot' are mutually exclusive");

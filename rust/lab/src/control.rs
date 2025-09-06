@@ -12,7 +12,7 @@ use alloc::vec;
 use embassy_time::{Duration, Timer};
 use static_cell::make_static;
 
-use onerom_protocol::lab::{Command, Response, RomMetadata};
+use onerom_protocol::lab::{Command, LabRomEntry, Response};
 
 use crate::Rom;
 use crate::info::LAB_RAM_INFO;
@@ -93,19 +93,16 @@ impl Control {
             // Wait for a command.  Target only returns errors if it can't read
             // RAM - so we're OK to expect().
             let data_size = loop {
-                match self
+                if let Some(size) = self
                     .rpc_cmd_ch
                     .data_available()
                     .expect("RPC Channel error getting command size")
                 {
-                    Some(size) => {
-                        if size >= Command::size() {
-                            break size;
-                        } else {
-                            warn!("Received under-sized command, ignoring");
-                        }
+                    if size >= Command::size() {
+                        break size;
+                    } else {
+                        warn!("Received under-sized command, ignoring");
                     }
-                    None => (),
                 }
                 Timer::after(CONTROL_POLL_INTERVAL).await;
             };
@@ -136,7 +133,7 @@ impl Control {
     }
 
     async fn handle_command(&mut self, command: Command, _data: &[u8]) {
-        debug!("Handling command: {:?}", command);
+        debug!("Handling command: {command:?}");
         match command {
             Command::Ping => {
                 debug!("Ping command received");
@@ -147,18 +144,24 @@ impl Control {
                 // Read the ROM
                 if let Some(rom) = self.rom.read_rom().await {
                     // Found a ROM - build the response from the metadata
-                    let rom_metadata: RomMetadata = rom.into();
+                    let rom_metadata: LabRomEntry = rom.into();
                     match rom_metadata.to_buffer() {
                         Ok(buf) => self.send_response_data(&buf),
                         Err(e) => {
                             error!("Failed to build ROM metadata response: {e:?}");
-                            self.send_response_no_data(Response::Error);
+                            self.send_response_no_data(Response::RomNotRecognised);
                         }
                     }
                 } else {
                     self.send_response_no_data(Response::NoRom);
                 }
                 debug!("ReadRom command complete");
+            }
+            Command::GetRawData => {
+                debug!("GetRawData command received");
+                // Not implemented
+                self.send_response_no_data(Response::Error);
+                todo!();
             }
             Command::Unknown => info!("Unknown command received, ignoring"),
         }

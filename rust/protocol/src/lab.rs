@@ -19,7 +19,7 @@ use alloc::vec::Vec;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
-use onerom_database::RomEntry;
+use onerom_database::{RomEntry, RomType};
 
 use crate::Error;
 
@@ -27,13 +27,17 @@ use crate::Error;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Command {
-    /// Response with a Pong
+    /// Response with a Pong.  No data follows.
     Ping = 0x0000_0000,
 
-    /// Trigger a read of the connected ROM
+    /// Trigger a read of the connected ROM.  No data follows.
     ReadRom = 0x0000_0001,
 
-    /// Unknown command, do not use
+    /// Trigger a read of a set of raw data associated with the last ROM read.
+    /// Data follows - see [`GetRawData`].
+    GetRawData = 0x0000_0002,
+
+    /// Unknown command, do not use.  No data follows.
     Unknown = 0xFFFF_FFFF,
 }
 
@@ -42,6 +46,7 @@ impl From<u32> for Command {
         match value {
             0x0000_0000 => Command::Ping,
             0x0000_0001 => Command::ReadRom,
+
             _ => Command::Unknown,
         }
     }
@@ -71,12 +76,15 @@ pub enum Response {
     Pong = 0x0000_0000,
 
     /// ReadRom successful response.  Following this word, is the ROM metadata
-    /// as a sequence of bytes:
+    /// as a sequence of bytes.  See [`LabRomEntry`].
     /// - Name of the ROM, followed by 0
     /// - Part number of the ROM, followed by 0
     /// - 32-bit wrapping checksum of the ROM, little endian encoded
     /// - 20 byte SHA1 digest of the ROM
-    RomMetadata = 0x0000_0001,
+    RomEntry = 0x0000_0001,
+
+    /// ROM (probably) connected but not recognised.  No data follows
+    RomNotRecognised = 0x0000_0002,
 
     /// One ROM Lab hit an error
     Error = 0x8000_0000,
@@ -103,7 +111,8 @@ impl From<u32> for Response {
     fn from(value: u32) -> Self {
         match value {
             0x0000_0000 => Response::Pong,
-            0x0000_0001 => Response::RomMetadata,
+            0x0000_0001 => Response::RomEntry,
+            0x0000_0002 => Response::RomNotRecognised,
             0x8000_0000 => Response::Error,
             0x8000_0001 => Response::NoRom,
             _ => Response::Unknown,
@@ -111,9 +120,140 @@ impl From<u32> for Response {
     }
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct GetRawData {
+    /// The type of ROM to get information for
+    rom_type: RomType,
+}
+
+impl GetRawData {
+    const fn binary_size() -> usize {
+        RomType::binary_size()
+    }
+
+    pub fn from_buffer(buf: &[u8]) -> Result<Self, Error> {
+        // Get RomType
+        let rom_type_size = Self::binary_size();
+        if buf.len() < rom_type_size {
+            return Err(Error::BufferTooSmall);
+        }
+        let rom_type = RomType::from_bytes(&buf[0..rom_type_size])?;
+
+        Ok(Self { rom_type })
+    }
+
+    pub fn to_buffer(&self) -> Result<Vec<u8>, Error> {
+        let mut pos = 0;
+
+        let size = Self::binary_size() + Command::size();
+        let mut buf = vec![0; size];
+
+        // Write Response code
+        if size < Command::size() {
+            return Err(Error::BufferTooSmall);
+        }   
+        let rsp_u32 = Command::GetRawData as u32;
+        buf[pos..pos+4].copy_from_slice(&rsp_u32.to_le_bytes());
+        pos += 4;
+
+        // Write RomType
+        let rom_type_size = RomType::binary_size();
+        if size < pos + rom_type_size {
+            return Err(Error::BufferTooSmall);
+        }
+        self.rom_type.to_bytes(&mut buf[pos..pos + rom_type_size])?;
+
+        Ok(buf)
+    }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct LabRomType {
+    #[serde(rename = "ROM Type")]
+    rom_type: RomType,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct RomRawData {
+    #[serde(rename = "ROM Type")]
+    rom_type: RomType,
+    #[serde(rename = "Checksum")]
+    checksum: u32,
+    #[serde(rename = "SHA1 Digest")]
+    sha1: [u8; 20],
+}
+
+impl RomRawData {
+    const fn binary_size() -> usize {
+        RomType::binary_size() + 4 + 20
+    }
+
+    pub fn from_buffer(buf: &[u8]) -> Result<Self, Error> {
+        let mut pos = 0;
+
+        // Read RomType
+        let rom_type_size = RomType::binary_size();
+        if buf.len() < pos + rom_type_size {
+            return Err(Error::BufferTooSmall);
+        }
+        let rom_type = RomType::from_bytes(&buf[pos..pos + rom_type_size])?;
+        pos += rom_type_size;
+
+        // Read 32-bit checksum (little endian)
+        if buf.len() < pos + 4 {
+            return Err(Error::BufferTooSmall);
+        }
+        let checksum = u32::from_le_bytes([buf[pos], buf[pos + 1], buf[pos + 2], buf[pos + 3]]);
+        pos += 4;
+
+        // Read 20-byte SHA1
+        if buf.len() < pos + 20 {
+            return Err(Error::BufferTooSmall);
+        }
+        let mut sha1 = [0u8; 20];
+        sha1.copy_from_slice(&buf[pos..pos + 20]);
+
+        Ok(Self {
+            rom_type,
+            checksum,
+            sha1,
+        })
+    }
+
+    pub fn to_buffer(&self) -> Result<Vec<u8>, Error> {
+        let mut pos = 0;
+
+        let size = Self::binary_size();
+        let mut buf = vec![0; size];
+
+        // Write RomType
+        let rom_type_size = RomType::binary_size();
+        if size < pos + rom_type_size {
+            return Err(Error::BufferTooSmall);
+        }
+        self.rom_type.to_bytes(&mut buf[pos..pos + rom_type_size])?;
+        pos += rom_type_size;
+
+        // Write 32-bit checksum (little endian)
+        if size < pos + 4 {
+            return Err(Error::BufferTooSmall);
+        }
+        buf[pos..pos + 4].copy_from_slice(&self.checksum.to_le_bytes());
+        pos += 4;
+
+        // Write 20-byte SHA1
+        if size < pos + 20 {
+            return Err(Error::BufferTooSmall);
+        }
+        buf[pos..pos + 20].copy_from_slice(&self.sha1);
+
+        Ok(buf)
+    }
+}
+
 /// Response data for RomMetadata
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct RomMetadata {
+pub struct LabRomEntry {
     #[serde(rename = "Name")]
     name: String,
     #[serde(rename = "Part Number")]
@@ -124,9 +264,9 @@ pub struct RomMetadata {
     sha1: [u8; 20],
 }
 
-impl RomMetadata {
+impl LabRomEntry {
     /// Get RomMetadata from the appropriate response
-    pub fn from_buffer(buf: &[u8]) -> Result<Option<Self>, Error> {
+    pub fn from_buffer(buf: &[u8]) -> Result<Self, Error> {
         let mut pos = 0;
 
         // Get Response code
@@ -137,14 +277,12 @@ impl RomMetadata {
         let response: Response  = rsp_u32.into();
         pos += 4;
         match response {
-            Response::RomMetadata => (), // Continue
-            Response::NoRom => {
-                debug!("Unknown ROM or no ROM connected");
-                return Ok(None);
-            }
+            Response::RomEntry => (), // Continue
+            Response::NoRom => Err(Error::NoRom)?,
+            Response::RomNotRecognised => Err(Error::RomNotRecognised)?,
             _ => {
                 warn!("Unexpected response code for RomMetadata: {rsp_u32:#010X} {response:?}");
-                return Err(Error::InvalidResponse);
+                Err(Error::InvalidResponse)?
             }
         }
         
@@ -190,12 +328,12 @@ impl RomMetadata {
         let mut sha1 = [0u8; 20];
         sha1.copy_from_slice(&buf[pos..pos + 20]);
         
-        Ok(Some(RomMetadata {
+        Ok(LabRomEntry {
             name,
             part_number,
             checksum,
             sha1,
-        }))
+        })
     }
 
     fn buf_size(&self) -> usize {
@@ -212,7 +350,7 @@ impl RomMetadata {
         if size < 4 {
             return Err(Error::BufferTooSmall);
         }
-        let rsp_u32 = Response::RomMetadata as u32;
+        let rsp_u32 = Response::RomEntry as u32;
         buf[pos..pos+4].copy_from_slice(&rsp_u32.to_le_bytes());
         pos += 4;
 
@@ -253,13 +391,13 @@ impl RomMetadata {
     }
 }
 
-impl From<RomEntry> for RomMetadata {
+impl From<RomEntry> for LabRomEntry {
     fn from(entry: RomEntry) -> Self {
-        RomMetadata {
+        LabRomEntry {
             name: entry.name().to_string(),
             part_number: entry.part().to_string(),
             checksum: entry.sum(),
-            sha1: entry.sha1().clone(),
+            sha1: *entry.sha1(),
         }
     }
 }
