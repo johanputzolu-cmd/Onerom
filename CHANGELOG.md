@@ -2,7 +2,7 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.4.2 - 2025-??-??
+## v0.4.2 - 2025-09-06
 
 Added [One ROM Lab](rust/lab/README.md) support, which allows a One ROM to be used as a ROM reader.
 
