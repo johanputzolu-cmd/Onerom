@@ -1,12 +1,12 @@
 //! One ROM Protocol - One ROM Lab support
-//! 
+//!
 //! Used by both the One ROM Lab firmware and host tools to communicate.
-//! 
+//!
 //! Uses `airfrog-rpc` for the underlying RPC transport.
-//! 
+//!
 //! The host can retrieve the RAM metada using `sdrr-fw-parser` which provides
 //! the RAM channel addresses required for RPC communication.
-//! 
+//!
 //! See `airfrog::firmware::onerom_lab` for example host usage.
 
 // Copyright (c) 2025 Piers Finlayson <piers@piers.rocks>
@@ -151,9 +151,9 @@ impl GetRawData {
         // Write Response code
         if size < Command::size() {
             return Err(Error::BufferTooSmall);
-        }   
+        }
         let rsp_u32 = Command::GetRawData as u32;
-        buf[pos..pos+4].copy_from_slice(&rsp_u32.to_le_bytes());
+        buf[pos..pos + 4].copy_from_slice(&rsp_u32.to_le_bytes());
         pos += 4;
 
         // Write RomType
@@ -274,7 +274,7 @@ impl LabRomEntry {
             return Err(Error::BufferTooSmall);
         }
         let rsp_u32 = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
-        let response: Response  = rsp_u32.into();
+        let response: Response = rsp_u32.into();
         pos += 4;
         match response {
             Response::RomEntry => (), // Continue
@@ -285,41 +285,37 @@ impl LabRomEntry {
                 Err(Error::InvalidResponse)?
             }
         }
-        
+
         // Parse name (null-terminated string)
-        let name_end = buf[pos..].iter().position(|&b| b == 0)
-            .ok_or_else(|| {
-                warn!("Name string not null-terminated");
-                Error::InvalidData
-            })?;
-        let name = String::from_utf8(buf[pos..pos + name_end].to_vec())
-            .map_err(|_| {
-                warn!("Invalid UTF-8 in name");
-                Error::InvalidData
-            })?;
+        let name_end = buf[pos..].iter().position(|&b| b == 0).ok_or_else(|| {
+            warn!("Name string not null-terminated");
+            Error::InvalidData
+        })?;
+        let name = String::from_utf8(buf[pos..pos + name_end].to_vec()).map_err(|_| {
+            warn!("Invalid UTF-8 in name");
+            Error::InvalidData
+        })?;
         pos += name_end + 1; // Skip null terminator
-        
+
         // Parse part number (null-terminated string)
-        let part_end = buf[pos..].iter().position(|&b| b == 0)
-            .ok_or_else(|| {
-                warn!("Part number string not null-terminated");
-                Error::InvalidData
-            })?;
-        let part_number = String::from_utf8(buf[pos..pos + part_end].to_vec())
-            .map_err(|_| {
-                warn!("Invalid UTF-8 in part number");
-                Error::InvalidData
-            })?;
+        let part_end = buf[pos..].iter().position(|&b| b == 0).ok_or_else(|| {
+            warn!("Part number string not null-terminated");
+            Error::InvalidData
+        })?;
+        let part_number = String::from_utf8(buf[pos..pos + part_end].to_vec()).map_err(|_| {
+            warn!("Invalid UTF-8 in part number");
+            Error::InvalidData
+        })?;
         pos += part_end + 1; // Skip null terminator
-        
+
         // Parse 32-bit checksum (little endian)
         if buf.len() < pos + 4 {
             warn!("Buffer too short for checksum");
             return Err(Error::BufferTooSmall);
         }
-        let checksum = u32::from_le_bytes([buf[pos], buf[pos+1], buf[pos+2], buf[pos+3]]);
+        let checksum = u32::from_le_bytes([buf[pos], buf[pos + 1], buf[pos + 2], buf[pos + 3]]);
         pos += 4;
-        
+
         // Parse 20-byte SHA1
         if buf.len() < pos + 20 {
             warn!("Buffer too short for SHA1 Digest");
@@ -327,7 +323,7 @@ impl LabRomEntry {
         }
         let mut sha1 = [0u8; 20];
         sha1.copy_from_slice(&buf[pos..pos + 20]);
-        
+
         Ok(LabRomEntry {
             name,
             part_number,
@@ -351,7 +347,7 @@ impl LabRomEntry {
             return Err(Error::BufferTooSmall);
         }
         let rsp_u32 = Response::RomEntry as u32;
-        buf[pos..pos+4].copy_from_slice(&rsp_u32.to_le_bytes());
+        buf[pos..pos + 4].copy_from_slice(&rsp_u32.to_le_bytes());
         pos += 4;
 
         // Write name (null-terminated string)
@@ -378,7 +374,7 @@ impl LabRomEntry {
         if size < pos + 4 {
             return Err(Error::BufferTooSmall);
         }
-        buf[pos..pos+4].copy_from_slice(&self.checksum.to_le_bytes());
+        buf[pos..pos + 4].copy_from_slice(&self.checksum.to_le_bytes());
         pos += 4;
 
         // Write 20-byte SHA1

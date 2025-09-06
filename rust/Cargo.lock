@@ -1884,6 +1884,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "onerom-database"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac27606ebf8bf3b000ea1f77ec6b008c54c0a17775574c403944cb50a73f7bb7"
+dependencies = [
+ "csv",
+ "hex-literal",
+ "log",
+ "serde",
+ "sha1",
+]
+
+[[package]]
 name = "onerom-lab"
 version = "0.1.0"
 dependencies = [
@@ -1903,7 +1916,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "log",
- "onerom-database",
+ "onerom-database 0.1.0",
  "onerom-protocol",
  "panic-rtt-target",
  "portable-atomic",
@@ -1917,7 +1930,7 @@ name = "onerom-protocol"
 version = "0.1.0"
 dependencies = [
  "log",
- "onerom-database",
+ "onerom-database 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
