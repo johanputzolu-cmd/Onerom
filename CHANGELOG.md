@@ -2,10 +2,13 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.4.5 - 2025-??-??
+## v0.5.0 - 2025-??-??
+
+This release adds a bunch of hardware revisions, plus a modified flash and firmware format, to ease future device re-programming.
 
 ### New
 
+- New flash/firmware format, with firmware code, followed by ROM metadata, followed by ROM images. 
 - Added One ROM Ice USB H2 (unverified).
 - Added One Rom Ice USB H (verified) kicad files.
 - Added One ROM Fire USB B (unverified)
