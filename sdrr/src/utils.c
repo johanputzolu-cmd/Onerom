@@ -77,8 +77,8 @@ void log_init(void) {
 
     LOG("%s", log_divider);
     LOG("ROM info ...");
-    LOG("# of ROM sets: %d", sdrr_rom_set_count);
-    for (uint8_t ii = 0; ii < sdrr_rom_set_count; ii++) {
+    LOG("# of ROM sets: %d", sdrr_info.metadata_header->rom_set_count);
+    for (uint8_t ii = 0; ii < sdrr_info.metadata_header->rom_set_count; ii++) {
         LOG("Set #%d: %d ROM(s), size: %d bytes", ii, rom_set[ii].rom_count, rom_set[ii].size);
         
         for (uint8_t jj = 0; jj < rom_set[ii].rom_count; jj++) {
