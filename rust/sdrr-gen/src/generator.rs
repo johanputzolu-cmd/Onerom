@@ -121,7 +121,9 @@ fn generate_roms_header_file(filename: &Path, config: &Config, rom_sets: &[RomSe
     // ROM set array
     writeln!(file, "// ROM set array")?;
     writeln!(file, "extern const uint8_t sdrr_rom_set_count;")?;
-    writeln!(file, "extern const sdrr_rom_set_t rom_set[SDRR_NUM_SETS];")?;
+    if !rom_sets.is_empty() {
+        writeln!(file, "extern const sdrr_rom_set_t rom_set[SDRR_NUM_SETS];")?;
+    }
     writeln!(file)?;
 
     writeln!(file, "#endif // SDRR_ROMS_H")?;
@@ -146,9 +148,11 @@ fn generate_roms_implementation_file(
     writeln!(file, "//")?;
     writeln!(file, "// Metadata header")?;
     writeln!(file, "//")?;
-    writeln!(file, "// Forward declaration of rom_set array")?;
-    writeln!(file, "extern const sdrr_rom_set_t rom_set[SDRR_NUM_SETS];")?;
-    writeln!(file)?;
+    if !rom_sets.is_empty() {
+        writeln!(file, "// Forward declaration of rom_set array")?;
+        writeln!(file, "extern const sdrr_rom_set_t rom_set[SDRR_NUM_SETS];")?;
+        writeln!(file)?;
+    }
     writeln!(file, "__attribute__((section(\".metadata.header\")))")?;
     writeln!(
         file,
@@ -158,7 +162,11 @@ fn generate_roms_implementation_file(
     writeln!(file, "    .version = 1,")?;
     writeln!(file, "    .rom_set_count = SDRR_NUM_SETS,")?;
     writeln!(file, "    .pad1 = {{0, 0, 0}},")?;
-    writeln!(file, "    .rom_sets = rom_set,")?;
+    if rom_sets.is_empty() {
+        writeln!(file, "    .rom_sets = (void *)0,")?;
+    } else {
+        writeln!(file, "    .rom_sets = rom_set,")?;
+    }
     writeln!(file, "    .reserved = {{")?;
     for _ in 0..28 {
         writeln!(

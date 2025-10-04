@@ -58,6 +58,13 @@ SECTIONS
     /* Mark the end of metadata */
     _flash_metadata_end = .;
 
+    /* Ensure firmware binary is at least 64KB even if no ROM images, by */
+    /* placing a single 0xFF byte at the 64KB - 1 byte mark */
+    .padding_to_rom_data (ORIGIN(FLASH) + 0x10000 - 1) :
+    {
+        BYTE(0xFF)
+    } >FLASH
+
     /* And then the ROM data itself.  This is also put at a specific offset, */
     /* currently 64KB. */
     INCLUDE "flash_rom_data.ld"
