@@ -61,7 +61,7 @@ MCU ?= f411re
 
 # Hardware revision
 #
-# Hardware revisions are contained in sdrr-hw-config and sub-directories, and
+# Hardware revisions are contained in hw-config and sub-directories, and
 # are defined as .json files.  The value to use here is the filename, without
 # the .json extension.
 #
@@ -72,8 +72,8 @@ MCU ?= f411re
 # 24-f respectively.
 #
 # You can add your own hardware revisions by creating the appropriate file in
-# sdrr-hw-config/user, or, if you plan to submit a pull request for it and your
-# hardware files, sdrr-hw-config/third-party. 
+# hw-config/user, or, if you plan to submit a pull request for it and your
+# hardware files, hw-config/third-party. 
 HW_REV ?= 24-f
 
 # ROM configurations - each ROM can have its own type and CS settings

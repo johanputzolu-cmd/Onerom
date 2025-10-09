@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use crate::sdrr_types::{McuFamily, RomType};
 
 /// Top level directory searched for hardware configuration files.
-pub const HW_CONFIG_DIRS: [&str; 2] = ["sdrr-hw-config", "../sdrr-hw-config"];
+pub const HW_CONFIG_DIRS: [&str; 2] = ["hw-config", "../hw-config"];
 
 /// Subdirectories within the hardware configuration directory also searched
 /// for hardware configuration files.
@@ -158,7 +158,7 @@ where
 }
 
 /// Represents the hardware configuration for a particular SDRR hardware
-/// config - see /sdrr-hw-config/README.md for details.
+/// config - see /hw-config/README.md for details.
 #[derive(Debug, Clone, Deserialize)]
 pub struct HwConfig {
     #[serde(skip)]

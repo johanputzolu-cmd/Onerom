@@ -12,7 +12,7 @@
 #include <json-c/json.h>
 #include <json-config.h>
 
-#define HW_CONFIG_DIR  "sdrr-hw-config"
+#define HW_CONFIG_DIR  "hw-config"
 static const char* base_dirs[] = {HW_CONFIG_DIR "/", "../" HW_CONFIG_DIR "/"};
 static const char* sub_dirs[] = {"third-party/", "user/"};
 
