@@ -1,5 +1,5 @@
 // This test file uses std - it's separate from the no_std library
-include!("../src/validation.rs");
+include!("../build/rom/validation.rs");
 
 #[cfg(test)]
 mod tests {

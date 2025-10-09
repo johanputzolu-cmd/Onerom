@@ -4,6 +4,12 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.1 - 2025-??-??
 
+The firmware generator process underwent a major overhaul in this release:
+- Support ROM types and hardware (PCB) revisions are now parsed at build time, which can be included in Web Assembly code.
+
+Some default firmware configuration has been changed:
+- BOOT_LOGGING is now disabled by default to improve boot times.
+
 ### New
 
 - [Atari 800XL BASIC ROM config](/config/atari800xl.mk) included

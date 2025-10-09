@@ -1,5 +1,8 @@
 {
-  "description": "One ROM RP2350 24-pin rev A",
+  "description": "One ROM Fire 24 (rev A/A2)",
+  "alt": [
+    "p24-a"
+  ],
   "rom": {
     "pins": {
       "quantity": 24

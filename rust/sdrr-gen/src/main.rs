@@ -17,7 +17,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::io::{self, Write};
 
-use sdrr_common::hardware::list_available_configs;
+use onerom_config::hw::BOARDS;
 
 use args::Args;
 use config::Config;
@@ -74,13 +74,13 @@ fn main() -> Result<()> {
 
 fn list_hw_revs() -> Result<()> {
     // List available hardware revisions
-    let hw_revs = list_available_configs()?;
-    if hw_revs.is_empty() {
+    let boards = BOARDS;
+    if boards.is_empty() {
         println!("No hardware revisions found.");
     } else {
         println!("Available hardware revisions:");
-        for (name, description) in hw_revs {
-            println!("  {}: {}", name, description);
+        for board in boards {
+            println!("  {}: {}", board.name(), board.description());
         }
     }
     Ok(())

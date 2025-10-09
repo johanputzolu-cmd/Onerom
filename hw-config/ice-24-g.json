@@ -1,5 +1,8 @@
 {
-  "description": "One ROM STM32F4 24-pin rev H",
+  "description": "One ROM Ice 24 (rev G)",
+  "alt": [
+    "24-g"
+  ],
   "rom": {
     "pins": {
       "quantity": 24
@@ -35,9 +38,6 @@
         "sel": [7, 6, 2, 1, 0],
         "sel_jumper_pull": 0,
         "status": 15
-    },
-    "usb": {
-        "present": true
     }
   }
 }

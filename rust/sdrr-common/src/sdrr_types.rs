@@ -2,9 +2,7 @@
 //
 // MIT License
 
-use std::fmt;
-
-use crate::hardware::Port;
+use onerom_config::mcu::Family as McuFamily;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RomType {
@@ -67,107 +65,6 @@ impl RomType {
             RomType::Rom2332 => "ROM_TYPE_2332",
             RomType::Rom2364 => "ROM_TYPE_2364",
             RomType::Rom23128 => "ROM_TYPE_23128",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum McuFamily {
-    Stm32F4,
-    Rp2350,
-}
-
-impl McuFamily {
-    const MAX_STM_PIN_NUM: u8 = 15;
-    const MAX_STM_DATA_PIN_NUM: u8 = 7;
-    const MAX_RP2350_PIN_NUM: u8 = 29;
-    const MAX_RP2350_ADDR_CS_PIN_NUM: u8 = 15; // First half-word
-    const MAX_RP2350_DATA_PIN_NUM: u8 = 23; // 3rd byte
-
-    pub fn try_from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "f4" => Some(McuFamily::Stm32F4),
-            "rp2350" => Some(McuFamily::Rp2350),
-            _ => None,
-        }
-    }
-
-    pub fn valid_pin_num(&self, pin: u8) -> bool {
-        match self {
-            McuFamily::Stm32F4 => pin <= Self::MAX_STM_PIN_NUM,
-            McuFamily::Rp2350 => pin <= Self::MAX_RP2350_PIN_NUM,
-        }
-    }
-
-    pub fn max_valid_addr_pin(&self) -> u8 {
-        match self {
-            McuFamily::Stm32F4 => Self::MAX_STM_PIN_NUM - 2, // Top two reserved for X1/X2
-            McuFamily::Rp2350 => Self::MAX_RP2350_ADDR_CS_PIN_NUM, // Any
-        }
-    }
-
-    pub fn max_valid_addr_cs_pin(&self) -> u8 {
-        match self {
-            McuFamily::Stm32F4 => Self::MAX_STM_PIN_NUM,
-            McuFamily::Rp2350 => Self::MAX_RP2350_ADDR_CS_PIN_NUM,
-        }
-    }
-
-    pub fn max_valid_data_pin(&self) -> u8 {
-        match self {
-            McuFamily::Stm32F4 => Self::MAX_STM_DATA_PIN_NUM,
-            McuFamily::Rp2350 => Self::MAX_RP2350_DATA_PIN_NUM,
-        }
-    }
-
-    pub fn allowed_data_port(&self) -> Port {
-        match self {
-            McuFamily::Stm32F4 => Port::A,
-            McuFamily::Rp2350 => Port::Zero,
-        }
-    }
-
-    pub fn allowed_addr_port(&self) -> Port {
-        match self {
-            McuFamily::Stm32F4 => Port::C,
-            McuFamily::Rp2350 => Port::Zero,
-        }
-    }
-
-    pub fn allowed_cs_port(&self) -> Port {
-        match self {
-            McuFamily::Stm32F4 => Port::C,
-            McuFamily::Rp2350 => Port::Zero,
-        }
-    }
-
-    pub fn allowed_sel_port(&self) -> Port {
-        match self {
-            McuFamily::Stm32F4 => Port::B,
-            McuFamily::Rp2350 => Port::Zero,
-        }
-    }
-
-    pub fn valid_x1_pins(&self) -> Vec<u8> {
-        match self {
-            McuFamily::Stm32F4 => vec![14],
-            McuFamily::Rp2350 => vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-        }
-    }
-
-    pub fn valid_x2_pins(&self) -> Vec<u8> {
-        match self {
-            McuFamily::Stm32F4 => vec![15],
-            McuFamily::Rp2350 => vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-        }
-    }
-}
-
-impl fmt::Display for McuFamily {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            McuFamily::Stm32F4 => write!(f, "F4"),
-            McuFamily::Rp2350 => write!(f, "RP2350"),
         }
     }
 }
@@ -459,7 +356,7 @@ impl McuVariant {
 
     pub fn supports_usb_dfu(&self) -> bool {
         match self.family() {
-            McuFamily::Stm32F4 => true,
+            McuFamily::Stm32f4 => true,
             McuFamily::Rp2350 => false,
         }
     }
@@ -525,7 +422,7 @@ impl McuVariant {
             | McuVariant::F405RG
             | McuVariant::F401RE
             | McuVariant::F401RB
-            | McuVariant::F401RC => McuFamily::Stm32F4,
+            | McuVariant::F401RC => McuFamily::Stm32f4,
             McuVariant::Rp2350 => McuFamily::Rp2350,
         }
     }
@@ -543,7 +440,7 @@ impl McuVariant {
 
     pub fn define_var_fam(&self) -> &str {
         match self.family() {
-            McuFamily::Stm32F4 => "#define STM32F4        1",
+            McuFamily::Stm32f4 => "#define STM32F4        1",
             McuFamily::Rp2350 => "#define RP235X         1",
         }
     }

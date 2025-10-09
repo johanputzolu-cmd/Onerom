@@ -5,6 +5,7 @@
 use std::env;
 use std::path::Path;
 
+mod hw;
 mod rom;
 
 fn main() {
@@ -18,5 +19,9 @@ fn main() {
         .and_then(|p| p.parent())
         .expect("Failed to get repo root");
 
+    // Build the auto-generated hw module
+    hw::build(repo_root, manifest_path);
+
+    // Build the auto-generated rom module
     rom::build(repo_root, manifest_path);
 }

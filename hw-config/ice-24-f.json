@@ -1,5 +1,9 @@
 {
-  "description": "One ROM STM32F4 24-pin rev F",
+  "description": "One ROM Ice 24 (rev F/F2)",
+  "alt": [
+    "f",
+    "24-f"
+  ],
   "rom": {
     "pins": {
       "quantity": 24

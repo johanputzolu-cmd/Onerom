@@ -10,7 +10,10 @@ use std::io::Write;
 use std::path::Path;
 use strum::IntoEnumIterator;
 
-use sdrr_common::{CsLogic, McuFamily, RomType};
+use onerom_config::mcu::Family as McuFamily;
+use onerom_config::rom::RomType;
+
+use sdrr_common::CsLogic;
 
 use crate::config::Config;
 use crate::file::{OutType, out_filename};
@@ -244,7 +247,7 @@ fn generate_roms_implementation_file(
             .map(cs_logic_to_enum)
             .unwrap_or("CS_NOT_USED");
 
-        writeln!(file, "    .rom_type = {},", rom_config.rom_type.c_enum())?;
+        writeln!(file, "    .rom_type = {},", rom_config.rom_type.c_enum_name())?;
         writeln!(file, "    .cs1_state = {},", cs1_state)?;
         writeln!(file, "    .cs2_state = {},", cs2_state)?;
         writeln!(file, "    .cs3_state = {},", cs3_state)?;
@@ -274,7 +277,7 @@ fn generate_roms_implementation_file(
                     "#define ROM_SET_{}_DATA_SIZE  ROM_IMAGE_SIZE_RP235X",
                     ii
                 )?,
-                McuFamily::Stm32F4 => writeln!(
+                McuFamily::Stm32f4 => writeln!(
                     file,
                     "#define ROM_SET_{}_DATA_SIZE  ROM_IMAGE_SIZE_STM32F4",
                     ii
@@ -368,12 +371,12 @@ fn generate_roms_implementation_file(
     writeln!(file)?;
 
     // Generate ROM set data arrays
-    let hw = &config.hw;
+    let board = &config.board;
     for rom_set in rom_sets {
         // Determine image size based on number of ROMs in the set
         let image_size = if rom_set.roms.len() == 1 {
-            match config.hw.mcu.family {
-                McuFamily::Stm32F4 => 16384,
+            match config.board.mcu_family() {
+                McuFamily::Stm32f4 => 16384,
                 McuFamily::Rp2350 => 65536,
             }
         } else {
@@ -434,7 +437,7 @@ fn generate_roms_implementation_file(
                 write!(file, "    ")?;
             }
 
-            let byte = rom_set.get_byte(address, hw);
+            let byte = rom_set.get_byte(address, board);
             write!(file, "0x{:02x}, ", byte)?;
         }
 
@@ -483,7 +486,7 @@ fn generate_sdrr_config_header(filename: &Path, config: &Config) -> Result<()> {
 
     writeln!(file)?;
     writeln!(file, "// SDRR hardware variant")?;
-    if config.hw.rom.pins.quantity == 24 {
+    if config.board.rom_pins() == 24 {
         writeln!(file, "#define SDRR_24_PIN  1")?;
     } else {
         unreachable!("Only 24-pin SDRR hardware is supported");
@@ -670,20 +673,20 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "extern char _metadata_start;")?;
     writeln!(file)?;
 
-    let hw = &config.hw;
+    let board = &config.board;
 
     // Pin definitions
     writeln!(file, "// Pin definitions")?;
     writeln!(file, "static const sdrr_pins_t sdrr_pins = {{")?;
-    writeln!(file, "    .data_port = {},", hw.port_data())?;
-    writeln!(file, "    .addr_port = {},", hw.port_addr())?;
-    writeln!(file, "    .cs_port = {},", hw.port_cs())?;
-    writeln!(file, "    .sel_port = {},", hw.port_sel())?;
-    writeln!(file, "    .status_port = {},", hw.port_status())?;
-    writeln!(file, "    .rom_pins = {},", hw.rom.pins.quantity)?;
+    writeln!(file, "    .data_port = {},", board.port_data())?;
+    writeln!(file, "    .addr_port = {},", board.port_addr())?;
+    writeln!(file, "    .cs_port = {},", board.port_cs())?;
+    writeln!(file, "    .sel_port = {},", board.port_sel())?;
+    writeln!(file, "    .status_port = {},", board.port_status())?;
+    writeln!(file, "    .rom_pins = {},", board.rom_pins())?;
     writeln!(file, "    .reserved1 = {{0, 0}},")?;
 
-    let data_pins = hw.mcu.pins.data.clone();
+    let data_pins = board.data_pins();
     let data_pins_str = data_pins
         .iter()
         .map(|v| v.to_string())
@@ -691,7 +694,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         .join(", ");
     writeln!(file, "    .data = {{ {} }},", data_pins_str)?;
 
-    let mut addr_pins = hw.mcu.pins.addr.clone();
+    let mut addr_pins:Vec<_> = board.addr_pins().into();
     addr_pins.resize(16, 255);
     let addr_pins_str = addr_pins
         .iter()
@@ -701,31 +704,31 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "    .addr = {{ {} }},", addr_pins_str)?;
 
     writeln!(file, "    .reserved2 = {{0, 0, 0, 0}},")?;
-    writeln!(file, "    .cs1_2364 = {},", hw.pin_cs1(&RomType::Rom2364))?;
-    writeln!(file, "    .cs1_2332 = {},", hw.pin_cs1(&RomType::Rom2332))?;
-    writeln!(file, "    .cs1_2316 = {},", hw.pin_cs1(&RomType::Rom2316))?;
-    writeln!(file, "    .cs2_2332 = {},", hw.pin_cs2(&RomType::Rom2332))?;
-    writeln!(file, "    .cs2_2316 = {},", hw.pin_cs2(&RomType::Rom2316))?;
-    writeln!(file, "    .cs3_2316 = {},", hw.pin_cs3(&RomType::Rom2316))?;
-    writeln!(file, "    .x1 = {},", hw.pin_x1())?;
-    writeln!(file, "    .x2 = {},", hw.pin_x2())?;
-    writeln!(file, "    .ce_23128 = {},", hw.pin_ce(&RomType::Rom23128))?;
-    writeln!(file, "    .oe_23128 = {},", hw.pin_oe(&RomType::Rom23128))?;
-    writeln!(file, "    .x_jumper_pull = {},", hw.x_jumper_pull())?;
+    writeln!(file, "    .cs1_2364 = {},", board.pin_cs1(RomType::Rom2364))?;
+    writeln!(file, "    .cs1_2332 = {},", board.pin_cs1(RomType::Rom2332))?;
+    writeln!(file, "    .cs1_2316 = {},", board.pin_cs1(RomType::Rom2316))?;
+    writeln!(file, "    .cs2_2332 = {},", board.pin_cs2(RomType::Rom2332))?;
+    writeln!(file, "    .cs2_2316 = {},", board.pin_cs2(RomType::Rom2316))?;
+    writeln!(file, "    .cs3_2316 = {},", board.pin_cs3(RomType::Rom2316))?;
+    writeln!(file, "    .x1 = {},", board.pin_x1())?;
+    writeln!(file, "    .x2 = {},", board.pin_x2())?;
+    writeln!(file, "    .ce_23128 = {},", board.pin_ce(RomType::Rom23128))?;
+    writeln!(file, "    .oe_23128 = {},", board.pin_oe(RomType::Rom23128))?;
+    writeln!(file, "    .x_jumper_pull = {},", board.x_jumper_pull())?;
     writeln!(file, "    .reserved3 = {{0, 0, 0, 0, 0}},")?;
     writeln!(
         file,
         "    .sel = {{ {}, {}, {}, {}, {}, {}, {} }},",
-        hw.pin_sel(0),
-        hw.pin_sel(1),
-        hw.pin_sel(2),
-        hw.pin_sel(3),
-        hw.pin_sel(4),
-        hw.pin_sel(5),
-        hw.pin_sel(6),
+        board.pin_sel(0),
+        board.pin_sel(1),
+        board.pin_sel(2),
+        board.pin_sel(3),
+        board.pin_sel(4),
+        board.pin_sel(5),
+        board.pin_sel(6),
     )?;
-    writeln!(file, "    .sel_jumper_pull = {},", hw.sel_jumper_pull())?;
-    writeln!(file, "    .status = {},", hw.pin_status())?;
+    writeln!(file, "    .sel_jumper_pull = {},", board.sel_jumper_pull())?;
+    writeln!(file, "    .status = {},", board.pin_status())?;
     writeln!(file, "    .reserved5 = {{0, 0, 0}},")?;
 
     writeln!(file, "}};")?;
@@ -735,7 +738,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "// Extra info")?;
     writeln!(file, "static const sdrr_extra_info_t sdrr_extra_info = {{")?;
     writeln!(file, "    .rtt = &_SEGGER_RTT,")?;
-    writeln!(file, "    .usb_dfu = {},", if hw.has_usb() { 1 } else { 0 })?;
+    writeln!(file, "    .usb_dfu = {},", if board.has_usb() { 1 } else { 0 })?;
     writeln!(file, "    .reserved1 = {{0}},")?;
     writeln!(file, "    ._post = {{")?;
     for _ in 0..31 {
@@ -748,8 +751,8 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "}};")?;
 
     // Hardware revision string
-    writeln!(file, "// Hardware revision string - {}", hw.description)?;
-    writeln!(file, "static const char sdrr_hw_rev[] = \"{}\";", hw.name)?;
+    writeln!(file, "// Hardware revision string - {}", board.description())?;
+    writeln!(file, "static const char sdrr_hw_rev[] = \"{}\";", board.name())?;
 
     // Main info structure
     writeln!(
@@ -882,7 +885,7 @@ fn generate_linker_script(filename: &Path, config: &Config) -> Result<()> {
                 config.mcu_variant.flash_storage_kb()
             )?;
         }
-        McuFamily::Stm32F4 => {
+        McuFamily::Stm32f4 => {
             writeln!(
                 file,
                 "    FLASH (rx) : ORIGIN = 0x08000000, LENGTH = {}K",
@@ -909,7 +912,7 @@ fn generate_linker_script(filename: &Path, config: &Config) -> Result<()> {
         McuFamily::Rp2350 => {
             writeln!(file, "_Ram_Rom_Image_Start = ORIGIN(RAM) + 0x10000;")?;
         }
-        McuFamily::Stm32F4 => {
+        McuFamily::Stm32f4 => {
             writeln!(
                 file,
                 "_Ram_Rom_Image_Start = ORIGIN(RAM) + _Sdrr_Runtime_Info_Size;"
@@ -939,7 +942,7 @@ fn generate_platform_ld_script(filename: &Path, config: &Config) -> Result<()> {
             writeln!(file, "    . = ALIGN(4);")?;
             writeln!(file, "}} >FLASH")?;
         }
-        McuFamily::Stm32F4 => {
+        McuFamily::Stm32f4 => {
             writeln!(file, "/* STM32F4 specific linker script */")?;
             writeln!(file)?;
             writeln!(file, "/* Intentionally empty */")?;

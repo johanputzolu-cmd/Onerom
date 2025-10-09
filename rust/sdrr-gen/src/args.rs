@@ -12,7 +12,10 @@ use clap::Parser;
 use std::path::PathBuf;
 
 use sdrr_common::args::{parse_hw_rev, parse_mcu_variant, parse_serve_alg};
-use sdrr_common::{CsLogic, HwConfig, McuVariant, RomType, ServeAlg};
+use sdrr_common::{CsLogic, McuVariant, ServeAlg};
+
+use onerom_config::hw::Board;
+use onerom_config::rom::RomType;
 
 use crate::config::{Config, CsConfig, RomConfig, SizeHandling};
 use crate::file::{FileSource, check_output_dir, source_image_file};
@@ -83,7 +86,7 @@ pub struct Args {
 
     /// Hardware revision (use --list-hw-revs for options)
     #[clap(long, alias= "hw-rev", value_parser = parse_hw_rev, required_unless_present = "list_hw_revs")]
-    hw: Option<HwConfig>,
+    hw: Option<Board>,
 
     /// Target frequency in MHz (default: max for the variant)
     #[clap(long)]
@@ -184,10 +187,10 @@ impl Args {
     }
 
     /// Returns the hardware configuration
-    fn hw_config(&self) -> HwConfig {
+    fn hw_config(&self) -> Board {
         self.hw
             .clone()
-            .expect("Internal error - hardware configrureation must be set")
+            .expect("Internal error - hardware configuration must be set")
     }
 
     /// Returns whether the status LED should be supported
@@ -272,7 +275,7 @@ impl Args {
             debug_logging: self.debug_logging(),
             overwrite: self.can_overwrite(),
             hse: self.hse(),
-            hw: self.hw_config(),
+            board: self.hw_config(),
             freq,
             status_led: self.status_led(),
             overclock: self.overclock(),

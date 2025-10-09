@@ -1,5 +1,9 @@
 {
-  "description": "One ROM STM32F4 24-pin rev E",
+  "description": "One ROM Ice 24 (rev D)",
+  "alt": [
+    "d",
+    "24-d"
+  ],
   "rom": {
     "pins": {
       "quantity": 24
@@ -12,7 +16,7 @@
         "addr_port": "C",
         "cs_port": "C",
         "sel_port": "B",
-        "status_port": "B"
+        "status_port": "None"
     },
     "pins": {
         "data": [7, 6, 5, 4, 3, 2, 1, 0],
@@ -30,9 +34,9 @@
         "2316": 9
         },
         "x_jumper_pull": 1,
-        "sel": [0, 1, 2, 7],
+        "sel": [0, 1, 2],
         "sel_jumper_pull": 1,
-        "status": 15
+        "status": 255
     }
   }
 }

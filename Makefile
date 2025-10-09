@@ -16,7 +16,7 @@
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 5
-VERSION_PATCH := 0
+VERSION_PATCH := 1
 BUILD_NUMBER := 1
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 export VERSION_MAJOR VERSION_MINOR VERSION_PATCH BUILD_NUMBER GIT_COMMIT
@@ -163,8 +163,8 @@ SWD ?= 1
 #
 # SWD is required for this option to work.
 
-# BOOT_LOGGING ?= 0
-BOOT_LOGGING ?= 1
+BOOT_LOGGING ?= 0
+# BOOT_LOGGING ?= 1
 
 # Main loop logging configuration
 #

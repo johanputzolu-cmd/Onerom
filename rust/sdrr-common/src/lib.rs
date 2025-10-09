@@ -3,8 +3,6 @@
 // MIT License
 
 pub mod args;
-pub mod hardware;
 mod sdrr_types;
 
-pub use hardware::HwConfig;
-pub use sdrr_types::{CsLogic, McuFamily, McuProcessor, McuVariant, RomType, ServeAlg};
+pub use sdrr_types::{CsLogic, McuProcessor, McuVariant, RomType, ServeAlg};

@@ -2558,16 +2558,17 @@ dependencies = [
 
 [[package]]
 name = "sdrr-common"
-version = "0.4.3"
+version = "0.5.1"
 dependencies = [
  "anyhow",
+ "onerom-config",
  "serde",
  "serde_json",
 ]
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "airfrog-rpc",
  "deku",
@@ -2579,11 +2580,12 @@ dependencies = [
 
 [[package]]
 name = "sdrr-gen"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "bytes",
  "clap",
+ "onerom-config",
  "reqwest",
  "sdrr-common",
  "strum",
@@ -2594,7 +2596,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-info"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "chrono",

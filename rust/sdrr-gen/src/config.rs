@@ -3,9 +3,10 @@
 // MIT License
 
 use crate::preprocessor::{RomImage, RomSet};
-use sdrr_common::HwConfig;
-use sdrr_common::hardware::Port;
-use sdrr_common::{CsLogic, McuVariant, RomType, ServeAlg};
+use onerom_config::hw::Board;
+use onerom_config::mcu::Port;
+use onerom_config::rom::RomType;
+use sdrr_common::{CsLogic, McuVariant, ServeAlg};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -24,7 +25,7 @@ pub struct Config {
     pub debug_logging: bool,
     pub overwrite: bool,
     pub hse: bool,
-    pub hw: HwConfig,
+    pub board: Board,
     pub freq: u32,
     pub status_led: bool,
     pub overclock: bool,
@@ -105,15 +106,14 @@ impl CsConfig {
                     Ok(())
                 }
             }
-            RomType::Rom23128 => {
-                unreachable!("23128 not yet supported");
-            }
+            RomType::Rom23128 => unreachable!("23128 not yet supported"),
+            _ => unreachable!("Unsupported ROM type {}", rom_type.name()),
         } {
             Ok(()) => Ok(()),
             Err(()) => Err(format!(
                 "ROM type {} requires {} CS line(s)",
                 rom_type.name(),
-                rom_type.cs_lines_count()
+                rom_type.control_lines().len(),
             )),
         }
     }
@@ -143,7 +143,7 @@ impl Config {
 
         // Validate status LED settings
         if self.status_led
-            && ((self.hw.port_status() == Port::None) || (self.hw.pin_status() == 255))
+            && ((self.board.port_status() == Port::None) || (self.board.pin_status() == 255))
         {
             return Err(
                 "Status LED enabled but no status LED pin configured for selected hardware"
@@ -152,11 +152,11 @@ impl Config {
         }
 
         // Validate processor against family
-        if self.mcu_variant.family() != self.hw.mcu.family {
+        if self.mcu_variant.family() != self.board.mcu_family() {
             return Err(format!(
                 "STM32 variant {} does not match hardware family {}",
                 self.mcu_variant.makefile_var(),
-                self.hw.mcu.family
+                self.board.mcu_family()
             ));
         }
 
@@ -179,10 +179,10 @@ impl Config {
         }
 
         // Check USB DFU support
-        if self.hw.has_usb() && !self.mcu_variant.supports_usb_dfu() {
+        if self.board.has_usb() && !self.mcu_variant.supports_usb_dfu() {
             return Err(format!(
                 "Selected hardware {} has USB, but variant {:?} does not support USB",
-                self.hw.name, self.mcu_variant,
+                self.board.name(), self.mcu_variant,
             ));
         }
 
@@ -229,7 +229,7 @@ impl Config {
                     // Banking mode validation
 
                     // Check hardware variant supports banked sets
-                    if !self.hw.supports_banked_roms() {
+                    if !self.board.supports_banked_roms() {
                         return Err(
                             "Bank switched sets of ROMs are only supported on hardware revision F onwards".to_string(),
                         );
@@ -306,7 +306,7 @@ impl Config {
                     // Multi-ROM mode validation
 
                     // Check hardware variant supports multi-rom sets
-                    if !self.hw.supports_multi_rom_sets() {
+                    if !self.board.supports_multi_rom_sets() {
                         return Err(
                             "Multi-ROM sets of ROMs are only supported on hardware revision F onwards".to_string(),
                         );

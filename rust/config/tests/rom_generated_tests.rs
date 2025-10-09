@@ -1,6 +1,6 @@
 // config/tests/generated_tests.rs
 
-use onerom_config::{RomType, ControlLineType, ProgrammingPinState};
+use onerom_config::rom::{RomType, ControlLineType, ProgrammingPinState};
 
 #[test]
 fn test_rom_2316_specs() {

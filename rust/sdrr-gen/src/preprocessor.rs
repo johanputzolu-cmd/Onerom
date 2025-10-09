@@ -9,8 +9,10 @@
 
 use crate::config::{RomInSet, SizeHandling};
 use anyhow::{Context, Result};
-use sdrr_common::hardware::HwConfig;
-use sdrr_common::{CsLogic, McuFamily, RomType};
+use onerom_config::hw::Board;
+use onerom_config::mcu::Family as McuFamily;
+use onerom_config::rom::RomType;
+use sdrr_common::CsLogic;
 use std::fs;
 use std::path::Path;
 
@@ -195,15 +197,29 @@ pub struct RomSet {
 }
 
 impl RomSet {
-    pub fn get_byte(&self, address: usize, hw: &HwConfig) -> u8 {
-        let phys_pin_to_data_map = hw.get_phys_pin_to_data_map();
+    fn truncate_phys_pin_to_addr_map(
+        phys_pin_to_addr_map: &mut [Option<usize>],
+        num_addr_lines: usize,
+    ) {
+        // Clear any address lines beyond the number of address lines the ROM supports
+        for item in phys_pin_to_addr_map.iter_mut() {
+            if let Some(addr_bit) = item {
+                if *addr_bit >= num_addr_lines {
+                    *item = None;
+                }
+            }
+        }
+    }
+
+    pub fn get_byte(&self, address: usize, board: &Board) -> u8 {
+        let phys_pin_to_data_map = board.phys_pin_to_data_map();
 
         // Hard-coded assumption that X1/X2 (STM32F4) are pins 14/15 for
         // single ROM sets and banked ROM sets.  However, for RP2350 they may
         // be other pins.
         if (self.roms.len() == 1) || (self.is_banked) {
             let (rom_index, masked_address) = if !self.is_banked {
-                match hw.mcu.family {
+                match board.mcu_family() {
                     McuFamily::Rp2350 => {
                         // Single ROM set: uses entire 64KB space
                         assert!(
@@ -211,7 +227,7 @@ impl RomSet {
                             "Address out of bounds for RP235X single ROM set"
                         );
                     }
-                    McuFamily::Stm32F4 => {
+                    McuFamily::Stm32f4 => {
                         // Single ROM set: uses entire 64KB space
                         assert!(
                             address < 16384,
@@ -223,9 +239,9 @@ impl RomSet {
             } else {
                 // Banked mode: use X1/X2 to select ROM
                 assert!(address < 65536, "Address out of bounds for banked ROM set");
-                let x1_pin = hw.pin_x1();
-                let x2_pin = hw.pin_x2();
-                let bank = if hw.x_jumper_pull() == 1 {
+                let x1_pin = board.pin_x1();
+                let x2_pin = board.pin_x2();
+                let bank = if board.x_jumper_pull() == 1 {
                     ((address >> x1_pin) & 1) | (((address >> x2_pin) & 1) << 1)
                 } else {
                     // Invert the logic if the jumpers pull to GND
@@ -238,12 +254,14 @@ impl RomSet {
             };
 
             let num_addr_lines = self.roms[rom_index].config.rom_type.num_addr_lines();
-            let phys_pin_to_addr_map = hw.get_phys_pin_to_addr_map(num_addr_lines);
+            let phys_pin_to_addr_map = board.phys_pin_to_addr_map_24();
+            let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
+            Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
             return self.roms[rom_index].image.get_byte(
                 masked_address,
                 &phys_pin_to_addr_map,
-                &phys_pin_to_data_map,
+                phys_pin_to_data_map,
             );
         }
 
@@ -255,7 +273,9 @@ impl RomSet {
             // retrieve this for each ROM in the set, as each ROM may be
             // a different type (size).
             let num_addr_lines = rom_in_set.config.rom_type.num_addr_lines();
-            let phys_pin_to_addr_map = hw.get_phys_pin_to_addr_map(num_addr_lines);
+            let phys_pin_to_addr_map = board.phys_pin_to_addr_map_24();
+            let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
+            Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
             // All of CS1/X1/X2 have to have the same active low/high status
             // so we retrieve that from CS1 (as X1/X2 aren't specifically
@@ -263,7 +283,7 @@ impl RomSet {
             let pins_active_high = rom_in_set.config.cs_config.cs1 == CsLogic::ActiveHigh;
 
             // Get the CS pin that controls this ROM's selection
-            let cs_pin = hw.cs_pin_for_rom_in_set(&rom_in_set.config.rom_type, index);
+            let cs_pin = board.cs_pin_for_rom_in_set(rom_in_set.config.rom_type, index);
             assert!(cs_pin <= 15, "Internal error: CS pin is > 15");
 
             fn is_pin_active(active_high: bool, address: usize, pin: u8) -> bool {
@@ -278,9 +298,9 @@ impl RomSet {
 
             if cs_active {
                 // Verify exactly one CS pin is active
-                let cs1_pin = hw.pin_cs1(&rom_in_set.config.rom_type);
-                let x1_pin = hw.pin_x1();
-                let x2_pin = hw.pin_x2();
+                let cs1_pin = board.pin_cs1(rom_in_set.config.rom_type);
+                let x1_pin = board.pin_x1();
+                let x2_pin = board.pin_x2();
 
                 let cs1_is_active = is_pin_active(pins_active_high, address, cs1_pin);
                 let x1_is_active = is_pin_active(pins_active_high, address, x1_pin);
@@ -293,27 +313,27 @@ impl RomSet {
 
                 // Only return the byte for a single CS active, otherwise
                 // it'll get 0xAA
-                if active_count == 1 && self.check_rom_cs_requirements(rom_in_set, address, hw) {
+                if active_count == 1 && self.check_rom_cs_requirements(rom_in_set, address, board) {
                     return rom_in_set.image.get_byte(
                         address,
                         &phys_pin_to_addr_map,
-                        &phys_pin_to_data_map,
+                        phys_pin_to_data_map,
                     );
                 }
             }
         }
 
-        RomImage::transform_byte(0xAA, &phys_pin_to_data_map) // No ROM selected
+        RomImage::transform_byte(0xAA, phys_pin_to_data_map) // No ROM selected
     }
 
     fn check_rom_cs_requirements(
         &self,
         rom_in_set: &RomInSet,
         address: usize,
-        hw: &HwConfig,
+        board: &Board,
     ) -> bool {
         let cs_config = &rom_in_set.config.cs_config;
-        let rom_type = &rom_in_set.config.rom_type;
+        let rom_type = rom_in_set.config.rom_type;
 
         // Check CS2 if specified
         if let Some(cs2_logic) = cs_config.cs2 {
@@ -322,14 +342,14 @@ impl RomSet {
                     // CS2 state doesn't matter
                 }
                 CsLogic::ActiveLow => {
-                    let cs2_pin = hw.pin_cs2(rom_type);
+                    let cs2_pin = board.pin_cs2(rom_type);
                     let cs2_active = (address & (1 << cs2_pin)) == 0;
                     if !cs2_active {
                         return false;
                     }
                 }
                 CsLogic::ActiveHigh => {
-                    let cs2_pin = hw.pin_cs2(rom_type);
+                    let cs2_pin = board.pin_cs2(rom_type);
                     let cs2_active = (address & (1 << cs2_pin)) != 0;
                     if cs2_active {
                         return false;
@@ -345,14 +365,14 @@ impl RomSet {
                     // CS3 state doesn't matter
                 }
                 CsLogic::ActiveLow => {
-                    let cs3_pin = hw.pin_cs3(rom_type);
+                    let cs3_pin = board.pin_cs3(rom_type);
                     let cs3_active = (address & (1 << cs3_pin)) == 0;
                     if !cs3_active {
                         return false;
                     }
                 }
                 CsLogic::ActiveHigh => {
-                    let cs3_pin = hw.pin_cs3(rom_type);
+                    let cs3_pin = board.pin_cs3(rom_type);
                     let cs3_active = (address & (1 << cs3_pin)) != 0;
                     if cs3_active {
                         return false;
@@ -365,16 +385,16 @@ impl RomSet {
     }
 
     #[allow(dead_code)]
-    fn mask_cs_selection_bits(&self, address: usize, rom_type: &RomType, hw: HwConfig) -> usize {
+    fn mask_cs_selection_bits(&self, address: usize, rom_type: RomType, board: &Board) -> usize {
         let mut masked_address = address;
 
         // Remove the CS selection bits - only mask bits that exist on this hardware
-        masked_address &= !(1 << hw.pin_cs1(rom_type));
+        masked_address &= !(1 << board.pin_cs1(rom_type));
 
         // Only mask X1/X2 on hardware that has them (revision F)
-        if hw.supports_multi_rom_sets() {
-            let x1 = hw.pin_x1();
-            let x2 = hw.pin_x2();
+        if board.supports_multi_rom_sets() {
+            let x1 = board.pin_x1();
+            let x2 = board.pin_x2();
             assert!(x1 < 15 && x2 < 15, "X1/X2 pins must be less than 15");
             masked_address &= !(1 << x1);
             masked_address &= !(1 << x2);
@@ -383,17 +403,20 @@ impl RomSet {
         // Remove CS2/CS3 bits based on ROM type
         match rom_type {
             RomType::Rom2332 => {
-                masked_address &= !(1 << hw.pin_cs2(rom_type));
+                masked_address &= !(1 << board.pin_cs2(rom_type));
             }
             RomType::Rom2316 => {
-                masked_address &= !(1 << hw.pin_cs2(rom_type));
-                masked_address &= !(1 << hw.pin_cs3(rom_type));
+                masked_address &= !(1 << board.pin_cs2(rom_type));
+                masked_address &= !(1 << board.pin_cs3(rom_type));
             }
             RomType::Rom2364 => {
                 // 2364 only uses CS1, no additional bits to remove
             }
             RomType::Rom23128 => {
                 // No additional bits to remove
+            }
+            _ => {
+                panic!("Internal error: unsupported ROM type {} in mask_cs_selection_bits", rom_type.name());
             }
         }
 
