@@ -193,7 +193,7 @@ impl PllConfig {
 
     pub fn generate_pll_defines(&self, target_freq_mhz: u32, overclock: bool) -> Option<String> {
         match self.proc {
-            Processor::Rp2350 => self.generate_rp2350_pll_defines(target_freq_mhz, overclock),
+            Processor::RP2350 => self.generate_rp2350_pll_defines(target_freq_mhz, overclock),
             _ => self.generate_stm32_pll_defines(target_freq_mhz, overclock), // Rename existing function
         }
     }
@@ -204,7 +204,7 @@ impl PllConfig {
         overclock: bool,
     ) -> Option<(u8, u16, u8, u8)> {
         match self.proc {
-            Processor::Rp2350 => self.calculate_rp2350_pll_12mhz(target_freq_mhz, overclock),
+            Processor::RP2350 => self.calculate_rp2350_pll_12mhz(target_freq_mhz, overclock),
             _ => self.calculate_stm32_pll_hsi(target_freq_mhz, overclock),
         }
     }

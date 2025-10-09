@@ -6,7 +6,7 @@ All notables changes between versions are documented in this file.
 
 The firmware generator process underwent a major overhaul in this release:
 - Support ROM types and hardware (PCB) revisions are now parsed at build time, which can be included in Web Assembly code.
-- `sdrr_common` has been retired and mostly replaced with `onerom_config`
+- `sdrr-common` has been retired and mostly replaced with `onerom-config`
 
 Some default firmware configuration has been changed:
 - BOOT_LOGGING is now disabled by default to improve boot times.

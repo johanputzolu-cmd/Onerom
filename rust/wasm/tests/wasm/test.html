@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>SDRR Firmware Parser Test</title>
+    <title>One ROM Firmware Parser Test</title>
     <style>
         body { font-family: monospace; margin: 20px; }
         .controls { margin-bottom: 20px; }
@@ -19,7 +19,12 @@
     </style>
 </head>
 <body>
-    <h1>SDRR Firmware Parser</h1>
+    <h1>One ROM Firmware Parser</h1>
+
+    <div class="mcu-list">
+        <strong>Supported MCUs:</strong>
+        <ul id="mcuList"></ul>
+    </div>
     
     <div class="controls">
         <div>
@@ -33,9 +38,18 @@
     <div id="output">Select a firmware file and click Parse Firmware</div>
 
     <script type="module">
-        import init, { parse_firmware } from '../../pkg/onerom_wasm.js';
+        import init, { parse_firmware, supported_mcus } from '../../pkg/onerom_wasm.js';
         
         await init();
+
+        // Display supported MCUs
+        const mcuList = document.getElementById('mcuList');
+        const mcus = supported_mcus();
+        mcus.forEach(mcu => {
+            const li = document.createElement('li');
+            li.textContent = mcu;
+            mcuList.appendChild(li);
+        });
 
         const fileInput = document.getElementById('fileInput');
         const parseBtn = document.getElementById('parseBtn');

@@ -13,7 +13,7 @@ categories = ["embedded", "hardware-support"]
 build = "build/main.rs"
 
 [dependencies]
-# No runtime dependencies - everything is const generated code
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
 serde = { version = "1.0", features = ["derive"] }

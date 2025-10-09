@@ -2042,6 +2042,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "log",
+ "onerom-config",
  "sdrr-fw-parser",
  "serde-wasm-bindgen",
  "wasm-bindgen",

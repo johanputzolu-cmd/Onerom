@@ -2,9 +2,10 @@
 //
 // MIT License
 
-use sdrr_fw_parser::{Parser, readers::MemoryReader};
-/// Web Assembly bindings for One ROM supporting tooling.
 use wasm_bindgen::prelude::*;
+
+use onerom_config::mcu::MCU_VARIANTS;
+use sdrr_fw_parser::{Parser, readers::MemoryReader};
 
 #[wasm_bindgen(start)]
 pub fn init() {
@@ -27,4 +28,9 @@ pub async fn parse_firmware(data: Vec<u8>) -> Result<JsValue, JsValue> {
 
     // Serialize to JSON
     serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+#[wasm_bindgen]
+pub fn supported_mcus() -> Result<JsValue, JsValue> {
+    serde_wasm_bindgen::to_value(&MCU_VARIANTS).map_err(|e| JsValue::from_str(&e.to_string()))
 }
