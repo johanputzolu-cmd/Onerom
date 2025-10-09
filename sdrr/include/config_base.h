@@ -265,7 +265,16 @@ typedef struct {
 typedef enum {
     ROM_TYPE_2316,
     ROM_TYPE_2332,
-    ROM_TYPE_2364
+    ROM_TYPE_2364,
+    ROM_TYPE_23128,
+    ROM_TYPE_23256,
+    ROM_TYPE_23512,
+    ROM_TYPE_2716,
+    ROM_TYPE_2732,
+    ROM_TYPE_2764,
+    ROM_TYPE_27128,
+    ROM_TYPE_27256,
+    ROM_TYPE_27512,
 } sdrr_rom_type_t;
 
 // CS state enumeration

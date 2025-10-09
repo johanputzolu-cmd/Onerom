@@ -131,6 +131,22 @@ pub enum Variant {
     RP2350, // RP2350A, 60-pin, 2MB flash
 }
 
+impl core::fmt::Display for Variant {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Variant::F446RC => write!(f, "F446RC"),
+            Variant::F446RE => write!(f, "F446RE"),
+            Variant::F411RC => write!(f, "F411RC"),
+            Variant::F411RE => write!(f, "F411RE"),
+            Variant::F405RG => write!(f, "F405RG"),
+            Variant::F401RE => write!(f, "F401RE"),
+            Variant::F401RB => write!(f, "F401RB"),
+            Variant::F401RC => write!(f, "F401RC"),
+            Variant::RP2350 => write!(f, "RP2350"),
+        }
+    }
+}
+
 impl Variant {
     pub fn try_from_str(s: &str) -> Option<Self> {
         if s.eq_ignore_ascii_case("f446rc") {

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use onerom_config::hw::Board;
 use onerom_config::mcu::{Port, Variant as McuVariant};
-use onerom_config::rom::RomType;
+use onerom_config::rom::{ControlLineType, RomType};
 
 use crate::fw::{CsLogic, PllConfig, ServeAlg};
 use crate::preprocessor::{RomImage, RomSet};
@@ -66,65 +66,91 @@ pub struct RomInSet {
 
 #[derive(Debug, Clone)]
 pub struct CsConfig {
-    pub cs1: CsLogic,
+    // May be /CE instead of CS1
+    pub cs1: Option<CsLogic>,
+
+    // May be /OE instead of CS2
     pub cs2: Option<CsLogic>,
+
     pub cs3: Option<CsLogic>,
 }
 
 impl CsConfig {
-    pub fn new(cs1: CsLogic, cs2: Option<CsLogic>, cs3: Option<CsLogic>) -> Self {
+    pub fn new(cs1: Option<CsLogic>, cs2: Option<CsLogic>, cs3: Option<CsLogic>) -> Self {
         Self { cs1, cs2, cs3 }
     }
 
-    pub fn validate(&self, rom_type: &RomType) -> Result<(), String> {
-        // Check CS1 isn't ignore
-        if self.cs1 == CsLogic::Ignore {
-            return Err(
-                "CS1 cannot be set to 'ignore' - it must be active high or low".to_string(),
-            );
+    pub fn validate(&mut self, rom_type: &RomType) -> Result<(), String> {
+        // Check the required control lines are configured
+        for line in rom_type.control_lines() {
+            if line.line_type == ControlLineType::Configurable {
+                let (name, config) = match line.name {
+                    "cs1" => ("cs1", &self.cs1),
+                    "cs2" => ("cs2", &self.cs2),
+                    "cs3" => ("cs3", &self.cs3),
+                    _ => unreachable!("Unrecognised control line name {}", line.name),
+                };
+                if config.is_none() {
+                    return Err(format!(
+                        "ROM type {} requires control line {} to be configured",
+                        rom_type.name(),
+                        name
+                    ));
+                }
+            }
         }
 
-        match match rom_type {
-            RomType::Rom2364 => {
-                // 2364 requires only CS1 (1 CS line)
-                if self.cs2.is_some() || self.cs3.is_some() {
-                    Err(())
-                } else {
-                    Ok(())
+        // If CE/OE used instead of CS1, set cs1 and cs2
+        for line in rom_type.control_lines() {
+            match line.name {
+                "ce" => {
+                    if self.cs1.is_some() {
+                        return Err(format!(
+                            "ROM types ({}) cannot have both CS1 and CE",
+                            rom_type.name()
+                        ));
+                    } else {
+                        // Set CS1 to /CE value
+                        match line.line_type {
+                            ControlLineType::Configurable => {
+                                unreachable!("CE should never be configurable {}", rom_type.name());
+                            },
+                            ControlLineType::FixedActiveLow => {
+                                self.cs1 = Some(CsLogic::ActiveLow);
+                            }
+                        }
+                    }
                 }
-            }
-            RomType::Rom2332 => {
-                // 2332 requires CS1 and CS2 (2 CS lines)
-                if self.cs3.is_some() {
-                    return Err(format!("ROM type {} does not support CS3", rom_type.name()));
+                "oe" => {
+                    if self.cs2.is_some() {
+                        return Err(format!(
+                            "ROM types ({}) cannot have both CS2 and OE",
+                            rom_type.name()
+                        ));
+                    } else {
+                        // Set CS2 to /OE value
+                        match line.line_type {
+                            ControlLineType::Configurable => {
+                                unreachable!("CE should never be configurable {}", rom_type.name());
+                            },
+                            ControlLineType::FixedActiveLow => {
+                                self.cs1 = Some(CsLogic::ActiveLow);
+                            }
+                        }
+                    }
                 }
-                if self.cs2.is_none() { Err(()) } else { Ok(()) }
+                _ => {}
             }
-            RomType::Rom2316 => {
-                // 2316 requires CS1, CS2, and CS3 (3 CS lines)
-                if self.cs2.is_none() || self.cs3.is_none() {
-                    Err(())
-                } else {
-                    Ok(())
-                }
-            }
-            RomType::Rom23128 => unreachable!("23128 not yet supported"),
-            _ => unreachable!("Unsupported ROM type {}", rom_type.name()),
-        } {
-            Ok(()) => Ok(()),
-            Err(()) => Err(format!(
-                "ROM type {} requires {} CS line(s)",
-                rom_type.name(),
-                rom_type.control_lines().len(),
-            )),
         }
+
+        Ok(())
     }
 }
 
 impl Config {
     pub fn validate(&mut self) -> Result<(), String> {
         // Validate each ROM configuration
-        for rom in &self.roms {
+        for rom in &mut self.roms {
             rom.cs_config
                 .validate(&rom.rom_type)
                 .inspect_err(|_| println!("Failed to process ROM {}", rom.file.display()))?;
@@ -148,7 +174,7 @@ impl Config {
             && ((self.board.port_status() == Port::None) || (self.board.pin_status() == 255))
         {
             return Err(
-                "Status LED enabled but no status LED pin configured for selected hardware"
+                "Status LED enabled but no status LED pin configured for selected hardware revision."
                     .to_string(),
             );
         }
@@ -156,7 +182,7 @@ impl Config {
         // Validate processor against family
         if self.mcu_variant.family() != self.board.mcu_family() {
             return Err(format!(
-                "STM32 variant {} does not match hardware family {}",
+                "MCU variant {} does not match hardware revision MCU family {}.\nSpecify a different hardware revision or MCU variant.",
                 self.mcu_variant.makefile_var(),
                 self.board.mcu_family()
             ));
@@ -167,7 +193,7 @@ impl Config {
         let pll = PllConfig::new(self.mcu_variant.processor());
         if !pll.is_frequency_valid(self.freq, self.overclock) {
             return Err(format!(
-                "Frequency {}MHz is not valid for variant {}. Valid range: 16-{}MHz",
+                "Frequency {}MHz is not valid for variant {}. Valid range: 16-{}MHz.",
                 self.freq,
                 self.mcu_variant.makefile_var(),
                 self.mcu_variant.processor().max_sysclk_mhz()
@@ -177,10 +203,21 @@ impl Config {
         // Check USB DFU support
         if self.board.has_usb() && !self.mcu_variant.supports_usb_dfu() {
             return Err(format!(
-                "Selected hardware {} has USB, but variant {:?} does not support USB",
+                "Selected hardware {} has USB, but chosen MCU variant {:?} does not support USB.",
                 self.board.name(),
                 self.mcu_variant,
             ));
+        }
+
+        // Check all ROMs are compatible with the selected board
+        for rom in &self.roms {
+            if self.board.rom_pins() != rom.rom_type.rom_pins() {
+                return Err(format!(
+                    "ROM type {} is not supported on selected hardware revision {}",
+                    rom.rom_type.name(),
+                    self.board.name()
+                ));
+            }
         }
 
         // Validate ROM sets (basic validation that doesn't need ROM images)

@@ -10,6 +10,7 @@ const DATA_LINE_COUNT: usize = 8;
 const MIN_PIN_NUMBER: u8 = 1;
 const VALID_PIN_COUNTS: &[u8] = &[24, 28];
 const VALID_READ_STATES: &[&str] = &["vcc", "high", "low", "chip_select"];
+const VALID_CONTROL_LINES: &[&str] = &["cs1", "cs2", "cs3", "ce", "oe"];
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -93,6 +94,14 @@ pub enum ValidationError {
         rom_type: String,
         count: usize,
     },
+    IncompatibleControlLines {
+        rom_type: String,
+        combination: String,
+    },
+    UnknownControlLine {
+        rom_type: String,
+        line_name: String,
+    }
 }
 
 impl fmt::Display for ValidationError {
@@ -157,6 +166,21 @@ impl fmt::Display for ValidationError {
                     f,
                     "ROM type '{}': {} address lines exceeds maximum of {}",
                     rom_type, count, MAX_ADDRESS_LINES
+                )
+            }
+            ValidationError::IncompatibleControlLines { rom_type, combination } => {
+                write!(
+                    f,
+                    "ROM type '{}': incompatible chip select line combination: {}.\nCS1/2/3 cannot be used with CE/OE.",
+                    rom_type, combination
+                )
+            }
+            ValidationError::UnknownControlLine { rom_type, line_name } => {
+                let valid_lines = VALID_CONTROL_LINES.join(", ");
+                write!(
+                    f,
+                    "ROM type '{}': unrecognised control line name '{}'.\nValid names are: {valid_lines}",
+                    rom_type, line_name
                 )
             }
         }
@@ -244,6 +268,29 @@ impl RomType {
                 self.validate_read_state(type_name, "pgm", &pgm.read_state)?;
                 self.check_duplicate_pin(type_name, pgm.pin, &mut used_pins)?;
             }
+        }
+
+        // Check for unrecognised chip select line names.
+        for line_name in self.control.keys() {
+            if !VALID_CONTROL_LINES.contains(&line_name.as_str()) {
+                return Err(ValidationError::UnknownControlLine {
+                    rom_type: type_name.to_string(),
+                    line_name: line_name.to_string(),
+                });
+            }
+        }
+
+        // Check for incompatible chip select line combinations.
+        let cs_lines: Vec<&str> = self
+            .control
+            .keys()
+            .map(|s| s.as_str())
+            .collect();
+        if (cs_lines.contains(&"cs1") || cs_lines.contains(&"cs2") || cs_lines.contains(&"cs3")) && (cs_lines.contains(&"ce") || cs_lines.contains(&"oe")) {
+            return Err(ValidationError::IncompatibleControlLines {
+                rom_type: type_name.to_string(),
+                combination: format!("{:?}", cs_lines),
+            });
         }
 
         Ok(())

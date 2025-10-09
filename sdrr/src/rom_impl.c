@@ -1,4 +1,6 @@
-// One ROM 2316/2332/2364 ROM implementation.
+// One ROM's byte serving implementation.
+//
+// Handles 24 and 28 pin ROMs
 
 // Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
 //
@@ -134,6 +136,31 @@ static inline void __attribute__((always_inline)) setup_cs_masks(
                         ROM_IMPL_DEBUG("CS2 active low");
                     } else {
                         ROM_IMPL_DEBUG("CS2 active high");
+                        cs_invert_mask |= (1 << pin_cs2);
+                    }
+                }
+                break;
+
+            case ROM_TYPE_23128:
+            case ROM_TYPE_27128:
+                // This should work for 23128 with CS3 always active, and also
+                // a 27128 (which only has /CE and /OE).  This should serve a
+                // ROMs for the C64C and 1541-II.
+                {
+                    ROM_IMPL_DEBUG("ROM type: 23128/27128");
+                    uint8_t pin_cs1 = info->pins->ce_23128;
+                    uint8_t pin_cs2 = info->pins->oe_23128;
+                    cs_check_mask = (1 << pin_cs1) | (1 << pin_cs2);
+                    if (rom->cs1_state == CS_ACTIVE_LOW) {
+                        ROM_IMPL_DEBUG("CE active low");
+                    } else {
+                        ROM_IMPL_DEBUG("CE active high");
+                        cs_invert_mask |= (1 << pin_cs1);
+                    }
+                    if (rom->cs2_state == CS_ACTIVE_LOW) {
+                        ROM_IMPL_DEBUG("OE active low");
+                    } else {
+                        ROM_IMPL_DEBUG("OE active high");
                         cs_invert_mask |= (1 << pin_cs2);
                     }
                 }
@@ -553,6 +580,33 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
             break;
         case ROM_TYPE_2316:
             DEBUG("%s 2316", rom_type);
+            break;
+        case ROM_TYPE_23128:
+            DEBUG("%s 23128", rom_type);
+            break;
+        case ROM_TYPE_23256:
+            DEBUG("%s 23256", rom_type);
+            break;
+        case ROM_TYPE_23512:
+            DEBUG("%s 23512", rom_type);
+            break;
+        case ROM_TYPE_2716:
+            DEBUG("%s 2716", rom_type);
+            break;
+        case ROM_TYPE_2732:
+            DEBUG("%s 2732", rom_type);
+            break;
+        case ROM_TYPE_2764:
+            DEBUG("%s 2764", rom_type);
+            break;
+        case ROM_TYPE_27128:
+            DEBUG("%s 27128", rom_type);
+            break;
+        case ROM_TYPE_27256:
+            DEBUG("%s 27256", rom_type);
+            break;
+        case ROM_TYPE_27512:
+            DEBUG("%s 27512", rom_type);
             break;
         default:
             DEBUG("%s %d %s", rom_type, set->roms[0]->rom_type, unknown);

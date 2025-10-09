@@ -11,8 +11,8 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-use onerom_config::hw::Board;
-use onerom_config::mcu::Variant as McuVariant;
+use onerom_config::hw::{Board, BOARDS};
+use onerom_config::mcu::{Variant as McuVariant, MCU_VARIANTS};
 use onerom_config::rom::RomType;
 
 use crate::config::{Config, CsConfig, RomConfig, SizeHandling};
@@ -285,6 +285,16 @@ impl Args {
         })
     }
 
+
+    fn parse_cs_param(parts: &[&str], name: &str) -> Result<Option<CsLogic>, String> {
+        if parts.len() != 2 {
+            return Err(format!("Invalid '{}' parameter format - must include {} value", name, name));
+        }
+        CsLogic::try_from_str(parts[1])
+            .map(Some)
+            .ok_or_else(|| format!("Invalid {} value: {} (use 0, 1, or ignore)", name, parts[1]))
+    }
+
     fn parse_rom_arg(&self, rom_num: usize, s: &str) -> Result<RomConfig, String> {
         let mut original_file_source = None;
         let mut extract = None;
@@ -364,43 +374,22 @@ impl Args {
                         .ok_or_else(|| format!("Invalid ROM type: {}", parts[1]))?
                 }
                 "cs1" => {
-                    if parts.len() != 2 {
-                        return Err(
-                            "Invalid 'cs1' parameter format - must include cs1 value".to_string()
-                        );
-                    }
                     if cs1.is_some() {
                         return Err("cs1 specified multiple times".to_string());
                     }
-                    cs1 = CsLogic::try_from_str(parts[1]).map(Some).ok_or_else(|| {
-                        format!("Invalid cs1 value: {} (use 0, 1, or ignore)", parts[1])
-                    })?
+                    cs1 = Self::parse_cs_param(&parts, "cs1")?;
                 }
                 "cs2" => {
-                    if parts.len() != 2 {
-                        return Err(
-                            "Invalid 'cs2' parameter format - must include cs2 value".to_string()
-                        );
-                    }
                     if cs2.is_some() {
                         return Err("cs2 specified multiple times".to_string());
                     }
-                    cs2 = CsLogic::try_from_str(parts[1]).map(Some).ok_or_else(|| {
-                        format!("Invalid cs2 value: {} (use 0, 1, or ignore)", parts[1])
-                    })?
+                    cs2 = Self::parse_cs_param(&parts, "cs2")?;
                 }
                 "cs3" => {
-                    if parts.len() != 2 {
-                        return Err(
-                            "Invalid 'cs3' parameter format - must include cs3 value".to_string()
-                        );
-                    }
                     if cs3.is_some() {
                         return Err("cs3 specified multiple times".to_string());
                     }
-                    cs3 = CsLogic::try_from_str(parts[1]).map(Some).ok_or_else(|| {
-                        format!("Invalid cs3 value: {} (use 0, 1, or ignore)", parts[1])
-                    })?
+                    cs3 = Self::parse_cs_param(&parts, "cs3")?;
                 }
                 "dup" => {
                     if parts.len() != 1 {
@@ -446,8 +435,7 @@ impl Args {
 
         let file = source_image_file(rom_num, &source, &self.output_dir)?;
 
-        let rom_type = rom_type.ok_or("Missing 'type' parameter")?;
-        let cs1 = cs1.ok_or("Missing 'cs1' parameter")?;
+        let rom_type = rom_type.ok_or("Missing ROM 'type' parameter")?;
 
         Ok(RomConfig {
             file,
@@ -465,16 +453,27 @@ impl Args {
 
 pub fn parse_hw_rev(hw_rev: &str) -> Result<Board, String> {
     Board::try_from_str(hw_rev).ok_or_else(|| {
+        let valid_hw_revs = BOARDS
+            .iter()
+            .map(|b| b.name())
+            .collect::<Vec<&str>>()
+            .join(", ");
         format!(
-            "Invalid hardware revision: {}. Use --list-hw-revs for options",
-            hw_rev
+            "Invalid hardware revision: {hw_rev}.\n\nValid values are: {valid_hw_revs}"
         )
     })
 }
 
 pub fn parse_mcu_variant(s: &str) -> Result<McuVariant, String> {
     McuVariant::try_from_str(s)
-        .ok_or_else(|| format!("Invalid MCU variant: {}. Valid values are: f446rc, f446re, f411rc, f411re, f405rg, f401re, f401rb, f401rc for STM32, and rp2350 for Raspberry Pi", s))
+        .ok_or_else(|| {
+            let valid_mcus = MCU_VARIANTS
+                .iter()
+                .map(|m| m.to_string().to_ascii_lowercase())
+                .collect::<Vec<String>>()
+                .join(", ");
+            format!("Invalid MCU variant: {s}.\n\nValid values are: {valid_mcus}")
+        })
 }
 
 pub fn parse_serve_alg(s: &str) -> Result<ServeAlg, String> {

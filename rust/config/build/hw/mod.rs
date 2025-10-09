@@ -20,8 +20,7 @@ struct HwConfigData {
     alt: Vec<String>,
     variant_name: String,
     config: HwConfigJson,
-    phys_pin_to_addr_map_24: [Option<usize>; 16],
-    phys_pin_to_addr_map_28: [Option<usize>; 16],
+    phys_pin_to_addr_map: [Option<usize>; 16],
     phys_pin_to_data_map: [usize; 8],
 }
 
@@ -121,7 +120,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                 let normalized = normalize_name(filename);
                 if normalized != filename {
                     panic!(
-                        "Invalid hardware revision name '{}', must be lower-case with dashes",
+                        "Invalid hardware revision config filename '{}.json', must be lower-case with dashes",
                         filename
                     );
                 }
@@ -133,7 +132,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                     .map_or(false, |c| c.is_ascii_alphabetic())
                 {
                     panic!(
-                        "Invalid hardware revision name '{}', must start with a letter",
+                        "Invalid hardware revision config filename '{}.json', must start with a letter",
                         filename
                     );
                 }
@@ -191,14 +190,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                 let shift_left_8 = if over_15 { true } else { false };
 
                 // Compute pin maps
-                let num_phys_addr_pins_24 = if config.rom.pins.quantity == 24 {
-                    config.mcu.family.max_valid_addr_pin() + 1
-                } else {
-                    14
-                } as usize;
-                let num_phys_addr_pins_28 = 16;
-
-                let mut phys_pin_to_addr_map_24 = [None; 16];
+                let mut phys_pin_to_addr_map = [None; 16];
                 for (addr_line, &phys_pin) in config.mcu.pins.addr.iter().enumerate() {
                     let mut phys_pin = phys_pin as usize;
                     if shift_left_8 {
@@ -206,16 +198,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                         phys_pin -= 8;
                     }
                     assert!(phys_pin < 16);
-                    if phys_pin < num_phys_addr_pins_24 && addr_line < 13 {
-                        phys_pin_to_addr_map_24[phys_pin as usize] = Some(addr_line);
-                    }
-                }
-
-                let mut phys_pin_to_addr_map_28 = [None; 16];
-                for (addr_line, &phys_pin) in config.mcu.pins.addr.iter().enumerate() {
-                    if phys_pin < num_phys_addr_pins_28 && addr_line < 14 {
-                        phys_pin_to_addr_map_28[phys_pin as usize] = Some(addr_line);
-                    }
+                    phys_pin_to_addr_map[phys_pin] = Some(addr_line);
                 }
 
                 let mut phys_pin_to_data_map = [0; 8];
@@ -223,8 +206,8 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                     if phys_pin <= config.mcu.family.max_valid_data_pin() {
                         phys_pin_to_data_map[phys_pin as usize % 8] = data_line;
                     } else {
-                        panic!("Missing data pin {} in config {}", phys_pin, normalized);
-                    }
+                        panic!("Invalid data pin {} in config {}", phys_pin, normalized);
+                    }   
                 }
 
                 configs.push(HwConfigData {
@@ -232,8 +215,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                     alt: config.alt.clone(),
                     variant_name: name_to_variant(&normalized),
                     config,
-                    phys_pin_to_addr_map_24,
-                    phys_pin_to_addr_map_28,
+                    phys_pin_to_addr_map,
                     phys_pin_to_data_map,
                 });
             }
@@ -835,40 +817,18 @@ fn generate_jumper_methods(configs: &[HwConfigData]) -> String {
 fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
     let mut code = String::new();
 
-    code.push_str("    /// Get physical pin to address line mapping for 24-pin ROMs\n");
+    code.push_str("    /// Get physical pin to address line mapping\n");
     code.push_str("    ///\n");
     code.push_str("    /// Returns array indexed by physical pin number, with value being the\n");
     code.push_str("    /// address line number (Some) or None if pin is not an address line.\n");
-    code.push_str(
-        "    pub const fn phys_pin_to_addr_map_24(&self) -> &'static [Option<usize>; 16] {\n",
-    );
+    code.push_str("    pub const fn phys_pin_to_addr_map(&self) -> &'static [Option<usize>; 16] {\n");
     code.push_str("        match self {\n");
 
     for config in configs {
-        let map_str = format_option_array(&config.phys_pin_to_addr_map_24);
         code.push_str(&format!(
             "            Board::{} => &[{}],\n",
-            config.variant_name, map_str
-        ));
-    }
-
-    code.push_str("        }\n");
-    code.push_str("    }\n\n");
-
-    code.push_str("    /// Get physical pin to address line mapping for 28-pin ROMs\n");
-    code.push_str("    ///\n");
-    code.push_str("    /// Returns array indexed by physical pin number, with value being the\n");
-    code.push_str("    /// address line number (Some) or None if pin is not an address line.\n");
-    code.push_str(
-        "    pub const fn phys_pin_to_addr_map_28(&self) -> &'static [Option<usize>; 16] {\n",
-    );
-    code.push_str("        match self {\n");
-
-    for config in configs {
-        let map_str = format_option_array(&config.phys_pin_to_addr_map_28);
-        code.push_str(&format!(
-            "            Board::{} => &[{}],\n",
-            config.variant_name, map_str
+            config.variant_name,
+            format_option_array(&config.phys_pin_to_addr_map)
         ));
     }
 
@@ -883,15 +843,14 @@ fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
     code.push_str("        match self {\n");
 
     for config in configs {
-        let map_str = config
-            .phys_pin_to_data_map
-            .iter()
-            .map(|v| v.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
         code.push_str(&format!(
             "            Board::{} => &[{}],\n",
-            config.variant_name, map_str
+            config.variant_name,
+            config.phys_pin_to_data_map
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
 

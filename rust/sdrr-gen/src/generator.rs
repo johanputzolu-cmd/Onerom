@@ -234,7 +234,11 @@ fn generate_roms_implementation_file(
         writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
         writeln!(file, "static const sdrr_rom_info_t rom_{}_info = {{", ii)?;
 
-        let cs1_state = cs_logic_to_enum(rom_config.cs_config.cs1);
+        let cs1_state = rom_config
+            .cs_config
+            .cs1
+            .map(cs_logic_to_enum)
+            .expect("CS1 must be specified for all ROMs, although can be CE/OE");
         let cs2_state = rom_config
             .cs_config
             .cs2
@@ -364,7 +368,9 @@ fn generate_roms_implementation_file(
             }
 
             // Use the CS1 state from any ROM image, as they must be the same
-            cs_logic_to_enum(rom_set.roms[0].config.cs_config.cs1)
+            cs_logic_to_enum(rom_set.roms[0].config.cs_config.cs1.expect(
+                "CS1 must be specified for all ROMs, although can be CE/OE",
+            ))
         };
         writeln!(file, "        .multi_rom_cs1_state = {},", set_cs_state)?;
         writeln!(file, "    }},")?;
@@ -503,13 +509,6 @@ fn generate_sdrr_config_header(filename: &Path, config: &Config) -> Result<()> {
         writeln!(file, "#define CCM_RAM_SIZE_KB {}", ccm_ram_kb)?;
     }
 
-    writeln!(file)?;
-    writeln!(file, "// SDRR hardware variant")?;
-    if config.board.rom_pins() == 24 {
-        writeln!(file, "#define SDRR_24_PIN  1")?;
-    } else {
-        unreachable!("Only 24-pin SDRR hardware is supported");
-    }
     writeln!(file)?;
     if !config.bootloader {
         writeln!(

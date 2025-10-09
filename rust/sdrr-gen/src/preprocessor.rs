@@ -230,7 +230,7 @@ impl RomSet {
                         );
                     }
                     McuFamily::Stm32f4 => {
-                        // Single ROM set: uses entire 64KB space
+                        // Single ROM set: uses entire 16KB space
                         assert!(
                             address < 16384,
                             "Address out of bounds for STM32F4 single ROM set"
@@ -256,7 +256,7 @@ impl RomSet {
             };
 
             let num_addr_lines = self.roms[rom_index].config.rom_type.num_addr_lines();
-            let phys_pin_to_addr_map = board.phys_pin_to_addr_map_24();
+            let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
             let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
@@ -275,14 +275,14 @@ impl RomSet {
             // retrieve this for each ROM in the set, as each ROM may be
             // a different type (size).
             let num_addr_lines = rom_in_set.config.rom_type.num_addr_lines();
-            let phys_pin_to_addr_map = board.phys_pin_to_addr_map_24();
+            let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
             let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
             // All of CS1/X1/X2 have to have the same active low/high status
             // so we retrieve that from CS1 (as X1/X2 aren't specifically
             // configured in the rom sets).
-            let pins_active_high = rom_in_set.config.cs_config.cs1 == CsLogic::ActiveHigh;
+            let pins_active_high = rom_in_set.config.cs_config.cs1.expect("CS1 not configured") == CsLogic::ActiveHigh;
 
             // Get the CS pin that controls this ROM's selection
             let cs_pin = board.cs_pin_for_rom_in_set(rom_in_set.config.rom_type, index);
