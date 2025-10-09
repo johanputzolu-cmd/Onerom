@@ -2,6 +2,8 @@
 //
 // MIT License
 
+#![allow(dead_code)]
+
 use serde::{Deserialize, Deserializer};
 use std::collections::{HashMap, HashSet};
 
@@ -116,7 +118,10 @@ impl McuFamily {
     pub fn valid_x1_pins(&self) -> Vec<u8> {
         match self {
             McuFamily::Stm32f4 => vec![14],
-            McuFamily::Rp2350 => vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23],
+            McuFamily::Rp2350 => vec![
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                23,
+            ],
         }
     }
 
@@ -232,30 +237,25 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
         8,
         config.mcu.family.max_valid_data_pin(),
     );
-    
+
     match config.rom.pins.quantity {
-        24 => {
-            validate_pin_values(
-                &config.mcu.pins.addr,
-                "addr",
-                name,
-                13,
-                config.mcu.family.max_valid_addr_pin(),
-            )
-        }
-        28 => {
-            validate_pin_values(
-                &config.mcu.pins.addr,
-                "addr",
-                name,
-                14,
-                config.mcu.family.max_valid_addr_cs_pin(),
-            )
-        }
+        24 => validate_pin_values(
+            &config.mcu.pins.addr,
+            "addr",
+            name,
+            13,
+            config.mcu.family.max_valid_addr_pin(),
+        ),
+        28 => validate_pin_values(
+            &config.mcu.pins.addr,
+            "addr",
+            name,
+            14,
+            config.mcu.family.max_valid_addr_cs_pin(),
+        ),
         _ => panic!(
             "{}: unsupported ROM type {}, expected 24 or 28-pin ROM",
-            name,
-            config.rom.pins.quantity
+            name, config.rom.pins.quantity
         ),
     }
 
@@ -307,9 +307,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
         if !valid_pins.contains(&x1_pin) {
             panic!(
                 "{}: X1 pin must be within {:?}, found {}",
-                name,
-                valid_pins,
-                x1_pin
+                name, valid_pins, x1_pin
             );
         }
     }
@@ -318,9 +316,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
         if !valid_pins.contains(&x2_pin) {
             panic!(
                 "{}: X2 pin must be within {:?}, found {}",
-                name,
-                valid_pins,
-                x2_pin
+                name, valid_pins, x2_pin
             );
         }
     }
@@ -337,8 +333,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
     if config.mcu.pins.sel_jumper_pull > 1 {
         panic!(
             "{}: sel_jumper_pull must be 0 (pull down) or 1 (pull up), found {}",
-            name,
-            config.mcu.pins.sel_jumper_pull
+            name, config.mcu.pins.sel_jumper_pull
         );
     }
 
@@ -415,7 +410,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
             .or_default()
             .push(("oe", pin));
     }
-    
+
     let pin = config.mcu.pins.status;
     port_pins
         .entry(config.mcu.ports.status_port)
@@ -442,10 +437,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
                 if !(has_cs && all_cs_or_addr) {
                     panic!(
                         "{}: pin {} on port {:?} used by multiple incompatible functions: {:?}",
-                        name,
-                        pin_num,
-                        port,
-                        pin_types
+                        name, pin_num, port, pin_types
                     );
                 }
             }
@@ -457,20 +449,12 @@ fn validate_pin_number(mcu: &Mcu, pin: u8, pin_name: &str, config_name: &str) {
     if !mcu.family.valid_pin_num(pin) && pin != 255 {
         panic!(
             "{}: invalid pin number {} for {}, must be valid or 255 if pin not exposed",
-            config_name,
-            pin,
-            pin_name,
+            config_name, pin, pin_name,
         );
     }
 }
 
-fn validate_pin_array(
-    mcu: &Mcu,
-    pins: &[u8],
-    pin_type: &str,
-    config_name: &str,
-    max_pins: u8,
-) {
+fn validate_pin_array(mcu: &Mcu, pins: &[u8], pin_type: &str, config_name: &str, max_pins: u8) {
     let mut seen = HashSet::new();
     let mut num_pins = 0;
     for &pin in pins {
@@ -478,9 +462,7 @@ fn validate_pin_array(
         if !seen.insert(pin) {
             panic!(
                 "{}: duplicate pin {} in {} array",
-                config_name,
-                pin,
-                pin_type
+                config_name, pin, pin_type
             );
         }
         num_pins += 1;
@@ -488,9 +470,7 @@ fn validate_pin_array(
     if num_pins > max_pins as usize {
         panic!(
             "{}: too many pins in {} array, maximum is {}",
-            config_name,
-            pin_type,
-            max_pins
+            config_name, pin_type, max_pins
         );
     }
 }
@@ -509,10 +489,7 @@ fn validate_pin_values(
         if pin > valid_value {
             panic!(
                 "{}: invalid pin value {} in {} array, must be 0-{}",
-                config_name,
-                pin,
-                pin_type,
-                valid_value
+                config_name, pin, pin_type, valid_value
             );
         }
     }

@@ -7,11 +7,14 @@ mod tests {
 
     fn create_test_rom_type_2316() -> RomType {
         let mut control = BTreeMap::new();
-        control.insert("cs1".to_string(), ControlLine {
-            pin: 20,
-            line_type: ControlLineType::Configurable,
-        });
-        
+        control.insert(
+            "cs1".to_string(),
+            ControlLine {
+                pin: 20,
+                line_type: ControlLineType::Configurable,
+            },
+        );
+
         RomType {
             description: "Test 2316".to_string(),
             pins: 24,
@@ -25,15 +28,21 @@ mod tests {
 
     fn create_test_rom_type_27128() -> RomType {
         let mut control = BTreeMap::new();
-        control.insert("ce".to_string(), ControlLine {
-            pin: 20,
-            line_type: ControlLineType::FixedActiveLow,
-        });
-        control.insert("oe".to_string(), ControlLine {
-            pin: 22,
-            line_type: ControlLineType::FixedActiveLow,
-        });
-        
+        control.insert(
+            "ce".to_string(),
+            ControlLine {
+                pin: 20,
+                line_type: ControlLineType::FixedActiveLow,
+            },
+        );
+        control.insert(
+            "oe".to_string(),
+            ControlLine {
+                pin: 22,
+                line_type: ControlLineType::FixedActiveLow,
+            },
+        );
+
         RomType {
             description: "Test 27128".to_string(),
             pins: 28,
@@ -93,10 +102,7 @@ mod tests {
         let mut rom_type = create_test_rom_type_2316();
         rom_type.data[0] = rom_type.address[0];
         let result = rom_type.validate("test");
-        assert!(matches!(
-            result,
-            Err(ValidationError::DuplicatePin { .. })
-        ));
+        assert!(matches!(result, Err(ValidationError::DuplicatePin { .. })));
     }
 
     #[test]
@@ -113,7 +119,14 @@ mod tests {
     #[test]
     fn test_invalid_read_state() {
         let mut rom_type = create_test_rom_type_27128();
-        rom_type.programming.as_mut().unwrap().vpp.as_mut().unwrap().read_state = "invalid".to_string();
+        rom_type
+            .programming
+            .as_mut()
+            .unwrap()
+            .vpp
+            .as_mut()
+            .unwrap()
+            .read_state = "invalid".to_string();
         let result = rom_type.validate("test");
         assert!(matches!(
             result,
@@ -136,17 +149,21 @@ mod tests {
     fn test_parse_real_json_config() {
         let json = include_bytes!("../../../hw-config/rom-types.json");
 
-        let config = RomTypesConfig::from_json(&String::from_utf8_lossy(json)).expect("Failed to parse JSON config");
+        let config = RomTypesConfig::from_json(&String::from_utf8_lossy(json))
+            .expect("Failed to parse JSON config");
 
         assert_eq!(config.rom_types.len(), 12);
-        
+
         let rom_2364 = config.rom_types.get("2364").unwrap();
         assert_eq!(rom_2364.pins, 24);
         assert_eq!(rom_2364.size, 8192);
         assert_eq!(rom_2364.address.len(), 13);
         assert_eq!(rom_2364.control.len(), 1);
         assert!(rom_2364.control.contains_key("cs1"));
-        assert_eq!(rom_2364.control.get("cs1").unwrap().line_type, ControlLineType::Configurable);
+        assert_eq!(
+            rom_2364.control.get("cs1").unwrap().line_type,
+            ControlLineType::Configurable
+        );
 
         let rom_27512 = config.rom_types.get("27512").unwrap();
         assert_eq!(rom_27512.size, 65536);

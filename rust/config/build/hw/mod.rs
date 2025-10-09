@@ -127,7 +127,11 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                 }
 
                 // Check starts with a letter
-                if !normalized.chars().next().map_or(false, |c| c.is_ascii_alphabetic()) {
+                if !normalized
+                    .chars()
+                    .next()
+                    .map_or(false, |c| c.is_ascii_alphabetic())
+                {
                     panic!(
                         "Invalid hardware revision name '{}', must start with a letter",
                         filename
@@ -156,10 +160,16 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                 for alt in &config.alt {
                     let normalized_alt = normalize_name(alt);
                     if normalized_alt != *alt {
-                        panic!("Invalid alt name '{}' in config {}, must be lower-case with dashes", alt, normalized);
+                        panic!(
+                            "Invalid alt name '{}' in config {}, must be lower-case with dashes",
+                            alt, normalized
+                        );
                     }
                     if seen_names.contains_key(&normalized_alt) {
-                        panic!("Duplicate alt name '{}' in config {} conflicts with existing name", alt, normalized);
+                        panic!(
+                            "Duplicate alt name '{}' in config {} conflicts with existing name",
+                            alt, normalized
+                        );
                     }
                     seen_names.insert(normalized_alt, path.clone());
                 }
@@ -178,11 +188,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                 if under_8 && over_15 {
                     panic!("Address pins in config {} mix low (<8) and high (>15) physical pins, which is not supported", normalized);
                 }
-                let shift_left_8 = if over_15 {
-                    true
-                } else {
-                    false
-                };
+                let shift_left_8 = if over_15 { true } else { false };
 
                 // Compute pin maps
                 let num_phys_addr_pins_24 = if config.rom.pins.quantity == 24 {
@@ -255,8 +261,12 @@ fn generate_lib_rs(configs: &[HwConfigData]) -> String {
 
     code.push_str("//! Hardware configuration for One ROM boards\n");
     code.push_str("//!\n");
-    code.push_str("//! This module provides compile-time hardware board specifications for One ROM.\n");
-    code.push_str("//! All data is generated at build time from JSON configuration and embedded as\n");
+    code.push_str(
+        "//! This module provides compile-time hardware board specifications for One ROM.\n",
+    );
+    code.push_str(
+        "//! All data is generated at build time from JSON configuration and embedded as\n",
+    );
     code.push_str("//! const data - no runtime parsing or allocations needed.\n");
     code.push_str("//!\n");
     code.push_str("//! # Available Hardware Revisions\n");
@@ -330,7 +340,9 @@ fn generate_hw_config_enum(configs: &[HwConfigData]) -> String {
 
     code.push_str("/// Hardware board configuration\n");
     code.push_str("///\n");
-    code.push_str("/// Defines pin mappings and capabilities for different One ROM board revisions.\n");
+    code.push_str(
+        "/// Defines pin mappings and capabilities for different One ROM board revisions.\n",
+    );
     code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n");
     code.push_str("pub enum Board {\n");
 
@@ -422,7 +434,7 @@ fn generate_try_from_str(configs: &[HwConfigData]) -> String {
             "            \"{}\" => Some(Board::{}),\n",
             config.name, config.variant_name
         ));
-        
+
         // Alt names
         for alt in &config.alt {
             code.push_str(&format!(
@@ -531,7 +543,10 @@ fn generate_port_methods(configs: &[HwConfigData]) -> String {
 
     for (method_name, field_name, doc) in port_methods {
         code.push_str(&format!("    /// Get the {}\n", doc));
-        code.push_str(&format!("    pub const fn {}(&self) -> Port {{\n", method_name));
+        code.push_str(&format!(
+            "    pub const fn {}(&self) -> Port {{\n",
+            method_name
+        ));
         code.push_str("        match self {\n");
 
         for config in configs {
@@ -697,7 +712,10 @@ fn generate_rom_pin_methods(configs: &[HwConfigData]) -> String {
         code.push_str("        match self {\n");
 
         for config in configs {
-            code.push_str(&format!("            Board::{} => match rom_type {{\n", config.variant_name));
+            code.push_str(&format!(
+                "            Board::{} => match rom_type {{\n",
+                config.variant_name
+            ));
 
             let pin_map = match field_name {
                 "cs1" => &config.config.mcu.pins.cs1,
@@ -821,7 +839,9 @@ fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
     code.push_str("    ///\n");
     code.push_str("    /// Returns array indexed by physical pin number, with value being the\n");
     code.push_str("    /// address line number (Some) or None if pin is not an address line.\n");
-    code.push_str("    pub const fn phys_pin_to_addr_map_24(&self) -> &'static [Option<usize>; 16] {\n");
+    code.push_str(
+        "    pub const fn phys_pin_to_addr_map_24(&self) -> &'static [Option<usize>; 16] {\n",
+    );
     code.push_str("        match self {\n");
 
     for config in configs {
@@ -839,7 +859,9 @@ fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
     code.push_str("    ///\n");
     code.push_str("    /// Returns array indexed by physical pin number, with value being the\n");
     code.push_str("    /// address line number (Some) or None if pin is not an address line.\n");
-    code.push_str("    pub const fn phys_pin_to_addr_map_28(&self) -> &'static [Option<usize>; 16] {\n");
+    code.push_str(
+        "    pub const fn phys_pin_to_addr_map_28(&self) -> &'static [Option<usize>; 16] {\n",
+    );
     code.push_str("        match self {\n");
 
     for config in configs {
@@ -897,7 +919,9 @@ fn generate_capability_methods(configs: &[HwConfigData]) -> String {
     code.push_str("        self.supports_multi_rom_sets()\n");
     code.push_str("    }\n\n");
 
-    code.push_str("    /// Check if this board supports multiple ROM sets (requires X1 and X2 pins)\n");
+    code.push_str(
+        "    /// Check if this board supports multiple ROM sets (requires X1 and X2 pins)\n",
+    );
     code.push_str("    pub const fn supports_multi_rom_sets(&self) -> bool {\n");
     code.push_str("        match self {\n");
 

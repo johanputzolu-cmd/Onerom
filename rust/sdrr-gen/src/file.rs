@@ -220,7 +220,7 @@ fn download_file(url: &str) -> Result<Bytes, String> {
     if url.contains("sourceforge.net") {
         return download_with_wget(url);
     }
-    
+
     // Original reqwest logic for other URLs
     let client = reqwest::blocking::Client::builder()
         .user_agent("Wget/1.21.3")
@@ -228,7 +228,7 @@ fn download_file(url: &str) -> Result<Bytes, String> {
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
-    
+
     let response = client
         .get(url)
         .header("Accept", "*/*")
@@ -243,7 +243,6 @@ fn download_file(url: &str) -> Result<Bytes, String> {
 }
 
 fn download_with_wget(url: &str) -> Result<Bytes, String> {
-
     println!("Falling back to wget");
     let output = std::process::Command::new("wget")
         .arg("-O")
@@ -252,11 +251,11 @@ fn download_with_wget(url: &str) -> Result<Bytes, String> {
         .arg(url)
         .output()
         .map_err(|e| format!("Failed to run wget: {e}"))?;
-    
+
     if !output.status.success() {
         return Err(format!("wget failed with status: {}", output.status));
     }
-    
+
     Ok(Bytes::from(output.stdout))
 }
 

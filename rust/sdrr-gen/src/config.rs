@@ -2,13 +2,15 @@
 //
 // MIT License
 
-use crate::preprocessor::{RomImage, RomSet};
-use onerom_config::hw::Board;
-use onerom_config::mcu::Port;
-use onerom_config::rom::RomType;
-use sdrr_common::{CsLogic, McuVariant, ServeAlg};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+
+use onerom_config::hw::Board;
+use onerom_config::mcu::{Port, Variant as McuVariant};
+use onerom_config::rom::RomType;
+
+use crate::fw::{CsLogic, PllConfig, ServeAlg};
+use crate::preprocessor::{RomImage, RomSet};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -162,27 +164,22 @@ impl Config {
 
         // Validate and set frequency
         #[allow(clippy::match_single_binding)]
-        match self.mcu_variant.processor() {
-            _ => {
-                if !self
-                    .mcu_variant
-                    .is_frequency_valid(self.freq, self.overclock)
-                {
-                    return Err(format!(
-                        "Frequency {}MHz is not valid for variant {}. Valid range: 16-{}MHz",
-                        self.freq,
-                        self.mcu_variant.makefile_var(),
-                        self.mcu_variant.processor().max_sysclk_mhz()
-                    ));
-                }
-            }
+        let pll = PllConfig::new(self.mcu_variant.processor());
+        if !pll.is_frequency_valid(self.freq, self.overclock) {
+            return Err(format!(
+                "Frequency {}MHz is not valid for variant {}. Valid range: 16-{}MHz",
+                self.freq,
+                self.mcu_variant.makefile_var(),
+                self.mcu_variant.processor().max_sysclk_mhz()
+            ));
         }
 
         // Check USB DFU support
         if self.board.has_usb() && !self.mcu_variant.supports_usb_dfu() {
             return Err(format!(
                 "Selected hardware {} has USB, but variant {:?} does not support USB",
-                self.board.name(), self.mcu_variant,
+                self.board.name(),
+                self.mcu_variant,
             ));
         }
 

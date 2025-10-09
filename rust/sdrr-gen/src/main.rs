@@ -10,6 +10,7 @@
 mod args;
 mod config;
 mod file;
+mod fw;
 mod generator;
 mod preprocessor;
 

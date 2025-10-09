@@ -2557,16 +2557,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdrr-common"
-version = "0.5.1"
-dependencies = [
- "anyhow",
- "onerom-config",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "sdrr-fw-parser"
 version = "0.5.1"
 dependencies = [
@@ -2587,7 +2577,6 @@ dependencies = [
  "clap",
  "onerom-config",
  "reqwest",
- "sdrr-common",
  "strum",
  "thiserror",
  "urlencoding",
@@ -2602,7 +2591,6 @@ dependencies = [
  "chrono",
  "clap",
  "goblin",
- "sdrr-common",
  "sdrr-fw-parser",
  "smol",
 ]

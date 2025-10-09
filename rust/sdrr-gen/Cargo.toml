@@ -10,7 +10,6 @@ license = "MIT"
 keywords = ["embedded", "rom", "eeprom", "eprom", "flash"]
 
 [dependencies]
-sdrr-common = { path = "../sdrr-common" }
 onerom-config = { path = "../config", version = "0.1" }
 
 anyhow = ">=1.0.98"

@@ -7,14 +7,16 @@
 //! Handles mangling ROM images by address lines and data lines to match the
 //! hardware's pin mapping.
 
-use crate::config::{RomInSet, SizeHandling};
 use anyhow::{Context, Result};
+use std::fs;
+use std::path::Path;
+
 use onerom_config::hw::Board;
 use onerom_config::mcu::Family as McuFamily;
 use onerom_config::rom::RomType;
-use sdrr_common::CsLogic;
-use std::fs;
-use std::path::Path;
+
+use crate::config::{RomInSet, SizeHandling};
+use crate::fw::CsLogic;
 
 // A ROM image that has been validated and loaded
 #[derive(Debug, Clone)]
@@ -416,7 +418,10 @@ impl RomSet {
                 // No additional bits to remove
             }
             _ => {
-                panic!("Internal error: unsupported ROM type {} in mask_cs_selection_bits", rom_type.name());
+                panic!(
+                    "Internal error: unsupported ROM type {} in mask_cs_selection_bits",
+                    rom_type.name()
+                );
             }
         }
 

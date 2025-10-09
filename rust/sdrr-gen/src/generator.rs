@@ -13,10 +13,9 @@ use strum::IntoEnumIterator;
 use onerom_config::mcu::Family as McuFamily;
 use onerom_config::rom::RomType;
 
-use sdrr_common::CsLogic;
-
 use crate::config::Config;
 use crate::file::{OutType, out_filename};
+use crate::fw::{CsLogic, PllConfig};
 use crate::preprocessor::RomSet;
 
 // Generate all output files
@@ -247,7 +246,11 @@ fn generate_roms_implementation_file(
             .map(cs_logic_to_enum)
             .unwrap_or("CS_NOT_USED");
 
-        writeln!(file, "    .rom_type = {},", rom_config.rom_type.c_enum_name())?;
+        writeln!(
+            file,
+            "    .rom_type = {},",
+            rom_config.rom_type.c_enum_name()
+        )?;
         writeln!(file, "    .cs1_state = {},", cs1_state)?;
         writeln!(file, "    .cs2_state = {},", cs2_state)?;
         writeln!(file, "    .cs3_state = {},", cs3_state)?;
@@ -474,10 +477,26 @@ fn generate_sdrr_config_header(filename: &Path, config: &Config) -> Result<()> {
     writeln!(file, "{}", config.mcu_variant.define_var_fam())?;
     writeln!(file, "{}", config.mcu_variant.define_var_sub_fam())?;
     writeln!(file, "{}", config.mcu_variant.define_var_str())?;
-    writeln!(file, "{}", config.mcu_variant.define_flash_size_bytes())?;
-    writeln!(file, "{}", config.mcu_variant.define_flash_size_kb())?;
-    writeln!(file, "{}", config.mcu_variant.define_ram_size_bytes())?;
-    writeln!(file, "{}", config.mcu_variant.define_ram_size_kb())?;
+    writeln!(
+        file,
+        "#define MCU_FLASH_SIZE     {}",
+        config.mcu_variant.flash_storage_bytes()
+    )?;
+    writeln!(
+        file,
+        "#define MCU_FLASH_SIZE_KB  {}",
+        config.mcu_variant.flash_storage_kb()
+    )?;
+    writeln!(
+        file,
+        "#define MCU_RAM_SIZE       {}",
+        config.mcu_variant.ram_bytes()
+    )?;
+    writeln!(
+        file,
+        "#define MCU_RAM_SIZE_KB    {}",
+        config.mcu_variant.ram_kb()
+    )?;
     if let Some(ccm_ram_kb) = config.mcu_variant.ccm_ram_kb() {
         writeln!(file, "#define CCM_RAM_BASE 0x10000000")?;
         writeln!(file, "#define CCM_RAM_SIZE {}", ccm_ram_kb * 1024)?;
@@ -529,10 +548,8 @@ fn generate_sdrr_config_header(filename: &Path, config: &Config) -> Result<()> {
     // PLL configuration (F4 family only)
     writeln!(file)?;
     writeln!(file, "// PLL configuration")?;
-    if let Some(pll_defines) = config
-        .mcu_variant
-        .generate_pll_defines(config.freq, config.overclock)
-    {
+    let pll = PllConfig::new(config.mcu_variant.processor());
+    if let Some(pll_defines) = pll.generate_pll_defines(config.freq, config.overclock) {
         writeln!(file, "{}", pll_defines)?;
         if config.overclock {
             writeln!(file, "#define OVERCLOCK 1  // Overclocking enabled")?;
@@ -694,7 +711,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         .join(", ");
     writeln!(file, "    .data = {{ {} }},", data_pins_str)?;
 
-    let mut addr_pins:Vec<_> = board.addr_pins().into();
+    let mut addr_pins: Vec<_> = board.addr_pins().into();
     addr_pins.resize(16, 255);
     let addr_pins_str = addr_pins
         .iter()
@@ -738,7 +755,11 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "// Extra info")?;
     writeln!(file, "static const sdrr_extra_info_t sdrr_extra_info = {{")?;
     writeln!(file, "    .rtt = &_SEGGER_RTT,")?;
-    writeln!(file, "    .usb_dfu = {},", if board.has_usb() { 1 } else { 0 })?;
+    writeln!(
+        file,
+        "    .usb_dfu = {},",
+        if board.has_usb() { 1 } else { 0 }
+    )?;
     writeln!(file, "    .reserved1 = {{0}},")?;
     writeln!(file, "    ._post = {{")?;
     for _ in 0..31 {
@@ -751,8 +772,16 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "}};")?;
 
     // Hardware revision string
-    writeln!(file, "// Hardware revision string - {}", board.description())?;
-    writeln!(file, "static const char sdrr_hw_rev[] = \"{}\";", board.name())?;
+    writeln!(
+        file,
+        "// Hardware revision string - {}",
+        board.description()
+    )?;
+    writeln!(
+        file,
+        "static const char sdrr_hw_rev[] = \"{}\";",
+        board.name()
+    )?;
 
     // Main info structure
     writeln!(
