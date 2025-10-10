@@ -13,6 +13,9 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let manifest_path = Path::new(&manifest_dir);
 
+    // Tell Cargo to rerun if anything in build/ changes
+    println!("cargo:rerun-if-changed=build");
+
     // Get repo root (./../../)
     let repo_root = manifest_path
         .parent()

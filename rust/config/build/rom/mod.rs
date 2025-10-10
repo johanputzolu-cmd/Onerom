@@ -5,6 +5,7 @@
 use std::fs;
 use std::path::Path;
 
+mod doc;
 mod validation;
 
 use validation::{ControlLineType, RomType, RomTypesConfig};
@@ -12,6 +13,7 @@ use validation::{ControlLineType, RomType, RomTypesConfig};
 pub const ROM_TYPES_JSON_FILENAME: &str = "hw-config/rom-types.json";
 pub const ROM_GENERATED_RS_FILENAME: &str = "rom/generated.rs";
 pub const ROM_MOD_RS_FILENAME: &str = "rom/mod.rs";
+pub const ROM_DOCS_MD_FILENAME: &str = "ROM-TYPES.md";
 
 pub fn build(repo_root: &Path, manifest_path: &Path) {
     // Construct path to JSON config
@@ -33,6 +35,9 @@ pub fn build(repo_root: &Path, manifest_path: &Path) {
     // Generate lib.rs with documentation
     let lib_code = generate_lib_rs(&config);
 
+    // Generate markdown docs
+    let markdown = doc::generate_rom_types_markdown(&config);
+
     // Write src/rom/generated.rs
     let src_path = manifest_path.join("src").join(ROM_GENERATED_RS_FILENAME);
     fs::write(&src_path, &generated_code)
@@ -42,6 +47,15 @@ pub fn build(repo_root: &Path, manifest_path: &Path) {
     let mod_path = manifest_path.join("src").join(ROM_MOD_RS_FILENAME);
     fs::write(&mod_path, &lib_code)
         .unwrap_or_else(|e| panic!("Failed to write {}: {}", mod_path.display(), e));
+
+     // Write docs/rom-types.md
+    let docs_path = repo_root.join("docs").join(ROM_DOCS_MD_FILENAME);
+    fs::create_dir_all(docs_path.parent().unwrap())
+        .unwrap_or_else(|e| panic!("Failed to create docs directory: {}", e));
+    fs::write(&docs_path, &markdown)
+        .unwrap_or_else(|e| panic!("Failed to write {}: {}", docs_path.display(), e));
+
+    eprintln!("Documentation generated at {}", docs_path.display());
 }
 
 fn get_sorted_rom_types<'a>(config: &'a RomTypesConfig) -> Vec<(&'a String, &'a RomType)> {
@@ -478,7 +492,7 @@ fn generate_c_enum_method(config: &RomTypesConfig) -> String {
     code.push_str("    /// ```\n");
     code.push_str("    /// use onerom_config::rom::RomType;\n");
     code.push_str("    ///\n");
-    code.push_str("    /// assert_eq!(RomType::Rom2364.c_enum_name(), \"ROM_2364\");\n");
+    code.push_str("    /// assert_eq!(RomType::Rom2364.c_enum_name(), \"ROM_TYPE_2364\");\n");
     code.push_str("    /// ```\n");
     code.push_str("    pub const fn c_enum_name(&self) -> &'static str {\n");
     code.push_str("        match self {\n");
@@ -746,9 +760,6 @@ fn generate_programming_pins_method(config: &RomTypesConfig) -> String {
     code.push_str("    /// assert_eq!(pins.len(), 2);\n");
     code.push_str("    /// let vpp = pins.iter().find(|p| p.name == \"vpp\").unwrap();\n");
     code.push_str("    /// assert_eq!(vpp.read_state, ProgrammingPinState::Vcc);\n");
-    code.push_str("    ///\n");
-    code.push_str("    /// // 27512 has no programming pins (pin 1 is A15)\n");
-    code.push_str("    /// assert!(RomType::Rom27512.programming_pins().is_none());\n");
     code.push_str("    /// ```\n");
     code.push_str(
         "    pub const fn programming_pins(&self) -> Option<&'static [ProgrammingPinSpec]> {\n",

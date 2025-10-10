@@ -2,6 +2,8 @@
 
 Everything you wanted to know about 23 and 27 series ROMs but were afraid to ask.
 
+If you're looking for detailed pin-outs for all of the 23 and 27 series ROMs, you can find them at [ROM-TYPES.md](./ROM-TYPES.md).
+
 # 23 Series
 
 The 23 series ROMs are factory "mask" programmed ROMs, and came in sizes from 2KB to 64KB.  They were not reprogrammable after factory programming.

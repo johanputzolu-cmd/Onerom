@@ -23,6 +23,7 @@ mod tests {
             data: vec![9, 10, 11, 13, 14, 15, 16, 17],
             control,
             programming: None,
+            power: None,
         }
     }
 
@@ -50,6 +51,7 @@ mod tests {
             address: vec![10, 9, 8, 7, 6, 5, 4, 3, 25, 24, 21, 23, 2, 26],
             data: vec![11, 12, 13, 15, 16, 17, 18, 19],
             control,
+            power: None,
             programming: Some(ProgrammingConfig {
                 vpp: Some(ProgrammingPin {
                     pin: 1,
@@ -59,6 +61,7 @@ mod tests {
                     pin: 27,
                     read_state: "high".to_string(),
                 }),
+                pe: None,
             }),
         }
     }
@@ -152,7 +155,7 @@ mod tests {
         let config = RomTypesConfig::from_json(&String::from_utf8_lossy(json))
             .expect("Failed to parse JSON config");
 
-        assert_eq!(config.rom_types.len(), 12);
+        assert_eq!(config.rom_types.len(), 14);
 
         let rom_2364 = config.rom_types.get("2364").unwrap();
         assert_eq!(rom_2364.pins, 24);
@@ -170,6 +173,6 @@ mod tests {
         assert_eq!(rom_27512.address.len(), 16);
         assert_eq!(rom_27512.address[15], 1);
         assert_eq!(rom_27512.control.len(), 2);
-        assert!(rom_27512.programming.is_none());
+        assert!(!rom_27512.programming.is_none());
     }
 }

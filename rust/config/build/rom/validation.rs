@@ -1,4 +1,5 @@
 // Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
+//
 // MIT License
 
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,16 @@ pub struct ProgrammingConfig {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pgm: Option<ProgrammingPin>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pe: Option<ProgrammingPin>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PowerPin {
+    pub name: String,
+    pub pin: u8,
+    pub voltage: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,6 +63,9 @@ pub struct RomType {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub programming: Option<ProgrammingConfig>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub power: Option<Vec<PowerPin>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -261,12 +275,25 @@ impl RomType {
             if let Some(ref vpp) = prog.vpp {
                 self.validate_pin_number(type_name, vpp.pin)?;
                 self.validate_read_state(type_name, "vpp", &vpp.read_state)?;
-                self.check_duplicate_pin(type_name, vpp.pin, &mut used_pins)?;
+                // Don't check duplicates - programming pins can overlap
             }
             if let Some(ref pgm) = prog.pgm {
                 self.validate_pin_number(type_name, pgm.pin)?;
                 self.validate_read_state(type_name, "pgm", &pgm.read_state)?;
-                self.check_duplicate_pin(type_name, pgm.pin, &mut used_pins)?;
+                // Don't check duplicates
+            }
+            if let Some(ref pe) = prog.pe {
+                self.validate_pin_number(type_name, pe.pin)?;
+                self.validate_read_state(type_name, "pe", &pe.read_state)?;
+                // Don't check duplicates
+            }
+        }
+
+        // Validate power pins
+        if let Some(ref power_pins) = self.power {
+            for power_pin in power_pins {
+                self.validate_pin_number(type_name, power_pin.pin)?;
+                self.check_duplicate_pin(type_name, power_pin.pin, &mut used_pins)?;
             }
         }
 

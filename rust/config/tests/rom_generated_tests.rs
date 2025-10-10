@@ -63,8 +63,8 @@ fn test_rom_27512_specs() {
     assert_eq!(rom.size_bytes(), 65536);
     assert_eq!(rom.num_addr_lines(), 16);
 
-    // Pin 1 is A15, not Vpp
-    assert!(rom.programming_pins().is_none());
+    // Pin 1 is A15
+    assert!(!rom.programming_pins().is_none());
 
     let addr = rom.address_pins();
     assert_eq!(addr[15], 1); // A15 on pin 1

@@ -40,7 +40,19 @@
                     "pin": 21,
                     "type": "configurable"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 24,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 12,
+                    "voltage": "0V"
+                }
+            ]
         },
         "2332": {
             "description": "4KB mask ROM with 2 configurable CS lines",
@@ -58,7 +70,7 @@
                 23,
                 22,
                 19,
-                21
+                18
             ],
             "data": [
                 9,
@@ -76,10 +88,22 @@
                     "type": "configurable"
                 },
                 "cs2": {
-                    "pin": 18,
+                    "pin": 21,
                     "type": "configurable"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 24,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 12,
+                    "voltage": "0V"
+                }
+            ]
         },
         "2364": {
             "description": "8KB mask ROM with 1 configurable CS line",
@@ -115,7 +139,19 @@
                     "pin": 20,
                     "type": "configurable"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 24,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 12,
+                    "voltage": "0V"
+                }
+            ]
         },
         "23128": {
             "description": "16KB mask ROM with 3 configurable CS lines",
@@ -161,15 +197,21 @@
                     "type": "configurable"
                 }
             },
-            "programming": {
-                "vpp": {
-                    "pin": 1,
-                    "read_state": "vcc"
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 28,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 14,
+                    "voltage": "0V"
                 }
-            }
+            ]
         },
         "23256": {
-            "description": "32KB mask ROM with fixed active-low CE/OE",
+            "description": "32KB mask ROM with 2 configurable CS lines",
             "pins": 28,
             "size": 32768,
             "address": [
@@ -200,24 +242,30 @@
                 19
             ],
             "control": {
-                "ce": {
+                "cs1": {
                     "pin": 20,
-                    "type": "fixed_active_low"
+                    "type": "configurable"
                 },
-                "oe": {
+                "cs2": {
                     "pin": 22,
-                    "type": "fixed_active_low"
+                    "type": "configurable"
                 }
             },
-            "programming": {
-                "vpp": {
-                    "pin": 1,
-                    "read_state": "vcc"
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 28,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 14,
+                    "voltage": "0V"
                 }
-            }
+            ]
         },
         "23512": {
-            "description": "64KB mask ROM with fixed active-low CE/OE",
+            "description": "64KB mask ROM with 2 configurable CS lines",
             "pins": 28,
             "size": 65536,
             "address": [
@@ -249,15 +297,169 @@
                 19
             ],
             "control": {
-                "ce": {
+                "cs1": {
+                    "pin": 20,
+                    "type": "configurable"
+                },
+                "cs2": {
+                    "pin": 22,
+                    "type": "configurable"
+                }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 28,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 14,
+                    "voltage": "0V"
+                }
+            ]
+        },
+        "2704": {
+            "description": "512B EPROM with multiple supply voltages",
+            "pins": 24,
+            "size": 512,
+            "address": [
+                8,
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1,
+                23
+            ],
+            "data": [
+                9,
+                10,
+                11,
+                13,
+                14,
+                15,
+                16,
+                17
+            ],
+            "control": {
+                "oe": {
                     "pin": 20,
                     "type": "fixed_active_low"
                 },
-                "oe": {
-                    "pin": 22,
+                "ce": {
+                    "pin": 18,
                     "type": "fixed_active_low"
                 }
-            }
+            },
+            "programming": {
+                "vpp": {
+                    "pin": 18,
+                    "read_state": "low"
+                },
+                "pe": {
+                    "pin": 20,
+                    "read_state": "low"
+                }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 24,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "VDD",
+                    "pin": 19,
+                    "voltage": "+12V"
+                },
+                {
+                    "name": "VBB",
+                    "pin": 21,
+                    "voltage": "-5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 12,
+                    "voltage": "0V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 22,
+                    "voltage": "0V"
+                }
+            ]
+        },
+        "2708": {
+            "description": "1KB EPROM with multiple supply voltages",
+            "pins": 24,
+            "size": 1024,
+            "address": [
+                8,
+                7,
+                6,
+                5,
+                4,
+                3,
+                2,
+                1,
+                23,
+                22
+            ],
+            "data": [
+                9,
+                10,
+                11,
+                13,
+                14,
+                15,
+                16,
+                17
+            ],
+            "control": {
+                "oe": {
+                    "pin": 20,
+                    "type": "fixed_active_low"
+                },
+                "ce": {
+                    "pin": 18,
+                    "type": "fixed_active_low"
+                }
+            },
+            "programming": {
+                "vpp": {
+                    "pin": 18,
+                    "read_state": "low"
+                },
+                "pe": {
+                    "pin": 20,
+                    "read_state": "low"
+                }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 24,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "VDD",
+                    "pin": 19,
+                    "voltage": "+12V"
+                },
+                {
+                    "name": "VBB",
+                    "pin": 21,
+                    "voltage": "-5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 12,
+                    "voltage": "0V"
+                }
+            ]
         },
         "2716": {
             "description": "2KB EPROM with fixed active-low CE/OE",
@@ -300,8 +502,24 @@
                 "vpp": {
                     "pin": 21,
                     "read_state": "vcc"
+                },
+                "pe": {
+                    "pin": 20,
+                    "read_state": "low"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 24,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 12,
+                    "voltage": "0V"
+                }
+            ]
         },
         "2732": {
             "description": "4KB EPROM with fixed active-low CE and shared OE/VPP",
@@ -335,14 +553,34 @@
                 "ce": {
                     "pin": 18,
                     "type": "fixed_active_low"
+                },
+                "oe": {
+                    "pin": 20,
+                    "type": "fixed_active_low"
                 }
             },
             "programming": {
                 "vpp": {
                     "pin": 20,
                     "read_state": "chip_select"
+                },
+                "pe": {
+                    "pin": 18,
+                    "read_state": "low"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 24,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 12,
+                    "voltage": "0V"
+                }
+            ]
         },
         "2764": {
             "description": "8KB EPROM with fixed active-low CE/OE",
@@ -392,7 +630,19 @@
                     "pin": 27,
                     "read_state": "high"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 28,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 14,
+                    "voltage": "0V"
+                }
+            ]
         },
         "27128": {
             "description": "16KB EPROM with fixed active-low CE/OE",
@@ -443,7 +693,19 @@
                     "pin": 27,
                     "read_state": "high"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 28,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 14,
+                    "voltage": "0V"
+                }
+            ]
         },
         "27256": {
             "description": "32KB EPROM with fixed active-low CE/OE",
@@ -490,8 +752,24 @@
                 "vpp": {
                     "pin": 1,
                     "read_state": "vcc"
+                },
+                "pe": {
+                    "pin": 22,
+                    "read_state": "low"
                 }
-            }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 28,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 14,
+                    "voltage": "0V"
+                }
+            ]
         },
         "27512": {
             "description": "64KB EPROM with fixed active-low CE/OE",
@@ -534,7 +812,29 @@
                     "pin": 22,
                     "type": "fixed_active_low"
                 }
-            }
+            },
+            "programming": {
+                "vpp": {
+                    "pin": 22,
+                    "read_state": "vcc"
+                },
+                "pe": {
+                    "pin": 20,
+                    "read_state": "low"
+                }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 28,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 14,
+                    "voltage": "0V"
+                }
+            ]
         }
     }
 }
