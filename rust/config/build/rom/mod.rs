@@ -10,14 +10,14 @@ mod validation;
 
 use validation::{ControlLineType, RomType, RomTypesConfig};
 
-pub const ROM_TYPES_JSON_FILENAME: &str = "hw-config/rom-types.json";
+pub const ROM_TYPES_JSON_FILENAME: &str = "json/rom-types.json";
 pub const ROM_GENERATED_RS_FILENAME: &str = "rom/generated.rs";
 pub const ROM_MOD_RS_FILENAME: &str = "rom/mod.rs";
 pub const ROM_DOCS_MD_FILENAME: &str = "ROM-TYPES.md";
 
-pub fn build(repo_root: &Path, manifest_path: &Path) {
+pub fn build(manifest_path: &Path) {
     // Construct path to JSON config
-    let json_path = repo_root.join(ROM_TYPES_JSON_FILENAME);
+    let json_path = manifest_path.join(ROM_TYPES_JSON_FILENAME);
 
     // Tell Cargo to rerun only if the JSON config changes
     println!("cargo:rerun-if-changed={}", json_path.display());
@@ -49,7 +49,7 @@ pub fn build(repo_root: &Path, manifest_path: &Path) {
         .unwrap_or_else(|e| panic!("Failed to write {}: {}", mod_path.display(), e));
 
      // Write docs/rom-types.md
-    let docs_path = repo_root.join("docs").join(ROM_DOCS_MD_FILENAME);
+    let docs_path = manifest_path.join("..").join("..").join("docs").join(ROM_DOCS_MD_FILENAME);
     fs::create_dir_all(docs_path.parent().unwrap())
         .unwrap_or_else(|e| panic!("Failed to create docs directory: {}", e));
     fs::write(&docs_path, &markdown)

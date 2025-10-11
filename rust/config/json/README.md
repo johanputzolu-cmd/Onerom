@@ -1,4 +1,4 @@
-# hw-config
+# rust/config/json
 
 This directory contains the One ROM PCB hardware configuration files, which tell the software what the port/pin mappings for the various pin types are.
 
@@ -15,7 +15,7 @@ See the `*.json` files in this directory for the format of the configuration fil
 
 You should store your files either in:
 
-- [`user/`](/hw-config/user/) - for your own, private, hardware configurations
-- [`third-party/`](/hw-config/third-party/) - for hardware configurations that you plan to submit pull requests for, and want to share with the community
+- [`user/`](/rust/config/json/user/) - for your own, private, hardware configurations
+- [`third-party/`](/rust/config/json/third-party/) - for hardware configurations that you plan to submit pull requests for, and want to share with the community
 
-[`sdrr-gen`](/sdrr-gen/README.md) looks for hardware configuration files in this directory, as well as the directories above, and uses them to generate the firmware for your hardware.
+The `onerom-config` crate is generated and built automatically from these config files, and published to crates.io.  This is then used by tools like `sdrr-gen` to generated the One ROM firmware.

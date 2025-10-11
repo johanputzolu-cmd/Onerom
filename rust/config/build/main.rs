@@ -16,15 +16,9 @@ fn main() {
     // Tell Cargo to rerun if anything in build/ changes
     println!("cargo:rerun-if-changed=build");
 
-    // Get repo root (./../../)
-    let repo_root = manifest_path
-        .parent()
-        .and_then(|p| p.parent())
-        .expect("Failed to get repo root");
-
     // Build the auto-generated hw module
-    hw::build(repo_root, manifest_path);
+    hw::build(manifest_path);
 
     // Build the auto-generated rom module
-    rom::build(repo_root, manifest_path);
+    rom::build(manifest_path);
 }

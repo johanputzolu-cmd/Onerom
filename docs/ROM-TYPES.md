@@ -2,7 +2,7 @@
 
 This document provides detailed specifications for the different ROM types One ROM supports, and aims to support in future, including pinouts, control lines, and programming requirements.
 
-The document is auto-generated from the [hw-config/rom-types.json](../hw-config/rom-types.json) configuration file.  That file was created by researching datasheets for the various ROM types.
+The document is auto-generated from the [json/rom-types.json](/rust/config/json/rom-types.json) configuration file.  That file was created by researching datasheets for the various ROM types.
 
 Some of the pin names have been modified from the datasheet values for consistency beween ROM types:
 

@@ -81,16 +81,16 @@ typedef struct {
     //
     // Offset: 36
     // 16 x 1 byte = 16 bytes
-    uint8_t cs1_2364;
-    uint8_t cs1_2332;
-    uint8_t cs1_2316;
-    uint8_t cs2_2332;
-    uint8_t cs2_2316;
-    uint8_t cs3_2316;
+    uint8_t cs1;
+    uint8_t cs2;
+    uint8_t cs3;
+    uint8_t uses_cs;  // If CS line(s) used (1) or not (So CE/OE) (0)
+    uint8_t reserved2b[1];
+    uint8_t reserved2c[1];
     uint8_t x1;
     uint8_t x2;
-    uint8_t ce_23128;
-    uint8_t oe_23128;
+    uint8_t ce;
+    uint8_t oe;
     uint8_t x_jumper_pull;
     uint8_t reserved3[5];
 

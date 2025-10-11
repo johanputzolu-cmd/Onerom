@@ -10,7 +10,7 @@ mod validation;
 
 use validation::{HwConfigJson, McuFamily, Port};
 
-pub const HW_CONFIG_DIRS: [&str; 3] = ["hw-config", "../hw-config", "../../hw-config"];
+pub const HW_CONFIG_DIRS: [&str; 1] = [ "json", ];
 pub const HW_CONFIG_SUB_DIRS: [&str; 2] = ["user", "third-party"];
 pub const HW_GENERATED_RS_FILENAME: &str = "hw/generated.rs";
 pub const HW_MOD_RS_FILENAME: &str = "hw/mod.rs";
@@ -24,9 +24,9 @@ struct HwConfigData {
     phys_pin_to_data_map: [usize; 8],
 }
 
-pub fn build(repo_root: &Path, manifest_path: &Path) {
+pub fn build(manifest_path: &Path) {
     // Find config directories
-    let config_dirs = get_config_dirs(repo_root);
+    let config_dirs = get_config_dirs(manifest_path);
 
     // Tell Cargo to rerun if any config changes
     for dir in &config_dirs {

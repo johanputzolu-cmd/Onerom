@@ -18,6 +18,7 @@ Some default firmware configuration has been changed:
 ### Changes
 
 - Call out from sdrr-gen to wget to retrieve images located on sourceforge, as cloudfare seems to spot and block Rust TLS.
+- Moved `/hw-config` to `/rust/config/json`.
 
 ### Fixes
 
