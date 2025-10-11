@@ -297,13 +297,23 @@ impl RomType {
             }
         }
 
-        // Check for unrecognised chip select line names.
         for line_name in self.control.keys() {
+            // Check for unrecognised chip select line names.
             if !VALID_CONTROL_LINES.contains(&line_name.as_str()) {
                 return Err(ValidationError::UnknownControlLine {
                     rom_type: type_name.to_string(),
                     line_name: line_name.to_string(),
                 });
+            }
+
+            // And unexpected line types
+            if line_name == "ce" || line_name == "oe" {
+                if self.control[line_name].line_type != ControlLineType::FixedActiveLow {
+                    return Err(ValidationError::IncompatibleControlLines {
+                        rom_type: type_name.to_string(),
+                        combination: format!("{} must be of type 'fixed_active_low'", line_name),
+                    });
+                }
             }
         }
 
