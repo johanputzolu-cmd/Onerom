@@ -7,10 +7,11 @@ use std::path::PathBuf;
 
 use onerom_config::hw::Board;
 use onerom_config::mcu::{Port, Variant as McuVariant};
-use onerom_config::rom::{ControlLineType, RomType};
+use onerom_config::rom::RomType;
 
-use crate::fw::{CsLogic, PllConfig, ServeAlg};
-use crate::preprocessor::{RomImage, RomSet};
+use onerom_gen::rom::{CsConfig, Rom, RomSet, RomSetType, SizeHandling};
+
+use crate::fw::{PllConfig, ServeAlg};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -38,13 +39,6 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone)]
-pub enum SizeHandling {
-    None,
-    Duplicate,
-    Pad,
-}
-
-#[derive(Debug, Clone)]
 pub struct RomConfig {
     pub file: PathBuf,
     pub original_source: String,
@@ -57,105 +51,8 @@ pub struct RomConfig {
     pub bank: Option<usize>,
 }
 
-#[derive(Debug, Clone)]
-pub struct RomInSet {
-    pub config: RomConfig,
-    pub image: RomImage,
-    pub original_index: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct CsConfig {
-    // May be /CE instead of CS1
-    pub cs1: Option<CsLogic>,
-
-    // May be /OE instead of CS2
-    pub cs2: Option<CsLogic>,
-
-    pub cs3: Option<CsLogic>,
-}
-
-impl CsConfig {
-    pub fn new(cs1: Option<CsLogic>, cs2: Option<CsLogic>, cs3: Option<CsLogic>) -> Self {
-        Self { cs1, cs2, cs3 }
-    }
-
-    pub fn validate(&mut self, rom_type: &RomType) -> Result<(), String> {
-        // Check the required control lines are configured
-        for line in rom_type.control_lines() {
-            if line.line_type == ControlLineType::Configurable {
-                let (name, config) = match line.name {
-                    "cs1" => ("cs1", &self.cs1),
-                    "cs2" => ("cs2", &self.cs2),
-                    "cs3" => ("cs3", &self.cs3),
-                    _ => unreachable!("Unrecognised control line name {}", line.name),
-                };
-                if config.is_none() {
-                    return Err(format!(
-                        "ROM type {} requires control line {} to be configured",
-                        rom_type.name(),
-                        name
-                    ));
-                }
-            }
-        }
-
-        // If CE/OE used instead of CS1, set cs1 and cs2
-        for line in rom_type.control_lines() {
-            match line.name {
-                "ce" => {
-                    if self.cs1.is_some() {
-                        return Err(format!(
-                            "ROM types ({}) cannot have both CS1 and CE",
-                            rom_type.name()
-                        ));
-                    } else {
-                        // Set CS1 to /CE value
-                        match line.line_type {
-                            ControlLineType::Configurable => {
-                                unreachable!("CE should never be configurable {}", rom_type.name());
-                            },
-                            ControlLineType::FixedActiveLow => {
-                                self.cs1 = Some(CsLogic::ActiveLow);
-                            }
-                        }
-                    }
-                }
-                "oe" => {
-                    if self.cs2.is_some() {
-                        return Err(format!(
-                            "ROM types ({}) cannot have both CS2 and OE",
-                            rom_type.name()
-                        ));
-                    } else {
-                        // Set CS2 to /OE value
-                        match line.line_type {
-                            ControlLineType::Configurable => {
-                                unreachable!("CE should never be configurable {}", rom_type.name());
-                            },
-                            ControlLineType::FixedActiveLow => {
-                                self.cs1 = Some(CsLogic::ActiveLow);
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        Ok(())
-    }
-}
-
 impl Config {
     pub fn validate(&mut self) -> Result<(), String> {
-        // Validate each ROM configuration
-        for rom in &mut self.roms {
-            rom.cs_config
-                .validate(&rom.rom_type)
-                .inspect_err(|_| println!("Failed to process ROM {}", rom.file.display()))?;
-        }
-
         // Validate output directory
         if !self.overwrite && self.output_dir.exists() {
             for file_name in &["roms.h", "roms.c", "config.h", "sdrr_config.h"] {
@@ -326,10 +223,7 @@ impl Config {
                     // All ROMs must have same CS configuration
                     let first_cs_config = &roms_in_set[0].cs_config;
                     for rom in &roms_in_set[1..] {
-                        if rom.cs_config.cs1 != first_cs_config.cs1
-                            || rom.cs_config.cs2 != first_cs_config.cs2
-                            || rom.cs_config.cs3 != first_cs_config.cs3
-                        {
+                        if rom.cs_config != *first_cs_config {
                             return Err(format!(
                                 "Set {}: all ROMs in a banked set must have the same CS configuration",
                                 set_id
@@ -383,84 +277,47 @@ impl Config {
         Ok(())
     }
 
-    pub fn create_rom_sets(&self, rom_images: &[RomImage]) -> Result<Vec<RomSet>, String> {
+    pub fn create_rom_sets(&self, roms: Vec<Rom>) -> Result<Vec<RomSet>, String> {
         let sets: Vec<usize> = self.roms.iter().filter_map(|rom| rom.set).collect();
 
         if sets.is_empty() {
-            let rom_sets: Vec<RomSet> = self
-                .roms
-                .iter()
-                .zip(rom_images.iter())
+            let rom_sets: Vec<RomSet> = roms
+                .into_iter()
                 .enumerate()
-                .map(|(ii, (rom_config, rom_image))| RomSet {
-                    id: ii,
-                    roms: vec![RomInSet {
-                        config: rom_config.clone(),
-                        image: rom_image.clone(),
-                        original_index: ii,
-                    }],
-                    is_banked: false,
-                })
-                .collect();
+                .map(|(ii, rom)| RomSet::new(ii, RomSetType::Single, vec![rom]))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("Error creating ROM sets: {:?}", e))?;
             return Ok(rom_sets);
         }
 
-        let mut unique_sets: Vec<usize> = sets.clone();
-        unique_sets.sort();
-        unique_sets.dedup();
-
-        let mut rom_sets_map = BTreeMap::new();
-
-        for &set_id in &unique_sets {
-            let roms_in_set: Vec<_> = self
-                .roms
-                .iter()
-                .zip(rom_images.iter())
-                .enumerate()
-                .filter(|(_, (rom_config, _))| rom_config.set == Some(set_id))
-                .collect();
-
-            let is_banked = roms_in_set
-                .iter()
-                .any(|(_, (rom_config, _))| rom_config.bank.is_some());
-
-            let mut rom_set_entries = Vec::new();
-
-            if is_banked {
-                let mut banked_roms: Vec<_> = roms_in_set.into_iter().collect();
-                banked_roms.sort_by_key(|(_, (rom_config, _))| rom_config.bank.unwrap());
-
-                for (original_index, (rom_config, rom_image)) in banked_roms {
-                    rom_set_entries.push(RomInSet {
-                        config: rom_config.clone(),
-                        image: rom_image.clone(),
-                        original_index,
-                    });
-                }
-            } else {
-                for (original_index, (rom_config, rom_image)) in roms_in_set {
-                    rom_set_entries.push(RomInSet {
-                        config: rom_config.clone(),
-                        image: rom_image.clone(),
-                        original_index,
-                    });
-                }
+        let mut sets_map: BTreeMap<usize, Vec<(usize, &RomConfig, Rom)>> = BTreeMap::new();
+        
+        for (ii, (rom_config, rom)) in self.roms.iter().zip(roms.into_iter()).enumerate() {
+            if let Some(set_id) = rom_config.set {
+                sets_map.entry(set_id).or_insert_with(Vec::new).push((ii, rom_config, rom));
             }
-
-            rom_sets_map.insert(
-                set_id,
-                RomSet {
-                    id: set_id,
-                    roms: rom_set_entries,
-                    is_banked,
-                },
-            );
         }
 
-        let rom_sets: Vec<RomSet> = unique_sets
-            .into_iter()
-            .map(|set_id| rom_sets_map.remove(&set_id).unwrap())
-            .collect();
+        let mut rom_sets: Vec<RomSet> = Vec::new();
+        
+        for (set_id, mut roms_in_set) in sets_map {
+            let is_banked = roms_in_set.iter().any(|(_, config, _)| config.bank.is_some());
+            
+            if is_banked {
+                roms_in_set.sort_by_key(|(_, config, _)| config.bank.unwrap());
+            }
+            
+            let rom_vec: Vec<Rom> = roms_in_set.into_iter().map(|(_, _, rom)| rom).collect();
+            
+            let rom_set = RomSet::new(
+                set_id,
+                if is_banked { RomSetType::Banked } else { RomSetType::Multi },
+                rom_vec,
+            )
+            .map_err(|e| format!("Error creating ROM sets: {:?}", e))?;
+            
+            rom_sets.push(rom_set);
+        }
 
         Ok(rom_sets)
     }

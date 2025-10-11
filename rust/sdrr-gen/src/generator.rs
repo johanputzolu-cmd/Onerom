@@ -13,10 +13,11 @@ use strum::IntoEnumIterator;
 use onerom_config::mcu::Family as McuFamily;
 use onerom_config::rom::RomType;
 
+use onerom_gen::rom::{CsLogic, RomSet, RomSetType};
+
 use crate::config::Config;
 use crate::file::{OutType, out_filename};
-use crate::fw::{CsLogic, PllConfig};
-use crate::preprocessor::RomSet;
+use crate::fw::PllConfig;
 
 // Generate all output files
 pub fn generate_files(config: &Config, rom_sets: &[RomSet]) -> Result<()> {
@@ -234,19 +235,15 @@ fn generate_roms_implementation_file(
         writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
         writeln!(file, "static const sdrr_rom_info_t rom_{}_info = {{", ii)?;
 
-        let cs1_state = rom_config
-            .cs_config
-            .cs1
-            .map(cs_logic_to_enum)
-            .expect("CS1 must be specified for all ROMs, although can be CE/OE");
+        let cs1_state = cs_logic_to_enum(rom_config.cs_config.cs1_logic());
         let cs2_state = rom_config
             .cs_config
-            .cs2
+            .cs2_logic()
             .map(cs_logic_to_enum)
             .unwrap_or("CS_NOT_USED");
         let cs3_state = rom_config
             .cs_config
-            .cs3
+            .cs3_logic()
             .map(cs_logic_to_enum)
             .unwrap_or("CS_NOT_USED");
 
@@ -305,7 +302,7 @@ fn generate_roms_implementation_file(
             ii
         )?;
         for rom_in_set in &rom_set.roms {
-            writeln!(file, "    &rom_{}_info,", rom_in_set.original_index)?;
+            writeln!(file, "    &rom_{}_info,", rom_in_set.index())?;
         }
         writeln!(file, "}};")?;
         writeln!(file)?;
@@ -323,7 +320,7 @@ fn generate_roms_implementation_file(
     for rom_set in rom_sets {
         let ii = rom_set.id;
         let num_roms = rom_set.roms.len();
-        let serve_alg = if num_roms == 1 || rom_set.is_banked {
+        let serve_alg = if num_roms == 1 || rom_set.set_type == RomSetType::Banked {
             config.serve_alg.c_value()
         } else {
             config.serve_alg.c_value_multi_rom_set()
@@ -341,24 +338,22 @@ fn generate_roms_implementation_file(
             if rom_set
                 .roms
                 .iter()
-                .any(|rom| rom.config.cs_config.cs1 != rom_set.roms[0].config.cs_config.cs1)
+                .any(|rom| rom.cs_config().cs1_logic() != rom_set.roms[0].cs_config().cs1_logic())
             {
                 return Err(anyhow::anyhow!(
                     "All ROMs in a multi-ROM set must have the same CS1 configuration"
                 ));
             }
 
-            if !rom_set.is_banked {
+            if rom_set.set_type != RomSetType::Banked {
                 // Check that every ROM in this set has CS2 and CS3 ignored.
                 if rom_set.roms.iter().any(|rom| {
-                    rom.config
-                        .cs_config
-                        .cs2
+                    rom.cs_config()
+                        .cs2_logic()
                         .is_some_and(|cs| cs != CsLogic::Ignore)
                         || rom
-                            .config
-                            .cs_config
-                            .cs3
+                            .cs_config()
+                            .cs3_logic()
                             .is_some_and(|cs| cs != CsLogic::Ignore)
                 }) {
                     return Err(anyhow::anyhow!(
@@ -368,9 +363,7 @@ fn generate_roms_implementation_file(
             }
 
             // Use the CS1 state from any ROM image, as they must be the same
-            cs_logic_to_enum(rom_set.roms[0].config.cs_config.cs1.expect(
-                "CS1 must be specified for all ROMs, although can be CE/OE",
-            ))
+            cs_logic_to_enum(rom_set.roms[0].cs_config().cs1_logic())
         };
         writeln!(file, "        .multi_rom_cs1_state = {},", set_cs_state)?;
         writeln!(file, "    }},")?;
@@ -720,16 +713,16 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "    .addr = {{ {} }},", addr_pins_str)?;
 
     writeln!(file, "    .reserved2 = {{0, 0, 0, 0}},")?;
-    writeln!(file, "    .cs1_2364 = {},", board.pin_cs1(RomType::Rom2364))?;
-    writeln!(file, "    .cs1_2332 = {},", board.pin_cs1(RomType::Rom2332))?;
-    writeln!(file, "    .cs1_2316 = {},", board.pin_cs1(RomType::Rom2316))?;
-    writeln!(file, "    .cs2_2332 = {},", board.pin_cs2(RomType::Rom2332))?;
-    writeln!(file, "    .cs2_2316 = {},", board.pin_cs2(RomType::Rom2316))?;
-    writeln!(file, "    .cs3_2316 = {},", board.pin_cs3(RomType::Rom2316))?;
+    writeln!(file, "    .cs1 = {},", board.pin_cs1(RomType::Rom2364))?;
+    writeln!(file, "    .cs2 = {},", board.pin_cs2(RomType::Rom2332))?;
+    writeln!(file, "    .cs3 = {},", board.pin_cs2(RomType::Rom2316))?; // This is correctly 2316's CS2
+    writeln!(file, "    .reserved2a = {{255}},")?;
+    writeln!(file, "    .reserved2b = {{255}},")?;
+    writeln!(file, "    .reserved2c = {{255}},")?;
     writeln!(file, "    .x1 = {},", board.pin_x1())?;
     writeln!(file, "    .x2 = {},", board.pin_x2())?;
-    writeln!(file, "    .ce_23128 = {},", board.pin_ce(RomType::Rom23128))?;
-    writeln!(file, "    .oe_23128 = {},", board.pin_oe(RomType::Rom23128))?;
+    writeln!(file, "    .ce = {},", board.pin_ce(RomType::Rom23128))?;
+    writeln!(file, "    .oe = {},", board.pin_oe(RomType::Rom23128))?;
     writeln!(file, "    .x_jumper_pull = {},", board.x_jumper_pull())?;
     writeln!(file, "    .reserved3 = {{0, 0, 0, 0, 0}},")?;
     writeln!(

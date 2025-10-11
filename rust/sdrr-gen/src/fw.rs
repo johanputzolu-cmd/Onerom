@@ -41,27 +41,6 @@ impl ServeAlg {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CsLogic {
-    ActiveLow,
-    ActiveHigh,
-
-    /// Used for 2332/2316 ROMs, when a CS line isn't used because it's always
-    /// tied active.
-    Ignore,
-}
-
-impl CsLogic {
-    pub fn try_from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "0" => Some(CsLogic::ActiveLow),
-            "1" => Some(CsLogic::ActiveHigh),
-            "ignore" => Some(CsLogic::Ignore),
-            _ => None,
-        }
-    }
-}
-
 /// PLL configuration and calculation
 pub struct PllConfig {
     pub proc: Processor,

@@ -189,28 +189,36 @@ pub enum SdrrRomType {
     #[deku(id = "5")]
     Rom23512,
 
-    /// 2716 ROM, 11-bit address, CE/OE lines, 2KB size
+    /// 2704 ROM, 9-bit address, CE/OE lines, 0.5KB size
     #[deku(id = "6")]
+    Rom2704,
+
+    /// 2708 ROM, 10-bit address, CE/OE lines, 1KB size
+    #[deku(id = "7")]
+    Rom2708,
+
+    /// 2716 ROM, 11-bit address, CE/OE lines, 2KB size
+    #[deku(id = "8")]
     Rom2716,
 
     /// 2732 ROM, 12-bit address, CE/OE lines, 4KB size
-    #[deku(id = "7")]
+    #[deku(id = "9")]
     Rom2732,
 
     /// 2764 ROM, 13-bit address, CE/OE lines, 8KB size
-    #[deku(id = "8")]
+    #[deku(id = "10")]
     Rom2764,
 
     /// 27128 ROM, 14-bit address, CE/OE lines, 16KB size
-    #[deku(id = "9")]
+    #[deku(id = "11")]
     Rom27128,
 
     /// 27256 ROM, 15-bit address, CE/OE lines, 32KB size
-    #[deku(id = "10")]
+    #[deku(id = "12")]
     Rom27256,
 
     /// 27512 ROM, 16-bit address, CE/OE lines, 64KB size
-    #[deku(id = "11")]
+    #[deku(id = "13")]
     Rom27512,
 }
 
@@ -223,6 +231,8 @@ impl fmt::Display for SdrrRomType {
             SdrrRomType::Rom23128 => write!(f, "23128"),
             SdrrRomType::Rom23256 => write!(f, "23256"),
             SdrrRomType::Rom23512 => write!(f, "23512"),
+            SdrrRomType::Rom2704 => write!(f, "2704"),
+            SdrrRomType::Rom2708 => write!(f, "2708"),
             SdrrRomType::Rom2716 => write!(f, "2716"),
             SdrrRomType::Rom2732 => write!(f, "2732"),
             SdrrRomType::Rom2764 => write!(f, "2764"),
@@ -236,6 +246,9 @@ impl fmt::Display for SdrrRomType {
 impl SdrrRomType {
     /// Returns the size of the ROM in bytes
     pub fn rom_size(&self) -> usize {
+        if self == &SdrrRomType::Rom2704 {
+            return 512;
+        }
         self.rom_size_kb() * 1024
     }
 
@@ -248,6 +261,8 @@ impl SdrrRomType {
             SdrrRomType::Rom23128 => 16,
             SdrrRomType::Rom23256 => 32,
             SdrrRomType::Rom23512 => 64,
+            SdrrRomType::Rom2704 => 0,
+            SdrrRomType::Rom2708 => 1,
             SdrrRomType::Rom2716 => 2,
             SdrrRomType::Rom2732 => 4,
             SdrrRomType::Rom2764 => 8,
@@ -271,6 +286,8 @@ impl SdrrRomType {
             SdrrRomType::Rom23128 => true,
             SdrrRomType::Rom23256 => true,
             SdrrRomType::Rom23512 => false,
+            SdrrRomType::Rom2704 => false,
+            SdrrRomType::Rom2708 => false,
             SdrrRomType::Rom2716 => false,
             SdrrRomType::Rom2732 => false,
             SdrrRomType::Rom2764 => false,
@@ -289,6 +306,8 @@ impl SdrrRomType {
             SdrrRomType::Rom23128 => true,
             SdrrRomType::Rom23256 => false,
             SdrrRomType::Rom23512 => false,
+            SdrrRomType::Rom2704 => false,
+            SdrrRomType::Rom2708 => false,
             SdrrRomType::Rom2716 => false,
             SdrrRomType::Rom2732 => false,
             SdrrRomType::Rom2764 => false,

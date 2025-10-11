@@ -12,7 +12,6 @@ mod config;
 mod file;
 mod fw;
 mod generator;
-mod preprocessor;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -48,17 +47,18 @@ fn main() -> Result<()> {
     confirm_licences(&config)?;
 
     // Load ROM files into RAM
-    let rom_images = load_rom_files(&config).with_context(|| "Failed to load ROM files")?;
+    let roms = load_rom_files(&config).with_context(|| "Failed to load ROM files")?;
+    let num_roms = roms.len();
 
     // Create ROM sets - validation already done in config.validate()
     let rom_sets = config
-        .create_rom_sets(&rom_images)
+        .create_rom_sets(roms)
         .map_err(|e| anyhow::anyhow!("ROM set creation error: {}", e))?;
 
     // Log some progress
     println!(
         "- Successfully loaded {} ROM file(s) in {} set(s)",
-        rom_images.len(),
+        num_roms,
         rom_sets.len()
     );
 

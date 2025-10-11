@@ -83,8 +83,9 @@ typedef struct {
     // 16 x 1 byte = 16 bytes
     uint8_t cs1;
     uint8_t cs2;
+    // 3rd CS line, only used on 2316 and 23128, actually 2316's CS2, as 2316's CS3 is 2332's CS2
     uint8_t cs3;
-    uint8_t uses_cs;  // If CS line(s) used (1) or not (So CE/OE) (0)
+    uint8_t reserved2a[1];
     uint8_t reserved2b[1];
     uint8_t reserved2c[1];
     uint8_t x1;
@@ -269,6 +270,8 @@ typedef enum {
     ROM_TYPE_23128,
     ROM_TYPE_23256,
     ROM_TYPE_23512,
+    ROM_TYPE_2704,
+    ROM_TYPE_2708,
     ROM_TYPE_2716,
     ROM_TYPE_2732,
     ROM_TYPE_2764,

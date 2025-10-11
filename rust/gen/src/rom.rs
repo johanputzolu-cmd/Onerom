@@ -1,0 +1,604 @@
+// Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
+//
+// MIT License
+
+//! Image generator for One ROM
+//! 
+//! Used to create the images to be flashed to One ROM, pointed to by the
+//! metadata.
+//! 
+//! Create one or more [`Rom`] instances, and group them into one or more
+//! [`RomSet`] instances.
+//! 
+//! Then use [`RomSet::get_byte()`] to retrieve bytes from the ROM set, as the
+//! MCU would address them, and needs to serve bytes - store these off in order
+//! into a final ROM image to be flashed to One ROM, at an offset pointed to by
+//! the metadata.
+
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+
+use onerom_config::hw::Board;
+use onerom_config::mcu::Family as McuFamily;
+use onerom_config::rom::RomType;
+
+use crate::{Error, Result};
+
+// Value to use when told to pad a ROM image
+pub const PAD_BLANK_BYTE: u8 = 0xAA;
+
+// Value to use when no ROM in portion of address space
+const PAD_NO_ROM_BYTE: u8 = 0xAA;
+
+/// How to handle ROM images that are too small for the ROM type
+#[derive(Debug, Clone)]
+pub enum SizeHandling {
+    /// No special handling.  Errors if the image size does not exactly match
+    /// the ROM size.
+    None,
+
+    /// Duplicates the image as many times as needed to fill the ROM.  Errors
+    /// if the image size is not an exact divisor of the ROM size.
+    Duplicate,
+
+    /// Pads the image out with [`PAD_BLANK_BYTE`].
+    Pad,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CsLogic {
+    /// Chip Select line is active low
+    ActiveLow,
+
+    /// Chip Select line is active high
+    ActiveHigh,
+
+    /// Used for 2332/2316 ROMs, when a CS line isn't used because it's always
+    /// tied active.
+    Ignore,
+}
+
+impl CsLogic {
+    pub fn try_from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "0" => Some(CsLogic::ActiveLow),
+            "1" => Some(CsLogic::ActiveHigh),
+            "ignore" => Some(CsLogic::Ignore),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CsConfig {
+    /// Configuration of the 3 possible Chip Select lines
+    ChipSelect {
+        cs1: CsLogic,
+        cs2: Option<CsLogic>,
+        cs3: Option<CsLogic>,
+    },
+    /// Configuration using CE/OE instead of chip select
+    CeOe,
+}
+
+impl CsConfig {
+    pub fn new(cs1: Option<CsLogic>, cs2: Option<CsLogic>, cs3: Option<CsLogic>) -> Self {
+        if cs1.is_none() && cs2.is_none() && cs3.is_none() {
+            return Self::CeOe;
+        } else {
+            let cs1 = cs1.expect("CS1 must be specified if any CS lines are used");
+            Self::ChipSelect { cs1, cs2, cs3 }
+        }
+    }
+
+    pub fn cs1_logic(&self) -> CsLogic {
+        match self {
+            CsConfig::ChipSelect { cs1, .. } => *cs1,
+            CsConfig::CeOe => CsLogic::ActiveLow,
+        }
+    }
+
+    pub fn cs2_logic(&self) -> Option<CsLogic> {
+        match self {
+            CsConfig::ChipSelect { cs2, .. } => *cs2,
+            CsConfig::CeOe => Some(CsLogic::ActiveLow),
+        }
+    }
+
+    pub fn cs3_logic(&self) -> Option<CsLogic> {
+        match self {
+            CsConfig::ChipSelect { cs3, .. } => *cs3,
+            CsConfig::CeOe => None,
+        }
+    }
+}
+
+/// Single ROM image.  May be part of a ROM set
+#[derive(Debug)]
+pub struct Rom {
+    index: usize,
+    rom_type: RomType,
+    cs_config: CsConfig,
+    data: Vec<u8>,
+}
+
+impl Rom {
+    fn new(index: usize, rom_type: &RomType, cs_config: CsConfig, data: Vec<u8>) -> Self {
+        Self { index, rom_type: rom_type.clone(), cs_config, data }
+    }
+
+    /// Returns the index of the ROM in the configuration
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    /// Returns the chip select configuration for the ROM.
+    pub fn cs_config(&self) -> &CsConfig {
+        &self.cs_config
+    }
+
+    /// Returns a [`Rom`] instance.
+    /// 
+    /// Takes a raw ROM image (binary data, loaded from file) and processes it
+    /// according to the specified size handling (none, duplicate, pad) to
+    /// ensure it matches the expected size for the given ROM type.
+    pub fn from_raw_rom_image(
+        index: usize,
+        source: &[u8],
+        mut dest: Vec<u8>,
+        rom_type: &RomType,
+        cs_config: CsConfig,
+        size_handling: &SizeHandling,
+    ) -> Result<Self> {
+        let expected_size = rom_type.size_bytes();
+        if dest.len() < expected_size {
+            return Err(Error::BufferTooSmall{
+                expected: expected_size,
+                actual: dest.len()
+            });
+        }
+
+        // See what handling is required, if any
+        match source.len().cmp(&expected_size) {
+            Ordering::Equal => {
+                // Exact match - error if dup/pad specified unnecessarily
+                match size_handling {
+                    SizeHandling::None => {
+                        // Copy source to dest as-is
+                        dest[..expected_size].copy_from_slice(&source[..expected_size]);
+                        
+                    },
+                    _ => return Err(Error::RightSize{ size: expected_size })
+                }
+            }
+            Ordering::Less => {
+                // File too small - handle with dup/pad
+                match size_handling {
+                    SizeHandling::None => return Err(Error::RomTooSmall{
+                        expected: expected_size,
+                        actual: source.len()
+                    }),
+                    SizeHandling::Duplicate => {
+                        if expected_size % source.len() != 0 {
+                            return Err(Error::DuplicationNotExactDivisor{
+                                rom_size: source.len(),
+                                expected_size
+                            });
+                        }
+                        let multiples = expected_size / source.len();
+
+                        // Copy multiplies of source into dest
+                        for i in 0..multiples {
+                            let start = i * source.len();
+                            let end = start + source.len();
+                            dest[start..end].copy_from_slice(source);
+                        }
+                    }
+                    SizeHandling::Pad => {
+                        // Copy source to dest and pad the rest with 0xAA
+                        dest[..source.len()].copy_from_slice(source);
+                        for byte in &mut dest[source.len()..expected_size] {
+                            *byte = PAD_BLANK_BYTE;
+                        }
+                    }
+                }
+            }
+            Ordering::Greater => {
+                // File too large - always an error
+                return Err(Error::RomTooLarge{
+                    rom_size: source.len(),
+                    expected_size
+                });
+            }
+        }
+
+        Ok(Self::new(index, rom_type, cs_config, dest))
+    }
+
+    // Transforms from a physical address (based on the hardware pins) to
+    // a logical ROM address, so we store the physical ROM mapping, rather
+    // than the logical one.
+    fn address_to_logical(
+        address: usize,
+        board: &Board,
+        num_addr_lines: usize,
+    ) -> usize {
+        let mut result = 0;
+        let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
+        
+        for (pin, item) in phys_pin_to_addr_map.iter().enumerate() {
+            if let Some(addr_bit) = item {
+                // Only use this mapping if it's within the ROM's address lines
+                if *addr_bit < num_addr_lines {
+                    if (address & (1 << pin)) != 0 {
+                        result |= 1 << addr_bit;
+                    }
+                }
+            }
+        }
+        
+        result
+    }
+
+    // Transforms a data byte by rearranging its bit positions to match the hardware's
+    // data pin connections.
+    //
+    // The hardware has a non-standard mapping for data pins, so we need to rearrange
+    // the bits to ensure correct data is read/written.
+    //
+    // Bit mapping:
+    // Original:  7 6 5 4 3 2 1 0
+    // Mapped to: 3 4 5 6 7 2 1 0
+    //
+    // For example:
+    // - Original bit 7 (MSB) moves to position 3
+    // - Original bit 3 moves to position 7 (becomes new MSB)
+    // - Bits 2, 1, and 0 remain in the same positions
+    //
+    // This transformation ensures that when the hardware reads a byte through its
+    // data pins, it gets the correct bit values despite the non-standard connections.
+    fn byte_to_logical(
+        byte: u8,
+        board: &Board,
+    ) -> u8 {
+        // Start with 0 result
+        let mut result = 0;
+
+        let phys_pin_to_data_map = board.phys_pin_to_data_map();
+
+        // For each bit in the original byte
+        #[allow(clippy::needless_range_loop)]
+        for bit_pos in 0..8 {
+            // Check if this bit is set in the original byte
+            if (byte & (1 << bit_pos)) != 0 {
+                // Get the new position for this bit
+                let new_pos = phys_pin_to_data_map[bit_pos];
+                // Set the bit in the result at its new position
+                result |= 1 << new_pos;
+            }
+        }
+
+        result
+    }
+
+    // Get byte at the given address with both address and data
+    // transformations applied.
+    //
+    // This function:
+    // 1. Transforms the address to match the hardware's address pin mapping
+    // 2. Retrieves the byte at that transformed address
+    // 3. Transforms the byte's bit pattern to match the hardware's data pin
+    //    mapping
+    //
+    // This ensures that when the hardware reads from a certain address
+    // through its GPIO pins, it gets the correct byte value with bits
+    // arranged according to its data pin connections.
+    fn get_byte(
+        &self,
+        address: usize,
+        board: &Board,
+    ) -> u8 {
+        // We have been passed a physical address based on the hardware pins,
+        // so we need to transform it to a logical address based on the ROM
+        // image.
+        let num_addr_lines = self.rom_type.num_addr_lines();
+        let transformed_address = Self::address_to_logical(address, board, num_addr_lines);
+
+        // Sanity check that we did get a logical address, which must by
+        // definition fit within the actual ROM size.
+        if transformed_address >= self.data.len() {
+            panic!(
+                "Transformed address {} out of bounds for ROM image of size {}",
+                transformed_address,
+                self.data.len()
+            );
+        }
+
+        // Get the byte from the logical ROM address.
+        let byte = self.data
+            .get(transformed_address)
+            .copied()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Address {} out of bounds for ROM image of size {}",
+                    transformed_address,
+                    self.data.len()
+                )
+            });
+
+        // Now transform the byte, as the physical data lines are not in the
+        // expected order (0-7).
+        Self::byte_to_logical(byte, board)
+    }
+}
+
+/// Type of ROM set
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RomSetType {
+    /// Single ROM
+    Single,
+
+    /// Set of dynamically banked ROMS
+    Banked,
+
+    /// Set of multiple ROMs selected by CS lines
+    Multi,
+}
+
+/// A set of ROMs, where the set type is RomSetType
+#[derive(Debug)]
+pub struct RomSet {
+    pub id: usize,
+    pub set_type: RomSetType,
+    pub roms: Vec<Rom>,
+}
+
+impl RomSet {
+    /// Creates a new ROM set of the specified ID, type, and containing the
+    /// given ROMs.
+    /// 
+    /// The ID is an arbitrary index, usually the set ID from the config,
+    /// starting at 0.
+    pub fn new(
+        id: usize,
+        set_type: RomSetType,
+        roms: Vec<Rom>,
+    ) -> Result<Self> {
+        if roms.is_empty() {
+            return Err(Error::NoRoms);
+        }
+        if roms.len() > 1 && set_type == RomSetType::Single {
+            return Err(Error::TooManyRoms {
+                expected: 1,
+                actual: roms.len()
+            });
+        }
+        Ok(Self { id, set_type, roms })
+    }
+
+    fn truncate_phys_pin_to_addr_map(
+        phys_pin_to_addr_map: &mut [Option<usize>],
+        num_addr_lines: usize,
+    ) {
+        // Clear any address lines beyond the number of address lines the ROM supports
+        for item in phys_pin_to_addr_map.iter_mut() {
+            if let Some(addr_bit) = item {
+                if *addr_bit >= num_addr_lines {
+                    *item = None;
+                }
+            }
+        }
+    }
+
+    /// Gets a byte from the ROM set at the given address (as far as the MCU is
+    /// concerned) and returns the byte, ready for the MCU to serve.
+    pub fn get_byte(&self, address: usize, board: &Board) -> u8 {
+        // Hard-coded assumption that X1/X2 (STM32F4) are pins 14/15 for
+        // single ROM sets and banked ROM sets.  However, for RP2350 they may
+        // be other pins.
+        if (self.roms.len() == 1) || (self.set_type == RomSetType::Banked) {
+            let (rom_index, masked_address) = if self.set_type != RomSetType::Banked {
+                match board.mcu_family() {
+                    McuFamily::Rp2350 => {
+                        // Single ROM set: uses entire 64KB space
+                        assert!(
+                            address < 65536,
+                            "Address out of bounds for RP235X single ROM set"
+                        );
+                    }
+                    McuFamily::Stm32f4 => {
+                        // Single ROM set: uses entire 16KB space
+                        assert!(
+                            address < 16384,
+                            "Address out of bounds for STM32F4 single ROM set"
+                        );
+                    }
+                }
+                (0, address)
+            } else {
+                // Banked mode: use X1/X2 to select ROM
+                assert!(address < 65536, "Address out of bounds for banked ROM set");
+                let x1_pin = board.pin_x1();
+                let x2_pin = board.pin_x2();
+                let bank = if board.x_jumper_pull() == 1 {
+                    ((address >> x1_pin) & 1) | (((address >> x2_pin) & 1) << 1)
+                } else {
+                    // Invert the logic if the jumpers pull to GND
+                    (!(address >> x1_pin) & 1) | ((!((address >> x2_pin) & 1)) << 1)
+                };
+                let mask = !(1 << x1_pin) & !(1 << x2_pin);
+                let masked_address = address & mask;
+                let rom_index = bank % self.roms.len(); // Wrap around
+                (rom_index, masked_address)
+            };
+
+            let num_addr_lines = self.roms[rom_index].rom_type.num_addr_lines();
+            let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
+            let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
+            Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
+
+            return self.roms[rom_index].get_byte(
+                masked_address,
+                board,
+            );
+        }
+
+        // Multiple ROMs: check CS line states to select responding ROM.  This
+        // code can handle any X1/X2 positions - but the above can't.
+        assert!(address < 65536, "Address out of bounds for multi-ROM set");
+        for (index, rom_in_set) in self.roms.iter().enumerate() {
+            // Get the physical addr and data pin mappings.  We have to
+            // retrieve this for each ROM in the set, as each ROM may be
+            // a different type (size).
+            let num_addr_lines = rom_in_set.rom_type.num_addr_lines();
+            let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
+            let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
+            Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
+
+            // All of CS1/X1/X2 have to have the same active low/high status
+            // so we retrieve that from CS1 (as X1/X2 aren't specifically
+            // configured in the rom sets).
+            let pins_active_high = rom_in_set.cs_config.cs1_logic() == CsLogic::ActiveHigh;
+
+            // Get the CS pin that controls this ROM's selection
+            let cs_pin = board.cs_pin_for_rom_in_set(rom_in_set.rom_type, index);
+            assert!(cs_pin <= 15, "Internal error: CS pin is > 15");
+
+            fn is_pin_active(active_high: bool, address: usize, pin: u8) -> bool {
+                if active_high {
+                    (address & (1 << pin)) != 0
+                } else {
+                    (address & (1 << pin)) == 0
+                }
+            }
+
+            let cs_active = is_pin_active(pins_active_high, address, cs_pin);
+
+            if cs_active {
+                // Verify exactly one CS pin is active
+                let cs1_pin = board.pin_cs1(rom_in_set.rom_type);
+                let x1_pin = board.pin_x1();
+                let x2_pin = board.pin_x2();
+
+                let cs1_is_active = is_pin_active(pins_active_high, address, cs1_pin);
+                let x1_is_active = is_pin_active(pins_active_high, address, x1_pin);
+                let x2_is_active = is_pin_active(pins_active_high, address, x2_pin);
+
+                let active_count = [cs1_is_active, x1_is_active, x2_is_active]
+                    .iter()
+                    .filter(|&&x| x)
+                    .count();
+
+                // Only return the byte for a single CS active, otherwise
+                // it'll get a "blank" byte
+                if active_count == 1 && self.check_rom_cs_requirements(rom_in_set, address, board) {
+                    return rom_in_set.get_byte(address, board);
+                }
+            }
+        }
+
+        // No ROM is selected, so this part of the address space is set to blank value
+        Rom::byte_to_logical(PAD_NO_ROM_BYTE, board)
+    }
+
+    fn check_rom_cs_requirements(
+        &self,
+        rom_in_set: &Rom,
+        address: usize,
+        board: &Board,
+    ) -> bool {
+        let cs_config = &rom_in_set.cs_config;
+        let rom_type = rom_in_set.rom_type;
+
+        // Check CS2 if specified
+        if let Some(cs2_logic) = cs_config.cs2_logic() {
+            match cs2_logic {
+                CsLogic::Ignore => {
+                    // CS2 state doesn't matter
+                }
+                CsLogic::ActiveLow => {
+                    let cs2_pin = board.pin_cs2(rom_type);
+                    let cs2_active = (address & (1 << cs2_pin)) == 0;
+                    if !cs2_active {
+                        return false;
+                    }
+                }
+                CsLogic::ActiveHigh => {
+                    let cs2_pin = board.pin_cs2(rom_type);
+                    let cs2_active = (address & (1 << cs2_pin)) != 0;
+                    if cs2_active {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // Check CS3 if specified
+        if let Some(cs3_logic) = cs_config.cs3_logic() {
+            match cs3_logic {
+                CsLogic::Ignore => {
+                    // CS3 state doesn't matter
+                }
+                CsLogic::ActiveLow => {
+                    let cs3_pin = board.pin_cs3(rom_type);
+                    let cs3_active = (address & (1 << cs3_pin)) == 0;
+                    if !cs3_active {
+                        return false;
+                    }
+                }
+                CsLogic::ActiveHigh => {
+                    let cs3_pin = board.pin_cs3(rom_type);
+                    let cs3_active = (address & (1 << cs3_pin)) != 0;
+                    if cs3_active {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        true
+    }
+
+    #[allow(dead_code)]
+    fn mask_cs_selection_bits(&self, address: usize, rom_type: RomType, board: &Board) -> usize {
+        let mut masked_address = address;
+
+        // Remove the CS selection bits - only mask bits that exist on this hardware
+        masked_address &= !(1 << board.pin_cs1(rom_type));
+
+        // Only mask X1/X2 on hardware that has them (revision F)
+        if board.supports_multi_rom_sets() {
+            let x1 = board.pin_x1();
+            let x2 = board.pin_x2();
+            assert!(x1 < 15 && x2 < 15, "X1/X2 pins must be less than 15");
+            masked_address &= !(1 << x1);
+            masked_address &= !(1 << x2);
+        }
+
+        // Remove CS2/CS3 bits based on ROM type
+        match rom_type {
+            RomType::Rom2332 => {
+                masked_address &= !(1 << board.pin_cs2(rom_type));
+            }
+            RomType::Rom2316 => {
+                masked_address &= !(1 << board.pin_cs2(rom_type));
+                masked_address &= !(1 << board.pin_cs3(rom_type));
+            }
+            RomType::Rom2364 => {
+                // 2364 only uses CS1, no additional bits to remove
+            }
+            RomType::Rom23128 => {
+                // No additional bits to remove
+            }
+            _ => {
+                panic!(
+                    "Internal error: unsupported ROM type {} in mask_cs_selection_bits",
+                    rom_type.name()
+                );
+            }
+        }
+
+        // Ensure address fits within ROM size
+        masked_address & ((1 << 13) - 1) // Mask to 13 bits max (8KB)
+    }
+}

@@ -15,9 +15,11 @@ use onerom_config::hw::{Board, BOARDS};
 use onerom_config::mcu::{Variant as McuVariant, MCU_VARIANTS};
 use onerom_config::rom::RomType;
 
-use crate::config::{Config, CsConfig, RomConfig, SizeHandling};
+use onerom_gen::rom::{CsConfig, CsLogic, SizeHandling};
+
+use crate::config::{Config, RomConfig};
 use crate::file::{FileSource, check_output_dir, source_image_file};
-use crate::fw::{CsLogic, ServeAlg};
+use crate::fw::ServeAlg;
 
 #[derive(Parser, Debug)]
 #[clap(

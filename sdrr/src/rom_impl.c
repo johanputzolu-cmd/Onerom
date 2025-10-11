@@ -71,11 +71,11 @@ static inline void __attribute__((always_inline)) setup_cs_masks(
     uint32_t *invert_mask
 ) {
     uint32_t cs_invert_mask = 0;
-    uint32_t cs_check_mask; 
+    uint32_t cs_check_mask;
 
     if (serve_mode == SERVE_ADDR_ON_ANY_CS)
     {
-        uint8_t pin_cs = info->pins->cs1_2364;
+        uint8_t pin_cs = info->pins->cs1;
         uint8_t pin_x1 = info->pins->x1;
         uint8_t pin_x2 = info->pins->x2;
         if (set->rom_count == 2)
@@ -91,97 +91,106 @@ static inline void __attribute__((always_inline)) setup_cs_masks(
             cs_invert_mask = cs_check_mask;
         }
     } else {
+        // Set up chip select (or CE/OE) lines and mask
+        uint8_t num_cs_lines = 1;
+        uint8_t pin_cs1 = 255;
+        uint8_t pin_cs2 = 255;
+        uint8_t pin_cs3 = 255;
+
         switch (rom->rom_type) {
             case ROM_TYPE_2316:
-                {
-                    ROM_IMPL_DEBUG("ROM type: 2316");
-                    uint8_t pin_cs = info->pins->cs1_2316;
-                    uint8_t pin_cs2 = info->pins->cs2_2316;
-                    uint8_t pin_cs3 = info->pins->cs3_2316;
-                    cs_check_mask = (1 << pin_cs) | (1 << pin_cs2) | (1 << pin_cs3);
-                    if (rom->cs1_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("CS1 active low");
-                    } else {
-                        ROM_IMPL_DEBUG("CS1 active high");
-                        cs_invert_mask |= (1 << pin_cs);
-                    }
-                    if (rom->cs2_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("CS2 active low");
-                    } else {
-                        ROM_IMPL_DEBUG("CS2 active high");
-                        cs_invert_mask |= (1 << pin_cs2);
-                    }
-                    if (rom->cs3_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("CS3 active low");
-                    } else {
-                        ROM_IMPL_DEBUG("CS3 active high");
-                        cs_invert_mask |= (1 << pin_cs3);
-                    }
-                }
+                num_cs_lines = 3;
+                pin_cs1 = info->pins->cs1;
+                pin_cs2 = info->pins->cs3; // Correctly transposed
+                pin_cs3 = info->pins->cs2; // Correctly transposed
                 break;
 
             case ROM_TYPE_2332:
-                {
-                    ROM_IMPL_DEBUG("ROM type: 2332");
-                    uint8_t pin_cs = info->pins->cs1_2332;
-                    uint8_t pin_cs2 = info->pins->cs2_2332;
-                    cs_check_mask = (1 << pin_cs) | (1 << pin_cs2);
-                    if (rom->cs1_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("CS1 active low");
-                    } else {
-                        ROM_IMPL_DEBUG("CS1 active high");
-                        cs_invert_mask |= (1 << pin_cs);
-                    }
-                    if (rom->cs2_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("CS2 active low");
-                    } else {
-                        ROM_IMPL_DEBUG("CS2 active high");
-                        cs_invert_mask |= (1 << pin_cs2);
-                    }
-                }
+                num_cs_lines = 2;
+                pin_cs1 = info->pins->cs1;
+                pin_cs2 = info->pins->cs2;
+                break;
+
+            case ROM_TYPE_2364:
+                num_cs_lines = 1;
+                pin_cs1 = info->pins->cs1;
                 break;
 
             case ROM_TYPE_23128:
+                num_cs_lines = 3;
+                pin_cs1 = info->pins->cs1;
+                pin_cs2 = info->pins->cs2;
+                pin_cs3 = info->pins->cs3;
+                break;
+
+            case ROM_TYPE_23256:
+            case ROM_TYPE_23512:
+                pin_cs1 = info->pins->cs1;
+                pin_cs2 = info->pins->cs2;
+                num_cs_lines = 2;
+                break;
+
+            case ROM_TYPE_2704:
+            case ROM_TYPE_2708:
+            case ROM_TYPE_2716:
+            case ROM_TYPE_2732:
+            case ROM_TYPE_2764:
             case ROM_TYPE_27128:
-                // This should work for 23128 with CS3 always active, and also
-                // a 27128 (which only has /CE and /OE).  This should serve a
-                // ROMs for the C64C and 1541-II.
-                {
-                    ROM_IMPL_DEBUG("ROM type: 23128/27128");
-                    uint8_t pin_cs1 = info->pins->ce_23128;
-                    uint8_t pin_cs2 = info->pins->oe_23128;
-                    cs_check_mask = (1 << pin_cs1) | (1 << pin_cs2);
-                    if (rom->cs1_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("CE active low");
-                    } else {
-                        ROM_IMPL_DEBUG("CE active high");
-                        cs_invert_mask |= (1 << pin_cs1);
-                    }
-                    if (rom->cs2_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("OE active low");
-                    } else {
-                        ROM_IMPL_DEBUG("OE active high");
-                        cs_invert_mask |= (1 << pin_cs2);
-                    }
-                }
+            case ROM_TYPE_27256:
+            case ROM_TYPE_27512:
+                num_cs_lines = 2;
+                pin_cs1 = info->pins->ce;
+                pin_cs2 = info->pins->oe;
                 break;
 
             default:
-                ROM_IMPL_LOG("Unsupported ROM type: %d", rom->rom_type);
-                __attribute__((fallthrough));
-            case ROM_TYPE_2364:
-                {
-                    ROM_IMPL_DEBUG("ROM type: 2364");
-                    uint8_t pin_cs = info->pins->cs1_2364;
-                    cs_check_mask = (1 << pin_cs);
-                    if (rom->cs1_state == CS_ACTIVE_LOW) {
-                        ROM_IMPL_DEBUG("CS1 active low");
-                    } else {
-                        ROM_IMPL_DEBUG("CS1 active high");
-                        cs_invert_mask |= 1 << pin_cs;
-                    }
-                }
+                ROM_IMPL_LOG("!!! Unsupported ROM type: %d", rom->rom_type);
+                num_cs_lines = 1; // Default to CS1 only
                 break;
+        }
+
+        if (pin_cs1 == 255) {
+            ROM_IMPL_LOG("!!! CS1 pin not defined");
+            pin_cs1 = 0;
+        }
+        if ((num_cs_lines > 1) && (pin_cs2 == 255)) {
+            ROM_IMPL_LOG("!!! CS2 pin not defined");
+            pin_cs2 = 0;
+        }
+        if ((num_cs_lines > 2) && (pin_cs3 == 255)) {
+            ROM_IMPL_LOG("!!! CS3 pin not defined");
+            pin_cs3 = 0;
+        }
+
+        // Set up the invert mask 
+        if (rom->cs1_state == CS_ACTIVE_LOW) {
+            ROM_IMPL_DEBUG("CS1 active low");
+        } else {
+            ROM_IMPL_DEBUG("CS1 active high");
+            cs_invert_mask |= (1 << pin_cs1);
+        }
+        if (num_cs_lines > 1) {
+            if (rom->cs2_state == CS_ACTIVE_LOW) {
+                ROM_IMPL_DEBUG("CS2 active low");
+            } else {
+                ROM_IMPL_DEBUG("CS2 active high");
+                cs_invert_mask |= (1 << pin_cs2);
+            }
+        }
+        if (num_cs_lines > 2) {
+            if (rom->cs3_state == CS_ACTIVE_LOW) {
+                ROM_IMPL_DEBUG("CS3 active low");
+            } else {
+                ROM_IMPL_DEBUG("CS3 active high");
+                cs_invert_mask |= (1 << pin_cs3);
+            }
+        }
+
+        cs_check_mask = (1 << pin_cs1);
+        if (num_cs_lines > 1) {
+            cs_check_mask |= (1 << pin_cs2);
+        } else if (num_cs_lines > 2) {
+            cs_check_mask |= (1 << pin_cs3);
         }
     }
     
@@ -434,16 +443,16 @@ void __attribute__((section(".main_loop"), used)) main_loop(
                     addr_cs_lines = GPIOC_IDR;  // ALG2_DUMB
                     while
                         ((((rom->cs1_state == CS_ACTIVE_LOW) &&
-                           !(addr_cs_lines & (1 << info->pins->cs1_2332)))
+                           !(addr_cs_lines & (1 << info->pins->cs1)))
                           ||
                           ((rom->cs1_state == CS_ACTIVE_HIGH) &&
-                           (addr_cs_lines & (1 << info->pins->cs1_2332))))
+                           (addr_cs_lines & (1 << info->pins->cs1))))
                          &&
                          (((rom->cs2_state == CS_ACTIVE_LOW) &&
-                           !(addr_cs_lines & (1 << info->pins->cs2_2332)))
+                           !(addr_cs_lines & (1 << info->pins->cs2)))
                           ||
                           ((rom->cs2_state == CS_ACTIVE_HIGH) &&
-                           (addr_cs_lines & (1 << info->pins->cs2_2332))))) {
+                           (addr_cs_lines & (1 << info->pins->cs2))))) {
                         data_byte = *(((uint8_t*)rom_table_val) + addr_cs_lines);
                         GPIOA_ODR = data_byte;
                         GPIOA_MODER = data_output_mask_val;                    
