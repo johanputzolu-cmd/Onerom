@@ -10,7 +10,7 @@ mod validation;
 
 use validation::{HwConfigJson, McuFamily, Port};
 
-pub const HW_CONFIG_DIRS: [&str; 2] = ["hw-config", "../hw-config"];
+pub const HW_CONFIG_DIRS: [&str; 3] = ["hw-config", "../hw-config", "../../hw-config"];
 pub const HW_CONFIG_SUB_DIRS: [&str; 2] = ["user", "third-party"];
 pub const HW_GENERATED_RS_FILENAME: &str = "hw/generated.rs";
 pub const HW_MOD_RS_FILENAME: &str = "hw/mod.rs";
