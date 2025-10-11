@@ -367,7 +367,17 @@ fn generate_rom_type_enum(config: &RomTypesConfig) -> String {
         }
     }
 
-    code.push_str("}\n");
+    code.push_str("}\n\n");
+
+    // Define ROM_TYPES array
+    code.push_str("/// All supported ROM types\n");
+    code.push_str("pub const ROM_TYPES: &[RomType] = &[\n");
+    for (type_name, _rom_type) in get_sorted_rom_types(config) {
+        if config.rom_types.get(type_name).is_some() {
+            code.push_str(&format!("    RomType::Rom{},\n", type_name));
+        }
+    }
+    code.push_str("];\n");
     code
 }
 

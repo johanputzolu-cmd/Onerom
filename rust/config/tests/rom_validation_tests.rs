@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_parse_real_json_config() {
-        let json = include_bytes!("../../../hw-config/rom-types.json");
+        let json = include_bytes!("../json/rom-types.json");
 
         let config = RomTypesConfig::from_json(&String::from_utf8_lossy(json))
             .expect("Failed to parse JSON config");
