@@ -3,18 +3,19 @@
 // MIT License
 
 //! Image generator for One ROM
-//! 
+//!
 //! Used to create the images to be flashed to One ROM, pointed to by the
 //! metadata.
-//! 
+//!
 //! Create one or more [`Rom`] instances, and group them into one or more
 //! [`RomSet`] instances.
-//! 
+//!
 //! Then use [`RomSet::get_byte()`] to retrieve bytes from the ROM set, as the
 //! MCU would address them, and needs to serve bytes - store these off in order
 //! into a final ROM image to be flashed to One ROM, at an offset pointed to by
 //! the metadata.
 
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 
@@ -29,6 +30,59 @@ pub const PAD_BLANK_BYTE: u8 = 0xAA;
 
 // Value to use when no ROM in portion of address space
 const PAD_NO_ROM_BYTE: u8 = 0xAA;
+
+const ROM_METADATA_LEN_NO_FILENAME: usize = 4;
+const ROM_METADATA_LEN_WITH_FILENAME: usize = 8;
+
+const ROM_SET_METADATA_LEN: usize = 16; // sdrr_rom_set_t
+
+/// ROM serving algorithm
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServeAlg {
+    /// default
+    Default,
+
+    /// a
+    TwoCsOneAddr,
+
+    /// b
+    AddrOnCs,
+
+    /// Multi-ROM set only
+    AddrOnAnyCs,
+}
+
+impl ServeAlg {
+    pub fn try_from_str(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "default" => Some(ServeAlg::Default),
+            "a" | "two_cs_one_addr" => Some(ServeAlg::TwoCsOneAddr),
+            "b" => Some(ServeAlg::AddrOnCs),
+            _ => None,
+        }
+    }
+
+    pub fn c_value(&self) -> &str {
+        match self {
+            ServeAlg::TwoCsOneAddr => "SERVE_TWO_CS_ONE_ADDR",
+            ServeAlg::Default => "SERVE_ADDR_ON_CS",
+            ServeAlg::AddrOnCs => "SERVE_ADDR_ON_CS",
+            ServeAlg::AddrOnAnyCs => "SERVE_ADDR_ON_ANY_CS",
+        }
+    }
+
+    pub fn c_value_multi_rom_set(&self) -> &str {
+        Self::AddrOnAnyCs.c_value()
+    }
+
+    pub fn c_enum_value(&self) -> u8 {
+        match self {
+            ServeAlg::TwoCsOneAddr => 0,
+            ServeAlg::Default | ServeAlg::AddrOnCs => 1,
+            ServeAlg::AddrOnAnyCs => 2,
+        }
+    }
+}
 
 /// How to handle ROM images that are too small for the ROM type
 #[derive(Debug, Clone)]
@@ -65,6 +119,22 @@ impl CsLogic {
             "1" => Some(CsLogic::ActiveHigh),
             "ignore" => Some(CsLogic::Ignore),
             _ => None,
+        }
+    }
+
+    pub fn c_value(&self) -> &str {
+        match self {
+            CsLogic::ActiveLow => "CS_ACTIVE_LOW",
+            CsLogic::ActiveHigh => "CS_ACTIVE_HIGH",
+            CsLogic::Ignore => "CS_NOT_USED",
+        }
+    }
+
+    fn c_enum_val(&self) -> u8 {
+        match self {
+            CsLogic::ActiveLow => 0,
+            CsLogic::ActiveHigh => 1,
+            CsLogic::Ignore => 2,
         }
     }
 }
@@ -117,14 +187,27 @@ impl CsConfig {
 #[derive(Debug)]
 pub struct Rom {
     index: usize,
+    filename: String,
     rom_type: RomType,
     cs_config: CsConfig,
     data: Vec<u8>,
 }
 
 impl Rom {
-    fn new(index: usize, rom_type: &RomType, cs_config: CsConfig, data: Vec<u8>) -> Self {
-        Self { index, rom_type: rom_type.clone(), cs_config, data }
+    fn new(
+        index: usize,
+        filename: String,
+        rom_type: &RomType,
+        cs_config: CsConfig,
+        data: Vec<u8>,
+    ) -> Self {
+        Self {
+            index,
+            filename,
+            rom_type: rom_type.clone(),
+            cs_config,
+            data,
+        }
     }
 
     /// Returns the index of the ROM in the configuration
@@ -137,13 +220,19 @@ impl Rom {
         &self.cs_config
     }
 
+    /// Returns the ROM filename
+    pub fn filename(&self) -> &str {
+        &self.filename
+    }
+
     /// Returns a [`Rom`] instance.
-    /// 
+    ///
     /// Takes a raw ROM image (binary data, loaded from file) and processes it
     /// according to the specified size handling (none, duplicate, pad) to
     /// ensure it matches the expected size for the given ROM type.
     pub fn from_raw_rom_image(
         index: usize,
+        filename: String,
         source: &[u8],
         mut dest: Vec<u8>,
         rom_type: &RomType,
@@ -152,9 +241,9 @@ impl Rom {
     ) -> Result<Self> {
         let expected_size = rom_type.size_bytes();
         if dest.len() < expected_size {
-            return Err(Error::BufferTooSmall{
+            return Err(Error::BufferTooSmall {
                 expected: expected_size,
-                actual: dest.len()
+                actual: dest.len(),
             });
         }
 
@@ -166,23 +255,28 @@ impl Rom {
                     SizeHandling::None => {
                         // Copy source to dest as-is
                         dest[..expected_size].copy_from_slice(&source[..expected_size]);
-                        
-                    },
-                    _ => return Err(Error::RightSize{ size: expected_size })
+                    }
+                    _ => {
+                        return Err(Error::RightSize {
+                            size: expected_size,
+                        });
+                    }
                 }
             }
             Ordering::Less => {
                 // File too small - handle with dup/pad
                 match size_handling {
-                    SizeHandling::None => return Err(Error::RomTooSmall{
-                        expected: expected_size,
-                        actual: source.len()
-                    }),
+                    SizeHandling::None => {
+                        return Err(Error::RomTooSmall {
+                            expected: expected_size,
+                            actual: source.len(),
+                        });
+                    }
                     SizeHandling::Duplicate => {
                         if expected_size % source.len() != 0 {
-                            return Err(Error::DuplicationNotExactDivisor{
+                            return Err(Error::DuplicationNotExactDivisor {
                                 rom_size: source.len(),
-                                expected_size
+                                expected_size,
                             });
                         }
                         let multiples = expected_size / source.len();
@@ -205,27 +299,23 @@ impl Rom {
             }
             Ordering::Greater => {
                 // File too large - always an error
-                return Err(Error::RomTooLarge{
+                return Err(Error::RomTooLarge {
                     rom_size: source.len(),
-                    expected_size
+                    expected_size,
                 });
             }
         }
 
-        Ok(Self::new(index, rom_type, cs_config, dest))
+        Ok(Self::new(index, filename, rom_type, cs_config, dest))
     }
 
     // Transforms from a physical address (based on the hardware pins) to
     // a logical ROM address, so we store the physical ROM mapping, rather
     // than the logical one.
-    fn address_to_logical(
-        address: usize,
-        board: &Board,
-        num_addr_lines: usize,
-    ) -> usize {
+    fn address_to_logical(address: usize, board: &Board, num_addr_lines: usize) -> usize {
         let mut result = 0;
         let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
-        
+
         for (pin, item) in phys_pin_to_addr_map.iter().enumerate() {
             if let Some(addr_bit) = item {
                 // Only use this mapping if it's within the ROM's address lines
@@ -236,7 +326,7 @@ impl Rom {
                 }
             }
         }
-        
+
         result
     }
 
@@ -257,10 +347,7 @@ impl Rom {
     //
     // This transformation ensures that when the hardware reads a byte through its
     // data pins, it gets the correct bit values despite the non-standard connections.
-    fn byte_to_logical(
-        byte: u8,
-        board: &Board,
-    ) -> u8 {
+    fn byte_to_logical(byte: u8, board: &Board) -> u8 {
         // Start with 0 result
         let mut result = 0;
 
@@ -293,11 +380,7 @@ impl Rom {
     // This ensures that when the hardware reads from a certain address
     // through its GPIO pins, it gets the correct byte value with bits
     // arranged according to its data pin connections.
-    fn get_byte(
-        &self,
-        address: usize,
-        board: &Board,
-    ) -> u8 {
+    fn get_byte(&self, address: usize, board: &Board) -> u8 {
         // We have been passed a physical address based on the hardware pins,
         // so we need to transform it to a logical address based on the ROM
         // image.
@@ -315,7 +398,8 @@ impl Rom {
         }
 
         // Get the byte from the logical ROM address.
-        let byte = self.data
+        let byte = self
+            .data
             .get(transformed_address)
             .copied()
             .unwrap_or_else(|| {
@@ -329,6 +413,25 @@ impl Rom {
         // Now transform the byte, as the physical data lines are not in the
         // expected order (0-7).
         Self::byte_to_logical(byte, board)
+    }
+
+    fn rom_type_c_enum_val(&self) -> u8 {
+        match self.rom_type {
+            RomType::Rom2316 => 0,
+            RomType::Rom2332 => 1,
+            RomType::Rom2364 => 2,
+            RomType::Rom23128 => 3,
+            RomType::Rom23256 => 4,
+            RomType::Rom23512 => 5,
+            RomType::Rom2704 => 6,
+            RomType::Rom2708 => 7,
+            RomType::Rom2716 => 8,
+            RomType::Rom2732 => 9,
+            RomType::Rom2764 => 10,
+            RomType::Rom27128 => 11,
+            RomType::Rom27256 => 12,
+            RomType::Rom27512 => 13,
+        }
     }
 }
 
@@ -350,30 +453,116 @@ pub enum RomSetType {
 pub struct RomSet {
     pub id: usize,
     pub set_type: RomSetType,
+    pub serve_alg: ServeAlg,
     pub roms: Vec<Rom>,
 }
 
 impl RomSet {
     /// Creates a new ROM set of the specified ID, type, and containing the
     /// given ROMs.
-    /// 
+    ///
     /// The ID is an arbitrary index, usually the set ID from the config,
     /// starting at 0.
     pub fn new(
         id: usize,
         set_type: RomSetType,
+        serve_alg: ServeAlg,
         roms: Vec<Rom>,
     ) -> Result<Self> {
+        // Check some ROMs were supplied
         if roms.is_empty() {
             return Err(Error::NoRoms);
         }
+
+        // Check set type matches number of ROMs
         if roms.len() > 1 && set_type == RomSetType::Single {
             return Err(Error::TooManyRoms {
                 expected: 1,
-                actual: roms.len()
+                actual: roms.len(),
             });
         }
-        Ok(Self { id, set_type, roms })
+
+        // Correct the serving algorithm if necessary - we accept any value
+        // if a multi-rom set, and correct it.  But we don't accept an invalid
+        // value for the other set types.
+        let serve_alg = match set_type {
+            RomSetType::Single | RomSetType::Banked => {
+                if !matches!(
+                    serve_alg,
+                    ServeAlg::Default | ServeAlg::AddrOnCs | ServeAlg::TwoCsOneAddr
+                ) {
+                    return Err(Error::InvalidServeAlg { serve_alg });
+                } else {
+                    serve_alg
+                }
+            }
+            RomSetType::Multi => ServeAlg::AddrOnAnyCs,
+        };
+
+        Ok(Self {
+            id,
+            set_type,
+            serve_alg,
+            roms,
+        })
+    }
+
+    pub fn multi_cs_logic(&self) -> Result<CsLogic> {
+        let first_cs1 = self.roms[0].cs_config.cs1_logic();
+        if self.roms.len() == 1 {
+            // Unused
+            Ok(CsLogic::Ignore)
+        } else {
+            // For multi and banked rom sets we need to check all CS1 logic is
+            // the same
+            for rom in &self.roms {
+                if rom.cs_config.cs1_logic() != first_cs1 {
+                    return Err(Error::InconsistentCsLogic {
+                        first: first_cs1,
+                        other: rom.cs_config.cs1_logic(),
+                    });
+                }
+            }
+
+            // For multi-ROM sets we also need to check CS2 and CS3 are ignored
+            // for all ROMS
+            if self.set_type == RomSetType::Multi {
+                for rom in &self.roms {
+                    if let Some(cs2) = rom.cs_config.cs2_logic() {
+                        if cs2 != CsLogic::Ignore {
+                            return Err(Error::InconsistentCsLogic {
+                                first: CsLogic::Ignore,
+                                other: cs2,
+                            });
+                        }
+                    }
+                    if let Some(cs3) = rom.cs_config.cs3_logic() {
+                        if cs3 != CsLogic::Ignore {
+                            return Err(Error::InconsistentCsLogic {
+                                first: CsLogic::Ignore,
+                                other: cs3,
+                            });
+                        }
+                    }
+                }
+            }
+
+            Ok(self.roms[0].cs_config.cs1_logic())
+        }
+    }
+
+    /// Returns the size of the data required for this ROM set, in bytes.
+    pub fn image_size(&self, family: &McuFamily) -> usize {
+        if family == &McuFamily::Rp2350 {
+            // RP2350 can address full 64KB space for each ROM set
+            65536
+        } else {
+            // STM32F4 uses 16KB space for single ROM sets, otherwise 64KB
+            match self.set_type {
+                RomSetType::Single => 16384,
+                RomSetType::Banked | RomSetType::Multi => 65536,
+            }
+        }
     }
 
     fn truncate_phys_pin_to_addr_map(
@@ -437,10 +626,7 @@ impl RomSet {
             let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
-            return self.roms[rom_index].get_byte(
-                masked_address,
-                board,
-            );
+            return self.roms[rom_index].get_byte(masked_address, board);
         }
 
         // Multiple ROMs: check CS line states to select responding ROM.  This
@@ -501,12 +687,7 @@ impl RomSet {
         Rom::byte_to_logical(PAD_NO_ROM_BYTE, board)
     }
 
-    fn check_rom_cs_requirements(
-        &self,
-        rom_in_set: &Rom,
-        address: usize,
-        board: &Board,
-    ) -> bool {
+    fn check_rom_cs_requirements(&self, rom_in_set: &Rom, address: usize, board: &Board) -> bool {
         let cs_config = &rom_in_set.cs_config;
         let rom_type = rom_in_set.rom_type;
 
@@ -600,5 +781,199 @@ impl RomSet {
 
         // Ensure address fits within ROM size
         masked_address & ((1 << 13) - 1) // Mask to 13 bits max (8KB)
+    }
+
+    /// Returns a slice of the ROMs in this set.
+    pub fn roms(&self) -> &[Rom] {
+        &self.roms
+    }
+
+    /// Returns the length of metadata required for all of the ROMs.  This
+    /// includes all ROM structs, plus the array of pointers to them.
+    pub fn roms_metadata_len(&self, include_filenames: bool) -> usize {
+        let num_roms = self.roms.len();
+
+        // ROM pointer array size
+        let rom_ptr_array_len = 4 * num_roms;
+
+        // Size of all ROM metadata structs
+        let rom_metadata_len = if include_filenames {
+            ROM_METADATA_LEN_WITH_FILENAME
+        } else {
+            ROM_METADATA_LEN_NO_FILENAME
+        } * num_roms;
+
+        rom_ptr_array_len + rom_metadata_len
+    }
+
+    /// Writes ROM metadata structs for all ROMs in this set and store off
+    /// offsets to them.
+    ///
+    /// Returns the number of bytes written and also pointers to each, so
+    /// that the array of ROM pointers can be written.
+    pub fn write_rom_metadata(
+        &self,
+        buf: &mut [u8],
+        rom_filename_ptrs: &[u32],
+        rom_metadata_ptrs: &mut [u32],
+        include_filenames: bool,
+    ) -> Result<usize> {
+        let num_roms = self.roms.len();
+
+        // Check enough buffer space
+        let expected_len = self.roms_metadata_len(include_filenames);
+        if buf.len() < expected_len {
+            return Err(Error::BufferTooSmall {
+                expected: expected_len,
+                actual: buf.len(),
+            });
+        }
+
+        // Check enough space for pointers
+        if rom_metadata_ptrs.len() < num_roms {
+            return Err(Error::BufferTooSmall {
+                expected: num_roms,
+                actual: rom_metadata_ptrs.len(),
+            });
+        }
+
+        let mut offset = 0;
+
+        // Write ROM metadata.
+        for (ii, rom) in self.roms.iter().enumerate() {
+            // Set up the pointer to be returned first
+            rom_metadata_ptrs[ii] = offset as u32;
+
+            // Write the rom_type
+            buf[offset] = rom.rom_type_c_enum_val();
+            offset += 1;
+
+            // Write the CS states
+            buf[offset] = rom.cs_config.cs1_logic().c_enum_val();
+            offset += 1;
+            buf[offset] = rom.cs_config.cs2_logic().map_or(2, |cs| cs.c_enum_val());
+            offset += 1;
+            buf[offset] = rom.cs_config.cs3_logic().map_or(2, |cs| cs.c_enum_val());
+            offset += 1;
+
+            // Add filename if required
+            if include_filenames {
+                let rom_filename_ptr = rom_filename_ptrs
+                    .get(ii)
+                    .copied()
+                    .ok_or_else(|| Error::MissingPointer { id: ii })?;
+                buf[offset..offset + 4].copy_from_slice(&rom_filename_ptr.to_le_bytes());
+                offset += 4;
+            }
+        }
+
+        Ok(offset)
+    }
+
+    /// Writes the array of pointers to each ROM metadata struct.  Must be
+    /// called after [`write_rom_metadata()`].
+    pub fn write_rom_pointer_array(
+        &self,
+        buf: &mut [u8],
+        rom_metadata_ptrs: &[u32],
+    ) -> Result<usize> {
+        let num_roms = self.roms.len();
+
+        // Check enough buffer space
+        let expected_len = 4 * num_roms;
+        if buf.len() < expected_len {
+            return Err(Error::BufferTooSmall {
+                expected: expected_len,
+                actual: buf.len(),
+            });
+        }
+
+        // Check enough pointers
+        if rom_metadata_ptrs.len() < num_roms {
+            return Err(Error::MissingPointer {
+                id: rom_metadata_ptrs.len(),
+            });
+        }
+
+        let mut offset = 0;
+
+        // Write the array of pointers
+        for _ in 0..num_roms {
+            for ii in rom_metadata_ptrs.iter() {
+                buf[offset..offset + 4].copy_from_slice(&ii.to_le_bytes());
+                offset += 4;
+            }
+        }
+
+        Ok(offset)
+    }
+
+    /// Writes the actual set metadata for this set.  This function must be
+    /// called for each set one after the other, in order of set ID, as it
+    /// must write an array of sets.
+    pub fn write_set_metadata(
+        &self,
+        buf: &mut [u8],
+        data_ptr: u32,
+        rom_array_ptr: u32,
+        family: &McuFamily,
+    ) -> Result<usize> {
+        // Check enough buffer space
+        let expected_len = Self::rom_set_metadata_len();
+        if buf.len() < expected_len {
+            return Err(Error::BufferTooSmall {
+                expected: expected_len,
+                actual: buf.len(),
+            });
+        }
+
+        let mut offset = 0;
+
+        // Write the ROM image(s) data pointer
+        buf[offset..offset + 4].copy_from_slice(&data_ptr.to_le_bytes());
+        offset += 4;
+
+        // Write the ROM data size
+        let data_size = self.image_size(family) as u32;
+        buf[offset..offset + 4].copy_from_slice(&data_size.to_le_bytes());
+        offset += 4;
+
+        // Write the ROM data pointer
+        buf[offset..offset + 4].copy_from_slice(&rom_array_ptr.to_le_bytes());
+        offset += 4;
+
+        // Write the nubmer of ROMs in this set
+        let num_roms = self.roms.len() as u8;
+        buf[offset] = num_roms;
+        offset += 1;
+
+        // Write the serving algorithm
+        let algorithm = self.serve_alg().c_enum_value();
+        buf[offset] = algorithm;
+        offset += 1;
+
+        // Write the multi-ROM CS state
+        let multi_cs_state = self.multi_cs_logic()?.c_enum_val();
+        buf[offset] = multi_cs_state;
+        offset += 1;
+
+        // Write a pad byte
+        buf[offset] = 0;
+        offset += 1;
+
+        assert_eq!(
+            offset, expected_len,
+            "Internal error: offset does not match expected length"
+        );
+
+        Ok(offset)
+    }
+
+    pub const fn rom_set_metadata_len() -> usize {
+        ROM_SET_METADATA_LEN
+    }
+
+    pub fn serve_alg(&self) -> ServeAlg {
+        self.serve_alg
     }
 }

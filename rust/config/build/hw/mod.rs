@@ -10,7 +10,7 @@ mod validation;
 
 use validation::{HwConfigJson, McuFamily, Port};
 
-pub const HW_CONFIG_DIRS: [&str; 1] = [ "json", ];
+pub const HW_CONFIG_DIRS: [&str; 1] = ["json"];
 pub const HW_CONFIG_SUB_DIRS: [&str; 2] = ["user", "third-party"];
 pub const HW_GENERATED_RS_FILENAME: &str = "hw/generated.rs";
 pub const HW_MOD_RS_FILENAME: &str = "hw/mod.rs";
@@ -185,7 +185,10 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                     }
                 }
                 if under_8 && over_15 {
-                    panic!("Address pins in config {} mix low (<8) and high (>15) physical pins, which is not supported", normalized);
+                    panic!(
+                        "Address pins in config {} mix low (<8) and high (>15) physical pins, which is not supported",
+                        normalized
+                    );
                 }
                 let shift_left_8 = if over_15 { true } else { false };
 
@@ -207,7 +210,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                         phys_pin_to_data_map[phys_pin as usize % 8] = data_line;
                     } else {
                         panic!("Invalid data pin {} in config {}", phys_pin, normalized);
-                    }   
+                    }
                 }
 
                 configs.push(HwConfigData {
@@ -821,7 +824,9 @@ fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
     code.push_str("    ///\n");
     code.push_str("    /// Returns array indexed by physical pin number, with value being the\n");
     code.push_str("    /// address line number (Some) or None if pin is not an address line.\n");
-    code.push_str("    pub const fn phys_pin_to_addr_map(&self) -> &'static [Option<usize>; 16] {\n");
+    code.push_str(
+        "    pub const fn phys_pin_to_addr_map(&self) -> &'static [Option<usize>; 16] {\n",
+    );
     code.push_str("        match self {\n");
 
     for config in configs {
@@ -846,7 +851,8 @@ fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
         code.push_str(&format!(
             "            Board::{} => &[{}],\n",
             config.variant_name,
-            config.phys_pin_to_data_map
+            config
+                .phys_pin_to_data_map
                 .iter()
                 .map(|v| v.to_string())
                 .collect::<Vec<_>>()

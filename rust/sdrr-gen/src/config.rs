@@ -9,9 +9,9 @@ use onerom_config::hw::Board;
 use onerom_config::mcu::{Port, Variant as McuVariant};
 use onerom_config::rom::RomType;
 
-use onerom_gen::rom::{CsConfig, Rom, RomSet, RomSetType, SizeHandling};
+use onerom_gen::image::{CsConfig, Rom, RomSet, RomSetType, ServeAlg, SizeHandling};
 
-use crate::fw::{PllConfig, ServeAlg};
+use crate::fw::PllConfig;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -277,45 +277,59 @@ impl Config {
         Ok(())
     }
 
-    pub fn create_rom_sets(&self, roms: Vec<Rom>) -> Result<Vec<RomSet>, String> {
+    pub fn create_rom_sets(
+        &self,
+        roms: Vec<Rom>,
+        serve_alg: ServeAlg,
+    ) -> Result<Vec<RomSet>, String> {
         let sets: Vec<usize> = self.roms.iter().filter_map(|rom| rom.set).collect();
 
         if sets.is_empty() {
             let rom_sets: Vec<RomSet> = roms
                 .into_iter()
                 .enumerate()
-                .map(|(ii, rom)| RomSet::new(ii, RomSetType::Single, vec![rom]))
+                .map(|(ii, rom)| RomSet::new(ii, RomSetType::Single, serve_alg, vec![rom]))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| format!("Error creating ROM sets: {:?}", e))?;
             return Ok(rom_sets);
         }
 
         let mut sets_map: BTreeMap<usize, Vec<(usize, &RomConfig, Rom)>> = BTreeMap::new();
-        
+
         for (ii, (rom_config, rom)) in self.roms.iter().zip(roms.into_iter()).enumerate() {
             if let Some(set_id) = rom_config.set {
-                sets_map.entry(set_id).or_insert_with(Vec::new).push((ii, rom_config, rom));
+                sets_map
+                    .entry(set_id)
+                    .or_insert_with(Vec::new)
+                    .push((ii, rom_config, rom));
             }
         }
 
         let mut rom_sets: Vec<RomSet> = Vec::new();
-        
+
         for (set_id, mut roms_in_set) in sets_map {
-            let is_banked = roms_in_set.iter().any(|(_, config, _)| config.bank.is_some());
-            
+            let is_banked = roms_in_set
+                .iter()
+                .any(|(_, config, _)| config.bank.is_some());
+
             if is_banked {
                 roms_in_set.sort_by_key(|(_, config, _)| config.bank.unwrap());
             }
-            
+
             let rom_vec: Vec<Rom> = roms_in_set.into_iter().map(|(_, _, rom)| rom).collect();
-            
+
             let rom_set = RomSet::new(
                 set_id,
-                if is_banked { RomSetType::Banked } else { RomSetType::Multi },
+                if is_banked {
+                    RomSetType::Banked
+                } else {
+                    RomSetType::Multi
+                },
+                serve_alg,
                 rom_vec,
             )
             .map_err(|e| format!("Error creating ROM sets: {:?}", e))?;
-            
+
             rom_sets.push(rom_set);
         }
 

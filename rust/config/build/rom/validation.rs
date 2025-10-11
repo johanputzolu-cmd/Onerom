@@ -115,7 +115,7 @@ pub enum ValidationError {
     UnknownControlLine {
         rom_type: String,
         line_name: String,
-    }
+    },
 }
 
 impl fmt::Display for ValidationError {
@@ -182,14 +182,20 @@ impl fmt::Display for ValidationError {
                     rom_type, count, MAX_ADDRESS_LINES
                 )
             }
-            ValidationError::IncompatibleControlLines { rom_type, combination } => {
+            ValidationError::IncompatibleControlLines {
+                rom_type,
+                combination,
+            } => {
                 write!(
                     f,
                     "ROM type '{}': incompatible chip select line combination: {}.\nCS1/2/3 cannot be used with CE/OE.",
                     rom_type, combination
                 )
             }
-            ValidationError::UnknownControlLine { rom_type, line_name } => {
+            ValidationError::UnknownControlLine {
+                rom_type,
+                line_name,
+            } => {
                 let valid_lines = VALID_CONTROL_LINES.join(", ");
                 write!(
                     f,
@@ -318,12 +324,10 @@ impl RomType {
         }
 
         // Check for incompatible chip select line combinations.
-        let cs_lines: Vec<&str> = self
-            .control
-            .keys()
-            .map(|s| s.as_str())
-            .collect();
-        if (cs_lines.contains(&"cs1") || cs_lines.contains(&"cs2") || cs_lines.contains(&"cs3")) && (cs_lines.contains(&"ce") || cs_lines.contains(&"oe")) {
+        let cs_lines: Vec<&str> = self.control.keys().map(|s| s.as_str()).collect();
+        if (cs_lines.contains(&"cs1") || cs_lines.contains(&"cs2") || cs_lines.contains(&"cs3"))
+            && (cs_lines.contains(&"ce") || cs_lines.contains(&"oe"))
+        {
             return Err(ValidationError::IncompatibleControlLines {
                 rom_type: type_name.to_string(),
                 combination: format!("{:?}", cs_lines),

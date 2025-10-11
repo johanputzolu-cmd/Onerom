@@ -12,4 +12,4 @@ keywords = ["retro", "rom", "commodore", "embedded"]
 categories = ["embedded", "hardware-support"]
 
 [dependencies]
-onerom-config = { version = "0.1.1" }
+onerom-config = { path = "../config", version = "0.1.2" }

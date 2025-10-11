@@ -8,7 +8,10 @@
 
 extern crate alloc;
 
-pub mod rom;
+pub mod image;
+pub mod meta;
+
+use image::{CsLogic, ServeAlg};
 
 /// Error type
 #[derive(Debug)]
@@ -38,7 +41,17 @@ pub enum Error {
         actual: usize,
     },
     MissingCsConfig {
-        line: &'static str,        
-    }
+        line: &'static str,
+    },
+    MissingPointer {
+        id: usize,
+    },
+    InvalidServeAlg {
+        serve_alg: ServeAlg,
+    },
+    InconsistentCsLogic {
+        first: CsLogic,
+        other: CsLogic,
+    },
 }
 type Result<T> = core::result::Result<T, Error>;

@@ -7,7 +7,7 @@
 //! Primarily handles sourcing ROM image files from local paths or URLs,
 //! including downloading and caching them as needed.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use bytes::Bytes;
 use std::collections::HashMap;
 use std::fmt;
@@ -20,7 +20,7 @@ use strum::EnumIter;
 use urlencoding::decode;
 use zip::ZipArchive;
 
-use onerom_gen::rom::Rom;
+use onerom_gen::image::Rom;
 
 use crate::config::Config;
 
@@ -195,13 +195,20 @@ pub fn load_rom_files(config: &Config) -> Result<Vec<Rom>> {
         // Process the ROM image data
         let rom = Rom::from_raw_rom_image(
             ii,
+            rom_config
+                .original_source
+                .clone()
+                .split('/')
+                .last()
+                .unwrap_or("unknown")
+                .to_string(),
             &src,
             image,
             &rom_config.rom_type,
             rom_config.cs_config.clone(),
             &rom_config.size_handling,
         )
-            .map_err(|e| anyhow!("Error processing ROM file {}: {e:?}", file.display()))?;
+        .map_err(|e| anyhow!("Error processing ROM file {}: {e:?}", file.display()))?;
 
         roms.push(rom);
     }

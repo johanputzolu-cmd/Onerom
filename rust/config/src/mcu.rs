@@ -11,6 +11,15 @@ pub enum Family {
     Rp2350,
 }
 
+impl Family {
+    pub fn get_flash_base(&self) -> u32 {
+        match self {
+            Family::Stm32f4 => 0x0800_0000,
+            Family::Rp2350 => 0x1000_0000,
+        }
+    }
+}
+
 impl core::fmt::Display for Family {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {

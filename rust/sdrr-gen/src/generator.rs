@@ -13,7 +13,7 @@ use strum::IntoEnumIterator;
 use onerom_config::mcu::Family as McuFamily;
 use onerom_config::rom::RomType;
 
-use onerom_gen::rom::{CsLogic, RomSet, RomSetType};
+use onerom_gen::image::{CsLogic, RomSet, RomSetType};
 
 use crate::config::Config;
 use crate::file::{OutType, out_filename};
@@ -185,21 +185,16 @@ fn generate_roms_implementation_file(
     // Generate filename strings (debug only)
     writeln!(file, "// ROM filenames (BOOT_LOGGING only)")?;
     writeln!(file, "#if defined(BOOT_LOGGING)")?;
-    for (i, rom_config) in config.roms.iter().enumerate() {
-        let source = rom_config
-            .extract
-            .as_ref()
-            .unwrap_or(&rom_config.original_source);
-        let filename = source
-            .split('/')
-            .next_back()
-            .unwrap_or_else(|| panic!("Failed to extract valid filename from source: {}", source));
-        writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
-        writeln!(
-            file,
-            "static const char sdrr_rom_{}_filename[] = \"{}\";",
-            i, filename
-        )?;
+    for set in rom_sets {
+        for rom in &set.roms {
+            let filename = rom.filename();
+            let index = rom.index();
+            writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
+            writeln!(
+                file,
+                "static const char sdrr_rom_{index}_filename[] = \"{filename}\";",
+            )?;
+        }
     }
     writeln!(file, "#endif // BOOT_LOGGING")?;
     writeln!(file)?;
@@ -331,40 +326,10 @@ fn generate_roms_implementation_file(
         writeln!(file, "        .roms = rom_set_{}_roms,", ii)?;
         writeln!(file, "        .rom_count = ROM_SET_{}_ROM_COUNT,", ii)?;
         writeln!(file, "        .serve = {},", serve_alg)?;
-        let set_cs_state = if num_roms == 1 {
-            "CS_NOT_USED"
-        } else {
-            // Check that every ROM in this set has the same CS1 configuration
-            if rom_set
-                .roms
-                .iter()
-                .any(|rom| rom.cs_config().cs1_logic() != rom_set.roms[0].cs_config().cs1_logic())
-            {
-                return Err(anyhow::anyhow!(
-                    "All ROMs in a multi-ROM set must have the same CS1 configuration"
-                ));
-            }
-
-            if rom_set.set_type != RomSetType::Banked {
-                // Check that every ROM in this set has CS2 and CS3 ignored.
-                if rom_set.roms.iter().any(|rom| {
-                    rom.cs_config()
-                        .cs2_logic()
-                        .is_some_and(|cs| cs != CsLogic::Ignore)
-                        || rom
-                            .cs_config()
-                            .cs3_logic()
-                            .is_some_and(|cs| cs != CsLogic::Ignore)
-                }) {
-                    return Err(anyhow::anyhow!(
-                        "All ROMs in a multi-ROM set must have CS2 and CS3 ignored or not present"
-                    ));
-                }
-            }
-
-            // Use the CS1 state from any ROM image, as they must be the same
-            cs_logic_to_enum(rom_set.roms[0].cs_config().cs1_logic())
-        };
+        let multi_cs_logic = rom_set
+            .multi_cs_logic()
+            .map_err(|e| anyhow::anyhow!("In ROM set {}: {e:?}", rom_set.id))?;
+        let set_cs_state = multi_cs_logic.c_value();
         writeln!(file, "        .multi_rom_cs1_state = {},", set_cs_state)?;
         writeln!(file, "    }},")?;
     }

@@ -15,9 +15,11 @@ fn test_rom_2316_specs() {
     let control = rom.control_lines();
     assert_eq!(control.len(), 3);
     assert!(control.iter().any(|c| c.name == "cs1"));
-    assert!(control
-        .iter()
-        .all(|c| c.line_type == ControlLineType::Configurable));
+    assert!(
+        control
+            .iter()
+            .all(|c| c.line_type == ControlLineType::Configurable)
+    );
 }
 
 #[test]
@@ -44,12 +46,16 @@ fn test_rom_27128_specs() {
 
     let control = rom.control_lines();
     assert_eq!(control.len(), 2);
-    assert!(control
-        .iter()
-        .any(|c| c.name == "ce" && c.line_type == ControlLineType::FixedActiveLow));
-    assert!(control
-        .iter()
-        .any(|c| c.name == "oe" && c.line_type == ControlLineType::FixedActiveLow));
+    assert!(
+        control
+            .iter()
+            .any(|c| c.name == "ce" && c.line_type == ControlLineType::FixedActiveLow)
+    );
+    assert!(
+        control
+            .iter()
+            .any(|c| c.name == "oe" && c.line_type == ControlLineType::FixedActiveLow)
+    );
 
     let prog = rom.programming_pins().unwrap();
     assert_eq!(prog.len(), 2);

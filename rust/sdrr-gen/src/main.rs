@@ -52,7 +52,7 @@ fn main() -> Result<()> {
 
     // Create ROM sets - validation already done in config.validate()
     let rom_sets = config
-        .create_rom_sets(roms)
+        .create_rom_sets(roms, config.serve_alg)
         .map_err(|e| anyhow::anyhow!("ROM set creation error: {}", e))?;
 
     // Log some progress

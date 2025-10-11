@@ -117,7 +117,10 @@ fn group_by_family(config: &RomTypesConfig) -> BTreeMap<&'static str, Vec<(&Stri
             continue;
         };
 
-        families.entry(key).or_insert_with(Vec::new).push((type_name, rom_type));
+        families
+            .entry(key)
+            .or_insert_with(Vec::new)
+            .push((type_name, rom_type));
     }
 
     // Sort each family by size
@@ -142,8 +145,12 @@ fn generate_family_comparison_table(
 
     for (type_name, rom_type) in roms {
         let size_str = format_size(rom_type.size);
-        let addr_lines = format!("{} (A0-A{})", rom_type.address.len(), rom_type.address.len() - 1);
-        
+        let addr_lines = format!(
+            "{} (A0-A{})",
+            rom_type.address.len(),
+            rom_type.address.len() - 1
+        );
+
         let control_str = format_control_lines(rom_type);
         let prog_str = format_programming_pins(rom_type);
 
@@ -249,7 +256,7 @@ fn generate_detailed_pinout(type_name: &str, rom_type: &RomType) -> String {
     doc.push_str(&format!("### {} - {}\n\n", type_name, rom_type.description));
     doc.push_str(&format!("**Package:** {}-pin DIP  \n", rom_type.pins));
     doc.push_str(&format!("**Capacity:** {} bytes  \n", rom_type.size));
-    
+
     // Control line summary
     let control_summary = format_control_lines_detailed(rom_type);
     doc.push_str(&format!("**Control:** {}  \n\n", control_summary));
@@ -277,7 +284,7 @@ fn generate_detailed_pinout(type_name: &str, rom_type: &RomType) -> String {
     // Control lines
     let mut control_lines: Vec<_> = rom_type.control.iter().collect();
     control_lines.sort_by_key(|(name, _)| *name);
-    
+
     for (name, control) in control_lines {
         let polarity = match control.line_type {
             ControlLineType::Configurable => "Configurable polarity",
@@ -321,9 +328,7 @@ fn generate_detailed_pinout(type_name: &str, rom_type: &RomType) -> String {
         for power_pin in power_pins {
             doc.push_str(&format!(
                 "| {} | {} | {} |\n",
-                power_pin.name,
-                power_pin.pin,
-                power_pin.voltage
+                power_pin.name, power_pin.pin, power_pin.voltage
             ));
         }
     }
@@ -360,7 +365,12 @@ fn format_control_lines(rom_type: &RomType) -> String {
             ControlLineType::Configurable => "",
             ControlLineType::FixedActiveLow => "/",
         };
-        lines.push(format!("{}{} (pin {})", polarity, name.to_uppercase(), control.pin));
+        lines.push(format!(
+            "{}{} (pin {})",
+            polarity,
+            name.to_uppercase(),
+            control.pin
+        ));
     }
 
     if lines.is_empty() {
@@ -382,9 +392,17 @@ fn format_control_lines_detailed(rom_type: &RomType) -> String {
         .any(|c| c.line_type == ControlLineType::Configurable);
 
     if has_configurable {
-        format!("{} configurable CS line{}", count, if count > 1 { "s" } else { "" })
+        format!(
+            "{} configurable CS line{}",
+            count,
+            if count > 1 { "s" } else { "" }
+        )
     } else {
-        let names: Vec<_> = rom_type.control.keys().map(|n| format!("/{}", n.to_uppercase())).collect();
+        let names: Vec<_> = rom_type
+            .control
+            .keys()
+            .map(|n| format!("/{}", n.to_uppercase()))
+            .collect();
         names.join(", ")
     }
 }

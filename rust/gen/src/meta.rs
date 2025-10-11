@@ -4,28 +4,291 @@
 
 //! Metadata generator for One ROM.
 //!
-//! 
+//!
 
-use onerom_config::McuFamily;
+use alloc::vec;
+use alloc::vec::Vec;
 
-pub struct Header {
-    magic: [u8; 16],
-    version: u32,
-    rom_set_count: u8,
-    pad1: [u8; 3],
-    rom_sets: u32,
-    reserved: [u8; 228],
+use onerom_config::mcu::Family as McuFamily;
+
+use crate::image::RomSet;
+use crate::{Error, Result};
+
+const HEADER_MAGIC: &[u8; 16] = b"ONEROM_METADATA\0";
+const HEADER_VERSION: u32 = 1;
+
+// ROM images start at 64KB from the start of flash.
+const ROM_IMAGE_DATA_START: u32 = 65536;
+
+// Metadata cannot be longer than 16KB
+const MAX_METADATA_LEN: usize = 16384;
+
+const METADATA_HEADER_LEN: usize = 256; // onerom_metadata_header_t
+
+const METADATA_ROM_SET_OFFSET: usize = 20; // Offset of rom_set pointer in header
+
+pub struct Metadata {
+    family: McuFamily,
+    rom_sets: Vec<RomSet>,
+    boot_logging: bool,
 }
 
-impl Header {
-    pub fn new(family: McuFamily, rom_set_count: u8) -> Self {
+impl Metadata {
+    pub fn new(family: McuFamily, rom_sets: Vec<RomSet>, boot_logging: bool) -> Self {
         Self {
-            magic: *b"ONEROM_METADATA\0",
-            version: 1,
-            rom_set_count,
-            pad1: [0; 3],
-            rom_sets: 0,
-            reserved: [0; 228],
+            family,
+            rom_sets,
+            boot_logging,
         }
+    }
+
+    const fn header_len(&self) -> usize {
+        METADATA_HEADER_LEN
+    }
+
+    /// Length of buffer required for metadata.
+    pub fn metadata_len(&self) -> usize {
+        // Size needs to include:
+        // - Header (256 bytes) - onerom_metadata_header_t
+        // - All ROM filenames - char[]
+        // - All ROM set entries (16 bytes) - sdrr_rom_set_t
+        // - Array of pointers to ROMs in each set (4 bytes per ROM)
+        // - Each ROM entry (4-8 bytes) - sdrr_rom_info_t
+        let len = self.header_len() + self.filenames_metadata_len() + self.sets_len();
+
+        if len > MAX_METADATA_LEN {
+            panic!(
+                "Metadata too large: {} bytes (max {})",
+                len, MAX_METADATA_LEN
+            );
+        }
+
+        len
+    }
+
+    // Total number of ROMs across all setss
+    fn rom_count(&self) -> usize {
+        self.rom_sets.iter().map(|rs| rs.roms().len()).sum()
+    }
+
+    // Total length, including null terminators, of all filenames
+    fn filenames_metadata_len(&self) -> usize {
+        if !self.boot_logging {
+            0
+        } else {
+            self.rom_sets
+                .iter()
+                .flat_map(|rs| rs.roms())
+                .map(|rom| rom.filename().len() + 1)
+                .sum()
+        }
+    }
+
+    // Get total length of sets:
+    // - Pointer to array of ROM pointers
+    // - All ROM structs
+    //
+    // Does not include filename lengths
+    fn sets_len(&self) -> usize {
+        let mut total = 0;
+        for set in &self.rom_sets {
+            total += set.roms_metadata_len(self.boot_logging);
+        }
+
+        total += self.rom_sets.len() * RomSet::rom_set_metadata_len();
+
+        total
+    }
+
+    /// Writes all metadata to provided buffer.
+    ///
+    /// It is advisable to call [`Self::metadata_len`] first to ensure the
+    /// buffer provided is large enough.
+    pub fn write_all(&self, buf: &mut [u8]) -> Result<usize> {
+        // Check we have enough of a buffer.
+        if self.metadata_len() > buf.len() {
+            return Err(Error::BufferTooSmall {
+                expected: self.metadata_len(),
+                actual: buf.len(),
+            });
+        }
+
+        let mut offset = 0;
+
+        // Write the header
+        offset += self.write_header(&mut buf[offset..])?;
+
+        // Write the filenames.
+        let mut filename_ptrs = vec![0u32; self.rom_count()];
+        if self.boot_logging {
+            // Store off the offset where filenames start
+            let filename_offset = offset;
+
+            // write_filenames() fills in filename_ptrs, but starts at 0
+            offset += self.write_filenames(&mut buf[offset..], &mut filename_ptrs)?;
+
+            // Need to correct filename pointers to be absolute addresses.
+            // We need to add filename_offset plus the flash base
+            for ptr in filename_ptrs.iter_mut() {
+                *ptr += (filename_offset as u32) + self.family.get_flash_base();
+            }
+        }
+
+        // Pre-compute where the ROM set image data will live for each rom set
+        // now, so we can fill in the pointers in each set.  This is from
+        // the start of flash + 64KB.
+        let mut rom_data_ptrs = vec![0u32; self.rom_sets.len()];
+        let mut rom_data_ptr = ROM_IMAGE_DATA_START + self.family.get_flash_base();
+        for (ii, set) in self.rom_sets.iter().enumerate() {
+            rom_data_ptrs[ii] = rom_data_ptr;
+            let rom_data_size = set.image_size(&self.family);
+            rom_data_ptr += rom_data_size as u32;
+        }
+
+        // Write each set's ROM data, which need to return pointers to rom arrays.
+        // This doesn't write the set itself - that comes last.
+        let mut rom_array_ptrs = vec![Vec::new(); self.rom_sets.len()];
+        for rom_set in self.rom_sets.iter() {
+            // Each write_metadata() fills in rom_ptrs for that set
+            let mut rom_metadata_ptrs = vec![0u32; rom_set.roms().len()];
+            let len = rom_set.write_rom_metadata(
+                &mut buf[offset..],
+                &filename_ptrs,
+                &mut rom_metadata_ptrs,
+                self.boot_logging,
+            )?;
+
+            // Now update this set's array of ROM pointers
+            for ptr in rom_metadata_ptrs.iter_mut() {
+                *ptr += offset as u32 + self.family.get_flash_base();
+            }
+            rom_array_ptrs.push(rom_metadata_ptrs);
+
+            // Advance the offset
+            offset += len;
+        }
+
+        // Next, write each of the ROM pointer arrays creating a vec of
+        // actual pointers to each array, to include in each set.
+        let mut actual_rom_array_ptrs = vec![0u32; self.rom_sets.len()];
+        for (ii, rom_set) in self.rom_sets.iter().enumerate() {
+            let len = rom_set.write_rom_pointer_array(&mut buf[offset..], &rom_array_ptrs[ii])?;
+            actual_rom_array_ptrs[ii] = offset as u32 + self.family.get_flash_base();
+            offset += len;
+        }
+
+        // Write each set struct - this will become an array of set structs.
+        let first_rom_set_ptr = offset as u32 + self.family.get_flash_base();
+        for (ii, rom_set) in self.rom_sets.iter().enumerate() {
+            offset += rom_set.write_set_metadata(
+                &mut buf[offset..],
+                rom_data_ptrs[ii],
+                actual_rom_array_ptrs[ii],
+                &self.family,
+            )?;
+        }
+
+        // Finally, update the pointer to the first ROM set in the header.
+        self.update_rom_set_ptr(&mut buf[..], first_rom_set_ptr)?;
+
+        Ok(offset)
+    }
+
+    // Writes all ROM filenames to provided buffer.
+    fn write_filenames(&self, buf: &mut [u8], ptrs: &mut [u32]) -> Result<usize> {
+        if !self.boot_logging {
+            return Ok(0);
+        }
+
+        if buf.len() < self.filenames_metadata_len() {
+            return Err(crate::Error::BufferTooSmall {
+                expected: self.filenames_metadata_len(),
+                actual: buf.len(),
+            });
+        }
+
+        let mut offset = 0;
+
+        // Set up array of filename pointers.
+        let num_roms = self.rom_count();
+        if ptrs.len() < num_roms {
+            return Err(crate::Error::BufferTooSmall {
+                expected: num_roms,
+                actual: ptrs.len(),
+            });
+        }
+
+        for (ii, rom) in self.rom_sets.iter().flat_map(|rs| rs.roms()).enumerate() {
+            assert_eq!(ii, rom.index());
+
+            // Get the filename and its length
+            let name_bytes = rom.filename().as_bytes();
+            let len = name_bytes.len();
+
+            // Store off the pointer
+            ptrs[ii] = offset as u32;
+
+            // Store the null terminated filename
+            buf[offset..offset + len].copy_from_slice(name_bytes);
+            offset += len;
+            buf[offset] = 0;
+            offset += 1;
+        }
+        Ok(offset)
+    }
+
+    fn write_header(&self, buf: &mut [u8]) -> Result<usize> {
+        if buf.len() < METADATA_HEADER_LEN {
+            return Err(crate::Error::BufferTooSmall {
+                expected: METADATA_HEADER_LEN,
+                actual: buf.len(),
+            });
+        }
+
+        let mut offset = 0;
+        let len = 16;
+        buf[0..offset + len].copy_from_slice(HEADER_MAGIC);
+        offset += len;
+
+        let len = 4;
+        buf[offset..offset + len].copy_from_slice(&HEADER_VERSION.to_le_bytes());
+        offset += len;
+
+        let len = 1;
+        buf[offset..offset + len].copy_from_slice(&[self.rom_sets.len() as u8]);
+        offset += len;
+
+        let len = 3;
+        buf[offset..offset + len].copy_from_slice(&[0u8; 3]);
+        offset += len;
+
+        // We'll need to update this later
+        let len = 4;
+        assert_eq!(offset, METADATA_ROM_SET_OFFSET);
+        buf[offset..offset + len].copy_from_slice(&0xFFFFFFFF_u32.to_le_bytes());
+        offset += len;
+
+        let len = 228;
+        buf[offset..offset + len].copy_from_slice(&[0u8; 228]);
+        offset += len;
+
+        // Final sanity check
+        assert_eq!(offset, self.header_len());
+
+        Ok(offset)
+    }
+
+    fn update_rom_set_ptr(&self, buf: &mut [u8], ptr: u32) -> Result<()> {
+        if buf.len() < (METADATA_ROM_SET_OFFSET + 4) {
+            return Err(crate::Error::BufferTooSmall {
+                expected: (METADATA_ROM_SET_OFFSET + 4),
+                actual: buf.len(),
+            });
+        }
+
+        // Pointer is at offset 20
+        buf[METADATA_ROM_SET_OFFSET..METADATA_ROM_SET_OFFSET + 4]
+            .copy_from_slice(&ptr.to_le_bytes());
+        Ok(())
     }
 }

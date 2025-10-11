@@ -278,7 +278,10 @@ impl SdrrInfo {
             .ok_or_else(|| format!("ROM set {} not found", set))?;
 
         if offset + buf.len() as u32 > rom_set.size {
-            return Err(format!("Read extends past ROM set data {offset}, {}", rom_set.size));
+            return Err(format!(
+                "Read extends past ROM set data {offset}, {}",
+                rom_set.size
+            ));
         }
 
         let addr = rom_set.data_ptr + offset;

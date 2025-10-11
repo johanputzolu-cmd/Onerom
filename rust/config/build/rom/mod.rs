@@ -48,8 +48,12 @@ pub fn build(manifest_path: &Path) {
     fs::write(&mod_path, &lib_code)
         .unwrap_or_else(|e| panic!("Failed to write {}: {}", mod_path.display(), e));
 
-     // Write docs/rom-types.md
-    let docs_path = manifest_path.join("..").join("..").join("docs").join(ROM_DOCS_MD_FILENAME);
+    // Write docs/rom-types.md
+    let docs_path = manifest_path
+        .join("..")
+        .join("..")
+        .join("docs")
+        .join(ROM_DOCS_MD_FILENAME);
     fs::create_dir_all(docs_path.parent().unwrap())
         .unwrap_or_else(|e| panic!("Failed to create docs directory: {}", e));
     fs::write(&docs_path, &markdown)

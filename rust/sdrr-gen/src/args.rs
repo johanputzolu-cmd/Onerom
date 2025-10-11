@@ -11,15 +11,14 @@
 use clap::Parser;
 use std::path::PathBuf;
 
-use onerom_config::hw::{Board, BOARDS};
-use onerom_config::mcu::{Variant as McuVariant, MCU_VARIANTS};
+use onerom_config::hw::{BOARDS, Board};
+use onerom_config::mcu::{MCU_VARIANTS, Variant as McuVariant};
 use onerom_config::rom::RomType;
 
-use onerom_gen::rom::{CsConfig, CsLogic, SizeHandling};
+use onerom_gen::image::{CsConfig, CsLogic, ServeAlg, SizeHandling};
 
 use crate::config::{Config, RomConfig};
 use crate::file::{FileSource, check_output_dir, source_image_file};
-use crate::fw::ServeAlg;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -287,10 +286,12 @@ impl Args {
         })
     }
 
-
     fn parse_cs_param(parts: &[&str], name: &str) -> Result<Option<CsLogic>, String> {
         if parts.len() != 2 {
-            return Err(format!("Invalid '{}' parameter format - must include {} value", name, name));
+            return Err(format!(
+                "Invalid '{}' parameter format - must include {} value",
+                name, name
+            ));
         }
         CsLogic::try_from_str(parts[1])
             .map(Some)
@@ -460,22 +461,19 @@ pub fn parse_hw_rev(hw_rev: &str) -> Result<Board, String> {
             .map(|b| b.name())
             .collect::<Vec<&str>>()
             .join(", ");
-        format!(
-            "Invalid hardware revision: {hw_rev}.\n\nValid values are: {valid_hw_revs}"
-        )
+        format!("Invalid hardware revision: {hw_rev}.\n\nValid values are: {valid_hw_revs}")
     })
 }
 
 pub fn parse_mcu_variant(s: &str) -> Result<McuVariant, String> {
-    McuVariant::try_from_str(s)
-        .ok_or_else(|| {
-            let valid_mcus = MCU_VARIANTS
-                .iter()
-                .map(|m| m.to_string().to_ascii_lowercase())
-                .collect::<Vec<String>>()
-                .join(", ");
-            format!("Invalid MCU variant: {s}.\n\nValid values are: {valid_mcus}")
-        })
+    McuVariant::try_from_str(s).ok_or_else(|| {
+        let valid_mcus = MCU_VARIANTS
+            .iter()
+            .map(|m| m.to_string().to_ascii_lowercase())
+            .collect::<Vec<String>>()
+            .join(", ");
+        format!("Invalid MCU variant: {s}.\n\nValid values are: {valid_mcus}")
+    })
 }
 
 pub fn parse_serve_alg(s: &str) -> Result<ServeAlg, String> {
