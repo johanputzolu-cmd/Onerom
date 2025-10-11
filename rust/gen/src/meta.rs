@@ -66,8 +66,12 @@ impl Metadata {
         len
     }
 
-    // Total number of ROMs across all setss
-    fn rom_count(&self) -> usize {
+    pub fn total_set_count(&self) -> usize {
+        self.rom_sets.len()
+    }
+
+    // Total number of ROMs across all sets
+    fn total_rom_count(&self) -> usize {
         self.rom_sets.iter().map(|rs| rs.roms().len()).sum()
     }
 
@@ -103,8 +107,15 @@ impl Metadata {
     /// Writes all metadata to provided buffer.
     ///
     /// It is advisable to call [`Self::metadata_len`] first to ensure the
-    /// buffer provided is large enough.
-    pub fn write_all(&self, buf: &mut [u8]) -> Result<usize> {
+    /// buffer provided is large enough.  Also [`Self::total_set_count`] should
+    /// be called to get the number of ROM sets, so the caller can allocate
+    /// space for the returned ROM data pointers.
+    ///
+    /// The `rtn_rom_data_ptrs` slice provides offsets from the start of the ROM
+    /// data location (flash_base + 64KB) for each ROM set.
+    ///
+    /// The caller should ensure that each ROM set data is written to the flash.
+    pub fn write_all(&self, buf: &mut [u8], rtn_rom_data_ptrs: &mut [u32]) -> Result<usize> {
         // Check we have enough of a buffer.
         if self.metadata_len() > buf.len() {
             return Err(Error::BufferTooSmall {
@@ -119,7 +130,7 @@ impl Metadata {
         offset += self.write_header(&mut buf[offset..])?;
 
         // Write the filenames.
-        let mut filename_ptrs = vec![0u32; self.rom_count()];
+        let mut filename_ptrs = vec![0u32; self.total_rom_count()];
         if self.boot_logging {
             // Store off the offset where filenames start
             let filename_offset = offset;
@@ -136,13 +147,18 @@ impl Metadata {
 
         // Pre-compute where the ROM set image data will live for each rom set
         // now, so we can fill in the pointers in each set.  This is from
-        // the start of flash + 64KB.
+        // the start of flash + 64KB.  We also set up a vec to hold offsets
+        // from the start of the ROM image location to return from this
+        // function.
         let mut rom_data_ptrs = vec![0u32; self.rom_sets.len()];
         let mut rom_data_ptr = ROM_IMAGE_DATA_START + self.family.get_flash_base();
+        let mut rtn_rom_data_ptr = 0;
         for (ii, set) in self.rom_sets.iter().enumerate() {
             rom_data_ptrs[ii] = rom_data_ptr;
+            rtn_rom_data_ptrs[ii] = rtn_rom_data_ptr;
             let rom_data_size = set.image_size(&self.family);
             rom_data_ptr += rom_data_size as u32;
+            rtn_rom_data_ptr += rom_data_size as u32;
         }
 
         // Write each set's ROM data, which need to return pointers to rom arrays.
@@ -210,7 +226,7 @@ impl Metadata {
         let mut offset = 0;
 
         // Set up array of filename pointers.
-        let num_roms = self.rom_count();
+        let num_roms = self.total_rom_count();
         if ptrs.len() < num_roms {
             return Err(crate::Error::BufferTooSmall {
                 expected: num_roms,
