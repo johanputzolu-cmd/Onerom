@@ -2000,6 +2000,8 @@ name = "onerom-gen"
 version = "0.1.0"
 dependencies = [
  "onerom-config",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

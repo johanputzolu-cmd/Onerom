@@ -9,7 +9,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
-use onerom_config::mcu::Family as McuFamily;
+use onerom_config::hw::Board;
 
 use crate::image::RomSet;
 use crate::{Error, Result};
@@ -25,18 +25,20 @@ const MAX_METADATA_LEN: usize = 16384;
 
 const METADATA_HEADER_LEN: usize = 256; // onerom_metadata_header_t
 
-const METADATA_ROM_SET_OFFSET: usize = 20; // Offset of rom_set pointer in header
+const METADATA_ROM_SET_OFFSET: usize = 24; // Offset of rom_set pointer in header
 
+/// Metadata for One ROM firmware
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Metadata {
-    family: McuFamily,
+    board: Board,
     rom_sets: Vec<RomSet>,
     boot_logging: bool,
 }
 
 impl Metadata {
-    pub fn new(family: McuFamily, rom_sets: Vec<RomSet>, boot_logging: bool) -> Self {
+    pub fn new(board: Board, rom_sets: Vec<RomSet>, boot_logging: bool) -> Self {
         Self {
-            family,
+            board,
             rom_sets,
             boot_logging,
         }
@@ -141,7 +143,7 @@ impl Metadata {
             // Need to correct filename pointers to be absolute addresses.
             // We need to add filename_offset plus the flash base
             for ptr in filename_ptrs.iter_mut() {
-                *ptr += (filename_offset as u32) + self.family.get_flash_base();
+                *ptr += (filename_offset as u32) + self.board.mcu_family().get_flash_base();
             }
         }
 
@@ -151,12 +153,12 @@ impl Metadata {
         // from the start of the ROM image location to return from this
         // function.
         let mut rom_data_ptrs = vec![0u32; self.rom_sets.len()];
-        let mut rom_data_ptr = ROM_IMAGE_DATA_START + self.family.get_flash_base();
+        let mut rom_data_ptr = ROM_IMAGE_DATA_START + self.board.mcu_family().get_flash_base();
         let mut rtn_rom_data_ptr = 0;
         for (ii, set) in self.rom_sets.iter().enumerate() {
             rom_data_ptrs[ii] = rom_data_ptr;
             rtn_rom_data_ptrs[ii] = rtn_rom_data_ptr;
-            let rom_data_size = set.image_size(&self.family);
+            let rom_data_size = set.image_size(&self.board.mcu_family());
             rom_data_ptr += rom_data_size as u32;
             rtn_rom_data_ptr += rom_data_size as u32;
         }
@@ -164,7 +166,7 @@ impl Metadata {
         // Write each set's ROM data, which need to return pointers to rom arrays.
         // This doesn't write the set itself - that comes last.
         let mut rom_array_ptrs = vec![Vec::new(); self.rom_sets.len()];
-        for rom_set in self.rom_sets.iter() {
+        for (ii, rom_set) in self.rom_sets.iter().enumerate() {
             // Each write_metadata() fills in rom_ptrs for that set
             let mut rom_metadata_ptrs = vec![0u32; rom_set.roms().len()];
             let len = rom_set.write_rom_metadata(
@@ -176,9 +178,9 @@ impl Metadata {
 
             // Now update this set's array of ROM pointers
             for ptr in rom_metadata_ptrs.iter_mut() {
-                *ptr += offset as u32 + self.family.get_flash_base();
+                *ptr += offset as u32 + self.board.mcu_family().get_flash_base();
             }
-            rom_array_ptrs.push(rom_metadata_ptrs);
+            rom_array_ptrs[ii] = rom_metadata_ptrs;
 
             // Advance the offset
             offset += len;
@@ -189,18 +191,18 @@ impl Metadata {
         let mut actual_rom_array_ptrs = vec![0u32; self.rom_sets.len()];
         for (ii, rom_set) in self.rom_sets.iter().enumerate() {
             let len = rom_set.write_rom_pointer_array(&mut buf[offset..], &rom_array_ptrs[ii])?;
-            actual_rom_array_ptrs[ii] = offset as u32 + self.family.get_flash_base();
+            actual_rom_array_ptrs[ii] = offset as u32 + self.board.mcu_family().get_flash_base();
             offset += len;
         }
 
         // Write each set struct - this will become an array of set structs.
-        let first_rom_set_ptr = offset as u32 + self.family.get_flash_base();
+        let first_rom_set_ptr = offset as u32 + self.board.mcu_family().get_flash_base();
         for (ii, rom_set) in self.rom_sets.iter().enumerate() {
             offset += rom_set.write_set_metadata(
                 &mut buf[offset..],
                 rom_data_ptrs[ii],
                 actual_rom_array_ptrs[ii],
-                &self.family,
+                &self.board.mcu_family(),
             )?;
         }
 
@@ -305,6 +307,39 @@ impl Metadata {
         // Pointer is at offset 20
         buf[METADATA_ROM_SET_OFFSET..METADATA_ROM_SET_OFFSET + 4]
             .copy_from_slice(&ptr.to_le_bytes());
+        Ok(())
+    }
+
+    /// Returns the total size needed for all ROM images
+    pub fn rom_images_size(&self) -> usize {
+        self.rom_sets
+            .iter()
+            .map(|set| set.image_size(&self.board.mcu_family()))
+            .sum()
+    }
+
+    /// Write all ROM images to buffer
+    pub fn write_roms(&self, buf: &mut [u8]) -> Result<()> {
+        // Validate buffer size
+        if buf.len() < self.rom_images_size() {
+            return Err(Error::BufferTooSmall {
+                expected: self.rom_images_size(),
+                actual: buf.len(),
+            });
+        }
+
+        let mut offset = 0;
+        for rom_set in &self.rom_sets {
+            let size = rom_set.image_size(&self.board.mcu_family());
+
+            // Fill buffer by calling get_byte for each address
+            for addr in 0..size {
+                buf[offset + addr] = rom_set.get_byte(addr, &self.board);
+            }
+
+            offset += size;
+        }
+
         Ok(())
     }
 }

@@ -19,6 +19,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 
+use onerom_config::fw::ServeAlg;
 use onerom_config::hw::Board;
 use onerom_config::mcu::Family as McuFamily;
 use onerom_config::rom::RomType;
@@ -36,59 +37,12 @@ const ROM_METADATA_LEN_WITH_FILENAME: usize = 8;
 
 const ROM_SET_METADATA_LEN: usize = 16; // sdrr_rom_set_t
 
-/// ROM serving algorithm
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ServeAlg {
-    /// default
-    Default,
-
-    /// a
-    TwoCsOneAddr,
-
-    /// b
-    AddrOnCs,
-
-    /// Multi-ROM set only
-    AddrOnAnyCs,
-}
-
-impl ServeAlg {
-    pub fn try_from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "default" => Some(ServeAlg::Default),
-            "a" | "two_cs_one_addr" => Some(ServeAlg::TwoCsOneAddr),
-            "b" => Some(ServeAlg::AddrOnCs),
-            _ => None,
-        }
-    }
-
-    pub fn c_value(&self) -> &str {
-        match self {
-            ServeAlg::TwoCsOneAddr => "SERVE_TWO_CS_ONE_ADDR",
-            ServeAlg::Default => "SERVE_ADDR_ON_CS",
-            ServeAlg::AddrOnCs => "SERVE_ADDR_ON_CS",
-            ServeAlg::AddrOnAnyCs => "SERVE_ADDR_ON_ANY_CS",
-        }
-    }
-
-    pub fn c_value_multi_rom_set(&self) -> &str {
-        Self::AddrOnAnyCs.c_value()
-    }
-
-    pub fn c_enum_value(&self) -> u8 {
-        match self {
-            ServeAlg::TwoCsOneAddr => 0,
-            ServeAlg::Default | ServeAlg::AddrOnCs => 1,
-            ServeAlg::AddrOnAnyCs => 2,
-        }
-    }
-}
-
 /// How to handle ROM images that are too small for the ROM type
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 pub enum SizeHandling {
     /// No special handling.  Errors if the image size does not exactly match
     /// the ROM size.
+    #[default]
     None,
 
     /// Duplicates the image as many times as needed to fill the ROM.  Errors
@@ -99,7 +53,8 @@ pub enum SizeHandling {
     Pad,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CsLogic {
     /// Chip Select line is active low
     ActiveLow,
@@ -130,7 +85,7 @@ impl CsLogic {
         }
     }
 
-    fn c_enum_val(&self) -> u8 {
+    pub fn c_enum_val(&self) -> u8 {
         match self {
             CsLogic::ActiveLow => 0,
             CsLogic::ActiveHigh => 1,
@@ -139,7 +94,7 @@ impl CsLogic {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CsConfig {
     /// Configuration of the 3 possible Chip Select lines
     ChipSelect {
@@ -184,7 +139,7 @@ impl CsConfig {
 }
 
 /// Single ROM image.  May be part of a ROM set
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Rom {
     index: usize,
     filename: String,
@@ -436,7 +391,8 @@ impl Rom {
 }
 
 /// Type of ROM set
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RomSetType {
     /// Single ROM
     Single,
@@ -449,7 +405,7 @@ pub enum RomSetType {
 }
 
 /// A set of ROMs, where the set type is RomSetType
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct RomSet {
     pub id: usize,
     pub set_type: RomSetType,

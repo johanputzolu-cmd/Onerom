@@ -328,7 +328,7 @@ fn generate_hw_config_enum(configs: &[HwConfigData]) -> String {
     code.push_str(
         "/// Defines pin mappings and capabilities for different One ROM board revisions.\n",
     );
-    code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n");
+    code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]\n");
     code.push_str("pub enum Board {\n");
 
     for config in configs {

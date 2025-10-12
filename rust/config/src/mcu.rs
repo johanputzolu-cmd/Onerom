@@ -3,7 +3,7 @@
 // MIT License
 
 /// MCU family
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Family {
     /// STM32F4 series
     Stm32f4,
@@ -30,7 +30,7 @@ impl core::fmt::Display for Family {
 }
 
 /// GPIO Port designation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]
 pub enum Port {
     /// No port (unused)
     None,
@@ -59,7 +59,7 @@ impl core::fmt::Display for Port {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Processor {
     F401BC,
     F401DE,
@@ -127,7 +127,7 @@ pub const MCU_VARIANTS: &[Variant] = &[
     Variant::RP2350,
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Variant {
     F446RC, // STM32F446RC (6 or 7), 64-pins, 128KB SRAM, 256KB Flash
     F446RE, // STM32F446RE (6 or 7), 64-pins, 128KB SRAM, 512KB Flash

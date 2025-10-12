@@ -24,6 +24,7 @@
 
 #![no_std]
 
+pub mod fw;
 pub mod hw;
 //pub mod image;
 pub mod mcu;

@@ -269,7 +269,7 @@ fn generate_control_line_type_enum() -> &'static str {
 ///
 /// Defines whether a control line is user-configurable (mask-programmable)
 /// or fixed active-low per JEDEC standard.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ControlLineType {
     /// CS line with user-configurable polarity (23xxx series mask ROMs)
     ///
@@ -289,7 +289,7 @@ fn generate_control_line_spec_struct() -> &'static str {
 ///
 /// Defines the physical pin number and behavior type for control signals
 /// like chip select (CS), chip enable (CE), and output enable (OE).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ControlLineSpec {
     /// Signal name (e.g., "cs1", "ce", "oe")
     pub name: &'static str,
@@ -307,7 +307,7 @@ fn generate_programming_pin_spec_struct() -> &'static str {
 ///
 /// Defines the required state for programming-related pins (Vpp, /PGM)
 /// during normal read operations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ProgrammingPinState {
     /// Pin must be at Vcc (5V)
     Vcc,
@@ -326,7 +326,7 @@ pub enum ProgrammingPinState {
 }
 
 /// Programming pin specification
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ProgrammingPinSpec {
     /// Pin name (e.g., "vpp", "pgm", "oe_vpp")
     pub name: &'static str,
@@ -357,12 +357,11 @@ fn generate_rom_type_enum(config: &RomTypesConfig) -> String {
     code.push_str("/// assert_eq!(rom.rom_pins(), 24);\n");
     code.push_str("/// assert_eq!(rom.num_addr_lines(), 13);\n");
     code.push_str("/// ```\n");
-    code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n");
+    code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]\n");
     code.push_str("pub enum RomType {\n");
 
-    // Generate variants in logical order
     for (type_name, _rom_type) in get_sorted_rom_types(config) {
-        if let Some(rom_type) = config.rom_types.get(type_name) {
+        if let Some(rom_type) = config.rom_types.get(type_name.as_str()) {
             code.push_str(&format!(
                 "    /// {} - {} bytes, {}-pin package\n",
                 rom_type.description, rom_type.size, rom_type.pins
@@ -373,15 +372,54 @@ fn generate_rom_type_enum(config: &RomTypesConfig) -> String {
 
     code.push_str("}\n\n");
 
-    // Define ROM_TYPES array
+    code.push_str("impl<'de> serde::Deserialize<'de> for RomType {\n");
+    code.push_str("    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>\n");
+    code.push_str("    where\n");
+    code.push_str("        D: serde::Deserializer<'de>,\n");
+    code.push_str("    {\n");
+    code.push_str("        let s = <&str>::deserialize(deserializer)?;\n");
+    code.push_str("        match s {\n");
+
+    for (type_name, _rom_type) in get_sorted_rom_types(config) {
+        if config.rom_types.get(type_name.as_str()).is_some() {
+            code.push_str(&format!(
+                "            \"Rom{}\" | \"{}\" => Ok(RomType::Rom{}),\n",
+                type_name, type_name, type_name
+            ));
+        }
+    }
+
+    code.push_str("            _ => Err(serde::de::Error::unknown_variant(\n");
+    code.push_str("                &s,\n");
+    code.push_str("                &[");
+
+    let type_names: Vec<String> = get_sorted_rom_types(config)
+        .iter()
+        .filter_map(|(type_name, _)| {
+            if config.rom_types.get(type_name.as_str()).is_some() {
+                Some(format!("\"{}\"", type_name))
+            } else {
+                None
+            }
+        })
+        .collect();
+    code.push_str(&type_names.join(", "));
+
+    code.push_str("],\n");
+    code.push_str("            )),\n");
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
     code.push_str("/// All supported ROM types\n");
     code.push_str("pub const ROM_TYPES: &[RomType] = &[\n");
     for (type_name, _rom_type) in get_sorted_rom_types(config) {
-        if config.rom_types.get(type_name).is_some() {
+        if config.rom_types.get(type_name.as_str()).is_some() {
             code.push_str(&format!("    RomType::Rom{},\n", type_name));
         }
     }
     code.push_str("];\n");
+
     code
 }
 

@@ -11,11 +11,12 @@
 use clap::Parser;
 use std::path::PathBuf;
 
+use onerom_config::fw::ServeAlg;
 use onerom_config::hw::{BOARDS, Board};
 use onerom_config::mcu::{MCU_VARIANTS, Variant as McuVariant};
 use onerom_config::rom::RomType;
 
-use onerom_gen::image::{CsConfig, CsLogic, ServeAlg, SizeHandling};
+use onerom_gen::image::{CsConfig, CsLogic, SizeHandling};
 
 use crate::config::{Config, RomConfig};
 use crate::file::{FileSource, check_output_dir, source_image_file};

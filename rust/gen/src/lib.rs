@@ -8,13 +8,18 @@
 
 extern crate alloc;
 
+pub mod builder;
 pub mod image;
 pub mod meta;
 
-use image::{CsLogic, ServeAlg};
+use alloc::string::String;
+
+use onerom_config::fw::ServeAlg;
+
+use crate::image::CsLogic;
 
 /// Error type
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Error {
     RightSize {
         size: usize,
@@ -52,6 +57,22 @@ pub enum Error {
     InconsistentCsLogic {
         first: CsLogic,
         other: CsLogic,
+    },
+    InvalidConfig {
+        error: String,
+    },
+    UnsupportedConfigVersion {
+        version: u32,
+    },
+    DuplicateFile {
+        id: usize,
+    },
+    InvalidFile {
+        id: usize,
+        total: usize,
+    },
+    MissingFile {
+        id: usize,
     },
 }
 type Result<T> = core::result::Result<T, Error>;

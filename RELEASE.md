@@ -7,13 +7,14 @@ To update the version:
 - Add the new version to [CHANGELOG.md](CHANGELOG.md), and note key changes.
 - Update the version in [Makefile](/Makefile).
 - Update the version in [sddr-check/Cargo.toml](/rust/sdrr-check/Cargo.toml).
-- Update the version in [sddr-common/Cargo.toml](/rust/sdrr-common/Cargo.toml).
 - Update the version in [sddr-fw-parser/Cargo.toml](/rust/sdrr-fw-parser/Cargo.toml).
 - Update the version in [sddr-gen/Cargo.toml](/rust/sdrr-gen/Cargo.toml).
 - Update the version in [sddr-info/Cargo.toml](/rust/sdrr-info/Cargo.toml).
 - Update the version in [lab/Cargo.toml](/rust/lab/Cargo.toml).
 - Update the version in [protocol/Cargo.toml](/rust/protocol/Cargo.toml).
 - Update the version in [database/Cargo.toml](/rust/database/Cargo.toml).
+- Update the version in [config/Cargo.toml](/rust/config/Cargo.toml).
+- Update the version in [gen/Cargo.toml](/rust/gen/Cargo.toml).
 - Update the version consts `MAX_VERSION_*` in [rust/sdrr-fw-parser/src/lib.rs](/rust/sdrr-fw-parser/src/lib.rs).
 
 ## Release Process
