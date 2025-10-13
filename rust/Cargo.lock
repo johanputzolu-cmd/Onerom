@@ -1952,6 +1952,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "onerom-config"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c2192da7317506bc50454ff12ca3455bc2c072a8fb02f7150cf3f812418b1ac"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "onerom-database"
 version = "0.1.0"
 dependencies = [
@@ -1979,7 +1989,7 @@ dependencies = [
 name = "onerom-gen"
 version = "0.1.0"
 dependencies = [
- "onerom-config",
+ "onerom-config 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
 ]
@@ -2551,7 +2561,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
- "onerom-config",
+ "onerom-config 0.1.2",
  "onerom-gen",
  "reqwest",
  "strum",
