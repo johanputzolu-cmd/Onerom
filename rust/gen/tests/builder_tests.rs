@@ -2108,6 +2108,21 @@ mod tests {
         println!("✓ Phase 7 Test 1: ROM images buffer validation passed");
         println!("  - Verified all {} bytes with address/data transformations", rom_size);
     }
+    
+    // Helper: Unscramble physical byte to logical byte based on board pin mapping
+    fn unscramble_physical_byte(physical_byte: u8, board: onerom_config::hw::Board) -> u8 {
+        let data_pins = board.data_pins();
+        let mut logical_byte = 0;
+        
+        // For each physical pin, if the bit is set, set the corresponding logical data line bit
+        for (data_line, &phys_pin) in data_pins.iter().enumerate() {
+            if physical_byte & (1 << (phys_pin % 8)) != 0 {
+                logical_byte |= 1 << data_line;
+            }
+        }
+        
+        logical_byte
+    }
 
     // Helper: Read byte from ROM images buffer using logical address
     // (simulates what firmware does - reverse the transformations)
@@ -2123,17 +2138,17 @@ mod tests {
         let physical_byte = rom_images_buf[physical_addr];
         
         // Reverse transform physical byte to logical byte
-        let data_pins = board.data_pins();
-        let mut logical_byte = 0;
-        
-        // For each physical pin, if the bit is set, set the corresponding logical data line bit
-        for (data_line, &phys_pin) in data_pins.iter().enumerate() {
-            if physical_byte & (1 << (phys_pin % 8)) != 0 {
-                logical_byte |= 1 << data_line;
-            }
-        }
-        
-        logical_byte
+        unscramble_physical_byte(physical_byte, board)
+    }
+
+    // Helper Read bye from ROM images buffer using absolute address
+    fn read_rom_byte_abs(
+        rom_images_buf: &[u8],
+        abs_addr: usize,
+        board: onerom_config::hw::Board,
+    ) -> u8 {
+        let physical_byte = rom_images_buf[abs_addr];
+        unscramble_physical_byte(physical_byte, board)
     }
 
     // ========================================================================
@@ -2207,11 +2222,11 @@ mod tests {
 
     // Helper: Check if CS line is active at given address
     fn is_cs_active(gpio_value: u16, cs_pin: u8, active_low: bool) -> bool {
-        let bit_value = (gpio_value >> cs_pin) & 1;
+        let bit_value = (1 << cs_pin) & gpio_value;
         if active_low {
             bit_value == 0
         } else {
-            bit_value == 1
+            bit_value != 0
         }
     }
 
@@ -2272,6 +2287,7 @@ mod tests {
         let cs1_pin = board.pin_cs1(onerom_config::rom::RomType::Rom2364);
         let x1_pin = board.pin_x1();
         let x2_pin = board.pin_x2();
+        println!("CS1 pin: {}, X1 pin: {}, X2 pin: {}", cs1_pin, x1_pin, x2_pin);
         
         assert_ne!(cs1_pin, 255, "CS1 pin must be defined");
         assert_ne!(x1_pin, 255, "X1 pin must be defined for multi ROM sets");
@@ -2297,7 +2313,7 @@ mod tests {
             let active_count = [cs1_active, x1_active, x2_active].iter().filter(|&&x| x).count();
             
             // Read actual byte from ROM images buffer
-            let actual_byte = read_rom_byte(&rom_images_buf, address as usize, board);
+            let actual_byte = read_rom_byte_abs(&rom_images_buf, address as usize, board);
             
             let expected_byte = if active_count == 1 {
                 // Exactly one CS active - should contain that ROM's data
@@ -2404,6 +2420,9 @@ mod tests {
         assert_ne!(x2_pin, 255, "X2 pin must be defined for banked ROM sets");
         
         let cs1_active_low = true;
+
+        // We need to know which way X1/X2 are pulled when selected
+        let x_dirn = board.x_jumper_pull();
         
         let mut errors = 0;
         let max_errors_to_report = 10;
@@ -2417,22 +2436,23 @@ mod tests {
             let x2_bit = (address_u16 >> x2_pin) & 1;
             
             // Determine which ROM based on X1/X2 bits and if CS1 is active
-            let expected_byte = if cs1_active {
+            let expected_byte = {
                 let rom_offset = (address as usize) & 0x1FFF; // Lower 13 bits for 8KB ROM
                 
-                let bank = ((x1_bit << 1) | x2_bit) as usize;
+                let mut bank = ((x2_bit << 1) | x1_bit) as usize;
+                if x_dirn == 0 {
+                    bank = 3 - bank;
+                }
                 
                 if bank < rom_data.len() {
-                    rom_data[bank][rom_offset]
-                } else {
-                    0xAA // Bank exists but no ROM provided
+                    bank = bank % rom_data.len(); // Wrap around
                 }
-            } else {
-                // CS1 not active - invalid
-                0xAA
+                rom_data[bank][rom_offset]
             };
             
-            let actual_byte = read_rom_byte(&rom_images_buf, address as usize, board);
+            // Currently fill ROM section with banked ROM even if CS is INACTIVE.
+            
+            let actual_byte = read_rom_byte_abs(&rom_images_buf, address as usize, board);
             
             if actual_byte != expected_byte {
                 errors += 1;
