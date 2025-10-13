@@ -832,7 +832,7 @@ impl RomSet {
     }
 
     /// Writes the array of pointers to each ROM metadata struct.  Must be
-    /// called after [`write_rom_metadata()`].
+    /// called after [`Self::write_rom_metadata()`].
     pub fn write_rom_pointer_array(
         &self,
         buf: &mut [u8],
