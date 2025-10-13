@@ -2,6 +2,16 @@
 
 All notables changes between versions are documented in this file.
 
+## v0.5.2 - 2025-??-??
+
+### Changes
+
+- Improved `onerom-gen` testing, and improved `onerom-config` and `onerom-gen` validation.
+
+### Fixes
+
+- Fix rust/gen/tests for boards with address lines all >=8.
+
 ## v0.5.1 - 2025-10-13
 
 For the average user, there are no particularly notable changes in this release, except the addition of the [Atari 800XL BASIC ROM config](/config/atari800xl.mk).

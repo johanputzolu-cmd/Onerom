@@ -106,6 +106,7 @@ impl Builder {
         }
 
         // Validate each rom set has roms
+        let mut rom_num = 0;
         for set in config.rom_sets.iter() {
             if set.roms.is_empty() {
                 return Err(Error::NoRoms);
@@ -118,10 +119,31 @@ impl Builder {
                         actual: set.roms.len(),
                     });
                 }
+
+                if set.roms.len() > 3 && set.set_type == RomSetType::Multi {
+                    return Err(Error::TooManyRoms {
+                        expected: 3,
+                        actual: set.roms.len(),
+                    });
+                }
+
+                if set.roms.len() > 4 && set.set_type == RomSetType::Banked {
+                    return Err(Error::TooManyRoms {
+                        expected: 4,
+                        actual: set.roms.len(),
+                    });
+                }
             }
 
             for rom in set.roms.iter() {
                 let rom0 = &set.roms[0];
+
+                // Check filename specified
+                if rom.file.is_empty() {
+                    return Err(Error::InvalidConfig {
+                        error: format!("ROM {} file name is empty", rom_num),
+                    });
+                }
 
                 // Check all ROMs in a bank are same type
                 if set.set_type == RomSetType::Banked && rom.rom_type != rom0.rom_type {
@@ -166,6 +188,52 @@ impl Builder {
                         error: format!("CS3 specified for ROM type {} which does not use CS3", 
                                     rom.rom_type.name()),
                     });
+                }
+
+                // Check that at least one CS line is active (not all ignore)
+                let cs1_active = rom.cs1.is_some() && rom.cs1.unwrap() != CsLogic::Ignore;
+                let cs2_active = rom.cs2.is_some() && rom.cs2.unwrap() != CsLogic::Ignore;
+                let cs3_active = rom.cs3.is_some() && rom.cs3.unwrap() != CsLogic::Ignore;
+
+                if !cs1_active && !cs2_active && !cs3_active {
+                    return Err(Error::InvalidConfig {
+                        error: format!("ROM type {} must have at least one active CS line (not all ignore)", 
+                                    rom.rom_type.name()),
+                    });
+                }
+
+                // Check that CS1 cannot be ignore if other CS lines are active
+                if !cs1_active && (cs2_active || cs3_active) {
+                    return Err(Error::InvalidConfig {
+                        error: format!("CS1 cannot be ignore when CS2 or CS3 are active"),
+                    });
+                }
+
+                rom_num += 1;
+            }
+
+            // After the loop: validate CS consistency for multi/banked sets
+            if set.set_type == RomSetType::Multi || set.set_type == RomSetType::Banked {
+                if set.roms.len() > 1 {
+                    // Get CS configuration from first ROM
+                    let first_cs1 = set.roms[0].cs1;
+                    let first_cs2 = set.roms[0].cs2;
+                    let first_cs3 = set.roms[0].cs3;
+                    
+                    // Check all other ROMs have the same CS configuration
+                    for (idx, rom) in set.roms.iter().enumerate().skip(1) {
+                        if rom.cs1 != first_cs1 || rom.cs2 != first_cs2 || rom.cs3 != first_cs3 {
+                            return Err(Error::InvalidConfig {
+                                error: format!(
+                                    "{:?} set requires all ROMs to have identical CS configuration. ROM 0 has cs1={:?}/cs2={:?}/cs3={:?}, but ROM {} has cs1={:?}/cs2={:?}/cs3={:?}",
+                                    set.set_type,
+                                    first_cs1, first_cs2, first_cs3,
+                                    idx,
+                                    rom.cs1, rom.cs2, rom.cs3
+                                ),
+                            });
+                        }
+                    }
                 }
             }
         }
