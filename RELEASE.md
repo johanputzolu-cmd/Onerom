@@ -15,6 +15,7 @@ To update the version:
 - Update the version in [database/Cargo.toml](/rust/database/Cargo.toml).
 - Update the version in [config/Cargo.toml](/rust/config/Cargo.toml).
 - Update the version in [gen/Cargo.toml](/rust/gen/Cargo.toml).
+- Update the version in [wasm/Cargo.toml](/rust/gen/Cargo.toml).
 - Update the version consts `MAX_VERSION_*` in [rust/sdrr-fw-parser/src/lib.rs](/rust/sdrr-fw-parser/src/lib.rs).
 
 ## Release Process
@@ -34,6 +35,8 @@ ci/build.sh ci
 ci/build.sh release v<x.y.z>
 ```
 
+---
+
 Publish `onerom-database` to crates.io:
 
 ```bash
@@ -43,6 +46,8 @@ cargo publish -p onerom-database
 ```
 
 Update link to `onerom-database` in [protocol/Cargo.toml](/rust/protocol/Cargo.toml) to use the crates.io version.
+
+---
 
 Publish `onerom-protocol` to crates.io:
 
@@ -54,6 +59,32 @@ cargo publish -p onerom-protocol
 
 Update links to `onerom-database` and `onerom-protocol` in [lab/Cargo.toml](/rust/lab/Cargo.toml) to use the crates.io versions.
 
+---
+
+Publish `onerom-config` to crates.io:
+
+```bash
+cd rust
+cargo publish --dry-run -p onerom-config
+cargo publish -p onerom-config
+```
+
+Update links to and `onerom-config` in others to use the crates.io versions.
+
+---
+
+Publish `onerom-gen` to crates.io:
+
+```bash
+cd rust
+cargo publish --dry-run -p onerom-gen
+cargo publish -p onerom-gen
+```
+
+Update links to and `onerom-gen` in others to use the crates.io versions.
+
+---
+
 Publish the new version of `sdrr-fw-parser` to crates.io:
 
 ```bash
@@ -61,6 +92,8 @@ cd rust
 cargo publish --dry-run -p sdrr-fw-parser
 cargo publish -p sdrr-fw-parser
 ```
+
+---
 
 If on a branch, submit a pull request and merge it into main.
 
