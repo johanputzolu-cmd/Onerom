@@ -4,6 +4,8 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.1 - 2025-10-13
 
+For the average user, there are no particularly notable changes in this release, except the addition of the [Atari 800XL BASIC ROM config](/config/atari800xl.mk).
+
 The firmware generator process underwent a major overhaul in this release:
 - Support ROM types and hardware (PCB) revisions are now parsed at build time, which can be included in Web Assembly code.
 - `sdrr-common` has been retired and mostly replaced with `onerom-config`
