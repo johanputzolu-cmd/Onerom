@@ -311,13 +311,11 @@ typedef enum {
 
 // ROM information structure
 typedef struct {
-    const sdrr_rom_type_t rom_type;   // ROM type
-    const sdrr_cs_state_t cs1_state;  // CS1 state
-    const sdrr_cs_state_t cs2_state;  // CS2 state
-    const sdrr_cs_state_t cs3_state;  // CS3 state
-#if defined(BOOT_LOGGING)
-    const char* filename;       // Source filename (BOOT_LOGGING only)
-#endif // BOOT_LOGGING
+    const sdrr_rom_type_t rom_type;     // ROM type
+    const sdrr_cs_state_t cs1_state;    // CS1 state
+    const sdrr_cs_state_t cs2_state;    // CS2 state
+    const sdrr_cs_state_t cs3_state;    // CS3 state
+    const char* filename;               // Source filename (May be NULL)
 } sdrr_rom_info_t;
 
 // ROM set information structure

@@ -8,8 +8,7 @@ members = [
     "sdrr-check",
     "sdrr-fw-parser",
     "sdrr-gen",
-    "sdrr-info", 
-    "wasm"
+    "sdrr-info" 
 ]
 default-members = [
     "config",

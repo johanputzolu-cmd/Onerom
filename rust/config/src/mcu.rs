@@ -6,16 +6,28 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Family {
     /// STM32F4 series
+    #[serde(rename = "stm32f4")]
     Stm32f4,
     /// Raspberry Pi RP2350
+    #[serde(rename = "rp2350")]
     Rp2350,
 }
 
 impl Family {
-    pub fn get_flash_base(&self) -> u32 {
+    pub const fn get_flash_base(&self) -> u32 {
         match self {
             Family::Stm32f4 => 0x0800_0000,
             Family::Rp2350 => 0x1000_0000,
+        }
+    }
+
+    pub fn try_from_str(s: &str) -> Option<Self> {
+        if s.eq_ignore_ascii_case("stm32f4") {
+            return Some(Family::Stm32f4);
+        } else if s.eq_ignore_ascii_case("rp2350") {
+            return Some(Family::Rp2350);
+        } else {
+            None
         }
     }
 }

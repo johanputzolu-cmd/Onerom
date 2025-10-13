@@ -111,6 +111,15 @@ impl Builder {
                 return Err(Error::NoRoms);
             }
 
+            if set.roms.len() > 1 {
+                if set.set_type == RomSetType::Single {
+                    return Err(Error::TooManyRoms {
+                        expected: 1,
+                        actual: set.roms.len(),
+                    });
+                }
+            }
+
             for rom in set.roms.iter() {
                 for line in rom.rom_type.control_lines() {
                     // Make sure relevant CS lines are specified
@@ -141,12 +150,22 @@ impl Builder {
         let mut specs = Vec::new();
         let mut id = 0;
 
-        for rom_set in &self.config.rom_sets {
+        for (rom_set_num, rom_set) in self.config.rom_sets.iter().enumerate() {
             for rom in &rom_set.roms {
                 specs.push(FileSpec {
                     id,
+                    description: rom.description.clone(),
                     source: rom.file.clone(),
                     extract: rom.extract.clone(),
+                    size_handling: rom.size_handling.clone(),
+                    rom_type: rom.rom_type.clone(),
+                    rom_size: rom.rom_type.size_bytes(),
+                    cs1: rom.cs1,
+                    cs2: rom.cs2,
+                    cs3: rom.cs3,
+                    set_id: rom_set_num,
+                    set_type: rom_set.set_type.clone(),
+                    set_description: rom_set.description.clone(),
                 });
                 id += 1;
             }
@@ -252,8 +271,18 @@ impl Builder {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FileSpec {
     pub id: usize,
+    pub description: Option<String>,
     pub source: String,
     pub extract: Option<String>,
+    pub size_handling: SizeHandling,
+    pub rom_type: RomType,
+    pub rom_size: usize,
+    pub cs1: Option<CsLogic>,
+    pub cs2: Option<CsLogic>,
+    pub cs3: Option<CsLogic>,
+    pub set_id: usize,
+    pub set_type: RomSetType,
+    pub set_description: Option<String>,
 }
 
 /// File data loaded by the caller, passed back to the builder

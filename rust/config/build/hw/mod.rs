@@ -336,6 +336,7 @@ fn generate_hw_config_enum(configs: &[HwConfigData]) -> String {
             "    /// {} - {}\n",
             config.name, config.config.description
         ));
+        code.push_str(&format!("    #[serde(rename = \"{}\")]\n", config.name));
         code.push_str(&format!("    {},\n", config.variant_name));
     }
 

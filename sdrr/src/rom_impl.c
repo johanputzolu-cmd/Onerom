@@ -578,7 +578,9 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
 #endif // defined(CCM_RAM_BASE) && !defined(DISABLE_CCM)
 
 #if defined(BOOT_LOGGING)
-    DEBUG("ROM filename: %s", set->roms[0]->filename);
+    if (set->roms[0]->filename != NULL) {
+        DEBUG("ROM filename: %s", set->roms[0]->filename);
+    }
 #endif // BOOT_LOGGING
     switch (set->roms[0]->rom_type) {
         case ROM_TYPE_2364:
@@ -627,7 +629,13 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
     // processed before embedding in the flash.
     memcpy(img_dst, img_src, img_size);
 
-    LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", set->roms[0]->filename, (uint32_t)img_dst, img_size);
+#if defined(BOOT_LOGGING)
+    const char *filename = "";
+    if (set->roms[0]->filename != NULL) {
+        filename = set->roms[0]->filename;
+    }
+    LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", filename, (uint32_t)img_dst, img_size);
+#endif // BOOT_LOGGING
     LOG("Set ROM count: %d, Serving algorithm: %d, multi-ROM CS1 state: %s",
         set->rom_count, set->serve, cs_values[set->multi_rom_cs1_state]);
 

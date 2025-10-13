@@ -51,6 +51,7 @@ impl FirmwareVersion {
 
 /// ROM serving algorithm
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ServeAlg {
     /// default
     #[default]
@@ -99,7 +100,7 @@ impl ServeAlg {
 }
 
 /// One ROM Firmware Properties
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct FirmwareProperties {
     version: FirmwareVersion,
     board: Board,

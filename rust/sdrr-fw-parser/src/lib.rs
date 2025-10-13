@@ -412,10 +412,8 @@ impl<'a, R: Reader> Parser<'a, R> {
         // Parse ROM sets with error collection
         let rom_sets = match parsing::read_rom_sets(
             self.reader,
+            &header,
             header.rom_sets_ptr,
-            header.rom_set_count,
-            self.base_flash_address,
-            header.boot_logging_enabled != 0,
         )
         .await
         {

@@ -12,11 +12,13 @@ pub mod builder;
 pub mod image;
 pub mod meta;
 
+pub use builder::{Builder, Config, FileData, FileSpec, RomConfig, RomSetConfig};
+pub use image::{CsConfig, CsLogic, SizeHandling, Rom, RomSet, RomSetType};
+pub use image::{PAD_NO_ROM_BYTE, PAD_BLANK_BYTE};
+pub use meta::{Metadata, PAD_METADATA_BYTE};
+
 use alloc::string::String;
-
 use onerom_config::fw::ServeAlg;
-
-use crate::image::CsLogic;
 
 /// Error type
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -37,6 +39,7 @@ pub enum Error {
         expected_size: usize,
     },
     BufferTooSmall {
+        location: &'static str,
         expected: usize,
         actual: usize,
     },

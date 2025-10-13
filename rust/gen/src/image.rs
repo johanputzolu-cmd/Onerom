@@ -26,11 +26,11 @@ use onerom_config::rom::RomType;
 
 use crate::{Error, Result};
 
-// Value to use when told to pad a ROM image
+/// Value to use when told to pad a ROM image
 pub const PAD_BLANK_BYTE: u8 = 0xAA;
 
-// Value to use when no ROM in portion of address space
-const PAD_NO_ROM_BYTE: u8 = 0xAA;
+/// Value to use when no ROM in portion of address space
+pub const PAD_NO_ROM_BYTE: u8 = 0xAA;
 
 const ROM_METADATA_LEN_NO_FILENAME: usize = 4;
 const ROM_METADATA_LEN_WITH_FILENAME: usize = 8;
@@ -39,6 +39,7 @@ const ROM_SET_METADATA_LEN: usize = 16; // sdrr_rom_set_t
 
 /// How to handle ROM images that are too small for the ROM type
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")] 
 pub enum SizeHandling {
     /// No special handling.  Errors if the image size does not exactly match
     /// the ROM size.
@@ -197,6 +198,7 @@ impl Rom {
         let expected_size = rom_type.size_bytes();
         if dest.len() < expected_size {
             return Err(Error::BufferTooSmall {
+                location: "Rom::from_raw_rom_image",
                 expected: expected_size,
                 actual: dest.len(),
             });
@@ -749,9 +751,6 @@ impl RomSet {
     pub fn roms_metadata_len(&self, include_filenames: bool) -> usize {
         let num_roms = self.roms.len();
 
-        // ROM pointer array size
-        let rom_ptr_array_len = 4 * num_roms;
-
         // Size of all ROM metadata structs
         let rom_metadata_len = if include_filenames {
             ROM_METADATA_LEN_WITH_FILENAME
@@ -759,7 +758,7 @@ impl RomSet {
             ROM_METADATA_LEN_NO_FILENAME
         } * num_roms;
 
-        rom_ptr_array_len + rom_metadata_len
+        rom_metadata_len
     }
 
     /// Writes ROM metadata structs for all ROMs in this set and store off
@@ -780,6 +779,7 @@ impl RomSet {
         let expected_len = self.roms_metadata_len(include_filenames);
         if buf.len() < expected_len {
             return Err(Error::BufferTooSmall {
+                location: "write_rom_metadata1",
                 expected: expected_len,
                 actual: buf.len(),
             });
@@ -788,6 +788,7 @@ impl RomSet {
         // Check enough space for pointers
         if rom_metadata_ptrs.len() < num_roms {
             return Err(Error::BufferTooSmall {
+                location: "write_rom_metadata2",
                 expected: num_roms,
                 actual: rom_metadata_ptrs.len(),
             });
@@ -815,9 +816,9 @@ impl RomSet {
             // Add filename if required
             if include_filenames {
                 let rom_filename_ptr = rom_filename_ptrs
-                    .get(ii)
+                    .get(rom.index())
                     .copied()
-                    .ok_or_else(|| Error::MissingPointer { id: ii })?;
+                    .ok_or_else(|| Error::MissingPointer { id: rom.index() })?;
                 buf[offset..offset + 4].copy_from_slice(&rom_filename_ptr.to_le_bytes());
                 offset += 4;
             }
@@ -839,6 +840,7 @@ impl RomSet {
         let expected_len = 4 * num_roms;
         if buf.len() < expected_len {
             return Err(Error::BufferTooSmall {
+                location: "write_rom_pointer_array",
                 expected: expected_len,
                 actual: buf.len(),
             });
@@ -854,11 +856,9 @@ impl RomSet {
         let mut offset = 0;
 
         // Write the array of pointers
-        for _ in 0..num_roms {
-            for ii in rom_metadata_ptrs.iter() {
-                buf[offset..offset + 4].copy_from_slice(&ii.to_le_bytes());
-                offset += 4;
-            }
+        for ii in rom_metadata_ptrs.iter() {
+            buf[offset..offset + 4].copy_from_slice(&ii.to_le_bytes());
+            offset += 4;
         }
 
         Ok(offset)
@@ -878,6 +878,7 @@ impl RomSet {
         let expected_len = Self::rom_set_metadata_len();
         if buf.len() < expected_len {
             return Err(Error::BufferTooSmall {
+                location: "write_set_metadata",
                 expected: expected_len,
                 actual: buf.len(),
             });

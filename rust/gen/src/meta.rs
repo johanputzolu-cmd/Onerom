@@ -11,11 +11,15 @@ use alloc::vec::Vec;
 
 use onerom_config::hw::Board;
 
-use crate::image::RomSet;
-use crate::{Error, Result};
+use crate::{Error, Result, RomSet};
+
+pub const PAD_METADATA_BYTE: u8 = 0xFF;
 
 const HEADER_MAGIC: &[u8; 16] = b"ONEROM_METADATA\0";
 const HEADER_VERSION: u32 = 1;
+
+// Metadata starts at 48KB from the start of flash.
+const METADATA_START: u32 = 49152;
 
 // ROM images start at 64KB from the start of flash.
 const ROM_IMAGE_DATA_START: u32 = 65536;
@@ -46,6 +50,14 @@ impl Metadata {
 
     const fn header_len(&self) -> usize {
         METADATA_HEADER_LEN
+    }
+
+    const fn abs_metadata_start(&self) -> u32 {
+        self.board.mcu_family().get_flash_base() + METADATA_START
+    }
+
+    const fn abs_rom_image_start(&self) -> u32 {
+        self.board.mcu_family().get_flash_base() + ROM_IMAGE_DATA_START
     }
 
     /// Length of buffer required for metadata.
@@ -79,7 +91,7 @@ impl Metadata {
 
     // Total length, including null terminators, of all filenames
     fn filenames_metadata_len(&self) -> usize {
-        if !self.boot_logging {
+        let len = if !self.boot_logging {
             0
         } else {
             self.rom_sets
@@ -87,6 +99,12 @@ impl Metadata {
                 .flat_map(|rs| rs.roms())
                 .map(|rom| rom.filename().len() + 1)
                 .sum()
+        };
+        if len % 4 != 0 {
+            // Align to 4 bytes
+            len + (4 - (len % 4))
+        } else {
+            len
         }
     }
 
@@ -99,6 +117,7 @@ impl Metadata {
         let mut total = 0;
         for set in &self.rom_sets {
             total += set.roms_metadata_len(self.boot_logging);
+            total += set.roms().len() * 4;
         }
 
         total += self.rom_sets.len() * RomSet::rom_set_metadata_len();
@@ -121,6 +140,7 @@ impl Metadata {
         // Check we have enough of a buffer.
         if self.metadata_len() > buf.len() {
             return Err(Error::BufferTooSmall {
+                location: "write_all",
                 expected: self.metadata_len(),
                 actual: buf.len(),
             });
@@ -138,13 +158,25 @@ impl Metadata {
             let filename_offset = offset;
 
             // write_filenames() fills in filename_ptrs, but starts at 0
-            offset += self.write_filenames(&mut buf[offset..], &mut filename_ptrs)?;
+            let filename_len = self.write_filenames(&mut buf[offset..], &mut filename_ptrs)?;
+            offset += filename_len;
 
             // Need to correct filename pointers to be absolute addresses.
             // We need to add filename_offset plus the flash base
             for ptr in filename_ptrs.iter_mut() {
-                *ptr += (filename_offset as u32) + self.board.mcu_family().get_flash_base();
+                *ptr += (filename_offset as u32) + self.abs_metadata_start();
             }
+
+            if filename_len % 4 != 0 {
+                // Align to 4 bytes
+                let padding = 4 - (filename_len % 4);
+                for _ in 0..padding {
+                    buf[offset] = PAD_METADATA_BYTE;
+                    offset += 1;
+                }
+            }
+
+            assert_eq!(offset % 4, 0, "Metadata offset not 4 byte aligned after writing filenames");
         }
 
         // Pre-compute where the ROM set image data will live for each rom set
@@ -153,7 +185,7 @@ impl Metadata {
         // from the start of the ROM image location to return from this
         // function.
         let mut rom_data_ptrs = vec![0u32; self.rom_sets.len()];
-        let mut rom_data_ptr = ROM_IMAGE_DATA_START + self.board.mcu_family().get_flash_base();
+        let mut rom_data_ptr = self.abs_rom_image_start();
         let mut rtn_rom_data_ptr = 0;
         for (ii, set) in self.rom_sets.iter().enumerate() {
             rom_data_ptrs[ii] = rom_data_ptr;
@@ -178,7 +210,7 @@ impl Metadata {
 
             // Now update this set's array of ROM pointers
             for ptr in rom_metadata_ptrs.iter_mut() {
-                *ptr += offset as u32 + self.board.mcu_family().get_flash_base();
+                *ptr += offset as u32 + self.abs_metadata_start();
             }
             rom_array_ptrs[ii] = rom_metadata_ptrs;
 
@@ -191,12 +223,12 @@ impl Metadata {
         let mut actual_rom_array_ptrs = vec![0u32; self.rom_sets.len()];
         for (ii, rom_set) in self.rom_sets.iter().enumerate() {
             let len = rom_set.write_rom_pointer_array(&mut buf[offset..], &rom_array_ptrs[ii])?;
-            actual_rom_array_ptrs[ii] = offset as u32 + self.board.mcu_family().get_flash_base();
+            actual_rom_array_ptrs[ii] = offset as u32 + self.abs_metadata_start();
             offset += len;
         }
 
         // Write each set struct - this will become an array of set structs.
-        let first_rom_set_ptr = offset as u32 + self.board.mcu_family().get_flash_base();
+        let first_rom_set_ptr = offset as u32 + self.abs_metadata_start();
         for (ii, rom_set) in self.rom_sets.iter().enumerate() {
             offset += rom_set.write_set_metadata(
                 &mut buf[offset..],
@@ -220,6 +252,7 @@ impl Metadata {
 
         if buf.len() < self.filenames_metadata_len() {
             return Err(crate::Error::BufferTooSmall {
+                location: "write_filenames1",
                 expected: self.filenames_metadata_len(),
                 actual: buf.len(),
             });
@@ -231,6 +264,7 @@ impl Metadata {
         let num_roms = self.total_rom_count();
         if ptrs.len() < num_roms {
             return Err(crate::Error::BufferTooSmall {
+                location: "write_filenames2",
                 expected: num_roms,
                 actual: ptrs.len(),
             });
@@ -258,6 +292,7 @@ impl Metadata {
     fn write_header(&self, buf: &mut [u8]) -> Result<usize> {
         if buf.len() < METADATA_HEADER_LEN {
             return Err(crate::Error::BufferTooSmall {
+                location: "write_header",
                 expected: METADATA_HEADER_LEN,
                 actual: buf.len(),
             });
@@ -299,6 +334,7 @@ impl Metadata {
     fn update_rom_set_ptr(&self, buf: &mut [u8], ptr: u32) -> Result<()> {
         if buf.len() < (METADATA_ROM_SET_OFFSET + 4) {
             return Err(crate::Error::BufferTooSmall {
+                location: "update_rom_set_ptr",
                 expected: (METADATA_ROM_SET_OFFSET + 4),
                 actual: buf.len(),
             });
@@ -323,6 +359,7 @@ impl Metadata {
         // Validate buffer size
         if buf.len() < self.rom_images_size() {
             return Err(Error::BufferTooSmall {
+                location: "write_roms",
                 expected: self.rom_images_size(),
                 actual: buf.len(),
             });

@@ -183,8 +183,7 @@ fn generate_roms_implementation_file(
     writeln!(file)?;
 
     // Generate filename strings (debug only)
-    writeln!(file, "// ROM filenames (BOOT_LOGGING only)")?;
-    writeln!(file, "#if defined(BOOT_LOGGING)")?;
+    writeln!(file, "// ROM filenames")?;
     for set in rom_sets {
         for rom in &set.roms {
             let filename = rom.filename();
@@ -196,7 +195,6 @@ fn generate_roms_implementation_file(
             )?;
         }
     }
-    writeln!(file, "#endif // BOOT_LOGGING")?;
     writeln!(file)?;
 
     // Helper function to convert CsLogic to enum string
@@ -250,9 +248,7 @@ fn generate_roms_implementation_file(
         writeln!(file, "    .cs1_state = {},", cs1_state)?;
         writeln!(file, "    .cs2_state = {},", cs2_state)?;
         writeln!(file, "    .cs3_state = {},", cs3_state)?;
-        writeln!(file, "#if defined(BOOT_LOGGING)")?;
         writeln!(file, "    .filename = sdrr_rom_{}_filename,", ii)?;
-        writeln!(file, "#endif // BOOT_LOGGING")?;
         writeln!(file, "}};")?;
         writeln!(file)?;
     }
