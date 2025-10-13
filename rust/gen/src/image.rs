@@ -577,6 +577,9 @@ impl RomSet {
                 let masked_address = address & mask;
                 let rom_index = bank % self.roms.len(); // Wrap around
                 (rom_index, masked_address)
+
+                // Note that this code fills sections of the overall 64KB image with the bank ROM
+                // images even if the CS value is set to inactive
             };
 
             let num_addr_lines = self.roms[rom_index].rom_type.num_addr_lines();
