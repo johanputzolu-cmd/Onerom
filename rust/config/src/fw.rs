@@ -69,11 +69,14 @@ pub enum ServeAlg {
 
 impl ServeAlg {
     pub fn try_from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "default" => Some(ServeAlg::Default),
-            "a" | "two_cs_one_addr" => Some(ServeAlg::TwoCsOneAddr),
-            "b" => Some(ServeAlg::AddrOnCs),
-            _ => None,
+        if s.eq_ignore_ascii_case("default") {
+            Some(ServeAlg::Default)
+        } else if s.eq_ignore_ascii_case("a") || s.eq_ignore_ascii_case("two_cs_one_addr") {
+            Some(ServeAlg::TwoCsOneAddr)
+        } else if s.eq_ignore_ascii_case("b") {
+            Some(ServeAlg::AddrOnCs)
+        } else {
+            None
         }
     }
 
