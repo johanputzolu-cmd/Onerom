@@ -66,6 +66,92 @@
 //! - [x] Adding files out of order
 //! - [x] Adding duplicate files (should error)
 //! - [x] Missing files at build time (should error)
+//! 
+//! ## Phase 9: Board Configuration Variations
+//! - [ ] Build for RP2350 board (different MCU family)
+//! - [ ] Board with address pins on GPIO 8-23 (high window)
+//! - [ ] Board without X1/X2 pins - verify banked/multi sets fail
+//! - [ ] Board with different data pin block (e.g., GPIO 16-23)
+//! - [ ] Verify pin mapping assertions fire for invalid board configs
+//! 
+//! ## Phase 10: Flash Capacity and Resource Limits
+//! - [ ] Maximum ROM sets that fit in metadata (find actual limit)
+//! - [ ] ROM images exceeding available flash space (should error)
+//! - [ ] Metadata buffer overflow (too many ROM sets/filenames)
+//! - [ ] Maximum ROMs per banked set
+//! - [ ] Maximum ROMs per multi set
+//! - [ ] Verify size calculations account for all metadata structures
+//! 
+//! ## Phase 11: JSON Parsing and Validation Errors
+//! - [x] Malformed JSON (should error)
+//! - [x] Missing required fields (rom_sets, type, file, etc.)
+//! - [x] Invalid ROM type string (should error)
+//! - [x] Invalid CS logic string (should error)
+//! - [x] Invalid set type string (should error)
+//! - [x] CS2 specified for 2364 (should error or ignore?)
+//! - [x] CS3 specified for 2332 (should error or ignore?)
+//! - [x] No CS1 specified (should error)
+//! - [x] Invalid size_handling value (should error)
+//! - [x] ROM type mismatch within multi set (all ROMs same type?)
+//! - [x] Negative or invalid version number
+//! 
+//! ## Phase 12: Filename and Boot Logging Edge Cases
+//! - [ ] Maximum length filename (find limit)
+//! - [ ] Empty filename string
+//! - [ ] Filename with special characters (spaces, quotes, slashes)
+//! - [ ] Filename with unicode characters
+//! - [ ] Very long filenames causing metadata overflow
+//! - [ ] Duplicate filenames in different ROM sets
+//! - [ ] Null bytes in filename (should terminate properly)
+//! 
+//! ## Phase 13: ServeAlg Explicit Override
+//! - [ ] Single ROM with explicit serve_alg in JSON
+//! - [ ] Banked set with explicit serve_alg override
+//! - [ ] Multi set with explicit serve_alg override
+//! - [ ] Invalid serve_alg value (should error)
+//! - [ ] Conflicting serve_alg (e.g., AddrOnAnyCs for single ROM)
+//! 
+//! ## Phase 14: File Size Edge Cases
+//! - [ ] Zero-byte file (should error)
+//! - [ ] Single-byte file
+//! - [ ] File size 2047 bytes (just under 2KB boundary)
+//! - [ ] File size 2049 bytes (just over 2KB, requires size_handling)
+//! - [ ] File size exactly 1KB for 2KB ROM with duplicate
+//! - [ ] File size exactly 2KB for 8KB ROM with duplicate
+//! - [ ] Very small file with pad (1 byte padded to 8KB)
+//! 
+//! ## Phase 15: Complex ROM Set Configurations
+//! - [ ] Multi set with mixed ROM types (if allowed)
+//! - [ ] Multi set with different CS configurations per ROM
+//! - [ ] Banked set with mixed ROM types (if allowed)
+//! - [ ] Multiple banked sets in one config
+//! - [ ] Multiple multi sets in one config
+//! - [ ] Mix of single, banked, and multi sets
+//! - [ ] Maximum complexity config (many sets, many ROMs, boot logging)
+//! 
+//! ## Phase 16: CS Configuration Validation
+//! - [ ] 2316 with only CS1 and CS2 (missing CS3, should error)
+//! - [ ] 2332 with CS3 specified (should error or ignore?)
+//! - [ ] All three CS as ignore (should error)
+//! - [ ] CS1 as ignore but CS2 active (should error?)
+//! - [ ] Invalid CS logic combination for multi set
+//! - [ ] Banked set where ROMs have different CS1 states (should error?)
+//! 
+//! ## Phase 17: Address and Data Pin Validation
+//! - [ ] Address pins not on 8-boundary (should error via validation)
+//! - [ ] Address pins span >16 bits (should error via validation)
+//! - [ ] Data pins not on 8-boundary (should error via validation)
+//! - [ ] Data pins span >8 bits (should error via validation)
+//! - [ ] Duplicate pins in address array (should error via validation)
+//! - [ ] Duplicate pins in data array (should error via validation)
+//! 
+//! ## Phase 18: ROM Images Correctness
+//! - [ ] Verify duplicate correctly duplicates data (check both copies)
+//! - [ ] Verify pad fills with correct byte value (0xFF or 0x00?)
+//! - [ ] Multi set with 4+ ROMs (test X1/X2 bit combinations)
+//! - [ ] Banked set with 8 ROMs (if supported)
+//! - [ ] Verify unused/invalid addresses contain correct fill byte
+//! - [ ] Different board pin mappings produce correct transformations
 
 #[cfg(test)]
 mod tests {
@@ -1641,16 +1727,12 @@ mod tests {
                     {
                         "file": "rom0.bin",
                         "type": "2364",
-                        "cs1": "active_low",
-                        "cs2": "ignore",
-                        "cs3": "ignore"
+                        "cs1": "active_low"
                     },
                     {
                         "file": "rom1.bin",
                         "type": "2364",
-                        "cs1": "active_low",
-                        "cs2": "ignore",
-                        "cs3": "ignore"
+                        "cs1": "active_low"
                     }
                 ]
             }]
@@ -2000,6 +2082,13 @@ mod tests {
     // Helper: Transform logical address to physical address based on board pin mapping
     fn logical_to_physical_address(logical_addr: usize, board: onerom_config::hw::Board) -> usize {
         let addr_pins = board.addr_pins();
+
+        // Address pins must be within a contiguous 16-bit window starting on an 8-boundary
+        let min_pin = *addr_pins.iter().min().unwrap() as usize;
+        let max_pin = *addr_pins.iter().max().unwrap() as usize;
+        assert!(min_pin % 8 == 0, "Address pins must start on 8-byte boundary, got min pin {}", min_pin);
+        assert!(max_pin < min_pin + 16, "Address pins must be within 16-bit window, got range {}-{}", min_pin, max_pin);
+    
         let mut physical_address = 0;
         
         // For each address line, if the bit is set in logical address,
@@ -2008,11 +2097,10 @@ mod tests {
             if logical_addr & (1 << addr_line) != 0 {
                 let pin = phys_pin as usize;
                 // Handle boards where address pins are shifted
-                let bit_position = if pin >= 8 && addr_pins.iter().all(|&p| p >= 8 || p < 8) {
-                    // All pins either <8 or >=8, use adjusted position
-                    if addr_pins[0] >= 8 { pin - 8 } else { pin }
+                let bit_position = if addr_pins.iter().all(|&p| p >= 8) {
+                    pin - 8  // New board: all pins >=8, normalize to 0-15
                 } else {
-                    pin
+                    pin      // Current boards: scattered in 0-15, use directly
                 };
                 physical_address |= 1 << bit_position;
             }
@@ -2024,6 +2112,14 @@ mod tests {
     // Helper: Transform logical data byte to physical byte based on board pin mapping
     fn logical_to_physical_byte(logical_byte: u8, board: onerom_config::hw::Board) -> u8 {
         let data_pins = board.data_pins();
+
+        // Data pins must be within a contiguous 8-bit window starting on an 8-boundary
+        let min_pin = *data_pins.iter().min().unwrap();
+        let max_pin = *data_pins.iter().max().unwrap();
+        assert_eq!(data_pins.len(), 8, "Must have exactly 8 data pins");
+        assert!(min_pin % 8 == 0, "Data pins must start on 8-byte boundary, got min pin {}", min_pin);
+        assert!(max_pin < min_pin + 8, "Data pins must be within 8-bit window, got range {}-{}", min_pin, max_pin);
+        
         let mut physical_byte = 0;
         
         // For each data line, if the bit is set in logical byte,
@@ -2245,23 +2341,17 @@ mod tests {
                     {
                         "file": "rom0.bin",
                         "type": "2364",
-                        "cs1": "active_low",
-                        "cs2": "ignore",
-                        "cs3": "ignore"
+                        "cs1": "active_low"
                     },
                     {
                         "file": "rom1.bin",
                         "type": "2364",
-                        "cs1": "active_low",
-                        "cs2": "ignore",
-                        "cs3": "ignore"
+                        "cs1": "active_low"
                     },
                     {
                         "file": "rom2.bin",
                         "type": "2364",
-                        "cs1": "active_low",
-                        "cs2": "ignore",
-                        "cs3": "ignore"
+                        "cs1": "active_low"
                     }
                 ]
             }]
@@ -2474,5 +2564,493 @@ mod tests {
         println!("✓ Phase 7 Test 4: Banked ROM set images passed");
         println!("  - Verified all 64KB with {} ROMs in banks", rom_data.len());
         println!("  - Validated X1/X2 bit values select correct ROM");
+    }
+
+    // ========================================================================
+    // PHASE 11: JSON Parsing and Validation Errors
+    // ========================================================================
+
+    // ========================================================================
+    // TEST 29: Malformed JSON
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_malformed_json() {
+        let json = r#"{
+            "version": 1,
+            "description": "Missing closing brace",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        "#; // Intentionally missing closing brace
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Malformed JSON should fail to parse");
+        
+        println!("✓ Phase 11 Test 1: Malformed JSON correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 30: Missing Required Fields - rom_sets
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_missing_rom_sets() {
+        let json = r#"{
+            "version": 1,
+            "description": "Missing rom_sets field"
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "JSON missing rom_sets should fail");
+        
+        println!("✓ Phase 11 Test 2: Missing rom_sets field correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 31: Missing Required Fields - type
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_missing_set_type() {
+        let json = r#"{
+            "version": 1,
+            "description": "Missing set type",
+            "rom_sets": [{
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "JSON missing set type should fail");
+        
+        println!("✓ Phase 11 Test 3: Missing set type correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 32: Missing Required Fields - file
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_missing_file() {
+        let json = r#"{
+            "version": 1,
+            "description": "Missing file field",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "JSON missing file field should fail");
+        
+        println!("✓ Phase 11 Test 4: Missing file field correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 33: Invalid ROM Type String
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_invalid_rom_type() {
+        let json = r#"{
+            "version": 1,
+            "description": "Invalid ROM type",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "9999",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Invalid ROM type should fail");
+        
+        println!("✓ Phase 11 Test 5: Invalid ROM type correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 34: Invalid CS Logic String
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_invalid_cs_logic() {
+        let json = r#"{
+            "version": 1,
+            "description": "Invalid CS logic",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "maybe_active"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Invalid CS logic should fail");
+        
+        println!("✓ Phase 11 Test 6: Invalid CS logic correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 35: Invalid Set Type String
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_invalid_set_type() {
+        let json = r#"{
+            "version": 1,
+            "description": "Invalid set type",
+            "rom_sets": [{
+                "type": "triple",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Invalid set type should fail");
+        
+        println!("✓ Phase 11 Test 7: Invalid set type correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 36: CS2 Specified for 2364
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_cs2_for_2364() {
+        let json = r#"{
+            "version": 1,
+            "description": "CS2 specified for 2364",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        // This test documents behavior - either should error or succeed
+        // but we're asserting it should error for now
+        assert!(result.is_err(), "CS2 specified for 2364 should fail");
+        
+        println!("✓ Phase 11 Test 8: CS2 for 2364 correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 37: CS3 Specified for 2332
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_cs3_for_2332() {
+        let json = r#"{
+            "version": 1,
+            "description": "CS3 specified for 2332",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high",
+                    "cs3": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        // This test documents behavior - either should error or succeed
+        assert!(result.is_err(), "CS3 specified for 2332 should fail");
+        
+        println!("✓ Phase 11 Test 9: CS3 for 2332 correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 38: No CS1 Specified
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_missing_cs1() {
+        let json = r#"{
+            "version": 1,
+            "description": "Missing CS1",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Missing CS1 should fail");
+        
+        println!("✓ Phase 11 Test 10: Missing CS1 correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 39: Invalid size_handling Value
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_invalid_size_handling() {
+        let json = r#"{
+            "version": 1,
+            "description": "Invalid size_handling",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low",
+                    "size_handling": "stretch"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Invalid size_handling should fail");
+        
+        println!("✓ Phase 11 Test 11: Invalid size_handling correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 40: ROM Type Mismatch in Multi Set
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_rom_type_mismatch_multi_set() {
+        let json = r#"{
+            "version": 1,
+            "description": "Mixed ROM types in multi set",
+            "rom_sets": [{
+                "type": "multi",
+                "roms": [
+                    {
+                        "file": "rom0.bin",
+                        "type": "2364",
+                        "cs1": "active_low",
+                        "cs2": "ignore",
+                        "cs3": "ignore"
+                    },
+                    {
+                        "file": "rom1.bin",
+                        "type": "2332",
+                        "cs1": "active_low",
+                        "cs2": "ignore",
+                        "cs3": "ignore"
+                    }
+                ]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        // This documents expected behavior - mixed types might be allowed or not
+        // For now, assuming it should fail
+        assert!(result.is_err(), "Mixed ROM types in multi set should fail");
+        
+        println!("✓ Phase 11 Test 12: ROM type mismatch in multi set correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 41: ROM Type Mismatch in Banked Set
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_rom_type_mismatch_banked_set() {
+        let json = r#"{
+            "version": 1,
+            "description": "Mixed ROM types in banked set",
+            "rom_sets": [{
+                "type": "banked",
+                "roms": [
+                    {
+                        "file": "bank0.rom",
+                        "type": "2364",
+                        "cs1": "active_low"
+                    },
+                    {
+                        "file": "bank1.rom",
+                        "type": "2332",
+                        "cs1": "active_low",
+                        "cs2": "active_high"
+                    }
+                ]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Mixed ROM types in banked set should fail");
+        
+        println!("✓ Phase 11 Test 13: ROM type mismatch in banked set correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 42: Negative Version Number
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_negative_version() {
+        let json = r#"{
+            "version": -1,
+            "description": "Negative version",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Negative version should fail");
+        
+        println!("✓ Phase 11 Test 14: Negative version correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 43: Invalid Version Number (Zero)
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_zero_version() {
+        let json = r#"{
+            "version": 0,
+            "description": "Zero version",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Zero version should fail");
+        
+        println!("✓ Phase 11 Test 15: Zero version correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 44: Invalid Version Number (Too High)
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_invalid_high_version() {
+        let json = r#"{
+            "version": 999,
+            "description": "Version too high",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Version 999 should fail");
+        
+        println!("✓ Phase 11 Test 16: Invalid high version correctly rejected");
+    }
+
+    // ========================================================================
+    // TEST 45: Empty ROM Sets Array (Allowed)
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_empty_rom_sets() {
+        let json = r#"{
+            "version": 1,
+            "description": "Empty ROM sets array",
+            "rom_sets": []
+        }"#;
+        
+        let builder = Builder::from_json(json).expect("Empty rom_sets should be allowed");
+        
+        let props = default_fw_props();
+        let (metadata_buf, rom_images_buf) = builder.build(props).expect("Build should succeed");
+        
+        // Validate header shows 0 ROM sets
+        let header = MetadataHeader::parse(&metadata_buf);
+        assert_eq!(header.rom_set_count, 0, "Should have 0 ROM sets");
+        
+        // ROM images buffer should be minimal/empty
+        assert!(rom_images_buf.is_empty() || rom_images_buf.len() < 1024, 
+                "ROM images should be minimal for empty config");
+        
+        println!("✓ Phase 11 Test 17: Empty rom_sets array allowed");
+        println!("  - Metadata size: {} bytes", metadata_buf.len());
+        println!("  - ROM images size: {} bytes", rom_images_buf.len());
+    }
+    // ========================================================================
+    // TEST 46: Empty ROMs Array in Set
+    // ========================================================================
+
+    #[test]
+    fn test_phase11_empty_roms_array() {
+        let json = r#"{
+            "version": 1,
+            "description": "Empty roms array",
+            "rom_sets": [{
+                "type": "single",
+                "roms": []
+            }]
+        }"#;
+        
+        let result = Builder::from_json(json);
+        
+        assert!(result.is_err(), "Empty roms array should fail");
+        
+        println!("✓ Phase 11 Test 18: Empty roms array correctly rejected");
     }
 }

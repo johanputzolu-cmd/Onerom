@@ -121,8 +121,18 @@ impl Builder {
             }
 
             for rom in set.roms.iter() {
+                let rom0 = &set.roms[0];
+
+                // Check all ROMs in a bank are same type
+                if set.set_type == RomSetType::Banked && rom.rom_type != rom0.rom_type {
+                    return Err(Error::InvalidConfig {
+                        error: format!("All ROMs in a banked set must be of the same type ({} != {})",
+                                    rom.rom_type.name(), rom0.rom_type.name()),
+                    });
+                }
+
+                // Check that required CS lines are specified
                 for line in rom.rom_type.control_lines() {
-                    // Make sure relevant CS lines are specified
                     if line.name != "ce" && line.name != "oe" {
                         let cs = match line.name {
                             "cs1" => &rom.cs1,
@@ -138,6 +148,24 @@ impl Builder {
                             return Err(Error::MissingCsConfig { line: line.name });
                         }
                     }
+                }
+                
+                // Check that invalid CS lines are NOT specified
+                let has_cs2 = rom.rom_type.control_lines().iter().any(|line| line.name == "cs2");
+                let has_cs3 = rom.rom_type.control_lines().iter().any(|line| line.name == "cs3");
+                
+                if rom.cs2.is_some() && !has_cs2 {
+                    return Err(Error::InvalidConfig {
+                        error: format!("CS2 specified for ROM type {} which does not use CS2", 
+                                    rom.rom_type.name()),
+                    });
+                }
+                
+                if rom.cs3.is_some() && !has_cs3 {
+                    return Err(Error::InvalidConfig {
+                        error: format!("CS3 specified for ROM type {} which does not use CS3", 
+                                    rom.rom_type.name()),
+                    });
                 }
             }
         }
