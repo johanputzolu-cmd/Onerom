@@ -847,7 +847,10 @@ fn generate_makefile_fragment(filename: &Path, config: &Config) -> Result<()> {
     writeln!(file, "# probe-rs Chip ID")?;
     writeln!(file, "PROBE_RS_CHIP_ID={}", config.mcu_variant.chip_id())?;
 
+    // Device flash base
     writeln!(file)?;
+    writeln!(file, "# Device flash base")?;
+    writeln!(file, "FLASH_BASE={:#010X}", config.board.mcu_family().get_flash_base())?;
 
     Ok(())
 }

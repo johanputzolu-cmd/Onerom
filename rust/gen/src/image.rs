@@ -225,6 +225,7 @@ impl Rom {
                 match size_handling {
                     SizeHandling::None => {
                         return Err(Error::RomTooSmall {
+                            index,
                             expected: expected_size,
                             actual: source.len(),
                         });

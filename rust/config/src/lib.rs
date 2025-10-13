@@ -29,3 +29,7 @@ pub mod hw;
 //pub mod image;
 pub mod mcu;
 pub mod rom;
+
+pub fn crate_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}

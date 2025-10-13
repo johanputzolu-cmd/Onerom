@@ -11,12 +11,11 @@ use alloc::vec::Vec;
 
 use onerom_config::hw::Board;
 
-use crate::{Error, Result, RomSet};
+use crate::{METADATA_VERSION, Error, Result, RomSet};
 
 pub const PAD_METADATA_BYTE: u8 = 0xFF;
 
 const HEADER_MAGIC: &[u8; 16] = b"ONEROM_METADATA\0";
-const HEADER_VERSION: u32 = 1;
 
 // Metadata starts at 48KB from the start of flash.
 const METADATA_START: u32 = 49152;
@@ -304,7 +303,7 @@ impl Metadata {
         offset += len;
 
         let len = 4;
-        buf[offset..offset + len].copy_from_slice(&HEADER_VERSION.to_le_bytes());
+        buf[offset..offset + len].copy_from_slice(&METADATA_VERSION.to_le_bytes());
         offset += len;
 
         let len = 1;

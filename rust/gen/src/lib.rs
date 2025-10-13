@@ -20,6 +20,10 @@ pub use meta::{Metadata, PAD_METADATA_BYTE};
 use alloc::string::String;
 use onerom_config::fw::ServeAlg;
 
+/// Version of metadata produced by this version of the crate
+pub const METADATA_VERSION: u32 = 1;
+const METADATA_VERSION_STR: &str = "1";
+
 /// Error type
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Error {
@@ -27,6 +31,7 @@ pub enum Error {
         size: usize,
     },
     RomTooSmall {
+        index: usize,
         expected: usize,
         actual: usize,
     },
@@ -79,3 +84,11 @@ pub enum Error {
     },
 }
 type Result<T> = core::result::Result<T, Error>;
+
+pub fn crate_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
+pub fn metadata_version() -> &'static str {
+    METADATA_VERSION_STR
+}

@@ -220,9 +220,15 @@ impl Builder {
             for rom_config in &rom_set_config.roms {
                 let data = self.files.get(&rom_id).unwrap();
 
+                let filename = if rom_config.extract.is_some() {
+                    format!("{}|{}", rom_config.file, rom_config.extract.as_ref().unwrap())
+                } else {
+                    rom_config.file.clone()
+                };
+
                 let rom = Rom::from_raw_rom_image(
                     rom_id,
-                    rom_config.file.clone(),
+                    filename,
                     data,
                     vec![0u8; rom_config.rom_type.size_bytes()],
                     &rom_config.rom_type,

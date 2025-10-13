@@ -598,3 +598,7 @@ async fn read_str_at_ptr<R: Reader>(reader: &mut R, len: u32, ptr: u32) -> Resul
 
     String::from_utf8(buf).map_err(|_| "Invalid UTF-8 string".into())
 }
+
+pub fn crate_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
