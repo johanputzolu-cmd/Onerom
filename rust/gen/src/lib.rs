@@ -12,7 +12,7 @@ pub mod builder;
 pub mod image;
 pub mod meta;
 
-pub use builder::{Builder, Config, FileData, FileSpec, RomConfig, RomSetConfig};
+pub use builder::{Builder, Config, FileData, FileSpec, License, RomConfig, RomSetConfig};
 pub use image::{CsConfig, CsLogic, SizeHandling, Rom, RomSet, RomSetType};
 pub use image::{PAD_NO_ROM_BYTE, PAD_BLANK_BYTE};
 pub use meta::{Metadata, PAD_METADATA_BYTE};
@@ -88,6 +88,12 @@ pub enum Error {
     },
     UnsupportedRomType {
         rom_type: RomType,
+    },
+    InvalidLicense {
+        id: usize,
+    },
+    UnvalidatedLicense {
+        id: usize,
     },
 }
 type Result<T> = core::result::Result<T, Error>;

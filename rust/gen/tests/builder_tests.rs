@@ -138,7 +138,7 @@
 //! - [x] Invalid CS logic combination for multi set
 //! - [x] Banked set where ROMs have different CS1 states (should error?)
 //! 
-//! ## Phase 17: Invalid, removed
+//! ## Phase 17: Licenses
 //! 
 //! ## Phase 18: ROM Images Correctness
 //! - [ ] Verify duplicate correctly duplicates data (check both copies)
@@ -147,6 +147,8 @@
 //! - [ ] Banked set with 8 ROMs (if supported)
 //! - [ ] Verify unused/invalid addresses contain correct fill byte
 //! - [ ] Different board pin mappings produce correct transformations
+//! 
+//! ## Phase 19: Descriptions
 
 #[cfg(test)]
 mod tests {
@@ -4978,5 +4980,186 @@ mod tests {
         }
         
         println!("✓ Phase 18 Test 6: Different board pin mappings produce correct transformations");
+    }
+
+    // ========================================================================
+    // Test license presence
+    // ========================================================================
+    #[test]
+    fn test_phase17_license_presence() {
+        let json = r#"{
+            "version": 1,
+            "description": "Test license presence",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "license": "license.url",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+
+        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        builder.add_file(FileData {
+            id: 0,
+            data: create_test_rom_data(8192, 0xAB),
+        }).expect("Failed to add file");
+
+        let licenses = builder.licenses();
+        assert_eq!(licenses.len(), 1, "There should be one license entry");
+        assert_eq!(licenses[0].url, "license.url", "License URL should match");
+        assert_eq!(licenses[0].id, 0, "License ID should be 0");
+        assert_eq!(licenses[0].file_id, 0, "File ID should be 0");
+
+        builder.validate_license(&licenses[0]).expect("License validation should pass");
+
+        println!("✓ License presence test passed");
+    }
+
+    // ========================================================================
+    // Test no license
+    // ========================================================================
+    #[test]
+    fn test_phase17_no_license_presence() {
+        let json = r#"{
+            "version": 1,
+            "description": "Test license presence",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+
+        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        builder.add_file(FileData {
+            id: 0,
+            data: create_test_rom_data(8192, 0xAB),
+        }).expect("Failed to add file");
+
+        let licenses = builder.licenses();
+        assert_eq!(licenses.len(), 0, "There should be no license entry");
+
+        // Should fail
+        let license = onerom_gen::builder::License::new(0, 0, "license.url".to_string());
+        builder.validate_license(&license).expect_err("License validation should fail");
+
+        println!("✓ License presence test passed");
+    }
+
+    // ========================================================================
+    // Test descriptions
+    // ========================================================================
+    #[test]
+    fn test_phase19_basic() {
+        let json = r#"{
+            "version": 1,
+            "description": "Test description",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+
+        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let desc = builder.description();
+        assert_eq!(desc, "Test description\n\nImages:\n0: test.rom", "Description should match");
+    }
+
+    #[test]
+    fn test_phase19_detail() {
+        let json = r#"{
+            "version": 1,
+            "description": "Test description",
+            "detail": "Detailed description",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+
+        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let desc = builder.description();
+        assert_eq!(desc, "Test description\n\nDetailed description\n\nImages:\n0: test.rom", "Description should match");
+    }
+
+    #[test]
+    fn test_phase19_image() {
+        let json = r#"{
+            "version": 1,
+            "description": "Test description",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "description": "an image",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+
+        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let desc = builder.description();
+        assert_eq!(desc, "Test description\n\nImages:\n0: an image", "Description should match");
+    }
+
+    #[test]
+    fn test_phase19_notes() {
+        let json = r#"{
+            "version": 1,
+            "description": "Test description",
+            "notes": "Some notes here",
+            "rom_sets": [{
+                "type": "single",
+                "roms": [{
+                    "file": "test.rom",
+                    "description": "an image",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+
+        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let desc = builder.description();
+        assert_eq!(desc, "Test description\n\nImages:\n0: an image\n\nSome notes here", "Description should match");
+    }
+
+    #[test]
+    fn test_phase19_set() {
+        let json = r#"{
+            "version": 1,
+            "description": "Test description",
+            "rom_sets": [{
+                "type": "banked",
+                "roms": [{
+                    "file": "test0.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                },{
+                    "file": "test1.rom",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }]
+            }]
+        }"#;
+
+        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let desc = builder.description();
+        assert_eq!(desc, "Test description\n\nSets:\n0: Banked\n  0: test0.rom\n  1: test1.rom", "Description should match");
     }
 }

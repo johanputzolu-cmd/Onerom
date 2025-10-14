@@ -29,11 +29,16 @@ use crate::{Error, Result, FIRMWARE_SIZE};
 /// use onerom_config::hw::Board;
 /// use onerom_config::mcu::Variant as McuVariant;
 /// # use onerom_gen::Error;
-/// use onerom_gen::builder::{Builder, FileData};
+/// use onerom_gen::builder::{Builder, FileData, License};
 ///
 /// # fn fetch_file(url: &str) -> Result<Vec<u8>, Error> {
 /// #     // Dummy implementation for doc test
 /// #     Ok(vec![0u8; 8192])
+/// # }
+/// #
+/// # fn validate_license(license: &License) -> Result<(), Error> {
+/// #     // Dummy implementation for doc test
+/// #     Ok(())
 /// # }
 /// #
 /// let json = r#"{
@@ -51,6 +56,16 @@ use crate::{Error, Result, FIRMWARE_SIZE};
 ///
 /// // Create builder from JSON
 /// let mut builder = Builder::from_json(json)?;
+/// 
+/// // Get list of licenses to be validated
+/// let licenses = builder.licenses();
+/// 
+/// // Validate licenses as required
+/// for license in licenses {
+///     validate_license(&license)?; // Your implementation
+/// 
+///     builder.validate_license(&license)?; // Mark as validated
+/// }
 ///
 /// // Get list of files to load
 /// let file_specs = builder.file_specs();
@@ -82,6 +97,7 @@ use crate::{Error, Result, FIRMWARE_SIZE};
 pub struct Builder {
     config: Config,
     files: BTreeMap<usize, Vec<u8>>,
+    licenses: BTreeMap<usize, License>,
 }
 
 impl Builder {
@@ -96,6 +112,7 @@ impl Builder {
         Ok(Self {
             config,
             files: BTreeMap::new(),
+            licenses: BTreeMap::new(),
         })
     }
 
@@ -293,6 +310,39 @@ impl Builder {
         Ok(())
     }
 
+    /// Get list of licenses that need to be validated
+    pub fn licenses(&mut self) -> Vec<License> {
+        let mut licenses = Vec::new();
+
+        let mut license_id = 0;
+        let mut rom_id = 0;
+        for rom_set in self.config.rom_sets.iter() {
+            for rom in &rom_set.roms {
+                if let Some(ref url) = rom.license {
+                    let license = License::new(license_id, rom_id, url.clone());
+                    licenses.push(license.clone());
+                    self.licenses.insert(license_id, license);
+                    license_id += 1;
+                }
+                rom_id += 1;
+            }
+        }
+
+        licenses
+    }
+
+    /// Mark a license as validated
+    pub fn validate_license(&mut self, license: &License) -> Result<()> {
+        // Check license id is valid
+        let own_license = self.licenses.remove(&license.id);
+        if own_license.is_some() {
+            self.licenses.insert(license.id, own_license.unwrap());
+            Ok(())
+        } else {
+            Err(Error::InvalidLicense { id: license.id })
+        }
+    }
+
     fn total_file_count(&self) -> usize {
         self.config.rom_sets.iter().map(|set| set.roms.len()).sum()
     }
@@ -302,6 +352,13 @@ impl Builder {
         for ii in 0..self.total_file_count() {
             if !self.files.contains_key(&ii) {
                 return Err(Error::MissingFile { id: ii });
+            }
+        }
+
+        // Check all licenses validated
+        for (id, license) in self.licenses.iter() {
+            if !license.validated {
+                return Err(Error::UnvalidatedLicense { id: *id });
             }
         }
 
@@ -403,6 +460,120 @@ impl Builder {
         // Done - return the two buffers
         Ok((metadata_buf, rom_data_buf))
     }
+
+    fn num_rom_sets(&self) -> usize {
+        self.config.rom_sets.len()
+    }
+
+    fn num_roms(&self) -> usize {
+        self.config.rom_sets.iter().map(|set| set.roms.len()).sum()
+    }
+
+    /// Build config description
+    /// 
+    /// Returns a string like:
+    /// 
+    /// No multi-set/banked ROMS:
+    /// 
+    /// ```text
+    /// Description of config
+    /// 
+    /// Detailed description
+    /// 
+    /// Images:
+    /// 0: Image 0
+    /// 1: Image 1
+    /// 
+    /// Notes```
+    /// 
+    /// Multi-set/banked ROMs:
+    /// 
+    /// ```text
+    /// Description of config
+    /// 
+    /// Detailed description
+    /// 
+    /// Sets:
+    /// 0: Image 0
+    /// 1: Image 1
+    /// 
+    /// Notes```
+    pub fn description(&self) -> String {
+        let mut desc = String::new();
+
+        desc.push_str(&self.config.description);
+        desc.push_str("\n\n");
+
+        if let Some(detail) = &self.config.detail {
+            desc.push_str(detail);
+            desc.push_str("\n\n");
+        }
+
+        let multi_rom_sets = if self.num_rom_sets() == self.num_roms() {
+            desc.push_str("Images:");
+            false
+        } else {
+            desc.push_str("Sets:");
+            true
+        };
+        desc.push_str("\n");
+
+        for (ii, set) in self.config.rom_sets.iter().enumerate() {
+            desc.push_str(&format!("{ii}:"));
+            if multi_rom_sets {
+                desc.push_str(&format!(" {:?}", set.set_type));
+                if let Some(ref set_desc) = set.description {
+                    desc.push_str(&format!(", {set_desc}"));
+                }
+                desc.push_str("\n");
+            } else {
+                desc.push_str(" ");
+            }
+
+            for (jj, rom) in set.roms.iter().enumerate() {
+                if multi_rom_sets {
+                    desc.push_str(&format!("  {jj}: "));
+                }
+                if let Some(rom_desc) = &rom.description {
+                    desc.push_str(rom_desc);
+                } else {
+                    desc.push_str(&rom.file);
+                }
+                desc.push_str("\n");
+            }
+        }
+
+        if let Some(notes) = &self.config.notes {
+            desc.push_str("\n");
+            desc.push_str(notes);
+        } else {
+            // Strip trailing \n
+            desc.pop();
+        }
+
+        desc
+    }
+}
+
+/// License details for validation by caller
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct License {
+    pub id: usize,
+    pub file_id: usize,
+    pub url: String,
+    validated: bool,
+}
+
+impl License {
+    /// Create new license
+    pub fn new(id: usize, file_id: usize, url: String) -> Self {
+        Self {
+            id,
+            file_id,
+            url,
+            validated: false,
+        }
+    }
 }
 
 /// Details about a file to be loaded by the caller
@@ -453,7 +624,9 @@ pub struct RomSetConfig {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RomConfig {
     pub file: String,
+    pub license: Option<String>,
     pub description: Option<String>,
+    pub categories: Option<Vec<String>>,
     #[serde(rename = "type")]
     pub rom_type: RomType,
     pub cs1: Option<CsLogic>,
