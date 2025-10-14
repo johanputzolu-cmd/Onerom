@@ -19,10 +19,14 @@ pub use meta::{Metadata, PAD_METADATA_BYTE};
 
 use alloc::string::String;
 use onerom_config::fw::ServeAlg;
+use onerom_config::rom::RomType;
 
 /// Version of metadata produced by this version of the crate
 pub const METADATA_VERSION: u32 = 1;
 const METADATA_VERSION_STR: &str = "1";
+
+/// Firmware size reserved at the start of flash, before metadata
+pub const FIRMWARE_SIZE: usize = 48 * 1024; // 48KB
 
 /// Error type
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -81,6 +85,9 @@ pub enum Error {
     },
     MissingFile {
         id: usize,
+    },
+    UnsupportedRomType {
+        rom_type: RomType,
     },
 }
 type Result<T> = core::result::Result<T, Error>;

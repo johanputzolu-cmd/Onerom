@@ -4,7 +4,9 @@
 
 //! One ROM Firmware objects
 
+use crate::Error;
 use crate::hw::Board;
+use crate::mcu::Variant as McuVariant;
 
 /// Represents a One ROM Firmware Version
 #[derive(
@@ -107,24 +109,32 @@ impl ServeAlg {
 pub struct FirmwareProperties {
     version: FirmwareVersion,
     board: Board,
+    mcu_variant: McuVariant,
     serve_alg: ServeAlg,
     boot_logging: bool,
 }
 
 impl FirmwareProperties {
     /// Create a new firmware properties object
-    pub const fn new(
+    pub fn new(
         version: FirmwareVersion,
         board: Board,
+        mcu_variant: McuVariant,
         serve_alg: ServeAlg,
         boot_logging: bool,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, Error> {
+        let mcu_family = mcu_variant.family();
+        let board_mcu_family = board.mcu_family();
+        if mcu_family != board_mcu_family {
+            return Err(Error::InvalidMcuVariant { variant: mcu_variant });
+        }
+        Ok(Self {
             version,
             board,
+            mcu_variant,
             serve_alg,
             boot_logging,
-        }
+        })
     }
 
     /// Get the firmware version
@@ -145,6 +155,11 @@ impl FirmwareProperties {
     /// Does this firmware support boot logging?
     pub const fn boot_logging(&self) -> bool {
         self.boot_logging
+    }
+
+    /// Get the MCU variant
+    pub const fn mcu_variant(&self) -> McuVariant {
+        self.mcu_variant
     }
 }
 

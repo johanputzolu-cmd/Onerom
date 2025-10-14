@@ -14,8 +14,8 @@ use onerom_config::fw::FirmwareProperties;
 use onerom_config::rom::RomType;
 
 use crate::image::{CsConfig, CsLogic, Rom, RomSet, RomSetType, SizeHandling};
-use crate::meta::Metadata;
-use crate::{Error, Result};
+use crate::meta::{Metadata, MAX_METADATA_LEN};
+use crate::{Error, Result, FIRMWARE_SIZE};
 
 /// Main Builder object
 ///
@@ -27,6 +27,7 @@ use crate::{Error, Result};
 /// ```no_run
 /// use onerom_config::fw::{FirmwareProperties, FirmwareVersion, ServeAlg};
 /// use onerom_config::hw::Board;
+/// use onerom_config::mcu::Variant as McuVariant;
 /// # use onerom_gen::Error;
 /// use onerom_gen::builder::{Builder, FileData};
 ///
@@ -68,9 +69,10 @@ use crate::{Error, Result};
 /// let props = FirmwareProperties::new(
 ///     FirmwareVersion::new(0, 5, 1, 0),
 ///     Board::Ice24UsbH,
+///     McuVariant::F411RE,
 ///     ServeAlg::Default,
 ///     false,
-/// );
+/// ).unwrap();
 ///
 /// let (metadata_buf, rom_images_buf) = builder.build(props)?;
 /// // Buffers ready to flash at appropriate offsets
@@ -295,16 +297,35 @@ impl Builder {
         self.config.rom_sets.iter().map(|set| set.roms.len()).sum()
     }
 
-    /// Generate metadata and ROM images once all files loaded
-    ///
-    /// Returns (metadata, Rom images)
-    pub fn build(&self, props: FirmwareProperties) -> Result<(Vec<u8>, Vec<u8>)> {
+    fn build_validation(&self, props: &FirmwareProperties) -> Result<()> {
         // Check all files loaded
         for ii in 0..self.total_file_count() {
             if !self.files.contains_key(&ii) {
                 return Err(Error::MissingFile { id: ii });
             }
         }
+
+        // Validate all ROM types are supported by this board
+        let board = props.board();
+        for set in self.config.rom_sets.iter() {
+            for rom in set.roms.iter() {
+                if !board.supports_rom_type(rom.rom_type) {
+                    return Err(Error::UnsupportedRomType {
+                        rom_type: rom.rom_type.clone(),
+                    });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Generate metadata and ROM images once all files loaded
+    ///
+    /// Returns (metadata, Rom images)
+    pub fn build(&self, props: FirmwareProperties) -> Result<(Vec<u8>, Vec<u8>)> {
+        // Validate ready to build
+        self.build_validation(&props)?;
 
         // Build Rom and RomSet objects together
         let mut rom_sets = Vec::new();
@@ -351,6 +372,21 @@ impl Builder {
         let metadata_size = metadata.metadata_len();
         let rom_data_size: usize = metadata.rom_images_size();
         let set_count = metadata.total_set_count();
+
+        // Check the board has enough space
+        let mcu_variant = props.mcu_variant();
+        let flash_size = mcu_variant.flash_storage_bytes();
+        let rom_space = flash_size - FIRMWARE_SIZE - MAX_METADATA_LEN;
+        assert!(rom_space > 0);
+
+        // Figure out the ROM data size
+        if rom_data_size > rom_space {
+            return Err(Error::BufferTooSmall {
+                location: "Flash",
+                expected: rom_data_size,
+                actual: rom_space,
+            });
+        } 
 
         // Allocate buffers
         let mut metadata_buf = vec![0u8; metadata_size];

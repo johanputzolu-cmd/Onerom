@@ -30,6 +30,13 @@ pub mod hw;
 pub mod mcu;
 pub mod rom;
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub enum Error {
+    InvalidMcuVariant {
+        variant: mcu::Variant,
+    },
+}
+
 pub fn crate_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }

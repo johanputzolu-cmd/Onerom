@@ -152,6 +152,7 @@
 mod tests {
     use onerom_config::fw::{FirmwareProperties, FirmwareVersion, ServeAlg};
     use onerom_config::hw::Board;
+    use onerom_config::mcu::Variant as McuVariant;
     use onerom_gen::builder::{Builder, FileData};
     use onerom_gen::image::CsLogic;
 
@@ -397,18 +398,20 @@ mod tests {
         FirmwareProperties::new(
             FirmwareVersion::new(0, 5, 1, 0),
             Board::Ice24UsbH,
+            McuVariant::F411RE,
             ServeAlg::Default,
             false, // boot_logging disabled
-        )
+        ).unwrap()
     }
     
     fn fw_props_with_logging() -> FirmwareProperties {
         FirmwareProperties::new(
             FirmwareVersion::new(0, 5, 1, 0),
             Board::Ice24UsbH,
+            McuVariant::F411RE,
             ServeAlg::Default,
             true, // boot_logging enabled
-        )
+        ).unwrap()
     }
 
     // ========================================================================
@@ -2058,7 +2061,13 @@ mod tests {
             }).expect(&format!("Failed to add file {}", i));
         }
         
-        let props = default_fw_props();
+        let props = FirmwareProperties::new(
+            FirmwareVersion::new(0, 5, 1, 0),
+            Board::Ice24UsbH,
+            McuVariant::F405RG,
+            ServeAlg::Default,
+            false, // boot_logging disabled
+        ).unwrap();
         let (metadata_buf, _rom_images_buf) = builder.build(props).expect("Build should succeed");
         
         // Validate
@@ -3687,9 +3696,10 @@ mod tests {
         let props = FirmwareProperties::new(
             FirmwareVersion::new(0, 5, 1, 0),
             Board::Ice24UsbH,
+            McuVariant::F411RE,
             ServeAlg::TwoCsOneAddr,  // Explicitly set different algorithm
             false,
-        );
+        ).unwrap();
         
         let board = props.board();
         let flash_base = board.mcu_family().get_flash_base();
@@ -3752,9 +3762,10 @@ mod tests {
         let props = FirmwareProperties::new(
             FirmwareVersion::new(0, 5, 1, 0),
             Board::Ice24UsbH,
+            McuVariant::F411RE,
             ServeAlg::TwoCsOneAddr,  // This should be overridden for multi sets
             false,
-        );
+        ).unwrap();
         
         let board = props.board();
         let flash_base = board.mcu_family().get_flash_base();
@@ -3817,9 +3828,10 @@ mod tests {
         let props = FirmwareProperties::new(
             FirmwareVersion::new(0, 5, 1, 0),
             Board::Ice24UsbH,
+            McuVariant::F411RE,
             ServeAlg::TwoCsOneAddr,
             false,
-        );
+        ).unwrap();
         
         let board = props.board();
         let flash_base = board.mcu_family().get_flash_base();
@@ -3896,9 +3908,10 @@ mod tests {
         let props = FirmwareProperties::new(
             FirmwareVersion::new(0, 5, 1, 0),
             Board::Ice24UsbH,
+            McuVariant::F411RE,
             ServeAlg::AddrOnCs,
             false,
-        );
+        ).unwrap();
         
         let board = props.board();
         let flash_base = board.mcu_family().get_flash_base();
@@ -4905,17 +4918,16 @@ mod tests {
         
         // Test with multiple boards that have different pin mappings
         let boards_to_test = [
-            Board::Ice24D,
-            Board::Ice24E,
-            Board::Ice24F,
-            Board::Ice24G,
-            Board::Ice24UsbH,
-            Board::Ice28A,
-            Board::Fire24A,
-            Board::Fire24UsbB,
+            (Board::Ice24D, McuVariant::F411RE),
+            (Board::Ice24E, McuVariant::F411RE),
+            (Board::Ice24F, McuVariant::F411RE),
+            (Board::Ice24G, McuVariant::F411RE),
+            (Board::Ice24UsbH, McuVariant::F411RE),
+            (Board::Fire24A, McuVariant::RP2350),
+            (Board::Fire24UsbB, McuVariant::RP2350),
         ];
         
-        for board_type in boards_to_test.iter() {
+        for (board_type, mcu_variant) in boards_to_test.iter() {
             let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
             
             // Create test data with unique pattern
@@ -4932,9 +4944,10 @@ mod tests {
             let props = FirmwareProperties::new(
                 FirmwareVersion::new(0, 5, 1, 0),
                 *board_type,
+                *mcu_variant,
                 ServeAlg::Default,
                 false,
-            );
+            ).unwrap();
             
             let board = props.board();
             let (_metadata_buf, rom_images_buf) = builder.build(props).expect("Build failed");
