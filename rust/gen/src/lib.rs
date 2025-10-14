@@ -15,7 +15,7 @@ pub mod meta;
 pub use builder::{Builder, Config, FileData, FileSpec, License, RomConfig, RomSetConfig};
 pub use image::{CsConfig, CsLogic, SizeHandling, Rom, RomSet, RomSetType};
 pub use image::{PAD_NO_ROM_BYTE, PAD_BLANK_BYTE};
-pub use meta::{Metadata, PAD_METADATA_BYTE};
+pub use meta::{Metadata, PAD_METADATA_BYTE, MAX_METADATA_LEN};
 
 use alloc::string::String;
 use onerom_config::fw::ServeAlg;

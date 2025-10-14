@@ -5013,7 +5013,7 @@ mod tests {
         assert_eq!(licenses[0].id, 0, "License ID should be 0");
         assert_eq!(licenses[0].file_id, 0, "File ID should be 0");
 
-        builder.validate_license(&licenses[0]).expect("License validation should pass");
+        builder.accept_license(&licenses[0]).expect("License acceptance should pass");
 
         println!("✓ License presence test passed");
     }
@@ -5047,7 +5047,7 @@ mod tests {
 
         // Should fail
         let license = onerom_gen::builder::License::new(0, 0, "license.url".to_string());
-        builder.validate_license(&license).expect_err("License validation should fail");
+        builder.accept_license(&license).expect_err("License acceptance should fail");
 
         println!("✓ License presence test passed");
     }

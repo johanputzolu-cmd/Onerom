@@ -49,6 +49,42 @@ impl FirmwareVersion {
     pub const fn build(&self) -> u16 {
         self.build
     }
+
+    // Create from a string like "1.2.3" or "v1.2.3.4"
+    pub fn try_from_str(s: &str) -> Result<Self, Error> {
+        let s = s.strip_prefix('v').unwrap_or(s);
+        let mut parts = s.split('.');
+        
+        let major = parts
+            .next()
+            .ok_or(Error::InvalidFirmwareVersion)?
+            .parse::<u16>()
+            .map_err(|_| Error::InvalidFirmwareVersion)?;
+        
+        let minor = parts
+            .next()
+            .ok_or(Error::InvalidFirmwareVersion)?
+            .parse::<u16>()
+            .map_err(|_| Error::InvalidFirmwareVersion)?;
+        
+        let patch = parts
+            .next()
+            .ok_or(Error::InvalidFirmwareVersion)?
+            .parse::<u16>()
+            .map_err(|_| Error::InvalidFirmwareVersion)?;
+        
+        let build = match parts.next() {
+            Some(s) => s.parse::<u16>().map_err(|_| Error::InvalidFirmwareVersion)?,
+            None => 0,
+        };
+        
+        // Ensure no extra parts
+        if parts.next().is_some() {
+            return Err(Error::InvalidFirmwareVersion);
+        }
+        
+        Ok(Self::new(major, minor, patch, build))
+    }
 }
 
 /// ROM serving algorithm

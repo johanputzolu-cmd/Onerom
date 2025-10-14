@@ -14,8 +14,8 @@ use onerom_config::fw::FirmwareProperties;
 use onerom_config::rom::RomType;
 
 use crate::image::{CsConfig, CsLogic, Rom, RomSet, RomSetType, SizeHandling};
-use crate::meta::{Metadata, MAX_METADATA_LEN};
-use crate::{Error, Result, FIRMWARE_SIZE};
+use crate::meta::Metadata;
+use crate::{Error, Result, FIRMWARE_SIZE, MAX_METADATA_LEN};
 
 /// Main Builder object
 ///
@@ -36,7 +36,7 @@ use crate::{Error, Result, FIRMWARE_SIZE};
 /// #     Ok(vec![0u8; 8192])
 /// # }
 /// #
-/// # fn validate_license(license: &License) -> Result<(), Error> {
+/// # fn accept_license(license: &License) -> Result<(), Error> {
 /// #     // Dummy implementation for doc test
 /// #     Ok(())
 /// # }
@@ -60,11 +60,11 @@ use crate::{Error, Result, FIRMWARE_SIZE};
 /// // Get list of licenses to be validated
 /// let licenses = builder.licenses();
 /// 
-/// // Validate licenses as required
+/// // Accept licenses as required
 /// for license in licenses {
-///     validate_license(&license)?; // Your implementation
+///     accept_license(&license)?; // Your implementation
 /// 
-///     builder.validate_license(&license)?; // Mark as validated
+///     builder.accept_license(&license)?; // Mark as validated
 /// }
 ///
 /// // Get list of files to load
@@ -79,8 +79,11 @@ use crate::{Error, Result, FIRMWARE_SIZE};
 ///         data,
 ///     })?;
 /// }
-///
-/// // Build flash images
+/// 
+/// // Get config description (optional)
+/// let description = builder.description();
+/// 
+/// // Define firmware properties
 /// let props = FirmwareProperties::new(
 ///     FirmwareVersion::new(0, 5, 1, 0),
 ///     Board::Ice24UsbH,
@@ -89,6 +92,10 @@ use crate::{Error, Result, FIRMWARE_SIZE};
 ///     false,
 /// ).unwrap();
 ///
+/// // Validate ready to build (optional)
+/// builder.build_validation(&props)?;
+///
+/// // Build metadata and ROM images
 /// let (metadata_buf, rom_images_buf) = builder.build(props)?;
 /// // Buffers ready to flash at appropriate offsets
 /// # Ok::<(), onerom_gen::Error>(())
@@ -114,6 +121,11 @@ impl Builder {
             files: BTreeMap::new(),
             licenses: BTreeMap::new(),
         })
+    }
+
+    /// Get a reference to the config
+    pub fn config(&self) -> &Config {
+        &self.config
     }
 
     fn validate_config(config: &Config) -> Result<()> {
@@ -332,7 +344,7 @@ impl Builder {
     }
 
     /// Mark a license as validated
-    pub fn validate_license(&mut self, license: &License) -> Result<()> {
+    pub fn accept_license(&mut self, license: &License) -> Result<()> {
         // Check license id is valid
         let own_license = self.licenses.remove(&license.id);
         if own_license.is_some() {
@@ -347,7 +359,8 @@ impl Builder {
         self.config.rom_sets.iter().map(|set| set.roms.len()).sum()
     }
 
-    fn build_validation(&self, props: &FirmwareProperties) -> Result<()> {
+    /// Validate whether ready to build
+    pub fn build_validation(&self, props: &FirmwareProperties) -> Result<()> {
         // Check all files loaded
         for ii in 0..self.total_file_count() {
             if !self.files.contains_key(&ii) {
@@ -553,6 +566,17 @@ impl Builder {
 
         desc
     }
+
+    /// Get categories for this config
+    pub fn categories(&self) -> Vec<String> {
+        let mut categories = Vec::new();
+        if let Some(cats) = &self.config.categories {
+            for cat in cats {
+                categories.push(cat.clone());
+            }
+        }
+        categories
+    }
 }
 
 /// License details for validation by caller
@@ -605,10 +629,12 @@ pub struct FileData {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Config {
     pub version: u32,
+    pub name: Option<String>,
     pub description: String,
     pub detail: Option<String>,
     pub rom_sets: Vec<RomSetConfig>,
     pub notes: Option<String>,
+    pub categories: Option<Vec<String>>,
 }
 
 /// ROM Set configuration structure, deserialized from JSON
