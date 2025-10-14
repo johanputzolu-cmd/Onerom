@@ -3,6 +3,8 @@
 // MIT License
 
 use clap::Parser;
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
 
 use onerom_config::fw::FirmwareVersion;
 use onerom_config::hw::Board;
@@ -64,14 +66,12 @@ pub struct Args {
 
     /// Firmware version
     #[clap(
-        short='f',
+        short,
         long,
-        long_help = "Firmware version to use (default 0.5.1)",
-        default_value = "0.5.1",
+        long_help = "Firmware version to use (default latest)",
         value_parser=firmware_value_parser,
-        required_unless_present_any = &["list_boards", "list_mcus", "list_fw_versions"],
     )]
-    pub fw_version: Option<FirmwareVersion>,
+    pub fw: Option<FirmwareVersion>,
 
     /// ROM configuration JSON file
     #[clap(
@@ -126,9 +126,6 @@ impl Args {
         if self.mcu.is_none() {
             return Err(Error::config("MCU variant is required".to_string()));
         }
-        if self.fw_version.is_none() {
-            return Err(Error::config("Firmware version is required".to_string()));
-        }
 
         // Check the board and MCU are compatible
         if self.board.as_ref().map(|b| b.mcu_family()) != self.mcu.as_ref().map(|m| m.family()) {
@@ -144,9 +141,24 @@ impl Args {
 
         // Check the release exists
         let releases = Releases::from_network()?;
-        let version = self.fw_version.unwrap();
-        if releases.release(&version).is_none() {
-            return Err(Error::config(format!("Firmware version `{:?}` is not available", version)));
+        if let Some(version) = self.fw {
+            debug!("Firmware version specified: {:?}", version);
+            if releases.release(&version).is_none() {
+                let error_message = format!(
+                    "Firmware version `{}.{}.{}` not available.\n  Check {}\n  Available releases: {}\n  Latest release: {}",
+                    version.major(),
+                    version.minor(),
+                    version.patch(),
+                    Releases::manifest_url(),
+                    releases.releases_str(),
+                    releases.latest(),
+                );
+                return Err(Error::config(error_message));
+            }
+        } else {
+            let latest = releases.latest();
+            debug!("Firmware version not specified, using latest: {}", latest);
+            self.fw = Some(FirmwareVersion::try_from_str(latest).map_err(Error::firmware_version)?);
         }
 
         // Generate a default output filename if not specified

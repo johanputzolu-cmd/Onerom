@@ -50,6 +50,26 @@ pub enum Error {
     }
 }
 
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Config { details } => write!(f, "Configuration error:\n  {}", details),
+            Error::Read { error } => write!(f, "I/O read error:\n  {}", error),
+            Error::Parse { error } => write!(f, "Parsing error:\n  {:?}", error),
+            Error::Build { error } => write!(f, "Build error:\n  {:?}", error),
+            Error::License { error } => write!(f, "License acceptance error:\n  {:?}", error),
+            Error::FirmwareVersion { error } => write!(f, "Firmware version error:\n  {:?}", error),
+            Error::Network { error } => write!(f, "Network error:\n  {}", error),
+            Error::Json { error } => write!(f, "JSON parsing error:\n  {}", error),
+            Error::ReleaseNotFound => write!(f, "Requested firmware release not found"),
+            Error::TooLarge { portion, size, max } => write!(f, "{} size {} exceeds maximum of {}", portion, size, max),
+            Error::FileWrite { error } => write!(f, "File write error:\n  {}", error),
+            Error::LicenseNotAccepted => write!(f, "License not accepted by user"),
+            Error::Zip { error } => write!(f, "Zip extraction error:\n  {}", error),
+        }
+    }
+}
+
 impl Error {
     pub fn config(details: String) -> Self {
         Self::Config { details }

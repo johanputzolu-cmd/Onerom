@@ -4,46 +4,58 @@
 
 //! onerom-fw - Firmware generator for One ROM
 
-mod args;
-mod error;
-mod net;
-
 use clap::Parser;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use std::io::Write;
 
 use onerom_config::fw::{FirmwareProperties, ServeAlg};
-use onerom_gen::builder::{Builder, FileData, License};
-use onerom_gen::{FIRMWARE_SIZE, MAX_METADATA_LEN};
+use onerom_gen::{Builder, License};
 
-use args::Args;
-pub use error::Error;
-use net::{fetch_license, fetch_rom_file, Releases};
+use onerom_fw::{create_firmware, get_rom_files, read_rom_config, validate_sizes};
+use onerom_fw::Error;
+use onerom_fw::args::Args;
+use onerom_fw::net::{fetch_license, Releases};
 
-fn main() -> Result<(), Error> {
+fn main() {
+    if let Err(e) = sub_main() {
+        eprintln!();
+        eprintln!("Firmware generation failed - details error information follows");
+        eprintln!("---");
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
+}
+
+fn sub_main() -> Result<(), Error> {
     // Get args
     let mut args = Args::parse();
-    if args.validate()? {
-        return Ok(())
-    }
 
     // Enable logging
     init_logging(args.verbose);
 
+    // Validate args
+    if args.validate()? {
+        return Ok(())
+    }
+
     // Output version
-    debug!("onerom-fw version {}", env!("CARGO_PKG_VERSION"));
+    debug!("One ROM CLI Firmware Generator v{}", env!("CARGO_PKG_VERSION"));
+
+    // Get CLI args
+    let version = args.fw.unwrap();
+    let board = args.board.unwrap();
+    let mcu = args.mcu.unwrap();
+    let out_filename = args.out.as_ref().unwrap();
+    let rom_config_filename = args.rom.as_ref();
 
     // Get firmware releases
     let releases = Releases::from_network()?;
-    let version = args.fw_version.unwrap();
     if releases.release(&version).is_none() {
         return Err(Error::release_not_found());
     }
 
     // Get the blank firmware image
-    let board = args.board.unwrap();
-    let mcu = args.mcu.unwrap();
     let firmware_data = releases.download_firmware(&version, &board, &mcu)?;
 
     // Build firmware properties
@@ -55,170 +67,72 @@ fn main() -> Result<(), Error> {
         true,
     ).unwrap();
 
-    // Generate metadata/ROM images
-    let (metadata, image_data) = if let Some(rom_config) = &args.rom {
-        let (m, i) = process_rom_config(fw_props, rom_config)?;
+    // Load the config file
+    let (metadata, image_data, desc) = if let Some(rom_config_filename) = rom_config_filename {
+        debug!("Using ROM config file: {}", rom_config_filename);
+        
+        // Read ROM config file
+        let config = read_rom_config(&rom_config_filename)?;
+
+        // Create builder
+        let mut builder = Builder::from_json(&config).map_err(Error::parse)?;
+
+        // Accept any licenses
+        let licenses = builder.licenses();
+        for license in licenses {
+            propose_license(&license)?;
+            builder.accept_license(&license).map_err(Error::license)?;
+        }
+
+        // Get ROM files and feed into the builder
+        get_rom_files(&mut builder)?;
+
+        // Generate metadata/ROM images
+        let (m, i) = builder.build(fw_props).map_err(Error::build)?;
         if i.len() > 0 {
             // Cannot have ROM image data without metadata
             assert!(m.len() > 0);
         }
-        (Some(m), Some(i))
+
+        (Some(m), Some(i), Some(builder.description()))
     } else {
         println!("No ROM config specified, creating firmware with no metadata or image data");
-        (None, None)
+        (None, None, None)
     };
 
     // Check everything fits
     validate_sizes(&fw_props, &firmware_data, &metadata, &image_data)?;
 
     // Create the firmware file
-    let filename = args.out.as_ref().unwrap();
     let size = create_firmware(
-        &filename,
+        &out_filename,
         firmware_data,
         metadata,
         image_data,
     )?;
 
-    println!("Successfully created firmware file `{}` ({} bytes)", filename, size);
+    // Output success
+    println!("---");
+    println!(
+        "Successfully created One ROM firmware:\n---\n- Version:  v{}.{}.{}\n- Board:    {}\n- MCU:      {}\n- Filename: {}\n- Size:     {} bytes",
+        version.major(),
+        version.minor(),
+        version.patch(),
+        board.name(),
+        mcu.to_string().to_ascii_lowercase(),
+        out_filename,
+        size
+    );
+
+    // Output ROMs config
+    if let Some(desc) = desc {
+        println!("---\n{desc}");
+    }
+
+    println!("---");
 
     // Done
     Ok(())
-}
-
-fn validate_sizes(fw_props: &FirmwareProperties, firmware_data: &[u8], metadata: &Option<Vec<u8>>, image_data: &Option<Vec<u8>>) -> Result<(), Error> {
-    let mut total_size = 0;
-
-    let fw_size = firmware_data.len();
-    debug!("Firmware size: {} bytes", fw_size);
-    if fw_size > FIRMWARE_SIZE {
-        return Err(Error::too_large("Firmware".to_string(), fw_size, FIRMWARE_SIZE));
-    }
-    total_size += fw_size;
-
-    if let Some(meta) = metadata {
-        // Padding after firmware
-        total_size += FIRMWARE_SIZE - total_size;
-
-        let meta_size = meta.len();
-        debug!("Metadata size: {} bytes", meta_size);
-        if meta_size > MAX_METADATA_LEN {
-            return Err(Error::too_large("Metadata".to_string(), meta_size, MAX_METADATA_LEN));
-        }
-        total_size += meta_size;
-    }
-
-    if let Some(image) = image_data {
-        // Padding after metadata
-        total_size += MAX_METADATA_LEN + FIRMWARE_SIZE - total_size;
-
-        let image_size = image.len();
-        debug!("Image data size: {} bytes", image_size);
-        total_size += image_size;
-    }
-
-    let max_size = fw_props.mcu_variant().flash_storage_bytes();
-    debug!("Total firmware size: {} bytes (max {})", total_size, max_size);
-    debug!("MCU flash size: {} bytes", max_size);
-    if total_size > max_size {
-        return Err(Error::too_large("Total firmware".to_string(), total_size, max_size));
-    }
-
-    Ok(())
-}
-
-fn create_firmware(
-    out_path: &str,
-    firmware_data: Vec<u8>,
-    metadata: Option<Vec<u8>>,
-    image_data: Option<Vec<u8>>,
-) -> Result<usize, Error> {
-    let mut total_size = 0;
-
-    // Open file
-    let mut out_file = std::fs::File::create(out_path).map_err(Error::write)?;
-
-    // Output firmware data
-    let firmware_size = firmware_data.len();
-    assert!(firmware_size <= FIRMWARE_SIZE);
-    let pad_size = FIRMWARE_SIZE - firmware_size;
-    out_file.write_all(&firmware_data).map_err(Error::write)?;
-    total_size += firmware_size;
-    debug!("Wrote {} bytes of firmware", firmware_size);
-
-    if metadata.is_none() {
-        // Cannot have image data without metadata
-        assert!(image_data.is_none());
-        return Ok(total_size);
-    }
-
-    // Pad to beginning of metadata
-    out_file.write_all(&vec![0xFF; pad_size]).map_err(Error::write)?;
-    total_size += pad_size;
-    debug!("Wrote {} bytes of padding after firmware", pad_size);
-
-    // Write metadata
-    assert!(total_size == FIRMWARE_SIZE);
-    let metadata = metadata.unwrap();
-    let metadata_size = metadata.len();
-    assert!(metadata_size <= MAX_METADATA_LEN);
-    out_file.write_all(&metadata).map_err(Error::write)?;
-    total_size += metadata_size;
-    debug!("Wrote {} bytes of metadata", metadata_size);
-
-    if image_data.is_none() {
-        return Ok(total_size);
-    }
-
-    // Pad to beginning of image data
-    let pad_size = MAX_METADATA_LEN - metadata_size;
-    debug!("Adding {} bytes of padding before image data", pad_size);
-    out_file.write_all(&vec![0xFF; pad_size]).map_err(Error::write)?;
-    total_size += pad_size;
-    debug!("Wrote {} bytes of padding after metadata", pad_size);
-
-    // Write image data
-    assert!(total_size == FIRMWARE_SIZE + MAX_METADATA_LEN);
-    let image_data = image_data.unwrap();
-    let image_size = image_data.len();
-    out_file.write_all(&image_data).map_err(Error::write)?;
-    total_size += image_size;
-    debug!("Wrote {} bytes of image data", image_size);
-
-    Ok(total_size)
-}
-
-fn process_rom_config(fw_props: FirmwareProperties, rom_config: &str) -> Result<(Vec<u8>, Vec<u8>), Error> {
-    // Load the config file
-    let config = std::fs::read_to_string(rom_config).map_err(Error::read)?;
-
-    // Create builder
-    let mut builder = Builder::from_json(&config).map_err(Error::parse)?;
-
-    // Accept any licenses
-    let licenses = builder.licenses();
-    for license in licenses {
-        propose_license(&license)?;
-        builder.accept_license(&license).map_err(Error::license)?;
-    }
-
-    // Get firmware files
-    let file_specs = builder.file_specs();
-    for spec in file_specs {
-        let source = spec.source;
-        let extract = spec.extract;
-        let data = fetch_rom_file(&source, extract)?;
-        
-        builder.add_file(FileData {
-            id: spec.id,
-            data,
-        }).map_err(Error::build)?;
-    }
-
-    // Build metadata and image data
-    let (metadata, image_data) = builder.build(fw_props).map_err(Error::build)?;
-
-    Ok((metadata, image_data))
 }
 
 fn propose_license(license: &License) -> Result<(), Error> {
@@ -244,7 +158,6 @@ fn propose_license(license: &License) -> Result<(), Error> {
         Err(Error::license_not_accepted())
     }
 }
-
 
 fn init_logging(verbose: bool) {
     let mut log_builder = env_logger::Builder::from_default_env();

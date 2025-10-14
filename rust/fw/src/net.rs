@@ -50,8 +50,12 @@ pub struct Releases {
 }
 
 impl Releases {
+    pub fn manifest_url() -> String {
+        format!("https://{}/{}", FIRMWARE_SITE_BASE, FIRMWARE_RELEASE_MANIFEST)
+    }
+
     pub fn from_network() -> Result<Self, Error> {
-        let url = format!("https://{}/{}", FIRMWARE_SITE_BASE, FIRMWARE_RELEASE_MANIFEST);
+        let url = Self::manifest_url();
         debug!("Fetching releases manifest from {}", url);
         let response = reqwest::blocking::get(&url).map_err(Error::network)?;
         let body = response.text().map_err(Error::network)?;
@@ -73,6 +77,10 @@ impl Releases {
 
     pub fn releases(&self) -> &Vec<Release> {
         &self.releases
+    }
+
+    pub fn releases_str(&self) -> String {
+        self.releases.iter().map(|r| r.version.as_str()).collect::<Vec<_>>().join(", ")
     }
 
     pub fn latest(&self) -> &str {

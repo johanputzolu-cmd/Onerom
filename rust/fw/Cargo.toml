@@ -11,6 +11,14 @@ documentation = "https://docs.rs/onerom-gen"
 keywords = ["retro", "rom", "commodore", "embedded"]
 categories = ["embedded", "hardware-support"]
 
+[lib]
+name = "onerom_fw"
+path = "src/lib.rs"
+
+[[bin]]
+name = "onerom-fw"
+path = "src/main.rs"
+
 [dependencies]
 onerom-config = { path = "../config", version = "0.2.0" }
 onerom-gen = { path = "../gen", version = "0.1.1" }
