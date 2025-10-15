@@ -1,6 +1,6 @@
 [package]
 name = "onerom-fw"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Piers Finlayson <piers@piers.rocks>"]
 license = "MIT"
@@ -20,7 +20,7 @@ name = "onerom-fw"
 path = "src/main.rs"
 
 [dependencies]
-onerom-config = { version = "0.2.0" }
+onerom-config = { path = "../config", version = "0.2.1" }
 onerom-gen = { version = "0.1.1" }
 
 clap = { version = "4.4.7", features = ["derive"] }

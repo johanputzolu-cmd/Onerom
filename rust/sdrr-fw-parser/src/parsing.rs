@@ -116,7 +116,7 @@ impl SdrrInfoHeader {
     // Always true for v0.5.1 and later
     // For earlier versions, depends on boot_logging_enabled flag
     pub(crate) fn filenames_enabled(&self) -> bool {
-        if (self.major_version > 0) || ((self.minor_version == 5) && (self.patch_version >= 1)){
+        if (self.major_version > 0) || ((self.minor_version == 5) && (self.patch_version >= 1)) {
             true
         } else {
             self.boot_logging_enabled != 0
@@ -442,13 +442,7 @@ pub(crate) async fn read_rom_sets<R: Reader>(
             .map_err(|e| format!("Failed to parse ROM set header {}: {}", i, e))?;
 
         // Read ROM infos
-        let roms = read_rom_infos(
-            reader,
-            info_header,
-            &header,
-            base_addr,
-        )
-        .await?;
+        let roms = read_rom_infos(reader, info_header, &header, base_addr).await?;
 
         // Note: We don't read the ROM data itself - just store where it is
         rom_sets.push(SdrrRomSet {

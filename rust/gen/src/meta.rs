@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 
 use onerom_config::hw::Board;
 
-use crate::{METADATA_VERSION, FIRMWARE_SIZE, Error, Result, RomSet};
+use crate::{Error, FIRMWARE_SIZE, METADATA_VERSION, Result, RomSet};
 
 pub const PAD_METADATA_BYTE: u8 = 0xFF;
 
@@ -175,7 +175,11 @@ impl Metadata {
                 }
             }
 
-            assert_eq!(offset % 4, 0, "Metadata offset not 4 byte aligned after writing filenames");
+            assert_eq!(
+                offset % 4,
+                0,
+                "Metadata offset not 4 byte aligned after writing filenames"
+            );
         }
 
         // Pre-compute where the ROM set image data will live for each rom set
