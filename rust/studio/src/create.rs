@@ -4,10 +4,10 @@
 
 //! Create functionality
 
-use iced::{Subscription, Task};
 use iced::widget::{column, row};
+use iced::{Subscription, Task};
 #[allow(unused_imports)]
-use log::{debug, error, info, warn, trace};
+use log::{debug, error, info, trace, warn};
 
 use onerom_config::hw::{Board, MODELS, Model};
 use onerom_config::mcu::{Family, MCU_VARIANTS, Variant as McuVariant};
@@ -30,7 +30,7 @@ pub enum Message {
     McuSelected(McuVariant),
     /// Detect hardware button pressed
     DetectHardware,
-    /// Firmware release selected via pick list 
+    /// Firmware release selected via pick list
     ReleaseSelected(Release),
     /// Releases have been updated (from network)
     ReleasesUpdated,
@@ -70,16 +70,21 @@ impl Create {
         Self::default()
     }
 
-    pub fn update(&mut self, runtime_info: &RuntimeInfo, message: Message) -> iced::Task<AppMessage> {
+    pub fn update(
+        &mut self,
+        runtime_info: &RuntimeInfo,
+        message: Message,
+    ) -> iced::Task<AppMessage> {
         match message {
             Message::ModelSelected(model) => {
                 self.model_selected(model);
                 Task::none()
             }
-            Message::BoardSelected(board) => task_from_msg!(self.board_selected(runtime_info, board)),
+            Message::BoardSelected(board) => {
+                task_from_msg!(self.board_selected(runtime_info, board))
+            }
             Message::DetectHardware => Task::none(),
-            Message::McuSelected(mcu) => 
-            {
+            Message::McuSelected(mcu) => {
                 self.mcu_selected(mcu);
                 task_from_msg!(self.select_latest_release(runtime_info.releases()))
             }
@@ -88,7 +93,7 @@ impl Create {
                     if let Some(model) = hw_info.model {
                         self.model_selected(model);
                     }
-                    
+
                     let msg1 = if let Some(board) = hw_info.board {
                         self.board_selected(runtime_info, board)
                     } else {
@@ -175,7 +180,6 @@ impl Create {
         if board.mcu_family() == Family::Rp2350 {
             self.mcu_selected(McuVariant::RP2350);
             self.select_latest_release(runtime_info.releases())
-
         } else {
             None
         }
@@ -205,7 +209,9 @@ impl Create {
 
         if self.hardware_selected() {
             // Add row to column
-            columns = columns.push(self.firmware_row(runtime_info)).push(Style::horiz_line());
+            columns = columns
+                .push(self.firmware_row(runtime_info))
+                .push(Style::horiz_line());
         }
 
         columns.spacing(20).into()
@@ -266,13 +272,12 @@ impl Create {
 
     fn select_hw_row(&self) -> iced::Element<'_, AppMessage> {
         // Set up model picker
-        let model_picker = Style::pick_list_small(MODELS.as_slice(), self.selected_hw_info.model, |model| {
-            AppMessage::Create(Message::ModelSelected(model))
-        });
-        let model_picker = row![
-            Style::text_body("Model:"),
-            model_picker,
-        ].spacing(10)
+        let model_picker =
+            Style::pick_list_small(MODELS.as_slice(), self.selected_hw_info.model, |model| {
+                AppMessage::Create(Message::ModelSelected(model))
+            });
+        let model_picker = row![Style::text_body("Model:"), model_picker,]
+            .spacing(10)
             .align_y(iced::alignment::Vertical::Center);
 
         // Set up board picker
@@ -281,13 +286,12 @@ impl Create {
         } else {
             &[]
         };
-        let board_picker = Style::pick_list_small(board_values, self.selected_hw_info.board, |board| {
-            AppMessage::Create(Message::BoardSelected(board))
-        });
-        let board_picker = row![
-            Style::text_body("Board:"),
-            board_picker,
-        ].spacing(10)
+        let board_picker =
+            Style::pick_list_small(board_values, self.selected_hw_info.board, |board| {
+                AppMessage::Create(Message::BoardSelected(board))
+            });
+        let board_picker = row![Style::text_body("Board:"), board_picker,]
+            .spacing(10)
             .align_y(iced::alignment::Vertical::Center);
 
         // Set up MCU picker
@@ -296,13 +300,12 @@ impl Create {
         } else {
             &[]
         };
-        let mcu_picker = Style::pick_list_small(mcu_values, self.selected_hw_info.mcu_variant, |mcu| {
-            AppMessage::Create(Message::McuSelected(mcu))
-        });
-        let mcu_picker = row![
-            Style::text_body("MCU:"),
-            mcu_picker,
-        ].spacing(10)
+        let mcu_picker =
+            Style::pick_list_small(mcu_values, self.selected_hw_info.mcu_variant, |mcu| {
+                AppMessage::Create(Message::McuSelected(mcu))
+            });
+        let mcu_picker = row![Style::text_body("MCU:"), mcu_picker,]
+            .spacing(10)
             .align_y(iced::alignment::Vertical::Center);
 
         row![model_picker, board_picker, mcu_picker]

@@ -2,19 +2,19 @@
 //
 // MIT License
 
-use iced::{Element, Subscription, time, Task};
 use iced::widget::Row;
-use std::time::Duration;
+use iced::{Element, Subscription, Task, time};
 #[allow(unused_imports)]
-use log::{debug, error, info, warn, trace};
+use log::{debug, error, info, trace, warn};
+use std::time::Duration;
 
+use onerom_config::fw::FirmwareVersion;
 use onerom_config::hw::Board;
 use onerom_config::mcu::Variant as McuVariant;
-use onerom_config::fw::FirmwareVersion;
 use onerom_fw::net::{Release, Releases};
 
-use crate::app::AppMessage;
 use crate::analyse::Analyse;
+use crate::app::AppMessage;
 use crate::create::{Create, Message as CreateMessage};
 use crate::hw::HardwareInfo;
 use crate::log::Log;
@@ -28,7 +28,7 @@ const RELEASES_RETRY_LONG: Duration = Duration::from_secs(60);
 #[derive(Debug, Clone)]
 pub enum Message {
     TabSelected(StudioTab),
-    HardwareInfo(HardwareInfo),
+    HardwareInfo(Option<HardwareInfo>),
     FetchReleases,
     Releases(Releases),
     DownloadRelease(Release, Board, McuVariant),
@@ -39,7 +39,7 @@ impl std::fmt::Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Message::TabSelected(tab) => write!(f, "TabSelected({tab})"),
-            Message::HardwareInfo(info) => write!(f, "HardwareInfo({info})"),
+            Message::HardwareInfo(info) => write!(f, "HardwareInfo({info:?})"),
             Message::FetchReleases => write!(f, "FetchReleases"),
             Message::Releases(releases) => write!(f, "Releases({})  ", releases.releases_str()),
             Message::DownloadRelease(release, board, mcu) => {
@@ -82,7 +82,7 @@ impl StudioTab {
     }
 
     /// Create the tab buttons
-    /// 
+    ///
     /// Returns a Vec of Elements, so they can be easily added to a Row
     pub fn buttons(active: &StudioTab) -> Vec<Element<'_, AppMessage>> {
         let mut buttons = Vec::new();
@@ -93,11 +93,7 @@ impl StudioTab {
             } else {
                 Some(AppMessage::Studio(Message::TabSelected(tab.clone())))
             };
-            let button = Style::text_button(
-                tab.name(),
-                on_press,
-                active,
-            );
+            let button = Style::text_button(tab.name(), on_press, active);
             buttons.push(button.into());
         }
         buttons
@@ -133,8 +129,8 @@ impl RuntimeInfo {
         self.hw_info.as_ref()
     }
 
-    fn set_hw_info(&mut self, hw_info: HardwareInfo) {
-        self.hw_info = Some(hw_info);
+    fn set_hw_info(&mut self, hw_info: Option<HardwareInfo>) {
+        self.hw_info = hw_info;
     }
 
     #[allow(dead_code)]
@@ -191,7 +187,7 @@ impl Studio {
             }
             Message::HardwareInfo(info) => {
                 self.runtime_info.set_hw_info(info.clone());
-                
+
                 // Share with Create
                 task_from_msg!(CreateMessage::DetectedHardwareInfo)
             }
@@ -220,7 +216,12 @@ impl Studio {
         }
     }
 
-    fn download_release(&mut self, release: Release, board: Board, mcu: McuVariant) -> Task<AppMessage> {
+    fn download_release(
+        &mut self,
+        release: Release,
+        board: Board,
+        mcu: McuVariant,
+    ) -> Task<AppMessage> {
         self.runtime_info.clear_firmware();
         self.runtime_info.set_selected_firmware(release.clone());
 
@@ -229,7 +230,7 @@ impl Studio {
             releases.clone()
         } else {
             error!("No releases available in Studio, cannot download");
-            return Task::none()
+            return Task::none();
         };
 
         // Get the firmware version
@@ -239,12 +240,7 @@ impl Studio {
         };
 
         // Download the firmware
-        Task::future(Self::download_release_async(
-            releases,
-            fw_ver,
-            board,
-            mcu,
-        ))
+        Task::future(Self::download_release_async(releases, fw_ver, board, mcu))
     }
 
     async fn download_release_async(
@@ -268,15 +264,11 @@ impl Studio {
 
     pub fn top_level_buttons(&self) -> iced::Element<'_, AppMessage> {
         let buttons = StudioTab::buttons(&self.active_tab());
-        Row::with_children(buttons)
-            .spacing(20)
-            .padding(10)
-            .into()
+        Row::with_children(buttons).spacing(20).padding(10).into()
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let check_releases_duration = if
-        self.runtime_info.releases().is_some() {
+        let check_releases_duration = if self.runtime_info.releases().is_some() {
             RELEASES_RETRY_LONG
         } else {
             RELEASES_RETRY_SHORT

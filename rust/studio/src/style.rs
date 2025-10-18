@@ -82,7 +82,6 @@ pub struct Style<'a> {
 
 #[allow(dead_code)]
 impl<'a> Style<'a> {
-
     /// #ffb700 - One ROM gold used for buttons and highlights
     pub const COLOUR_GOLD: iced::Color = as_iced_colour(0xffb700);
 

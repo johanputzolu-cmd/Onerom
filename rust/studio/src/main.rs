@@ -57,8 +57,8 @@ fn window_settings() -> iced::window::Settings {
 }
 
 /// Helper macro to turn a message into a Task<AppMessage>.
-/// This allows you to call task_from_msg!(any message type) or 
-/// task_from_msg!(Option<any message type>) or task_from_msg!(None) 
+/// This allows you to call task_from_msg!(any message type) or
+/// task_from_msg!(Option<any message type>) or task_from_msg!(None)
 /// and get a Task<AppMessage> back.
 #[macro_export]
 macro_rules! task_from_msg {
@@ -83,7 +83,8 @@ macro_rules! task_from_msgs {
     ($msgs:expr) => {
         match Into::<Option<_>>::into($msgs) {
             Some(ms) => {
-                let tasks: Vec<_> = ms.into_iter()
+                let tasks: Vec<_> = ms
+                    .into_iter()
                     .filter_map(|m| Into::<Option<AppMessage>>::into(m))
                     .map(iced::Task::done)
                     .collect();
@@ -92,7 +93,7 @@ macro_rules! task_from_msgs {
                 } else {
                     iced::Task::batch(tasks)
                 }
-            },
+            }
             None => iced::Task::none(),
         }
     };

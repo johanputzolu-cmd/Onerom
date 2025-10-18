@@ -2,16 +2,16 @@
 //
 // MIT License
 
-use iced::{Length, Subscription, Task};
 use iced::widget::{Space, column, row};
+use iced::{Length, Subscription, Task};
 #[allow(unused_imports)]
-use log::{debug, error, info, warn, trace};
+use log::{debug, error, info, trace, warn};
 
 use crate::analyse::{Analyse, Message as AnalyseMessage};
 use crate::create::{Create, Message as CreateMessage};
 use crate::device::{Device, Message as DeviceMessage};
-use crate::log::{Level, Log, Message as LogMessage, LogEntry};
-use crate::studio::{Studio, Message as StudioMessage, StudioTab, RuntimeInfo};
+use crate::log::{Level, Log, LogEntry, Message as LogMessage};
+use crate::studio::{Message as StudioMessage, RuntimeInfo, Studio, StudioTab};
 use crate::style::{Message as StyleMessage, Style};
 
 /// Kicks off any startup tasks fo the app
@@ -104,13 +104,20 @@ impl<'a> App<'a> {
 
         // Log non-log no-op messages
         match &message {
-            AppMessage::Nop | AppMessage::Log(_) => {},
+            AppMessage::Nop | AppMessage::Log(_) => {}
             m => trace!("{m}"),
         }
         match message {
-            AppMessage::Analyse(fw_msg) => self.analyse.update(&runtime_info, fw_msg).map(|m| m.into()),
-            AppMessage::Device(dev_msg) => self.device.update(&runtime_info, dev_msg).map(|m| m.into()),
-            AppMessage::Create(prog_msg) => self.create.update(&runtime_info, prog_msg).map(|m| m.into()),
+            AppMessage::Analyse(fw_msg) => {
+                self.analyse.update(&runtime_info, fw_msg).map(|m| m.into())
+            }
+            AppMessage::Device(dev_msg) => {
+                self.device.update(&runtime_info, dev_msg).map(|m| m.into())
+            }
+            AppMessage::Create(prog_msg) => self
+                .create
+                .update(&runtime_info, prog_msg)
+                .map(|m| m.into()),
             AppMessage::Studio(studio_msg) => self.studio.update(studio_msg).map(|m| m.into()),
             AppMessage::Log(log_msg) => self.log.update(&runtime_info, log_msg).map(|m| m.into()),
             AppMessage::Style(style_msg) => self.style.update(style_msg).map(|m| m.into()),
@@ -121,21 +128,18 @@ impl<'a> App<'a> {
     pub fn view(&self) -> iced::Element<'_, AppMessage> {
         let runtime_info = self.runtime_info();
 
-        let top_left_corner = column![
-            Style::text_studio_h1(),
-            self.studio.top_level_buttons(),
-        ].spacing(20);
+        let top_left_corner =
+            column![Style::text_studio_h1(), self.studio.top_level_buttons(),].spacing(20);
 
         let probe_elements = self.device.probe_pick_list();
-        let top_right_corner = column![
-            probe_elements,
-        ];
+        let top_right_corner = column![probe_elements,];
 
         let top_row = row![
             top_left_corner,
             Space::with_width(Length::Fill),
             top_right_corner,
-        ].spacing(20);
+        ]
+        .spacing(20);
 
         let content_row = match self.studio.active_tab() {
             StudioTab::Analyse => self.analyse.view(runtime_info),
@@ -151,17 +155,25 @@ impl<'a> App<'a> {
             Style::horiz_line(),
             Style::footer(),
         ]
-            .padding([20, 20])
-            .spacing(20)
-            .into()
+        .padding([20, 20])
+        .spacing(20)
+        .into()
     }
 
     pub fn subscription(&self) -> Subscription<AppMessage> {
         Subscription::batch(vec![
-            self.studio.subscription().map(|msg| AppMessage::Studio(msg)),
-            self.analyse.subscription().map(|msg| AppMessage::Analyse(msg)),
-            self.create.subscription().map(|msg| AppMessage::Create(msg)),
-            self.device.subscription().map(|msg| AppMessage::Device(msg)),
+            self.studio
+                .subscription()
+                .map(|msg| AppMessage::Studio(msg)),
+            self.analyse
+                .subscription()
+                .map(|msg| AppMessage::Analyse(msg)),
+            self.create
+                .subscription()
+                .map(|msg| AppMessage::Create(msg)),
+            self.device
+                .subscription()
+                .map(|msg| AppMessage::Device(msg)),
             self.log.subscription(),
         ])
     }

@@ -28,6 +28,7 @@ pub enum Message {
     FileSelected(Option<PathBuf>),
     FileLoaded(Result<SdrrInfo, String>),
     DeviceData(Vec<u8>),
+    ReadFailed(String),
 }
 
 impl std::fmt::Display for Message {
@@ -39,23 +40,65 @@ impl std::fmt::Display for Message {
             Message::FileSelected(_) => write!(f, "FileSelected(...)"),
             Message::FileLoaded(_) => write!(f, "FileLoaded(...)"),
             Message::DeviceData(_) => write!(f, "DeviceData(...)"),
+            Message::ReadFailed(err) => write!(f, "ReadFailed({err})"),
         }
     }
 }
 
 /// Analyse tab state
+#[derive(Debug, Default, Clone)]
+pub enum AnalyseState {
+    #[default]
+    Idle,
+    Loading,
+    Detecting,
+}
+
+impl AnalyseState {
+    #[allow(dead_code)]
+    pub fn is_busy(&self) -> bool {
+        !self.is_idle()
+    }
+
+    pub fn is_idle(&self) -> bool {
+        matches!(self, AnalyseState::Idle)
+    }
+}
+
+impl std::fmt::Display for AnalyseState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AnalyseState::Idle => write!(f, "Idle"),
+            AnalyseState::Loading => write!(f, "Loading"),
+            AnalyseState::Detecting => write!(f, "Detecting"),
+        }
+    }
+}
+
+impl AnalyseState {
+    pub fn content(&self) -> &'static str {
+        match self {
+            AnalyseState::Idle => Analyse::ANALYSIS_TEXT_DEFAULT,
+            AnalyseState::Loading => "Loading firmware...",
+            AnalyseState::Detecting => "Detecting device...",
+        }
+    }
+}
+
+/// Analyse tab
 #[derive(Debug, Clone)]
 pub struct Analyse {
     selected_source_tab: SourceTab,
     analysis_content: String,
     fw_info: Option<SdrrInfo>,
     fw_file: Option<PathBuf>,
-    loading: bool,
+    state: AnalyseState,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum SourceTab {
     Device,
+    #[default]
     File,
 }
 
@@ -64,6 +107,18 @@ impl std::fmt::Display for SourceTab {
         match self {
             SourceTab::Device => write!(f, "Device"),
             SourceTab::File => write!(f, "File"),
+        }
+    }
+}
+
+impl Default for Analyse {
+    fn default() -> Self {
+        Self {
+            analysis_content: Self::ANALYSIS_TEXT_DEFAULT.to_string(),
+            selected_source_tab: Default::default(),
+            fw_info: Default::default(),
+            fw_file: Default::default(),
+            state: Default::default(),
         }
     }
 }
@@ -81,13 +136,7 @@ impl Analyse {
     }
 
     pub fn new() -> Self {
-        Self {
-            selected_source_tab: SourceTab::File,
-            analysis_content: Self::ANALYSIS_TEXT_DEFAULT.to_string(),
-            fw_info: None,
-            fw_file: None,
-            loading: false,
-        }
+        Self::default()
     }
 
     pub fn update(&mut self, _runtime_info: &RuntimeInfo, message: Message) -> Task<AppMessage> {
@@ -108,15 +157,25 @@ impl Analyse {
                 },
                 |info| AppMessage::Analyse(Message::FileLoaded(info)),
             ),
+            Message::ReadFailed(err) => {
+                self.fw_info = None;
+                self.analysis_content = format!("Error reading from device:\n- {err}");
+                self.state = AnalyseState::Idle;
+                Task::none()
+            }
         }
     }
 
     fn detect_device(&mut self) -> Task<AppMessage> {
-        Task::done(AppMessage::Device(crate::device::Message::ReadDevice {
+        let start_analysis_task = self.start_analysis(AnalyseState::Detecting);
+
+        let read_device_task = Task::done(AppMessage::Device(crate::device::Message::ReadDevice {
             chip_id: "STM32F411RETx".to_string(),
             address: 0x08000000,
             words: 65536 / 4,
-        }))
+        }));
+
+        Task::batch([start_analysis_task, read_device_task])
     }
 
     fn file_loaded(&mut self, result: Result<SdrrInfo, String>) -> Task<AppMessage> {
@@ -134,7 +193,7 @@ impl Analyse {
                 self.analysis_content = format!("Error loading/parsing file: {}", err)
             }
         }
-        self.loading = false;
+        self.state = AnalyseState::Idle;
 
         // Send decoded hardware informaton to the rest of the app
         self.share_hw_info()
@@ -147,25 +206,35 @@ impl Analyse {
                 model: info.model,
                 mcu_variant: info.mcu_variant,
             };
-            Task::done(AppMessage::Studio(StudioMessage::HardwareInfo(hw_info)))
+            Task::done(AppMessage::Studio(StudioMessage::HardwareInfo(Some(
+                hw_info,
+            ))))
         } else {
             Task::none()
         }
     }
 
-    fn load_file(&mut self, path: Option<PathBuf>) -> Task<AppMessage> {
-        self.fw_info = None;
-        self.analysis_content = "Loading...".to_string();
-        self.loading = true;
+    fn clear_hw_info(&self) -> Task<AppMessage> {
+        Task::done(AppMessage::Studio(StudioMessage::HardwareInfo(None)))
+    }
 
+    fn start_analysis(&mut self, state: AnalyseState) -> Task<AppMessage> {
+        self.state = state;
+        self.analysis_content = self.state.content().to_string();
+        self.fw_info = None;
+        self.clear_hw_info()
+    }
+
+    fn load_file(&mut self, path: Option<PathBuf>) -> Task<AppMessage> {
         if let Some(path) = path {
+            let start_analysis_task = self.start_analysis(AnalyseState::Loading);
             self.fw_file = Some(path.clone());
-            Task::perform(async move { Self::async_load_file(path).await }, |info| {
-                AppMessage::Analyse(Message::FileLoaded(info))
-            })
+            let load_file_task =
+                Task::perform(async move { Self::async_load_file(path).await }, |info| {
+                    AppMessage::Analyse(Message::FileLoaded(info))
+                });
+            Task::batch([start_analysis_task, load_file_task])
         } else {
-            self.fw_file = None;
-            self.analysis_content = Self::ANALYSIS_TEXT_DEFAULT.to_string();
             Task::none()
         }
     }
@@ -225,30 +294,36 @@ impl Analyse {
     fn fw_source_buttons(&self) -> Element<'_, AppMessage> {
         // Determine button states based on selected tab
         let is_file_selected = matches!(self.selected_source_tab, SourceTab::File);
-        
+
         let file_message = if is_file_selected {
             None
         } else {
-            Some(AppMessage::Analyse(Message::SourceTabSelected(SourceTab::File)))
+            if self.state.is_idle() {
+                Some(AppMessage::Analyse(Message::SourceTabSelected(
+                    SourceTab::File,
+                )))
+            } else {
+                None
+            }
         };
-        
+
         let device_message = if is_file_selected {
-            Some(AppMessage::Analyse(Message::SourceTabSelected(SourceTab::Device)))
+            if self.state.is_idle() {
+                Some(AppMessage::Analyse(Message::SourceTabSelected(
+                    SourceTab::Device,
+                )))
+            } else {
+                None
+            }
         } else {
             None
         };
 
-        let file_button = Style::text_button(
-            Self::FILE_BUTTON_NAME,
-            file_message,
-            is_file_selected,
-        );
-        
-        let device_button = Style::text_button(
-            Self::DEVICE_BUTTON_NAME,
-            device_message,
-            !is_file_selected,
-        );
+        let file_button =
+            Style::text_button(Self::FILE_BUTTON_NAME, file_message, is_file_selected);
+
+        let device_button =
+            Style::text_button(Self::DEVICE_BUTTON_NAME, device_message, !is_file_selected);
 
         row![file_button, device_button]
             .spacing(20)
@@ -264,24 +339,38 @@ impl Analyse {
     }
 
     fn fw_source_device_control(&self) -> Element<'_, AppMessage> {
-        let button = Style::text_button(
-            Self::SOURCE_DEVICE_BUTTON_NAME,
-            Some(AppMessage::Analyse(Message::DetectDevice)),
-            true,
-        );
+        let highlighted = if self.state.is_idle() { true } else { false };
+        let message = if self.state.is_idle() {
+            Some(AppMessage::Analyse(Message::DetectDevice))
+        } else {
+            None
+        };
+        let content = if self.state.is_idle() {
+            Self::SOURCE_DEVICE_BUTTON_NAME
+        } else {
+            "Detecting..."
+        };
+
+        let button = Style::text_button(content, message, highlighted);
         row![button].spacing(20).padding(10).into()
     }
 
     fn fw_source_file_control(&self) -> Element<'_, AppMessage> {
         // Only enable this button if file not being loaded
-        let file_control_message = if self.loading {
-            None
-        } else {
+        let file_control_message = if self.state.is_idle() {
             Some(AppMessage::Analyse(Message::SelectFile))
+        } else {
+            None
+        };
+
+        let content = if self.state.is_idle() {
+            Self::SOURCE_FILE_BUTTON_NAME
+        } else {
+            "Loading..."
         };
 
         // Create the button
-        let button = Style::text_button(Self::SOURCE_FILE_BUTTON_NAME, file_control_message, true);
+        let button = Style::text_button(content, file_control_message, true);
 
         // Create the row
         row![button].spacing(20).padding(10).into()
