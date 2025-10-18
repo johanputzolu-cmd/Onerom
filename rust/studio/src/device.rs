@@ -101,6 +101,10 @@ impl Device {
         Self::default()
     }
 
+    pub fn selected(&self) -> &DeviceType {
+        &self.selected
+    }
+
     pub fn update(&mut self, _runtime_info: &RuntimeInfo, message: Message) -> Task<AppMessage> {
         match message {
             Message::DetectProbe => Task::future(Self::get_probe_list_async()),
@@ -234,6 +238,10 @@ impl DeviceType {
         }
     }
 
+    pub fn is_none(&self) -> bool {
+        matches!(self, DeviceType::None)
+    }
+
     fn from_debug_probe(info: DebugProbeInfo) -> Self {
         DeviceType::DebugProbe(info)
     }
@@ -268,9 +276,22 @@ impl DeviceType {
             )),
             DeviceType::Usb(_) => {
                 // USB device reading not implemented yet
-                Task::none()
+                error!("Reading from USB devices is not yet implemented");
+                Task::done(
+                    AnalyseMessage::ReadFailed(
+                        "Reading from USB devices is not yet implemented".to_string(),
+                    )
+                    .into(),
+                )
             }
-            DeviceType::None => Task::none(),
+            DeviceType::None => {
+                error!(
+                    "Internal error - attempted to read from None device - please raise a bug report"
+                );
+                Task::done(AnalyseMessage::ReadFailed(
+                    "Internal error - attempted to read from None device - please raise a bug report".to_string(),
+                ).into())
+            }
         }
     }
 
@@ -292,9 +313,9 @@ impl DeviceType {
         let mut session = match probe.attach(chip_id, Permissions::default()) {
             Ok(s) => s,
             Err(e) => {
-                warn!("Failed to attach to device: {}", e);
+                warn!("Failed to attach to One ROM: {}", e);
                 return AnalyseMessage::ReadFailed(format!(
-                    "Failed to attach to device:\n  - {}",
+                    "Failed to attach to One ROM:\n  - {}",
                     e
                 ))
                 .into();
@@ -304,9 +325,9 @@ impl DeviceType {
         let mut core = match session.core(0) {
             Ok(c) => c,
             Err(e) => {
-                warn!("Failed to connect to MCU: {}", e);
+                warn!("Failed to connect to One ROM: {}", e);
                 return AnalyseMessage::ReadFailed(format!(
-                    "Failed to connect to device's MCU:\n  - {}",
+                    "Failed to connect to One ROM:\n  - {}",
                     e
                 ))
                 .into();
@@ -322,9 +343,15 @@ impl DeviceType {
                 AnalyseMessage::DeviceData(bytes).into()
             }
             Err(e) => {
-                warn!("Memory read from device failed: {}", e);
-                AnalyseMessage::ReadFailed(format!("Failed to read memory from device:\n  - {}", e))
-                    .into()
+                warn!(
+                    "Failed to read {words} words of memory {address:#010X} from One ROM: {}",
+                    e
+                );
+                AnalyseMessage::ReadFailed(format!(
+                    "Failed to read {words} words of memory {address:#010X} from One ROM:\n  - {}",
+                    e
+                ))
+                .into()
             }
         }
     }

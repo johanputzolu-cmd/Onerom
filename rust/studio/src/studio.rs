@@ -33,6 +33,7 @@ pub enum Message {
     Releases(Releases),
     DownloadRelease(Release, Board, McuVariant),
     ReleaseDownloaded(Vec<u8>),
+    ClearDownloadedRelease,
 }
 
 impl std::fmt::Display for Message {
@@ -48,6 +49,7 @@ impl std::fmt::Display for Message {
             Message::ReleaseDownloaded(data) => {
                 write!(f, "ReleaseDownloaded({} bytes)", data.len())
             }
+            Message::ClearDownloadedRelease => write!(f, "ClearDownloadedRelease"),
         }
     }
 }
@@ -201,6 +203,10 @@ impl Studio {
             }
             Message::ReleaseDownloaded(data) => {
                 self.runtime_info.set_firmware(data.clone());
+                Task::none()
+            }
+            Message::ClearDownloadedRelease => {
+                self.runtime_info.clear_firmware();
                 Task::none()
             }
         }

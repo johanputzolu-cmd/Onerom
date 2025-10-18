@@ -108,7 +108,7 @@ impl Create {
                     };
                     task_from_msgs!([msg1, msg2])
                 } else {
-                    warn!("No hardware info available");
+                    debug!("No hardware info available");
                     Task::none()
                 }
             }
@@ -181,12 +181,17 @@ impl Create {
             self.mcu_selected(McuVariant::RP2350);
             self.select_latest_release(runtime_info.releases())
         } else {
-            None
+            Some(self.clear_mcu())
         }
     }
 
     fn mcu_selected(&mut self, mcu: McuVariant) {
         self.selected_hw_info.mcu_variant = Some(mcu);
+    }
+
+    fn clear_mcu(&mut self) -> AppMessage {
+        self.selected_hw_info.mcu_variant = None;
+        StudioMessage::ClearDownloadedRelease.into()
     }
 
     fn hardware_selected(&self) -> bool {

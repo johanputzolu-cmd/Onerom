@@ -11,9 +11,11 @@ use std::path::PathBuf;
 
 #[allow(unused_imports)]
 use onerom_config::hw::{Board, MODELS, Model};
+use onerom_config::mcu::Variant as McuVariant;
 use sdrr_fw_parser::{Parser, SdrrInfo, readers::MemoryReader};
 
 use crate::app::AppMessage;
+use crate::device::Device;
 use crate::hw::HardwareInfo;
 use crate::studio::{Message as StudioMessage, RuntimeInfo};
 use crate::style::Style;
@@ -45,13 +47,65 @@ impl std::fmt::Display for Message {
     }
 }
 
+/// Detect device state
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub enum DetectState {
+    #[default]
+    Ice,
+    Fire,
+    Done,
+}
+
+impl std::fmt::Display for DetectState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DetectState::Ice => write!(f, "Ice"),
+            DetectState::Fire => write!(f, "Fire"),
+            DetectState::Done => write!(f, "Done"),
+        }
+    }
+}
+
+impl DetectState {
+    pub fn next(&self) -> Self {
+        match self {
+            DetectState::Ice => DetectState::Fire,
+            DetectState::Fire => DetectState::Done,
+            DetectState::Done => DetectState::Done,
+        }
+    }
+
+    pub fn is_done(&self) -> bool {
+        matches!(self, DetectState::Done)
+    }
+
+    /// We assume a specific STM32 MCU - doesn't matter which one as we're
+    /// just readig common stuff, like flash base - and the chip ID will work
+    /// for all.
+    pub fn sample_mcu(&self) -> Option<McuVariant> {
+        match self {
+            DetectState::Ice => Some(McuVariant::F411RE),
+            DetectState::Fire => Some(McuVariant::RP2350),
+            DetectState::Done => None,
+        }
+    }
+
+    pub fn flash_base(&self) -> Option<u32> {
+        self.sample_mcu().map(|mcu| mcu.family().get_flash_base())
+    }
+
+    pub fn chip_id(&self) -> Option<String> {
+        self.sample_mcu().map(|mcu| mcu.chip_id().to_string())
+    }
+}
+
 /// Analyse tab state
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum AnalyseState {
     #[default]
     Idle,
     Loading,
-    Detecting,
+    Detecting(DetectState),
 }
 
 impl AnalyseState {
@@ -70,17 +124,17 @@ impl std::fmt::Display for AnalyseState {
         match self {
             AnalyseState::Idle => write!(f, "Idle"),
             AnalyseState::Loading => write!(f, "Loading"),
-            AnalyseState::Detecting => write!(f, "Detecting"),
+            AnalyseState::Detecting(state) => write!(f, "Detecting ({})", state),
         }
     }
 }
 
 impl AnalyseState {
-    pub fn content(&self) -> &'static str {
+    pub fn content(&self) -> String {
         match self {
-            AnalyseState::Idle => Analyse::ANALYSIS_TEXT_DEFAULT,
-            AnalyseState::Loading => "Loading firmware...",
-            AnalyseState::Detecting => "Detecting device...",
+            AnalyseState::Idle => Analyse::ANALYSIS_TEXT_DEFAULT.to_string(),
+            AnalyseState::Loading => "Loading firmware...".to_string(),
+            AnalyseState::Detecting(state) => format!("Trying to detect One ROM {state} ..."),
         }
     }
 }
@@ -145,12 +199,19 @@ impl Analyse {
                 self.selected_source_tab = tab;
                 Task::none()
             }
-            Message::DetectDevice => self.detect_device(),
+            Message::DetectDevice => {
+                // Clear out previous analysis content
+                self.analysis_content = String::new();
+                self.detect_device(None)
+            }
             Message::SelectFile => self.fw_file_chooser(),
             Message::FileSelected(path) => self.load_file(path),
             Message::FileLoaded(result) => self.file_loaded(result),
             Message::DeviceData(data) => Task::perform(
                 async move {
+                    // We always pass in 0x08000000 as the parser's base
+                    // address even if RP2350 - parser will figure out what
+                    // it's looking at
                     let mut reader = MemoryReader::new(data, 0x08000000);
                     let mut parser = Parser::new(&mut reader);
                     parser.parse_flash().await
@@ -158,24 +219,46 @@ impl Analyse {
                 |info| AppMessage::Analyse(Message::FileLoaded(info)),
             ),
             Message::ReadFailed(err) => {
-                self.fw_info = None;
-                self.analysis_content = format!("Error reading from device:\n- {err}");
-                self.state = AnalyseState::Idle;
-                Task::none()
+                // Move onto trying to detect next device type
+                self.detect_device(Some(err))
             }
         }
     }
 
-    fn detect_device(&mut self) -> Task<AppMessage> {
-        let start_analysis_task = self.start_analysis(AnalyseState::Detecting);
+    fn detect_device(&mut self, err: Option<String>) -> Task<AppMessage> {
+        if let Some(err) = err {
+            self.fw_info = None;
+            self.analysis_content += &format!("\nError reading from device:\n- {err}\n");
+        }
 
+        // Move onto next detection state
+        let new_state = match &self.state {
+            AnalyseState::Detecting(state) => AnalyseState::Detecting(state.next()),
+            _ => AnalyseState::Detecting(DetectState::default()),
+        };
+        let detect_state = match new_state.clone() {
+            AnalyseState::Detecting(state) => state,
+            _ => unreachable!(),
+        };
+
+        if detect_state.is_done() {
+            self.fw_info = None;
+            self.analysis_content += "---\nDevice detection failed - neither Ice nor Fire hardware detected.\nHave you connected the probe to the One ROM correctly, and does the One ROM have power?";
+            self.state = AnalyseState::Idle;
+            return Task::none();
+        }
+
+        // Actually do a detection, based on current state
+        let start_analysis_task = self.start_analysis(new_state);
         let read_device_task = Task::done(AppMessage::Device(crate::device::Message::ReadDevice {
-            chip_id: "STM32F411RETx".to_string(),
-            address: 0x08000000,
+            chip_id: detect_state.chip_id().expect("Chip ID should be available"),
+            address: detect_state
+                .flash_base()
+                .expect("Flash base should be available"),
             words: 65536 / 4,
         }));
 
-        Task::batch([start_analysis_task, read_device_task])
+        Task::chain(start_analysis_task, read_device_task)
     }
 
     fn file_loaded(&mut self, result: Result<SdrrInfo, String>) -> Task<AppMessage> {
@@ -190,7 +273,10 @@ impl Analyse {
             }
             Err(err) => {
                 self.fw_info = None;
-                self.analysis_content = format!("Error loading/parsing file: {}", err)
+                self.analysis_content = format!(
+                    "Error loading/parsing file:\n- {}\n---\nAre you sure this is a valid One ROM firmware .bin file?",
+                    err
+                )
             }
         }
         self.state = AnalyseState::Idle;
@@ -220,7 +306,7 @@ impl Analyse {
 
     fn start_analysis(&mut self, state: AnalyseState) -> Task<AppMessage> {
         self.state = state;
-        self.analysis_content = self.state.content().to_string();
+        self.analysis_content += &self.state.content().to_string();
         self.fw_info = None;
         self.clear_hw_info()
     }
@@ -264,13 +350,13 @@ impl Analyse {
         )
     }
 
-    pub fn view(&self, runtime_info: &RuntimeInfo) -> Element<'_, AppMessage> {
+    pub fn view(&self, runtime_info: &RuntimeInfo, device: &Device) -> Element<'_, AppMessage> {
         let hw_info = runtime_info.hw_info();
 
         let buttons = row![
             self.fw_source_buttons(),
             Space::with_width(Length::Fill),
-            self.fw_source_control(),
+            self.fw_source_control(device),
         ];
 
         column![
@@ -331,20 +417,26 @@ impl Analyse {
             .into()
     }
 
-    fn fw_source_control(&self) -> Element<'_, AppMessage> {
+    fn fw_source_control(&self, device: &Device) -> Element<'_, AppMessage> {
         match self.selected_source_tab {
-            SourceTab::Device => self.fw_source_device_control(),
+            SourceTab::Device => self.fw_source_device_control(device),
             SourceTab::File => self.fw_source_file_control(),
         }
     }
 
-    fn fw_source_device_control(&self) -> Element<'_, AppMessage> {
-        let highlighted = if self.state.is_idle() { true } else { false };
-        let message = if self.state.is_idle() {
+    fn fw_source_device_control(&self, device: &Device) -> Element<'_, AppMessage> {
+        let highlighted = if self.state.is_idle() && !device.selected().is_none() {
+            true
+        } else {
+            false
+        };
+
+        let message = if self.state.is_idle() && !device.selected().is_none() {
             Some(AppMessage::Analyse(Message::DetectDevice))
         } else {
             None
         };
+
         let content = if self.state.is_idle() {
             Self::SOURCE_DEVICE_BUTTON_NAME
         } else {

@@ -142,7 +142,7 @@ impl<'a> App<'a> {
         .spacing(20);
 
         let content_row = match self.studio.active_tab() {
-            StudioTab::Analyse => self.analyse.view(runtime_info),
+            StudioTab::Analyse => self.analyse.view(runtime_info, &self.device),
             StudioTab::Create => self.create.view(runtime_info),
             StudioTab::Log => self.log.view(runtime_info),
         };
