@@ -18,21 +18,22 @@ use onerom_config::hw::{Board, Model};
 use onerom_config::mcu::Variant as McuVariant;
 use std::borrow::Borrow;
 
-use crate::app::Message as AppMessage;
+use crate::app::AppMessage;
 
-/// Iced theme to use
+/// Iced theme to use - this module builds on this theme
 pub const ICED_THEME: iced::Theme = iced::Theme::Dark;
-
-// Colours
 
 /// Assets
 const FONT_MICHROMA_BYTES: &[u8] = include_bytes!("../fonts/Michroma-Regular.ttf");
 const FONT_COURIER_REG_BYTES: &[u8] = include_bytes!("../fonts/CourierPrime-Regular.ttf");
 const ICON_BYTES: &[u8] = include_bytes!("../assets/icon.png");
 
+/// Michroma - One ROM's font
 pub fn font_michroma_bytes() -> &'static [u8] {
     FONT_MICHROMA_BYTES
 }
+
+/// Courier used for displaying data/information
 pub fn font_courier_reg_bytes() -> &'static [u8] {
     FONT_COURIER_REG_BYTES
 }
@@ -44,13 +45,24 @@ pub fn icon() -> iced::window::Icon {
 /// Style specific messages
 #[derive(Debug, Clone)]
 pub enum Message {
+    /// User clicked a link
     ClickLink(Link),
+}
+
+impl std::fmt::Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Message::ClickLink(link) => write!(f, "ClickLink({:?})", link),
+        }
+    }
 }
 
 /// Supported links
 #[derive(Debug, Clone)]
 pub enum Link {
+    /// https://onerom.org
     OneRom,
+    /// https://piers.rocks
     PiersRocks,
 }
 
@@ -63,47 +75,79 @@ impl Link {
     }
 }
 
-/// One ROM Studio styles
+/// One ROM Studio style constants and helpers
 pub struct Style<'a> {
     _marker: std::marker::PhantomData<&'a ()>,
 }
 
 #[allow(dead_code)]
 impl<'a> Style<'a> {
-    /// #ffb700
-    pub const COLOUR_GOLD: iced::Color = iced::Color::from_rgb(1.0, 0.72, 0.0);
 
-    /// #cc9200
-    pub const COLOUR_DARK_GOLD: iced::Color = iced::Color::from_rgb(0.8, 0.57, 0.0);
+    /// #ffb700 - One ROM gold used for buttons and highlights
+    pub const COLOUR_GOLD: iced::Color = as_iced_colour(0xffb700);
 
-    /// #e2e8f0
-    pub const COLOUR_TEXT: iced::Color = iced::Color::from_rgb(0.89, 0.91, 0.94);
+    /// #cc9200 - one ROM dark gold used for text highlights
+    pub const COLOUR_DARK_GOLD: iced::Color = as_iced_colour(0xcc9200);
 
-    /// #9a9aa8
-    pub const COLOUR_TEXT_DIM: iced::Color = iced::Color::from_rgb(0.6, 0.6, 0.66);
+    /// #e2e8f0 - main text colour
+    pub const COLOUR_TEXT: iced::Color = as_iced_colour(0xe2e8f0);
 
-    /// #181820
-    pub const COLOUR_BACKGROUND: iced::Color = iced::Color::from_rgb(0.09, 0.09, 0.10);
+    /// #9a9aa8 - dimmed text colour, used for de-selected and less important
+    /// text
+    pub const COLOUR_TEXT_DIM: iced::Color = as_iced_colour(0x9a9aa8);
 
-    /// #4a4a52
-    pub const COLOUR_BORDER: iced::Color = iced::Color::from_rgb(0.29, 0.29, 0.32);
+    /// #181820 - main background colour, used for windows and containers
+    pub const COLOUR_BACKGROUND: iced::Color = as_iced_colour(0x181820);
 
-    /// #4a4a52
-    pub const COLOUR_DISABLED: iced::Color = iced::Color::from_rgb(0.29, 0.29, 0.32);
+    /// #4a4a52 - border colour, used for button and container edges
+    pub const COLOUR_BORDER: iced::Color = as_iced_colour(0x4a4a52);
 
-    /// Button text colour
+    /// #4a4a52 - disabled colour, used for disabled buttons and text
+    pub const COLOUR_DISABLED: iced::Color = as_iced_colour(0x4a4a52);
+
+    /// Button text colour - same as background to give contrast on gold
+    /// buttons
     pub const COLOUR_BUTTON_TEXT: iced::Color = Self::COLOUR_BACKGROUND;
 
-    /// Font sizes
+    /// #808080 - trace log level
+    pub const COLOUR_TRACE: iced::Color = as_iced_colour(0x808080);
+
+    /// #00d7ff - debug log level
+    pub const COLOUR_DEBUG: iced::Color = as_iced_colour(0x00d7ff);
+
+    /// #5fd700 - info log level
+    pub const COLOUR_INFO: iced::Color = as_iced_colour(0x5fd700);
+
+    /// #ffaf00 - warn log level
+    pub const COLOUR_WARN: iced::Color = as_iced_colour(0xffaf00);
+
+    /// #ff5f5f - error log level
+    pub const COLOUR_ERROR: iced::Color = as_iced_colour(0xff5f5f);
+
+    // Font sizes
+
+    /// H1 size
     pub const FONT_SIZE_H1: u16 = 32;
+
+    /// H2 size
     pub const FONT_SIZE_H2: u16 = 26;
+
+    /// H3 size
     pub const FONT_SIZE_H3: u16 = 20;
+
+    /// Body size
     pub const FONT_SIZE_BODY: u16 = 16;
+
+    /// Small size
     pub const FONT_SIZE_SMALL: u16 = 14;
+
+    /// Extra small size
     pub const FONT_SIZE_EXTRA_SMALL: u16 = 12;
 
-    /// Fonts
+    /// Michroma - One ROM's main font
     pub const FONT_MICHROMA: iced::Font = iced::Font::with_name("Michroma");
+
+    /// Courier used for displaying data/information
     pub const FONT_COURIER_REG: iced::Font = iced::Font::with_name("Courier Prime");
 
     // Button styles
@@ -124,15 +168,15 @@ impl<'a> Style<'a> {
         blur_radius: 4.0,
     };
 
-    // Prevent instantiation
-    fn new() -> Self {
+    /// Create a new Style object
+    pub fn new() -> Self {
         Style {
             _marker: std::marker::PhantomData,
         }
     }
 
     /// Handle style messages
-    pub fn update(message: Message) -> iced::Task<Message> {
+    pub fn update(&self, message: Message) -> iced::Task<Message> {
         match message {
             Message::ClickLink(link) => {
                 if let Err(e) = open::that(link.url()) {
@@ -175,6 +219,13 @@ impl<'a> Style<'a> {
         text(content.to_string())
             .size(Self::FONT_SIZE_SMALL)
             .color(Self::COLOUR_TEXT)
+    }
+
+    pub fn text_trace(content: impl ToString, colour: iced::Color) -> Text<'a> {
+        text(content.to_string())
+            .font(Self::FONT_COURIER_REG)
+            .size(Self::FONT_SIZE_SMALL)
+            .color(colour)
     }
 
     pub fn text_extra_small(content: impl ToString) -> Text<'a> {
@@ -228,7 +279,7 @@ impl<'a> Style<'a> {
             })
     }
 
-    pub fn box_scrollable(content: impl ToString, height: f32) -> Scrollable<'a, AppMessage> {
+    pub fn box_scrollable_text(content: impl ToString, height: f32) -> Scrollable<'a, AppMessage> {
         let text = Self::text_small(content.to_string()).font(Self::FONT_COURIER_REG);
         scrollable(text)
             .height(Length::Fixed(height))
@@ -237,6 +288,26 @@ impl<'a> Style<'a> {
                 vertical: scrollable::Scrollbar::default(),
                 horizontal: scrollable::Scrollbar::default(),
             })
+            .into()
+    }
+
+    pub fn box_scrollable_element(
+        content: impl Into<Element<'a, AppMessage>>,
+        height: f32,
+        horiz_scroll: bool,
+    ) -> Scrollable<'a, AppMessage> {
+        let dirn = if horiz_scroll {
+            scrollable::Direction::Both {
+                vertical: scrollable::Scrollbar::default(),
+                horizontal: scrollable::Scrollbar::default(),
+            }
+        } else {
+            scrollable::Direction::Vertical(scrollable::Scrollbar::default())
+        };
+        scrollable(content)
+            .height(Length::Fixed(height))
+            .width(Length::Fill)
+            .direction(dirn)
             .into()
     }
 
@@ -327,7 +398,7 @@ impl<'a> Style<'a> {
             })
     }
 
-    pub fn pick_list<T, L, V>(
+    pub fn pick_list_reg<T, L, V>(
         options: L,
         selected: Option<V>,
         on_selected: impl Fn(T) -> AppMessage + 'a,
@@ -337,7 +408,35 @@ impl<'a> Style<'a> {
         L: Borrow<[T]> + 'a,
         V: Borrow<T> + 'a,
     {
+        Self::pick_list(options, selected, on_selected, Self::FONT_SIZE_BODY)
+    }
+
+    pub fn pick_list_small<T, L, V>(
+        options: L,
+        selected: Option<V>,
+        on_selected: impl Fn(T) -> AppMessage + 'a,
+    ) -> PickList<'a, T, L, V, AppMessage>
+    where
+        T: ToString + PartialEq + Clone + 'a,
+        L: Borrow<[T]> + 'a,
+        V: Borrow<T> + 'a,
+    {
+        Self::pick_list(options, selected, on_selected, Self::FONT_SIZE_SMALL)
+    }
+
+    pub fn pick_list<T, L, V>(
+        options: L,
+        selected: Option<V>,
+        on_selected: impl Fn(T) -> AppMessage + 'a,
+        text_size: u16,
+    ) -> PickList<'a, T, L, V, AppMessage>
+    where
+        T: ToString + PartialEq + Clone + 'a,
+        L: Borrow<[T]> + 'a,
+        V: Borrow<T> + 'a,
+    {
         pick_list(options, selected, on_selected)
+            .text_size(text_size)
             .style(|_theme: &Theme, status| pick_list::Style {
                 background: if matches!(status, pick_list::Status::Hovered) {
                     Background::Color(Self::COLOUR_GOLD)
@@ -426,4 +525,11 @@ impl<'a> Style<'a> {
         .spacing(20)
         .into()
     }
+}
+
+const fn as_iced_colour(col: u32) -> iced::Color {
+    let r = ((col >> 16) & 0xff) as f32 / 255.0;
+    let g = ((col >> 8) & 0xff) as f32 / 255.0;
+    let b = (col & 0xff) as f32 / 255.0;
+    iced::Color::from_rgb(r, g, b)
 }

@@ -5,46 +5,52 @@
 //! Analyse image functionality
 
 use iced::widget::{Space, column, row};
-use iced::{Element, Length, Task};
+use iced::{Element, Length, Subscription, Task};
 use rfd::FileDialog;
 use std::path::PathBuf;
 
 #[allow(unused_imports)]
 use onerom_config::hw::{Board, MODELS, Model};
-use onerom_config::mcu::Variant as McuVariant;
 use sdrr_fw_parser::{Parser, SdrrInfo, readers::MemoryReader};
 
-use crate::app::{Message as AppMessage, StudioMessage};
+use crate::app::AppMessage;
+use crate::hw::HardwareInfo;
+use crate::studio::{Message as StudioMessage, RuntimeInfo};
 use crate::style::Style;
 
 /// Analyse tab messages
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Message {
-    BoardSelected(Board),
-    ModelSelected(Model),
-    McuSelected(McuVariant),
     SourceTabSelected(SourceTab),
     DetectDevice,
     SelectFile,
     FileSelected(Option<PathBuf>),
     FileLoaded(Result<SdrrInfo, String>),
-    HardwareInfo(HardwareInfo),
     DeviceData(Vec<u8>),
+}
+
+impl std::fmt::Display for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Message::SourceTabSelected(tab) => write!(f, "SourceTabSelected({:?})", tab),
+            Message::DetectDevice => write!(f, "DetectDevice"),
+            Message::SelectFile => write!(f, "SelectFile"),
+            Message::FileSelected(_) => write!(f, "FileSelected(...)"),
+            Message::FileLoaded(_) => write!(f, "FileLoaded(...)"),
+            Message::DeviceData(_) => write!(f, "DeviceData(...)"),
+        }
+    }
 }
 
 /// Analyse tab state
 #[derive(Debug, Clone)]
 pub struct Analyse {
-    selected_model: Option<Model>,
-    selected_board: Option<Board>,
-    selected_mcu: Option<McuVariant>,
     selected_source_tab: SourceTab,
     analysis_content: String,
     fw_info: Option<SdrrInfo>,
     fw_file: Option<PathBuf>,
     loading: bool,
-    hw_info: Option<HardwareInfo>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,12 +59,13 @@ pub enum SourceTab {
     File,
 }
 
-/// Information about hardware
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HardwareInfo {
-    pub board: Option<Board>,
-    pub model: Option<Model>,
-    pub mcu_variant: Option<McuVariant>,
+impl std::fmt::Display for SourceTab {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SourceTab::Device => write!(f, "Device"),
+            SourceTab::File => write!(f, "File"),
+        }
+    }
 }
 
 impl Analyse {
@@ -73,39 +80,18 @@ impl Analyse {
         "Analyse"
     }
 
-    pub const fn heading() -> &'static str {
-        "Analyse"
-    }
-
     pub fn new() -> Self {
         Self {
-            selected_model: None,
-            selected_board: None,
-            selected_mcu: None,
             selected_source_tab: SourceTab::File,
             analysis_content: Self::ANALYSIS_TEXT_DEFAULT.to_string(),
             fw_info: None,
             fw_file: None,
             loading: false,
-            hw_info: None,
         }
     }
 
-    pub fn update(&mut self, message: Message) -> Task<AppMessage> {
+    pub fn update(&mut self, _runtime_info: &RuntimeInfo, message: Message) -> Task<AppMessage> {
         match message {
-            Message::BoardSelected(board) => {
-                self.selected_board = Some(board);
-                Task::none()
-            }
-            Message::ModelSelected(model) => {
-                self.selected_board = None;
-                self.selected_model = Some(model);
-                Task::none()
-            }
-            Message::McuSelected(mcu) => {
-                self.selected_mcu = Some(mcu);
-                Task::none()
-            }
             Message::SourceTabSelected(tab) => {
                 self.selected_source_tab = tab;
                 Task::none()
@@ -114,10 +100,6 @@ impl Analyse {
             Message::SelectFile => self.fw_file_chooser(),
             Message::FileSelected(path) => self.load_file(path),
             Message::FileLoaded(result) => self.file_loaded(result),
-            Message::HardwareInfo(hw_info) => {
-                self.hw_info = Some(hw_info);
-                Task::none()
-            }
             Message::DeviceData(data) => Task::perform(
                 async move {
                     let mut reader = MemoryReader::new(data, 0x08000000);
@@ -173,7 +155,6 @@ impl Analyse {
 
     fn load_file(&mut self, path: Option<PathBuf>) -> Task<AppMessage> {
         self.fw_info = None;
-        self.hw_info = None;
         self.analysis_content = "Loading...".to_string();
         self.loading = true;
 
@@ -214,15 +195,21 @@ impl Analyse {
         )
     }
 
-    pub fn view(&self) -> Element<'_, AppMessage> {
+    pub fn view(&self, runtime_info: &RuntimeInfo) -> Element<'_, AppMessage> {
+        let hw_info = runtime_info.hw_info();
+
+        let buttons = row![
+            self.fw_source_buttons(),
+            Space::with_width(Length::Fill),
+            self.fw_source_control(),
+        ];
+
         column![
             column![
-                self.select_fw_source_heaing_row(),
-                self.fw_source_buttons(),
+                self.select_fw_source(),
+                buttons,
                 Style::horiz_line(),
-                self.fw_source_control(),
-                Style::horiz_line(),
-                self.fw_content_heading(),
+                self.fw_content_heading(hw_info),
             ]
             .spacing(20),
             Space::with_height(Length::Fixed(20.0)),
@@ -231,32 +218,38 @@ impl Analyse {
         .into()
     }
 
-    fn select_fw_source_heaing_row(&self) -> Element<'_, AppMessage> {
+    fn select_fw_source(&self) -> Element<'_, AppMessage> {
         row![Style::text_h3("Select Firmware Source")].into()
     }
 
     fn fw_source_buttons(&self) -> Element<'_, AppMessage> {
-        // Figure out which button is highlighted, and which performs an action if clicked
-        let file_message = Some(AppMessage::Analyse(Message::SourceTabSelected(
-            SourceTab::File,
-        )));
-        let device_message = Some(AppMessage::Analyse(Message::SourceTabSelected(
-            SourceTab::Device,
-        )));
+        // Determine button states based on selected tab
+        let is_file_selected = matches!(self.selected_source_tab, SourceTab::File);
+        
+        let file_message = if is_file_selected {
+            None
+        } else {
+            Some(AppMessage::Analyse(Message::SourceTabSelected(SourceTab::File)))
+        };
+        
+        let device_message = if is_file_selected {
+            Some(AppMessage::Analyse(Message::SourceTabSelected(SourceTab::Device)))
+        } else {
+            None
+        };
 
-        let ((file_message, device_message), (file_highlighted, device_highlighted)) =
-            match self.selected_source_tab {
-                SourceTab::Device => ((file_message, None), (false, true)),
-                SourceTab::File => ((None, device_message), (true, false)),
-            };
+        let file_button = Style::text_button(
+            Self::FILE_BUTTON_NAME,
+            file_message,
+            is_file_selected,
+        );
+        
+        let device_button = Style::text_button(
+            Self::DEVICE_BUTTON_NAME,
+            device_message,
+            !is_file_selected,
+        );
 
-        // Create the buttons
-        let device_button =
-            Style::text_button(Self::DEVICE_BUTTON_NAME, device_message, device_highlighted);
-        let file_button =
-            Style::text_button(Self::FILE_BUTTON_NAME, file_message, file_highlighted);
-
-        // Create the row
         row![file_button, device_button]
             .spacing(20)
             .padding(10)
@@ -294,10 +287,10 @@ impl Analyse {
         row![button].spacing(20).padding(10).into()
     }
 
-    fn fw_content_heading(&self) -> Element<'_, AppMessage> {
+    fn fw_content_heading(&self, hw_info: Option<&HardwareInfo>) -> Element<'_, AppMessage> {
         // Include hardware info if available
         let heading = Style::text_h3("Analysis");
-        if let Some(hw_info) = self.hw_info.as_ref() {
+        if let Some(hw_info) = hw_info {
             let version = self.fw_info.as_ref().and_then(|info| Some(info.version));
             let info_row = Style::hw_info_row(
                 version,
@@ -316,6 +309,10 @@ impl Analyse {
     }
 
     fn fw_content(&self) -> Element<'_, AppMessage> {
-        Style::box_scrollable(&self.analysis_content, 225.0).into()
+        Style::box_scrollable_text(&self.analysis_content, 320.0).into()
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        Subscription::none()
     }
 }
