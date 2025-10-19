@@ -5,8 +5,12 @@
 //! Contains One ROM hardware related types and functions
 
 #[allow(unused_imports)]
-use onerom_config::hw::{Board, MODELS, Model};
+use log::{debug, error, info, trace, warn};
+
+use onerom_config::fw::{FirmwareProperties, ServeAlg};
+use onerom_config::hw::{Board, Model};
 use onerom_config::mcu::Variant as McuVariant;
+use onerom_fw::net::Release;
 
 /// Information about hardware
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -19,6 +23,48 @@ pub struct HardwareInfo {
 impl HardwareInfo {
     pub fn is_complete(&self) -> bool {
         self.board.is_some() && self.model.is_some() && self.mcu_variant.is_some()
+    }
+
+    pub fn firmware_properties(&self, release: &Release) -> Option<FirmwareProperties> {
+        let version = match release.firmware_version() {
+            Ok(v) => v,
+            Err(e) => {
+                warn!("Failed to get firmware version: {e}");
+                return None;
+            }
+        };
+
+        // Get other values
+        let board = match self.board {
+            Some(b) => b,
+            None => {
+                warn!("Cannot get board for firmware properties");
+                return None;
+            }
+        };
+        let variant = match self.mcu_variant {
+            Some(v) => v,
+            None => {
+                warn!("Cannot get MCU variant for firmware properties");
+                return None;
+            }
+        };
+        let serve_alg = ServeAlg::default();
+        let boot_logging = true;
+
+        match FirmwareProperties::new(
+            version,
+            board,
+            variant,
+            serve_alg,
+            boot_logging,
+        ) {
+            Ok(props) => Some(props),
+            Err(e) => {
+                warn!("Cannot create firmware properties: {e:?}");
+                None
+            }
+        }
     }
 }
 

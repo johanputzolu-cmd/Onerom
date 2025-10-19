@@ -20,7 +20,7 @@ use crate::style::Style;
 static LOG_SENDER: OnceLock<Mutex<Sender<LogEntry>>> = OnceLock::new();
 
 // Default maximum number of log entries to keep
-const DEFAULT_LOG_ENTRIES: usize = 100;
+const DEFAULT_LOG_ENTRIES: usize = 1024;
 
 // Maximum channel size for log messages
 const MAX_CHANNEL_SIZE: usize = 1024;
@@ -48,12 +48,12 @@ impl Default for Config {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(dead_code)]
 pub enum Level {
+    #[default]
     /// Trace log entry
     Trace,
     /// Debug log entry
     Debug,
     /// Informational log entry
-    #[default]
     Info,
     /// Warning log entry
     Warning,
@@ -137,6 +137,8 @@ pub enum Message {
     MaxLogLevel(Level),
     /// Copy all logs to clipboard
     CopyToClipboard,
+    /// Clear all logs
+    ClearLogs,
 }
 
 impl std::fmt::Display for Message {
@@ -145,6 +147,7 @@ impl std::fmt::Display for Message {
             Message::AddEntry(_) => write!(f, "AddEntry"),
             Message::MaxLogLevel(level) => write!(f, "MinLogLevel({level})"),
             Message::CopyToClipboard => write!(f, "CopyToClipboard"),
+            Message::ClearLogs => write!(f, "ClearLogs"),
         }
     }
 }
@@ -243,6 +246,10 @@ impl Log {
                 Task::none()
             }
             Message::CopyToClipboard => self.copy_to_clipboard(),
+            Message::ClearLogs => {
+                self.entries.clear();
+                Task::none()
+            }
         }
     }
 
@@ -285,8 +292,14 @@ impl Log {
         .spacing(10)
         .align_y(iced::Alignment::Center);
 
+        let clear_logs = Style::text_button(
+            "Clear",
+            Some(Message::ClearLogs.into()),
+            true,
+        );
+
         let copy_to_clipbard = Style::text_button(
-            "Copy to Clipboard",
+            "Copy",
             Some(Message::CopyToClipboard.into()),
             true,
         );
@@ -294,6 +307,7 @@ impl Log {
         row![
             min_log_level,
             Space::with_width(iced::Length::Fill),
+            clear_logs,
             copy_to_clipbard,
         ]
         .spacing(20)
@@ -318,7 +332,7 @@ impl Log {
             .map(|e| e.as_row())
             .collect::<Vec<_>>();
         let column = Column::with_children(logs);
-        let scrollable = Style::box_scrollable_element(column, 452.5, false).anchor_bottom();
+        let scrollable = Style::box_scrollable_element(column, 453.0, false).anchor_bottom();
         Style::container(scrollable).into()
     }
 
@@ -340,7 +354,7 @@ impl log::Log for Logger {
         // When using the crate name we have to turn - into _ as the latter is
         // what we get called with
         let crate_name = env!("CARGO_CRATE_NAME").replace("-", "_");
-        metadata.target().starts_with(&crate_name)
+        metadata.target().starts_with(&crate_name) || metadata.target().starts_with("dfu")
     }
 
     fn log(&self, record: &log::Record) {

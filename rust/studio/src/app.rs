@@ -25,7 +25,9 @@ pub fn startup_task() -> Task<AppMessage> {
             "One ROM Studio started".to_string(),
         )))),
         Task::done(AppMessage::Studio(StudioMessage::FetchReleases)),
-        Task::done(AppMessage::Device(DeviceMessage::DetectProbe)),
+        Task::done(AppMessage::Studio(StudioMessage::FetchConfigs)),
+        Task::done(AppMessage::Device(DeviceMessage::DetectProbes)),
+        Task::done(AppMessage::Device(DeviceMessage::DetectUsbDevices)),
     ])
     .into()
 }
@@ -131,8 +133,7 @@ impl<'a> App<'a> {
         let top_left_corner =
             column![Style::text_studio_h1(), self.studio.top_level_buttons(),].spacing(20);
 
-        let probe_elements = self.device.probe_pick_list();
-        let top_right_corner = column![probe_elements,];
+        let top_right_corner = self.device.view();
 
         let top_row = row![
             top_left_corner,

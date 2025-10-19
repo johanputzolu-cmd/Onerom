@@ -114,7 +114,9 @@ impl SdrrInfoHeader {
 
     // Indicates whether filenames present on ROM info structures
     // Always true for v0.5.1 and later
-    // For earlier versions, depends on boot_logging_enabled flag
+    // For earlier versions, depends on boot_logging_enabled flag.
+    // Note however, even if included, they may be null pointers, or 0xFFFFFFFF
+    // pointers
     pub(crate) fn filenames_enabled(&self) -> bool {
         if (self.major_version > 0) || ((self.minor_version == 5) && (self.patch_version >= 1)) {
             true
@@ -508,7 +510,7 @@ async fn read_rom_infos<R: Reader>(
                 .map_err(|e| format!("Failed to parse ROM info with logging {}: {}", i, e))?;
 
             // This test sets filename to None if pointer invalid (for example 0)
-            let filename = if info.filename_ptr >= base_addr {
+            let filename = if info.filename_ptr >= base_addr && info.filename_ptr != 0xFFFFFFFF {
                 read_string_at_ptr(reader, info.filename_ptr, base_addr)
                     .await
                     .ok()

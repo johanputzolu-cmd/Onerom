@@ -133,6 +133,20 @@ pub enum McuStorage {
 }
 
 impl McuStorage {
+    /// Returns storage size in KB as a usize
+    pub fn size_kb(&self) -> usize {
+        match self {
+            McuStorage::Storage8 => 64,
+            McuStorage::StorageB => 128,
+            McuStorage::StorageC => 256,
+            McuStorage::StorageD => 384,
+            McuStorage::StorageE => 512,
+            McuStorage::StorageF => 768,
+            McuStorage::StorageG => 1024,
+            McuStorage::Storage2MB => 2048,
+        }
+    }
+
     /// Returns the storage size in kilobytes
     pub fn kb(&self) -> &str {
         match self {

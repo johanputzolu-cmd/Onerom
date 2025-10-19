@@ -167,6 +167,19 @@ impl<'a> Style<'a> {
         blur_radius: 4.0,
     };
 
+    // Scrollbar styles
+    const SCROLLBAR_BORDER: Border = Border {
+        color: Self::COLOUR_BORDER,
+        width: 0.0,
+        radius: Self::SCROLLBAR_RADIUS,
+    };
+    const SCROLLBAR_RADIUS: Radius = Radius {
+        top_left: 4.0,
+        top_right: 4.0,
+        bottom_left: 4.0,
+        bottom_right: 4.0,
+    };
+
     /// Create a new Style object
     pub fn new() -> Self {
         Style {
@@ -268,6 +281,41 @@ impl<'a> Style<'a> {
         button
     }
 
+    pub fn text_button_small(
+        content: impl ToString,
+        on_press: Option<AppMessage>,
+        highlighted: bool,
+    ) -> widget::Button<'a, AppMessage> {
+        // Set up the styles
+        let (text_color, background) = if highlighted {
+            (
+                Style::COLOUR_BUTTON_TEXT,
+                Some(Background::Color(Style::COLOUR_GOLD)),
+            )
+        } else {
+            (
+                Style::COLOUR_TEXT,
+                Some(Background::Color(Style::COLOUR_DISABLED)),
+            )
+        };
+
+        let text = Self::text_small(content.to_string()).color(Self::COLOUR_BUTTON_TEXT);
+        let mut button = button(text)
+            .style(move |_, _| button::Style {
+                background,
+                text_color,
+                border: Self::BUTTON_BORDER,
+                shadow: Self::BUTTON_SHADOW,
+            })
+            .padding([5, 10]);
+
+        if let Some(msg) = on_press {
+            button = button.on_press(msg);
+        }
+
+        button
+    }
+
     pub fn horiz_line() -> widget::Container<'a, AppMessage> {
         widget::container(widget::horizontal_space())
             .height(1.0)
@@ -278,16 +326,60 @@ impl<'a> Style<'a> {
             })
     }
 
-    pub fn box_scrollable_text(content: impl ToString, height: f32) -> Scrollable<'a, AppMessage> {
+    fn scrollbar_colour(status: &scrollable::Status, horiz: bool) -> iced::Color {
+        match status {
+            scrollable::Status::Active => Self::COLOUR_DARK_GOLD,
+            scrollable::Status::Hovered { is_vertical_scrollbar_hovered, is_horizontal_scrollbar_hovered } => {
+                if (horiz && *is_horizontal_scrollbar_hovered) || (!horiz && *is_vertical_scrollbar_hovered) {
+                    Self::COLOUR_GOLD
+                } else {
+                    Self::COLOUR_DARK_GOLD
+                }
+            }
+            scrollable::Status::Dragged { is_vertical_scrollbar_dragged, is_horizontal_scrollbar_dragged } => {
+                if (horiz && *is_horizontal_scrollbar_dragged) || (!horiz && *is_vertical_scrollbar_dragged) {
+                    Self::COLOUR_GOLD
+                } else {
+                    Self::COLOUR_DARK_GOLD
+                }
+            }
+        }
+    }
+
+    fn scrollbar_style(
+        status: &scrollable::Status,
+    ) -> scrollable::Style {
+        scrollable::Style {
+            vertical_rail: scrollable::Rail {
+                scroller: scrollable::Scroller {
+                    color: Self::scrollbar_colour(&status, false),
+                    border: Self::SCROLLBAR_BORDER,
+                },
+                background: Some(Background::Color(Self::COLOUR_BACKGROUND)),
+                border: Self::SCROLLBAR_BORDER,
+            },
+            horizontal_rail: scrollable::Rail {
+                scroller: scrollable::Scroller {
+                    color: Self::scrollbar_colour(&status, true),
+                    border: Self::SCROLLBAR_BORDER,
+                },
+                background: Some(Background::Color(Self::COLOUR_BACKGROUND)),
+                border: Self::SCROLLBAR_BORDER,
+            },
+            gap: None,
+            container: container::Style::default(),
+        }
+    }
+
+    pub fn box_scrollable_text(content: impl ToString, height: f32, horiz_scroll: bool) -> Scrollable<'a, AppMessage> {
         let text = Self::text_small(content.to_string()).font(Self::FONT_COURIER_REG);
-        scrollable(text)
-            .height(Length::Fixed(height))
-            .width(Length::Fill)
-            .direction(scrollable::Direction::Both {
-                vertical: scrollable::Scrollbar::default(),
-                horizontal: scrollable::Scrollbar::default(),
-            })
-            .into()
+        Self::box_scrollable_element(text, height, horiz_scroll)
+    }
+
+    fn scrollbar_default() -> scrollable::Scrollbar {
+        scrollable::Scrollbar::default()
+            .width(8.0)
+            .scroller_width(6.0)
     }
 
     pub fn box_scrollable_element(
@@ -297,13 +389,14 @@ impl<'a> Style<'a> {
     ) -> Scrollable<'a, AppMessage> {
         let dirn = if horiz_scroll {
             scrollable::Direction::Both {
-                vertical: scrollable::Scrollbar::default(),
-                horizontal: scrollable::Scrollbar::default(),
+                vertical: Self::scrollbar_default(),
+                horizontal: Self::scrollbar_default(),
             }
         } else {
-            scrollable::Direction::Vertical(scrollable::Scrollbar::default())
+            scrollable::Direction::Vertical(Self::scrollbar_default())
         };
         scrollable(content)
+            .style(|_theme, status| Self::scrollbar_style(&status))
             .height(Length::Fixed(height))
             .width(Length::Fill)
             .direction(dirn)

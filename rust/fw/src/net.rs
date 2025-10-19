@@ -72,6 +72,7 @@ fn extract_file(data: &[u8], extract: &str) -> Result<Vec<u8>, Error> {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Releases {
+    version: usize,
     pub latest: String,
     releases: Vec<Release>,
 }

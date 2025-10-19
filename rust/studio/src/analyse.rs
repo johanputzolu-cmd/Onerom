@@ -10,15 +10,19 @@ use rfd::FileDialog;
 use std::path::PathBuf;
 
 #[allow(unused_imports)]
-use onerom_config::hw::{Board, MODELS, Model};
+use onerom_config::fw::FirmwareVersion;
 use onerom_config::mcu::Variant as McuVariant;
 use sdrr_fw_parser::{Parser, SdrrInfo, readers::MemoryReader};
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
 
 use crate::app::AppMessage;
-use crate::device::Device;
+use crate::device::{Device, Message as DeviceMessage};
 use crate::hw::HardwareInfo;
 use crate::studio::{Message as StudioMessage, RuntimeInfo};
 use crate::style::Style;
+
+const FW_VERSION_0_5_0: FirmwareVersion = FirmwareVersion::new(0, 5, 0, 0);
 
 /// Analyse tab messages
 #[derive(Debug, Clone)]
@@ -29,8 +33,10 @@ pub enum Message {
     SelectFile,
     FileSelected(Option<PathBuf>),
     FileLoaded(Result<SdrrInfo, String>),
+    DeviceLoaded(Result<SdrrInfo, String>),
     DeviceData(Vec<u8>),
     ReadFailed(String),
+    RereadDevice(McuVariant, FirmwareVersion),
 }
 
 impl std::fmt::Display for Message {
@@ -41,8 +47,10 @@ impl std::fmt::Display for Message {
             Message::SelectFile => write!(f, "SelectFile"),
             Message::FileSelected(_) => write!(f, "FileSelected(...)"),
             Message::FileLoaded(_) => write!(f, "FileLoaded(...)"),
+            Message::DeviceLoaded(_) => write!(f, "DeviceLoaded(...)"),
             Message::DeviceData(_) => write!(f, "DeviceData(...)"),
             Message::ReadFailed(err) => write!(f, "ReadFailed({err})"),
+            Message::RereadDevice(_, _) => write!(f, "RereadDevice"),
         }
     }
 }
@@ -53,6 +61,7 @@ pub enum DetectState {
     #[default]
     Ice,
     Fire,
+    Reread(McuVariant, FirmwareVersion),
     Done,
 }
 
@@ -61,6 +70,7 @@ impl std::fmt::Display for DetectState {
         match self {
             DetectState::Ice => write!(f, "Ice"),
             DetectState::Fire => write!(f, "Fire"),
+            DetectState::Reread(_, _) => write!(f, "Reread"),
             DetectState::Done => write!(f, "Done"),
         }
     }
@@ -72,6 +82,7 @@ impl DetectState {
             DetectState::Ice => DetectState::Fire,
             DetectState::Fire => DetectState::Done,
             DetectState::Done => DetectState::Done,
+            DetectState::Reread(_, _) => DetectState::Done,
         }
     }
 
@@ -86,6 +97,7 @@ impl DetectState {
         match self {
             DetectState::Ice => Some(McuVariant::F411RE),
             DetectState::Fire => Some(McuVariant::RP2350),
+            DetectState::Reread(mcu, _) => Some(mcu.clone()),
             DetectState::Done => None,
         }
     }
@@ -206,23 +218,90 @@ impl Analyse {
             }
             Message::SelectFile => self.fw_file_chooser(),
             Message::FileSelected(path) => self.load_file(path),
-            Message::FileLoaded(result) => self.file_loaded(result),
-            Message::DeviceData(data) => Task::perform(
-                async move {
-                    // We always pass in 0x08000000 as the parser's base
-                    // address even if RP2350 - parser will figure out what
-                    // it's looking at
-                    let mut reader = MemoryReader::new(data, 0x08000000);
-                    let mut parser = Parser::new(&mut reader);
-                    parser.parse_flash().await
-                },
-                |info| AppMessage::Analyse(Message::FileLoaded(info)),
-            ),
+            Message::FileLoaded(result) => self.file_device_loaded(result, true),
+            Message::DeviceLoaded(result) => self.file_device_loaded(result, false),
+            Message::DeviceData(data) => Task::future(Self::handle_device_data(data)), 
             Message::ReadFailed(err) => {
                 // Move onto trying to detect next device type
                 self.detect_device(Some(err))
             }
+            Message::RereadDevice(mcu, fw_version) => Task::done(self.reread_device(mcu, fw_version)),
         }
+    }
+
+    fn reread_device(&mut self, mcu: McuVariant, fw_version: FirmwareVersion) -> AppMessage {
+        // Indicate we're rereading
+        debug!("Re-reading full flash for MCU variant {} with fw v{}.{}.{}", mcu, fw_version.major(), fw_version.minor(), fw_version.patch());
+        self.analysis_content += &format!("\nRe-reading full flash from {mcu} based device with firmware v{}.{}.{}...\n", fw_version.major(), fw_version.minor(), fw_version.patch());
+        self.state = AnalyseState::Detecting(DetectState::Reread(mcu.clone(), fw_version.clone()));
+
+        // Build the message re-read the flash (and re-parse)
+        let address = mcu.family().get_flash_base();
+        let chip_id = mcu.chip_id().to_string();
+        let words = mcu.flash_storage_bytes() / 4;
+        DeviceMessage::ReadDevice {
+            chip_id,
+            address,
+            words,
+        }.into()
+    }
+
+    async fn handle_device_data(data: Vec<u8>) -> AppMessage {
+        let data_len = data.len();
+
+        // Before proceeding, check if the entire data is 0xFF - this indicates
+        // a blank flash
+        if data.iter().all(|&b| b == 0xFF) {
+            // There's no point in trying a longer (>64KB) read because we
+            // don't know precisely what sort of device is being used, and
+            // hence how much flash it has.  We'll assume it's entirely blank.
+            debug!("Read flash data ({data_len} bytes) is all 0xFF - indicating blank flash");
+            return Message::DeviceLoaded(Err("Blank device detected".to_string())).into();
+        }
+
+        // We always pass in 0x08000000 as the parser's base address even if
+        // RP2350 - parser will figure out what
+        // it's looking at
+        let mut reader = MemoryReader::new(data, 0x08000000);
+        let mut parser = Parser::new(&mut reader);
+        let info = parser.parse_flash().await;
+
+        // parse_flash() returns a Result<SdrrInfo, String>.
+        // If the parsing worked, that's great, but we may still need to load and parse data
+        // from the device again - as first time around we only read 64KB of flash, and in
+        // pre-v0.5.0 firmware, often more than this is needed.
+        if data_len > (64 * 1024) {
+            // We read more than 64KB, so whatever happened just return the
+            // result
+            debug!("Firmware data length > 64KB ({} bytes), so not re-reading", data_len);
+            Message::DeviceLoaded(info).into()
+        } else {
+            if let Err(err) = &info {
+                // Parsing failed - just return the error
+                debug!("Failed to parse firmware data: {}", err);
+                return Message::DeviceLoaded(Err(err.clone())).into();
+            }
+            let info = info.unwrap();
+
+            if info.version >= FW_VERSION_0_5_0 || info.parse_errors.is_empty() {
+                // Firmware is v0.5.0 or later, so 64KB read is sufficient, or
+                // we parsed everything OK anyway
+                trace!("Firmware is v0.5.0 or later, or parsed successfully");
+                return Message::DeviceLoaded(Ok(info)).into();
+            }
+
+            if info.mcu_variant.is_none() {
+                // The MCU info wasn't decoded.  This is worrying, and means
+                // we can't confidently predict the size, so just return as is.
+                info!("MCU variant {} {} not detected during firmware decode, cannot re-read full flash", info.stm_line, info.stm_storage);
+                return Message::DeviceLoaded(Ok(info)).into();
+            }
+            let mcu = info.mcu_variant.unwrap();
+
+            // Ready to re-read full flash
+            Message::RereadDevice(mcu, info.version).into()
+        }
+
     }
 
     fn detect_device(&mut self, err: Option<String>) -> Task<AppMessage> {
@@ -243,14 +322,14 @@ impl Analyse {
 
         if detect_state.is_done() {
             self.fw_info = None;
-            self.analysis_content += "---\nDevice detection failed - neither Ice nor Fire hardware detected.\nHave you connected the probe to the One ROM correctly, and does the One ROM have power?";
+            self.analysis_content += "---\nDevice detection failed - neither One ROM Ice nor One ROM Fire hardware detected.\nHave you connected the probe to the One ROM correctly, and does the One ROM have power?";
             self.state = AnalyseState::Idle;
             return Task::none();
         }
 
         // Actually do a detection, based on current state
         let start_analysis_task = self.start_analysis(new_state);
-        let read_device_task = Task::done(AppMessage::Device(crate::device::Message::ReadDevice {
+        let read_device_task = Task::done(AppMessage::Device(DeviceMessage::ReadDevice {
             chip_id: detect_state.chip_id().expect("Chip ID should be available"),
             address: detect_state
                 .flash_base()
@@ -261,7 +340,7 @@ impl Analyse {
         Task::chain(start_analysis_task, read_device_task)
     }
 
-    fn file_loaded(&mut self, result: Result<SdrrInfo, String>) -> Task<AppMessage> {
+    fn file_device_loaded(&mut self, result: Result<SdrrInfo, String>, is_file: bool) -> Task<AppMessage> {
         match result {
             Ok(info) => {
                 let json = serde_json::to_string_pretty(&info).map_err(|e| e.to_string());
@@ -273,10 +352,17 @@ impl Analyse {
             }
             Err(err) => {
                 self.fw_info = None;
-                self.analysis_content = format!(
-                    "Error loading/parsing file:\n- {}\n---\nAre you sure this is a valid One ROM firmware .bin file?",
-                    err
-                )
+                self.analysis_content = if is_file {
+                    format!(
+                        "Error loading/parsing file:\n- {}\n---\nAre you sure this is a valid One ROM firmware .bin file?",
+                        err,
+                    )
+                } else {
+                    format!(
+                        "Error loading/parsing device firmware:\n- {}\n---\nAre you sure this device is a previously programmed One ROM?",
+                        err,
+                    )
+                }
             }
         }
         self.state = AnalyseState::Idle;
@@ -490,7 +576,7 @@ impl Analyse {
     }
 
     fn fw_content(&self) -> Element<'_, AppMessage> {
-        Style::box_scrollable_text(&self.analysis_content, 320.0).into()
+        Style::box_scrollable_text(&self.analysis_content, 320.0, true).into()
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
