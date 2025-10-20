@@ -10,7 +10,7 @@ All notables changes between versions are documented in this file.
 
 ### Fixes
 
-## v0.5.2 - 2025-??-??
+## v0.5.2 - 2025-10-14
 
 New in this release is a command line firmware image creation tool `rust/fw`.  This dynamically creates a custom One ROM firmware image from a specified:
 - set of ROM images (specified as a JSON config file)
