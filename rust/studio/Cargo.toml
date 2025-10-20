@@ -20,7 +20,8 @@ onerom-config = { path = "../config", version = "0.2.1" }
 onerom-fw = { path = "../fw", version = "0.1.0" }
 onerom-gen = { path = "../gen", version = "0.1.2" }
 sdrr-fw-parser = { path = "../sdrr-fw-parser", version = "0.5.3" }
-dfu-rs = { path = "../../../dfu-rs", version = "0.1.1" }
+#dfu-rs = { path = "../../../dfu-rs", version = "0.1.1" }
+dfu-rs = { version = "0.1.1" }
 
 chrono = "0.4"
 futures = "0.3"
