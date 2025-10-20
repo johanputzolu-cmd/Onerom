@@ -351,7 +351,7 @@ impl Create {
         let images = images.unwrap();
         let filename = filename.unwrap();
 
-        let data = images.firmware_full();
+        let data = images.full_image();
         match std::fs::write(&filename, data) {
             Ok(_) => {
                 debug!("Firmware image saved to {filename:?}");
