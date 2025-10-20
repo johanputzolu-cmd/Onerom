@@ -332,7 +332,7 @@ impl Log {
             .map(|e| e.as_row())
             .collect::<Vec<_>>();
         let column = Column::with_children(logs);
-        let scrollable = Style::box_scrollable_element(column, 453.0, false).anchor_bottom();
+        let scrollable = Style::box_scrollable_element(column, 463.0, false).anchor_bottom();
         Style::container(scrollable).into()
     }
 

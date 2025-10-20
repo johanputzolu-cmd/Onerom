@@ -4,7 +4,7 @@
 
 //! Analyse image functionality
 
-use iced::widget::{Space, column, row};
+use iced::widget::{Button, Space, column, row};
 use iced::{Element, Length, Subscription, Task};
 use rfd::FileDialog;
 use std::path::PathBuf;
@@ -17,7 +17,7 @@ use sdrr_fw_parser::{Parser, SdrrInfo, readers::MemoryReader};
 use log::{debug, error, info, trace, warn};
 
 use crate::app::AppMessage;
-use crate::device::{Device, Message as DeviceMessage};
+use crate::device::{Device, Message as DeviceMessage, Client};
 use crate::hw::HardwareInfo;
 use crate::studio::{Message as StudioMessage, RuntimeInfo};
 use crate::style::Style;
@@ -32,11 +32,13 @@ pub enum Message {
     DetectDevice,
     SelectFile,
     FileSelected(Option<PathBuf>),
-    FileLoaded(Result<SdrrInfo, String>),
-    DeviceLoaded(Result<SdrrInfo, String>),
+    FileLoaded(Result<(SdrrInfo, Vec<u8>), String>),
+    DeviceLoaded(Result<(SdrrInfo, Vec<u8>), String>),
     DeviceData(Vec<u8>),
     ReadFailed(String),
     RereadDevice(McuVariant, FirmwareVersion),
+    FlashFirmware,
+    FlashComplete(Result<(), String>),
 }
 
 impl std::fmt::Display for Message {
@@ -51,6 +53,8 @@ impl std::fmt::Display for Message {
             Message::DeviceData(_) => write!(f, "DeviceData(...)"),
             Message::ReadFailed(err) => write!(f, "ReadFailed({err})"),
             Message::RereadDevice(_, _) => write!(f, "RereadDevice"),
+            Message::FlashFirmware => write!(f, "FlashFirmware"),
+            Message::FlashComplete(_) => write!(f, "FlashComplete(...)"),
         }
     }
 }
@@ -118,6 +122,7 @@ pub enum AnalyseState {
     Idle,
     Loading,
     Detecting(DetectState),
+    Flashing,
 }
 
 impl AnalyseState {
@@ -137,6 +142,7 @@ impl std::fmt::Display for AnalyseState {
             AnalyseState::Idle => write!(f, "Idle"),
             AnalyseState::Loading => write!(f, "Loading"),
             AnalyseState::Detecting(state) => write!(f, "Detecting ({})", state),
+            AnalyseState::Flashing => write!(f, "Flashing"),
         }
     }
 }
@@ -147,6 +153,7 @@ impl AnalyseState {
             AnalyseState::Idle => Analyse::ANALYSIS_TEXT_DEFAULT.to_string(),
             AnalyseState::Loading => "Loading firmware...".to_string(),
             AnalyseState::Detecting(state) => format!("Trying to detect One ROM {state} ..."),
+            AnalyseState::Flashing => "Flashing firmware...".to_string(),
         }
     }
 }
@@ -158,6 +165,7 @@ pub struct Analyse {
     analysis_content: String,
     fw_info: Option<SdrrInfo>,
     fw_file: Option<PathBuf>,
+    file_contents: Option<Vec<u8>>,
     state: AnalyseState,
 }
 
@@ -184,6 +192,7 @@ impl Default for Analyse {
             selected_source_tab: Default::default(),
             fw_info: Default::default(),
             fw_file: Default::default(),
+            file_contents: Default::default(),
             state: Default::default(),
         }
     }
@@ -196,6 +205,7 @@ impl Analyse {
     const SOURCE_DEVICE_BUTTON_NAME: &'static str = "Detect Device";
     const SOURCE_FILE_BUTTON_NAME: &'static str = "Select File";
     const ANALYSIS_TEXT_DEFAULT: &'static str = "No firmware analysed";
+    const FLASH_BUTTON_NAME: &'static str = "Flash";
 
     pub const fn top_level_button_name() -> &'static str {
         "Analyse"
@@ -226,6 +236,53 @@ impl Analyse {
                 self.detect_device(Some(err))
             }
             Message::RereadDevice(mcu, fw_version) => Task::done(self.reread_device(mcu, fw_version)),
+            Message::FlashFirmware => self.flash_firmware(),
+            Message::FlashComplete(result) => Task::done(self.firmware_flash_complete(result)),
+        }
+    }
+
+    fn flash_firmware(&mut self) -> Task<AppMessage> {
+        if self.state.is_busy() {
+            warn!("Cannot flash firmware - Analyse tab is busy ({})", self.state);
+            self.analysis_content += "\nCannot flash firmware - Analyse tab is busy.\n";
+            return Task::none();
+        }
+
+        self.state = AnalyseState::Flashing;
+
+        if let Some(device_fw_data) = self.file_contents.as_ref() && let Some(filename) = self.fw_file.as_ref() {
+            self.analysis_content = format!("Flashing {filename:?} to device...\n");
+            Task::done(DeviceMessage::FlashFirmware(
+                Client::Analyse,
+                device_fw_data.clone(),
+            ).into())
+        } else {
+            self.analysis_content = format!("Cannot flash - no file loaded\n");
+            Task::none()
+        }
+    }
+
+    fn firmware_flash_complete(&mut self, result: Result<(), String>) -> AppMessage {
+        if self.state != AnalyseState::Flashing {
+            warn!("Received FlashComplete message while not flashing (state is {})", self.state);
+            self.analysis_content += "\nReceived unexpected flash complete message.\n";
+            return AppMessage::Nop;
+        }
+
+        self.state = AnalyseState::Idle;
+
+        match result {
+            Ok(()) => {
+                self.analysis_content += "\nFirmware flash completed successfully.\n";
+            }
+            Err(err) => {
+                self.analysis_content += &format!("\nFirmware flash failed:\n- {err}\n");
+            }
+        }
+
+        match self.share_hw_info() {
+            Some(msg) => msg,
+            None => AppMessage::Nop,
         }
     }
 
@@ -240,6 +297,7 @@ impl Analyse {
         let chip_id = mcu.chip_id().to_string();
         let words = mcu.flash_storage_bytes() / 4;
         DeviceMessage::ReadDevice {
+            client: Client::Analyse,
             chip_id,
             address,
             words,
@@ -247,6 +305,7 @@ impl Analyse {
     }
 
     async fn handle_device_data(data: Vec<u8>) -> AppMessage {
+        let data_copy = data.clone();
         let data_len = data.len();
 
         // Before proceeding, check if the entire data is 0xFF - this indicates
@@ -265,6 +324,10 @@ impl Analyse {
         let mut reader = MemoryReader::new(data, 0x08000000);
         let mut parser = Parser::new(&mut reader);
         let info = parser.parse_flash().await;
+        let info = match info {
+            Ok(info) => Ok((info, data_copy.to_vec())),
+            Err(err) => Err(err),
+        };
 
         // parse_flash() returns a Result<SdrrInfo, String>.
         // If the parsing worked, that's great, but we may still need to load and parse data
@@ -281,20 +344,20 @@ impl Analyse {
                 debug!("Failed to parse firmware data: {}", err);
                 return Message::DeviceLoaded(Err(err.clone())).into();
             }
-            let info = info.unwrap();
+            let (info, data) = info.unwrap();
 
             if info.version >= FW_VERSION_0_5_0 || info.parse_errors.is_empty() {
                 // Firmware is v0.5.0 or later, so 64KB read is sufficient, or
                 // we parsed everything OK anyway
                 trace!("Firmware is v0.5.0 or later, or parsed successfully");
-                return Message::DeviceLoaded(Ok(info)).into();
+                return Message::DeviceLoaded(Ok((info, data))).into();
             }
 
             if info.mcu_variant.is_none() {
                 // The MCU info wasn't decoded.  This is worrying, and means
                 // we can't confidently predict the size, so just return as is.
                 info!("MCU variant {} {} not detected during firmware decode, cannot re-read full flash", info.stm_line, info.stm_storage);
-                return Message::DeviceLoaded(Ok(info)).into();
+                return Message::DeviceLoaded(Ok((info, data))).into();
             }
             let mcu = info.mcu_variant.unwrap();
 
@@ -305,6 +368,8 @@ impl Analyse {
     }
 
     fn detect_device(&mut self, err: Option<String>) -> Task<AppMessage> {
+        self.file_contents = None;
+
         if let Some(err) = err {
             self.fw_info = None;
             self.analysis_content += &format!("\nError reading from device:\n- {err}\n");
@@ -330,6 +395,7 @@ impl Analyse {
         // Actually do a detection, based on current state
         let start_analysis_task = self.start_analysis(new_state);
         let read_device_task = Task::done(AppMessage::Device(DeviceMessage::ReadDevice {
+            client: Client::Analyse,
             chip_id: detect_state.chip_id().expect("Chip ID should be available"),
             address: detect_state
                 .flash_base()
@@ -340,15 +406,20 @@ impl Analyse {
         Task::chain(start_analysis_task, read_device_task)
     }
 
-    fn file_device_loaded(&mut self, result: Result<SdrrInfo, String>, is_file: bool) -> Task<AppMessage> {
+    fn file_device_loaded(&mut self, result: Result<(SdrrInfo, Vec<u8>), String>, is_file: bool) -> Task<AppMessage> {
         match result {
-            Ok(info) => {
+            Ok((info, data)) => {
                 let json = serde_json::to_string_pretty(&info).map_err(|e| e.to_string());
                 self.analysis_content = match json {
                     Ok(j) => j,
                     Err(e) => format!("Error serializing info to JSON: {}", e),
                 };
-                self.fw_info = Some(info)
+                self.fw_info = Some(info);
+                self.file_contents = if is_file {
+                    Some(data)
+                } else {
+                    None
+                };
             }
             Err(err) => {
                 self.fw_info = None;
@@ -368,21 +439,24 @@ impl Analyse {
         self.state = AnalyseState::Idle;
 
         // Send decoded hardware informaton to the rest of the app
-        self.share_hw_info()
+        match self.share_hw_info() {
+            Some(msg) => Task::done(msg),
+            None => Task::none(),
+        }
     }
 
-    fn share_hw_info(&mut self) -> Task<AppMessage> {
+    fn share_hw_info(&mut self) -> Option<AppMessage> {
         if let Some(info) = self.fw_info.as_ref() {
             let hw_info = HardwareInfo {
                 board: info.board,
                 model: info.model,
                 mcu_variant: info.mcu_variant,
             };
-            Task::done(AppMessage::Studio(StudioMessage::HardwareInfo(Some(
+            Some(AppMessage::Studio(StudioMessage::HardwareInfo(Some(
                 hw_info,
             ))))
         } else {
-            Task::none()
+            None
         }
     }
 
@@ -394,6 +468,7 @@ impl Analyse {
         self.state = state;
         self.analysis_content += &self.state.content().to_string();
         self.fw_info = None;
+        self.file_contents = None;
         self.clear_hw_info()
     }
 
@@ -402,8 +477,8 @@ impl Analyse {
             let start_analysis_task = self.start_analysis(AnalyseState::Loading);
             self.fw_file = Some(path.clone());
             let load_file_task =
-                Task::perform(async move { Self::async_load_file(path).await }, |info| {
-                    AppMessage::Analyse(Message::FileLoaded(info))
+                Task::perform(async move { Self::async_load_file(path).await }, |result| {
+                    AppMessage::Analyse(Message::FileLoaded(result))
                 });
             Task::batch([start_analysis_task, load_file_task])
         } else {
@@ -411,15 +486,16 @@ impl Analyse {
         }
     }
 
-    async fn async_load_file(path: PathBuf) -> Result<SdrrInfo, String> {
+    async fn async_load_file(path: PathBuf) -> Result<(SdrrInfo, Vec<u8>), String> {
         if path.exists() && path.is_file() {
             // Read in the file
             let data = std::fs::read(path).map_err(|e| e.to_string())?;
 
             // Parse it
-            let mut reader = MemoryReader::new(data, 0x08000000);
+            let mut reader = MemoryReader::new(data.clone(), 0x08000000);
             let mut parser = Parser::new(&mut reader);
-            parser.parse_flash().await
+            let parser_result = parser.parse_flash().await;
+            parser_result.map(|info| (info, data))
         } else {
             Err("File does not exist or is a directory".to_string())
         }
@@ -432,7 +508,7 @@ impl Analyse {
                     .add_filter("firmware", &["bin"])
                     .pick_file()
             },
-            |path| AppMessage::Analyse(Message::FileSelected(path)),
+            |path| Message::FileSelected(path).into(),
         )
     }
 
@@ -471,9 +547,9 @@ impl Analyse {
             None
         } else {
             if self.state.is_idle() {
-                Some(AppMessage::Analyse(Message::SourceTabSelected(
+                Some(Message::SourceTabSelected(
                     SourceTab::File,
-                )))
+                ).into())
             } else {
                 None
             }
@@ -481,9 +557,9 @@ impl Analyse {
 
         let device_message = if is_file_selected {
             if self.state.is_idle() {
-                Some(AppMessage::Analyse(Message::SourceTabSelected(
+                Some(Message::SourceTabSelected(
                     SourceTab::Device,
-                )))
+                ).into())
             } else {
                 None
             }
@@ -492,10 +568,10 @@ impl Analyse {
         };
 
         let file_button =
-            Style::text_button(Self::FILE_BUTTON_NAME, file_message, is_file_selected);
+            Style::text_button_small(Self::FILE_BUTTON_NAME, file_message, is_file_selected);
 
         let device_button =
-            Style::text_button(Self::DEVICE_BUTTON_NAME, device_message, !is_file_selected);
+            Style::text_button_small(Self::DEVICE_BUTTON_NAME, device_message, !is_file_selected);
 
         row![file_button, device_button]
             .spacing(20)
@@ -503,13 +579,46 @@ impl Analyse {
     }
 
     fn fw_source_control(&self, device: &Device) -> Element<'_, AppMessage> {
-        match self.selected_source_tab {
+        let source_button = match self.selected_source_tab {
             SourceTab::Device => self.fw_source_device_control(device),
             SourceTab::File => self.fw_source_file_control(),
+        };
+
+        let row = row![];
+
+        // Show flash file if on file source tab
+        if self.selected_source_tab == SourceTab::File && self.file_contents.is_some(){
+            row.push(self.flash_file_button(device))
+        } else {
+            row
         }
+            .push(source_button)
+            .spacing(20).into()
     }
 
-    fn fw_source_device_control(&self, device: &Device) -> Element<'_, AppMessage> {
+    fn flash_file_button(&self, device: &Device) -> Button<'_, AppMessage> {
+        let highlighted = if self.state.is_idle() && !device.selected().is_none() && device.is_idle() && self.fw_info.is_some() {
+            true
+        } else {
+            false
+        };
+
+        let message = if self.state.is_idle() && !device.selected().is_none() && self.fw_info.is_some() && !device.is_busy() {
+            Some(Message::FlashFirmware.into())
+        } else {
+            None
+        };
+
+        let content = if self.state.is_idle() {
+            Self::FLASH_BUTTON_NAME
+        } else {
+            "Busy..."
+        };
+
+        Style::text_button_small(content, message, highlighted)
+    }
+
+    fn fw_source_device_control(&self, device: &Device) -> Button<'_, AppMessage> {
         let highlighted = if self.state.is_idle() && !device.selected().is_none() {
             true
         } else {
@@ -528,14 +637,13 @@ impl Analyse {
             "Detecting..."
         };
 
-        let button = Style::text_button(content, message, highlighted);
-        row![button].spacing(20).padding(10).into()
+        Style::text_button_small(content, message, highlighted)
     }
 
-    fn fw_source_file_control(&self) -> Element<'_, AppMessage> {
+    fn fw_source_file_control(&self) -> Button<'_, AppMessage> {
         // Only enable this button if file not being loaded
         let file_control_message = if self.state.is_idle() {
-            Some(AppMessage::Analyse(Message::SelectFile))
+            Some(Message::SelectFile.into())
         } else {
             None
         };
@@ -547,10 +655,7 @@ impl Analyse {
         };
 
         // Create the button
-        let button = Style::text_button(content, file_control_message, true);
-
-        // Create the row
-        row![button].spacing(20).padding(10).into()
+        Style::text_button_small(content, file_control_message, true)
     }
 
     fn fw_content_heading(&self, hw_info: Option<&HardwareInfo>) -> Element<'_, AppMessage> {
@@ -575,7 +680,7 @@ impl Analyse {
     }
 
     fn fw_content(&self) -> Element<'_, AppMessage> {
-        Style::box_scrollable_text(&self.analysis_content, 320.0, true).into()
+        Style::box_scrollable_text(&self.analysis_content, 350.0, true).into()
     }
 
     pub fn subscription(&self) -> Subscription<Message> {

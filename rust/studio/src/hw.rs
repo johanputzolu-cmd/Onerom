@@ -66,6 +66,14 @@ impl HardwareInfo {
             }
         }
     }
+
+    pub fn board_name(&self) -> String {
+        self.board.as_ref().map(|b| b.name().to_string()).unwrap_or_else(|| "unknown".into())
+    }
+
+    pub fn mcu_name(&self) -> String {
+        self.mcu_variant.as_ref().map(|m| m.to_string()).unwrap_or_else(|| "unknown".into()).to_lowercase()
+    }
 }
 
 impl std::fmt::Display for HardwareInfo {

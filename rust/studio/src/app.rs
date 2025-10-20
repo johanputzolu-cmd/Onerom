@@ -2,7 +2,8 @@
 //
 // MIT License
 
-use iced::widget::{column, row};
+use iced::widget::{column, row, Space};
+use iced::alignment::Vertical::Bottom;
 use iced::{Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
@@ -14,7 +15,7 @@ use crate::log::{Level, Log, LogEntry, Message as LogMessage};
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Studio, StudioTab};
 use crate::style::{Message as StyleMessage, Style};
 
-/// Kicks off any startup tasks fo the app
+/// Kicks off any startup tasks for the app
 ///
 /// - Select the default top-level tab
 /// - Fetch One ROM releases from the network
@@ -26,8 +27,7 @@ pub fn startup_task() -> Task<AppMessage> {
         )))),
         Task::done(AppMessage::Studio(StudioMessage::FetchReleases)),
         Task::done(AppMessage::Studio(StudioMessage::FetchConfigs)),
-        Task::done(AppMessage::Device(DeviceMessage::DetectProbes)),
-        Task::done(AppMessage::Device(DeviceMessage::DetectUsbDevices)),
+        Task::run(Device::get_devices_startup(), |msg| msg),
     ])
     .into()
 }
@@ -132,14 +132,20 @@ impl<'a> App<'a> {
 
         let serious_errors = self.log.serious_errors_occurred();
         let top_left_corner =
-            column![Style::text_studio_h1(), self.studio.top_level_buttons(serious_errors),].spacing(20);
+            column![
+                Style::text_studio_h1(),
+                self.studio.top_level_buttons(serious_errors),
+            ]
+            .spacing(20);
 
         let top_right_corner = self.device.view();
 
         let top_row = row![
-            top_left_corner.width(Length::FillPortion(5)),
+            column![top_left_corner, Space::with_height(5.0)].width(Length::FillPortion(5)),
             top_right_corner.width(Length::FillPortion(4)),
         ]
+        .align_y(Bottom)
+        .height(110)
         .spacing(20);
 
         let content_row = match self.studio.active_tab() {
@@ -150,14 +156,16 @@ impl<'a> App<'a> {
 
         column![
             top_row,
+            Space::with_height(20.0),
             Style::horiz_line(),
+            Space::with_height(20.0),
             content_row,
             Style::blank_space(),
             Style::horiz_line(),
+            Space::with_height(20.0),
             Style::footer(),
         ]
         .padding([20, 20])
-        .spacing(20)
         .into()
     }
 

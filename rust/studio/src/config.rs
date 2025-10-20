@@ -22,14 +22,14 @@ impl Configs {
         let mut configs: Configs = serde_json::from_str(&json)
             .map_err(|e| format!("Failed to parse Configs JSON:\n  - {e}"))?;
         
-        // Create names (required by pick list)
-        let names = configs.configs.iter()
+        // Create names (required by pick list) and sort alphabetically
+        let mut names = configs.configs.iter()
             .filter_map(|c| {
                 let file_name = c.split('/').last()?.split('.').next()?;
                 Some(file_name.to_string())
             })
-            .collect();
-
+            .collect::<Vec<_>>();
+        names.sort();
         configs.names = Some(names);
 
         Ok(configs)

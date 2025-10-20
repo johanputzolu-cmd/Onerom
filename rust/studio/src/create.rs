@@ -4,8 +4,8 @@
 
 //! Create functionality
 
-use iced::widget::{column, row};
-use iced::{Subscription, Task};
+use iced::widget::{column, row, Space};
+use iced::{Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use rfd::FileDialog;
@@ -16,7 +16,7 @@ use onerom_config::mcu::{Family, MCU_VARIANTS, Variant as McuVariant};
 use onerom_fw::net::{Release, Releases};
 
 use crate::app::AppMessage;
-use crate::device::Message as DeviceMessage;
+use crate::device::{Client, Message as DeviceMessage};
 use crate::hw::HardwareInfo;
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Images};
 use crate::style::Style;
@@ -171,7 +171,9 @@ impl Create {
             }
             Message::ReleasesUpdated => {
                 let releases = runtime_info.releases();
-                if self.hardware_selected() {
+
+                // Select the latest firmware, unless one is already selected
+                if self.hardware_selected() && runtime_info.selected_firmware().is_none() {
                     task_from_msg!(self.select_latest_release(releases))
                 } else {
                     Task::none()
@@ -207,7 +209,13 @@ impl Create {
             Message::SaveFirmware => {
                 if !self.is_busy() {
                     self.state = State::Saving;
-                    Task::future(Self::save_firmware())
+                    let filename = format!(
+                        "onerom-{}-{}-{}.bin",
+                        runtime_info.selected_config().unwrap_or(&"unknown".to_string()),
+                        self.selected_hw_info.board_name(),
+                        self.selected_hw_info.mcu_name(),
+                    );
+                    Task::future(Self::save_firmware(filename))
                 } else {
                     warn!("Busy - skipping save firmware");
                     return Task::none();
@@ -215,15 +223,23 @@ impl Create {
             }
             Message::SaveFirmwareFilename(filename) => {
                 if self.is_busy() {
-                    let images = runtime_info.images().cloned();
-                    Task::future(Self::save_firmware_filename(filename, images))
+                    if filename.is_some() {
+                        self.set_display_content(format!("Saving firmware to {filename:?}..."));
+                        let images = runtime_info.images().cloned();
+                        Task::future(Self::save_firmware_filename(filename, images))
+                    } else {
+                        debug!("Save firmware cancelled by user");
+                        self.state = State::Idle;
+                        Task::none()
+                    }
                 } else {
                     internal_error!("SaveFirmwareFilename received while not saving.");
                     warn!("Aborting save firmware.");
-                    return Task::none();
+                    Task::none()
                 }
             }
             Message::SaveFirmwareComplete => {
+                self.display_content += "\n\nFirmware save complete.";
                 if !self.is_busy() {
                     internal_error!("SaveFirmwareComplete received while not saving.");
                 }
@@ -239,7 +255,7 @@ impl Create {
                         Some(fw) => {
                             self.state = State::Flashing;
                             self.set_display_content("Flashing firmware...");
-                            Task::done((DeviceMessage::FlashFirmware(fw)).into())
+                            Task::done((DeviceMessage::FlashFirmware(Client::Create, fw)).into())
                         }
                         None => {
                             self.set_display_content("No firmware image available to flash.");
@@ -293,10 +309,10 @@ impl Create {
         matches!(self.state, State::Saving)
     }
 
-    async fn save_firmware() -> AppMessage {
+    async fn save_firmware(filename: String) -> AppMessage {
         let dialog = FileDialog::new()
             .set_title("Save Firmware Image")
-            .set_file_name("firmware.bin")
+            .set_file_name(filename)
             .add_filter("Binary Files", &["bin"])
             .set_directory(".");
         let path = dialog.save_file();
@@ -478,7 +494,7 @@ impl Create {
             } else {
                 (Some(Message::BuildImages.into()), true)
             };
-            let build_button = Style::text_button(
+            let build_button = Style::text_button_small(
                 content,
                 on_press,
                 highlighted,
@@ -499,7 +515,7 @@ impl Create {
                 } else {
                     "Save Firmware".to_string()
                 };
-                let save_button = Style::text_button(
+                let save_button = Style::text_button_small(
                     save_content,
                     on_press,
                     highlighted,
@@ -515,20 +531,23 @@ impl Create {
                 } else {
                     (Some(Message::FlashFirmware.into()), true)
                 };
-                let flash_button = Style::text_button(
+                let flash_button = Style::text_button_small(
                     flash_content,
                     on_press,
                     highlighted,
                 );
 
-                button_row.push(save_button).push(flash_button)
+                button_row
+                    .push(Space::with_width(Length::Fill))
+                    .push(save_button)
+                    .push(flash_button)
             } else {
                 button_row
             };
 
             let window = Style::box_scrollable_text(
                 self.display_content.clone(),
-                144.0,
+                166.0,
                 true,
             );
             let window_container = Style::container(window);
@@ -628,7 +647,7 @@ impl Create {
     }
 
     fn detect_button(&self) -> iced::Element<'_, AppMessage> {
-        let button = Style::text_button(
+        let button = Style::text_button_small(
             "Detect Hardware",
             Some(Message::DetectHardware.into()),
             true,

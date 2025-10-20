@@ -6,6 +6,7 @@
 
 mod analyse;
 mod app;
+mod built;
 mod config;
 mod create;
 mod device;

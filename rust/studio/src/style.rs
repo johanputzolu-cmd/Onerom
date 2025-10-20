@@ -437,6 +437,28 @@ impl<'a> Style<'a> {
             .on_press(AppMessage::Style(Message::ClickLink(link)))
     }
 
+    pub fn version_row() -> Element<'a, AppMessage> {
+        let commit_id = if let Some(commit_id) = crate::built::GIT_COMMIT_HASH_SHORT {
+            format!(
+                " ({}{})", 
+                if crate::built::GIT_DIRTY.unwrap_or(true) {
+                    "!"
+                } else {
+                    ""
+                },
+                &commit_id
+            )
+        } else {
+            "".to_string()
+        };
+        let text = Style::text_small(format!("v{}{}", env!("CARGO_PKG_VERSION"), commit_id))
+            .color(Self::COLOUR_TEXT_DIM);
+        row![
+            Space::with_width(Length::Fill),
+            text
+        ].into()
+    }
+
     fn footer_1_left() -> Element<'a, AppMessage> {
         Self::link("One ROM", Self::FONT_SIZE_BODY, Link::OneRom).into()
     }
@@ -484,7 +506,11 @@ impl<'a> Style<'a> {
     }
 
     pub fn footer() -> Element<'a, AppMessage> {
-        column![Self::footer_row_1(), Self::footer_row_2(),]
+        column![
+            Self::version_row(),
+            Self::footer_row_1(),
+            Self::footer_row_2(),
+        ]
             .spacing(5)
             .into()
     }
