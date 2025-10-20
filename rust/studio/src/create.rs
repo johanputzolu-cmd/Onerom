@@ -115,7 +115,7 @@ impl Create {
     }
 
     fn default_display_content() -> String {
-        "Images not yet built...".to_string()
+        "Image not yet built...".to_string()
     }
 
     pub fn new() -> Self {
@@ -131,19 +131,26 @@ impl Create {
     ) -> iced::Task<AppMessage> {
         match message {
             Message::ModelSelected(model) => {
+                debug!("Model selected: {}", model.name());
                 self.model_selected(model);
                 Task::none()
             }
             Message::BoardSelected(board) => {
+                debug!("Board selected: {}", board.name());
                 task_from_msg!(self.board_selected(runtime_info, board))
             }
-            Message::DetectHardware => Task::none(),
+            Message::DetectHardware => {
+                info!("Detect hardware requested - unimplemented");
+                Task::none()
+            }
             Message::McuSelected(mcu) => {
+                debug!("MCU selected: {}", mcu);
                 self.mcu_selected(mcu);
                 task_from_msg!(self.select_latest_release(runtime_info.releases()))
             }
             Message::DetectedHardwareInfo => {
                 if let Some(hw_info) = runtime_info.hw_info() {
+                    debug!("Incoming detected hardware info: {hw_info}");
                     if let Some(model) = hw_info.model {
                         self.model_selected(model);
                         true
@@ -165,11 +172,11 @@ impl Create {
                     };
                     task_from_msgs!([msg1, msg2])
                 } else {
-                    debug!("No hardware info available");
+                    trace!("No hardware info available");
                     Task::none()
                 }
             }
-            Message::ReleasesUpdated => {
+            Message::ReleasesUpdated => {                
                 let releases = runtime_info.releases();
 
                 // Select the latest firmware, unless one is already selected
@@ -179,13 +186,20 @@ impl Create {
                     Task::none()
                 }
             }
-            Message::ReleaseSelected(release) => task_from_msg!(self.release_selected(release)),
-            Message::ConfigSelected(name) => task_from_msg!(self.config_selected(name)),
+            Message::ReleaseSelected(release) => {
+                debug!("Firmware release selected: {}", release.version);
+                task_from_msg!(self.release_selected(release))
+            }
+            Message::ConfigSelected(name) => {
+                debug!("Config selected: {}", name);
+                task_from_msg!(self.config_selected(name))
+            }
             Message::ConfigsUpdated => {
                 // No action needed
                 Task::none()
             }
             Message::BuildImages => {
+                debug!("Build image requested");
                 if self.is_idle() {
                     self.state = State::Building;
                     self.set_display_content("Building image...");
@@ -196,6 +210,7 @@ impl Create {
                 }
             }
             Message::BuildImagesResult(result) => {
+                debug!("Build image result received: {}", if result.is_ok() { "OK" } else { "Error" });
                 if !self.is_busy() {
                     internal_error!("BuildImagesResult received while not busy.");
                 }
@@ -207,6 +222,7 @@ impl Create {
                 Task::none()
             }
             Message::SaveFirmware => {
+                debug!("Save firmware requested");
                 if !self.is_busy() {
                     self.state = State::Saving;
                     let filename = format!(
@@ -222,6 +238,7 @@ impl Create {
                 }
             }
             Message::SaveFirmwareFilename(filename) => {
+                debug!("Save firmware filename received: {}", if let Some(f) = &filename { format!("{f:?}") } else { "None".to_string() });
                 if self.is_busy() {
                     if filename.is_some() {
                         self.set_display_content(format!("Saving firmware to {filename:?}..."));
@@ -239,6 +256,7 @@ impl Create {
                 }
             }
             Message::SaveFirmwareComplete => {
+                debug!("Save firmware operation complete");
                 self.display_content += "\n\nFirmware save complete.";
                 if !self.is_busy() {
                     internal_error!("SaveFirmwareComplete received while not saving.");
@@ -250,6 +268,7 @@ impl Create {
                 Task::none()
             }
             Message::FlashFirmware => {
+                debug!("Flash firmware requested");
                 if !self.is_busy() {
                     match runtime_info.images().and_then(|imgs| Some(imgs.full_image())) {
                         Some(fw) => {
@@ -269,6 +288,7 @@ impl Create {
 
             }
             Message::FlashFirmwareResult(result) => {
+                debug!("Flash firmware result received: {}", if result.is_ok() { "OK" } else { "Error" });
                 if !self.is_busy() {
                     internal_error!("FlashFirmwareResult received while not busy.");
                 }
@@ -347,7 +367,7 @@ impl Create {
         match result {
             Ok(desc) => {
                 self.display_content = format!(
-                    "Image built successfully, total: {} bytes ({}/{}/{})\n\n{}",
+                    "Image built successfully, total: {} bytes ({}/{}/{} plus padding)\n---\n{}",
                     runtime_info.built_full_image_len().unwrap_or(0),
                     runtime_info.built_firmware_len().unwrap_or(0),
                     runtime_info.built_metadata_len().unwrap_or(0),
@@ -398,6 +418,7 @@ impl Create {
     }
 
     fn config_selected(&mut self, name: String) -> Option<AppMessage> {
+        self.display_content = Self::default_display_content();
         Some(AppMessage::Studio(StudioMessage::DownloadConfig(name)))
     }
 
@@ -459,8 +480,8 @@ impl Create {
         let mut columns = column![
             row![
                 self.select_hw_heading_row(),
-                Style::text_h3("or"),
-                self.detect_button(),
+                //Style::text_h3("or"),
+                //self.detect_button(),
             ]
             .spacing(20)
             .align_y(iced::alignment::Vertical::Center),
@@ -646,14 +667,14 @@ impl Create {
         row![Style::text_h3("Select Hardware")].into()
     }
 
-    fn detect_button(&self) -> iced::Element<'_, AppMessage> {
-        let button = Style::text_button_small(
-            "Detect Hardware",
-            Some(Message::DetectHardware.into()),
-            true,
-        );
-        row![button].into()
-    }
+    //fn detect_button(&self) -> iced::Element<'_, AppMessage> {
+    //    let button = Style::text_button_small(
+    //        "Detect Hardware",
+    //        Some(Message::DetectHardware.into()),
+    //        true,
+    //    );
+    //    row![button].into()
+    //}
 
     fn select_hw_row(&self) -> iced::Element<'_, AppMessage> {
         // Set up model picker

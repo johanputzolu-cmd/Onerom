@@ -235,9 +235,18 @@ impl Device {
                 self.probes_detected(probes);
                 Task::none()
             }
-            Message::SelectDevice(device) => self.select_device(device),
-            Message::SelectProbe(probe) => self.select_probe(probe),
-            Message::SelectUsbDevice(usb_device) => self.select_usb_device(usb_device),
+            Message::SelectDevice(device) => {
+                debug!("Selecting device: {}", device);
+                self.select_device(device)
+            },
+            Message::SelectProbe(probe) => {
+                debug!("Selecting probe: {}", probe);
+                self.select_probe(probe)
+            },
+            Message::SelectUsbDevice(usb_device) => {
+                debug!("Selecting USB device: {}", usb_device);
+                self.select_usb_device(usb_device)
+            },
             Message::DetectUsbDevices => {
                 if self.is_idle() {
                     Task::future(Self::get_usb_device_list_async())
@@ -251,10 +260,12 @@ impl Device {
                 Task::none()
             }
             Message::FlashFirmware(client, data) => {
+                debug!("{client} Flashing firmware");
                 self.operating = Some(client.clone());
                 self.selected.flash(client, data)
             }
             Message::FlashFirmwareResult(client, result) => {
+                debug!("{client} Firmware flash complete: {}", if result.is_ok() { "OK" } else { "Error" });
                 // Force a device re-enumeration after flashing firmware
                 self.operating = None;
                 let msg = match client {
@@ -270,6 +281,7 @@ impl Device {
                 address,
                 words,
             } => {
+                debug!("{client} Reading device memory at 0x{:08X}, {} words", address, words);
                 if client != Client::Analyse {
                     internal_error!("Device read requested by unsupported client: {}", client);
                     return Task::none()
@@ -278,11 +290,13 @@ impl Device {
                 self.selected.read(client, &chip_id, address, words)
             }
             Message::DeviceData(client, data) => {
+                debug!("{client} Received device data: {} bytes", data.len());
                 assert_eq!(client, Client::Analyse);
                 self.operating = None;
                 Task::done(AnalyseMessage::DeviceData(data).into())
             }
             Message::ReadFailed(client, error) => {
+                warn!("{client} Device read failed: {}", error);
                 assert_eq!(client, Client::Analyse);
                 self.operating = None;
                 Task::done(AnalyseMessage::ReadFailed(error).into())

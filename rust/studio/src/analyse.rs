@@ -222,22 +222,49 @@ impl Analyse {
                 Task::none()
             }
             Message::DetectDevice => {
+                debug!("Starting device detection");
                 // Clear out previous analysis content
                 self.analysis_content = String::new();
                 self.detect_device(None)
             }
-            Message::SelectFile => self.fw_file_chooser(),
-            Message::FileSelected(path) => self.load_file(path),
-            Message::FileLoaded(result) => self.file_device_loaded(result, true),
-            Message::DeviceLoaded(result) => self.file_device_loaded(result, false),
-            Message::DeviceData(data) => Task::future(Self::handle_device_data(data)), 
+            Message::SelectFile => {
+                debug!("Selecting firmware file");
+                self.fw_file_chooser()
+            }
+            Message::FileSelected(path) => {
+                debug!("Firmware file selected: {:?}", path);
+                self.load_file(path)
+            }
+            Message::FileLoaded(result) => {
+                debug!("Firmware file loaded: {}", if result.is_ok() { "OK" } else { "Error" });
+                self.file_device_loaded(result, true)
+            }
+            Message::DeviceLoaded(result) => {
+                debug!("Device firmware loaded: {}", if result.is_ok() { "OK" } else { "Error" });
+                self.file_device_loaded(result, false)
+            }
+            Message::DeviceData(data) => {
+                debug!("Device data received: {} bytes", data.len());
+                Task::future(Self::handle_device_data(data))
+            }
             Message::ReadFailed(err) => {
+                debug!("Device read failed: {}", err);
                 // Move onto trying to detect next device type
                 self.detect_device(Some(err))
             }
-            Message::RereadDevice(mcu, fw_version) => Task::done(self.reread_device(mcu, fw_version)),
-            Message::FlashFirmware => self.flash_firmware(),
-            Message::FlashComplete(result) => Task::done(self.firmware_flash_complete(result)),
+            Message::RereadDevice(mcu, fw_version) => {
+                debug!("Re-reading device flash for MCU variant {} with fw v{}.{}.{}", mcu, fw_version.major(), fw_version.minor(), fw_version.patch());
+                Task::done(self.reread_device(mcu, fw_version))
+            }
+            Message::FlashFirmware => {
+                debug!("Flashing firmware to device");
+                self.flash_firmware()
+            }
+            Message::FlashComplete(result) => {
+                debug!("Firmware flash complete: {}", if result.is_ok() { "OK" } else { "Error" });
+                self.firmware_flash_complete(result);
+                Task::none()
+            }
         }
     }
 
@@ -262,11 +289,11 @@ impl Analyse {
         }
     }
 
-    fn firmware_flash_complete(&mut self, result: Result<(), String>) -> AppMessage {
+    fn firmware_flash_complete(&mut self, result: Result<(), String>) {
         if self.state != AnalyseState::Flashing {
             warn!("Received FlashComplete message while not flashing (state is {})", self.state);
             self.analysis_content += "\nReceived unexpected flash complete message.\n";
-            return AppMessage::Nop;
+            return;
         }
 
         self.state = AnalyseState::Idle;
@@ -278,11 +305,6 @@ impl Analyse {
             Err(err) => {
                 self.analysis_content += &format!("\nFirmware flash failed:\n- {err}\n");
             }
-        }
-
-        match self.share_hw_info() {
-            Some(msg) => msg,
-            None => AppMessage::Nop,
         }
     }
 
@@ -461,7 +483,7 @@ impl Analyse {
     }
 
     fn clear_hw_info(&self) -> Task<AppMessage> {
-        Task::done(AppMessage::Studio(StudioMessage::HardwareInfo(None)))
+        Task::done(StudioMessage::HardwareInfo(None).into())
     }
 
     fn start_analysis(&mut self, state: AnalyseState) -> Task<AppMessage> {

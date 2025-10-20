@@ -80,7 +80,7 @@ impl std::fmt::Display for HardwareInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "HardwareInfo(board={:?}, model={:?}, mcu_variant={:?})",
+            "HardwareInfo: board={:?}, model={:?}, mcu_variant={:?}",
             self.board.as_ref().map(|b| b.name()),
             self.model.as_ref().map(|m| m.name()),
             self.mcu_variant

@@ -497,7 +497,7 @@ impl Studio {
             let id = spec.id;
             let url = &spec.source;
             let extract = spec.extract;
-            trace!("Downloading ROM file from {url} (extract={extract:?})");
+            debug!("Downloading ROM file from {url} (extract={extract:?})");
             match fetch_rom_file_async(url, extract).await {
                 Ok(data) => {
                     info!("Downloaded ROM file {url} ({} bytes)", data.len());

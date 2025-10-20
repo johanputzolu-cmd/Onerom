@@ -11,6 +11,8 @@ use iced::{Element, Subscription, Task, clipboard};
 use std::env;
 use std::sync::{Mutex, OnceLock};
 use std::time::SystemTime;
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
 
 use crate::app::AppMessage;
 use crate::studio::RuntimeInfo;
@@ -48,12 +50,12 @@ impl Default for Config {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(dead_code)]
 pub enum Level {
-    #[default]
     /// Trace log entry
     Trace,
     /// Debug log entry
     Debug,
     /// Informational log entry
+    #[default]
     Info,
     /// Warning log entry
     Warning,
@@ -241,12 +243,17 @@ impl Log {
                 Task::none()
             }
             Message::MaxLogLevel(level) => {
+                debug!("Max log level changed: {}", level);
                 self.config.max_level = level;
                 log::set_max_level(level.into());
                 Task::none()
             }
-            Message::CopyToClipboard => self.copy_to_clipboard(),
+            Message::CopyToClipboard => {
+                debug!("Copy logs to clipboard");
+                self.copy_to_clipboard()
+            }
             Message::ClearLogs => {
+                debug!("Clear logs");
                 self.entries.clear();
                 Task::none()
             }
