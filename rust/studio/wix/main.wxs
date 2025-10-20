@@ -74,7 +74,7 @@
             InstallerVersion='450'
             Languages='1033'
             Compressed='yes'
-            InstallScope='perUser'
+            InstallScope='perMachine'
             SummaryCodepage='1252'
             />
 
