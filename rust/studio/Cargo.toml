@@ -15,6 +15,11 @@ categories = ["embedded", "hardware-support"]
 name = "onerom-studio"
 path = "src/main.rs"
 
+[package.metadata.bundle]
+name = "One ROM Studio"
+identifier = "rocks.piers.onerom-studio"
+icon = ["assets/icon.png"]
+
 [dependencies]
 onerom-config = { path = "../config", version = "0.2.1" }
 onerom-fw = { path = "../fw", version = "0.1.0" }
