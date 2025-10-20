@@ -443,7 +443,7 @@ impl Analyse {
             self.fw_source_buttons(),
             Space::with_width(Length::Fill),
             self.fw_source_control(device),
-        ];
+        ].align_y(iced::alignment::Vertical::Center);
 
         column![
             column![
@@ -499,7 +499,6 @@ impl Analyse {
 
         row![file_button, device_button]
             .spacing(20)
-            .padding(10)
             .into()
     }
 

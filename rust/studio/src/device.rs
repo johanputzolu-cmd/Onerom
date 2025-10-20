@@ -3,14 +3,15 @@
 // MIT License
 
 use dfu_rs::{DeviceInfo as DfuDeviceInfo, Device as DfuDevice, DfuType, Error as DfuError};
-use iced::widget::{column, row};
-use iced::{Element, Subscription, Task, time};
+use iced::widget::{column, Column, row};
+use iced::{time, Element, Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use probe_rs::{MemoryInterface, Permissions, Core, Error as ProbeError};
 use probe_rs::probe::DebugProbeInfo;
 use probe_rs::probe::list::Lister;
 use std::time::Duration;
+use tokio::task::spawn_blocking;
 
 use crate::analyse::Message as AnalyseMessage;
 use crate::app::AppMessage;
@@ -100,6 +101,9 @@ pub enum Message {
     DetectUsbDevices,
     UsbDevicesDetected(Vec<UsbDeviceType>),
     FlashFirmware(Vec<u8>),
+    FlashFirmwareResult(Result<(), String>),
+    DeviceData(Vec<u8>),
+    ReadFailed(String),
 }
 
 impl std::fmt::Display for Message {
@@ -139,6 +143,18 @@ impl std::fmt::Display for Message {
             Message::FlashFirmware(data) => {
                 write!(f, "FlashFirmware({})", data.len())
             }
+            Message::FlashFirmwareResult(result) => {
+                match result {
+                    Ok(()) => write!(f, "FlashFirmwareResult(Ok)"),
+                    Err(e) => write!(f, "FlashFirmwareResult(Err: {})", e),
+                }
+            }
+            Message::DeviceData(data) => {
+                write!(f, "DeviceData({} bytes)", data.len())
+            }
+            Message::ReadFailed(error) => {
+                write!(f, "ReadFailed({})", error)
+            }
         }
     }
 }
@@ -151,6 +167,7 @@ pub struct Device {
     selected_usb_device: Option<UsbDeviceType>,
     probes: Vec<DebugProbeInfo>,
     usb_devices: Vec<UsbDeviceType>,
+    operating: bool,
 }
 
 impl Default for Device {
@@ -161,6 +178,7 @@ impl Default for Device {
             selected_usb_device: None,
             probes: Vec::new(),
             usb_devices: Vec::new(),
+            operating: false,
         }
     }
 }
@@ -176,7 +194,14 @@ impl Device {
 
     pub fn update(&mut self, _runtime_info: &RuntimeInfo, message: Message) -> Task<AppMessage> {
         match message {
-            Message::DetectProbes => Task::future(Self::get_probe_list_async()),
+            Message::DetectProbes => {
+                if !self.operating {
+                    Task::future(Self::get_probe_list_async())
+                } else {
+                    trace!("Skipping probe detection while operating");
+                    Task::none()
+                }
+            }
             Message::ProbesDetected(probes) => {
                 self.probes_detected(probes);
                 Task::none()
@@ -188,14 +213,39 @@ impl Device {
                 chip_id,
                 address,
                 words,
-            } => self.selected.read(&chip_id, address, words),
-            Message::DetectUsbDevices => Task::future(Self::get_usb_device_list_async()),
+            } => {
+                self.operating = true;
+                self.selected.read(&chip_id, address, words)
+            }
+            Message::DetectUsbDevices => {
+                if !self.operating {
+                    Task::future(Self::get_usb_device_list_async())
+                } else {
+                    trace!("Skipping USB device detection while operating");
+                    Task::none()
+                }
+            }
             Message::UsbDevicesDetected(devices) => {
                 self.usb_devices_detected(devices);
                 Task::none()
             }
             Message::FlashFirmware(data) => {
+                self.operating = true;
                 self.selected.flash(data)
+            }
+            Message::DeviceData(data) => {
+                self.operating = false;
+                Task::done(AnalyseMessage::DeviceData(data).into())
+            }
+            Message::FlashFirmwareResult(result) => {
+                // Force a device re-enumeration after flashing firmware
+                self.operating = false;
+                Task::future(Self::get_usb_device_list_async())
+                    .chain(Task::done(CreateMessage::FlashFirmwareResult(result).into()))
+            }
+            Message::ReadFailed(error) => {
+                self.operating = false;
+                Task::done(AnalyseMessage::ReadFailed(error).into())
             }
         }
     }
@@ -302,6 +352,17 @@ impl Device {
                 }
                 self.selected_usb_device = None;
 
+                // See if there's a device to reconnect to
+                if let Some(new_usb_device) = self.usb_devices.first() {
+                    self.selected_usb_device = Some(new_usb_device.clone());
+                    info!(
+                        "Auto-selected new USB device: {}",
+                        new_usb_device
+                    );
+                } else {
+                    debug!("No USB devices available to auto-select");
+                }
+
                 if global_sel {
                     self.selected = DeviceType::None;
                 }
@@ -358,11 +419,12 @@ impl Device {
         }
     }
 
-    pub fn view(&self) -> Element<'_, AppMessage> {
+    pub fn view(&self) -> Column<'_, AppMessage> {
         // Create the Probe and USB pick list labels
         let left_col = column![
             Style::text_small("Probe:"),
             Style::text_small("USB:"),
+            Style::text_small("Use:"),
         ].spacing(20)
             .align_x(iced::alignment::Horizontal::Right);
 
@@ -392,17 +454,6 @@ impl Device {
                 .into()
         };
 
-        // Put the pick lists together into a column
-        let right_col = column![
-            probe_list,
-            usb_device_list,
-        ].spacing(10);
-
-        // Create the row for the pick list and labels
-        let pick_list_row = row![left_col, right_col]
-            .spacing(10)
-            .align_y(iced::alignment::Vertical::Center);
-
         // Figure out how the Probe/USB buttons should work
         let highlight_probe_button = self.selected().debug_probe().is_some();
         let highlight_usb_button = self.selected().usb_device().is_some();
@@ -425,19 +476,33 @@ impl Device {
         let probe_button = Style::text_button_small("Probe", on_press_probe, highlight_probe_button);
         let usb_button = Style::text_button_small("USB", on_press_usb, highlight_usb_button);
         let button_row = row![
-            Style::text_small("Device:"),
             probe_button,
             usb_button,
         ].spacing(20)
             .align_y(iced::alignment::Vertical::Center);
 
-        column![
+        // Put the pick lists and buttonstogether into a column
+        let right_col = column![
+            probe_list,
+            usb_device_list,
             button_row,
+        ].spacing(10);
+
+        // Create the row for everything
+        let pick_list_row = row![
+            left_col.width(Length::FillPortion(1)),
+            right_col.width(Length::FillPortion(5))
+        ]
+            .spacing(10)
+            .align_y(iced::alignment::Vertical::Center);
+
+
+        column![
             pick_list_row,
         ]
             .spacing(20)
+            .width(Length::Fill)
             .align_x(iced::alignment::Horizontal::Center)
-            .into()
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
@@ -561,7 +626,7 @@ impl DeviceType {
                 error!(
                     "Internal error - attempted to flash to None device - please raise a bug report"
                 );
-                Task::done(CreateMessage::FlashFirmwareResult(Err(
+                Task::done(Message::FlashFirmwareResult(Err(
                     "Internal error - attempted to flash to None device - please raise a bug report".to_string(),
                 )).into())
             }
@@ -579,7 +644,7 @@ impl DeviceType {
         let dfu_device = usb_device.dfu_device().clone();
         
         // Run the blocking USB operation on a separate thread
-        let result = tokio::task::spawn_blocking(move || -> Result<Vec<u32>, DfuError> {
+        let result = spawn_blocking(move || -> Result<Vec<u32>, DfuError> {
             dfu_device.upload(address, &mut buf)?;
             Ok(buf)
         }).await;
@@ -587,13 +652,13 @@ impl DeviceType {
         match result {
             Ok(Ok(data)) => {
                 let bytes: Vec<u8> = data.iter().flat_map(|w| w.to_le_bytes()).collect();
-                AnalyseMessage::DeviceData(bytes).into()
+                Message::DeviceData(bytes).into()
             }
             Ok(Err(e)) => {
-                AnalyseMessage::ReadFailed(format!("DFU upload failed:\n  - {}", e)).into()
+                Message::ReadFailed(format!("DFU upload failed:\n  - {}", e)).into()
             }
             Err(e) => {
-                AnalyseMessage::ReadFailed(format!("Task join failed:\n  - {}", e)).into()
+                Message::ReadFailed(format!("Task join failed:\n  - {}", e)).into()
             }
         }
     }
@@ -614,7 +679,7 @@ impl DeviceType {
         }).collect();
 
         // Run the blocking USB operation on a separate thread
-        let result = tokio::task::spawn_blocking(move || -> Result<(), DfuError> {
+        let result = spawn_blocking(move || -> Result<(), DfuError> {
             dfu_device.mass_erase()?;
             dfu_device.download(0x08000000, &data)?;
             Ok(())
@@ -623,23 +688,17 @@ impl DeviceType {
         match result {
             Ok(Ok(())) => {
                 debug!("Successfully flashed firmware using USB device {usb_device}");
-                CreateMessage::FlashFirmwareResult(Ok(())).into()
+                Message::FlashFirmwareResult(Ok(())).into()
             }
             Ok(Err(e)) => {
-                warn!(
-                    "Failed to flash firmware to One ROM using USB device {usb_device}: {e}",
-                );
-                CreateMessage::FlashFirmwareResult(Err(format!(
-                    "Failed to flash firmware to One ROM using USB device {usb_device}:\n  - {e}",
-                ))).into()
+                let log = format!("Failed to flash firmware to One ROM using USB device {usb_device}: {e}");
+                warn!("{log}");
+                Message::FlashFirmwareResult(Err(log)).into()
             }
             Err(e) => {
-                warn!(
-                    "Failed to flash firmware to One ROM using USB device {usb_device}: {e}",
-                );
-                CreateMessage::FlashFirmwareResult(Err(format!(
-                    "Failed to flash firmware to One ROM using USB device {usb_device}:\n  - {e}",
-                ))).into()
+                let log = format!("Failed to flash firmware to One ROM using USB device {usb_device}: {e}");
+                error!("{log}");
+                Message::FlashFirmwareResult(Err(log)).into()
             }
         }
     }   
@@ -650,18 +709,26 @@ impl DeviceType {
         address: u32,
         words: usize,
     ) -> AppMessage {
-        match Self::probe_init_and_operate(probe, chip_id, true, |core| {
-            let mut buf = vec![0u32; words];
-            core.read_32(address as u64, &mut buf)?;
-            let bytes: Vec<u8> = buf.iter().flat_map(|w| w.to_le_bytes()).collect();
-            Ok(bytes)
-        }).await {
-            Ok(bytes) => AnalyseMessage::DeviceData(bytes).into(),
+        let result = spawn_blocking(move || {
+            Self::probe_init_and_operate_on_core(probe, chip_id, true, |core| {
+                let mut buf = vec![0u32; words];
+                core.read_32(address as u64, &mut buf)?;
+                let bytes: Vec<u8> = buf.iter().flat_map(|w| w.to_le_bytes()).collect();
+                Ok(bytes)
+            })
+        }).await;
+
+        match result {
+            Ok(Ok(bytes)) => Message::DeviceData(bytes).into(),
+            Ok(Err(e)) => {
+                let log = format!("Failed to read {words} words of memory at {address:#010X}: {e}");
+                warn!("{log}");
+                AnalyseMessage::ReadFailed(log).into()
+            }
             Err(e) => {
-                warn!("Failed to read {words} words of memory at {address:#010X}: {e}");
-                AnalyseMessage::ReadFailed(format!(
-                    "Failed to read {words} words of memory at {address:#010X}:\n  - {e}"
-                )).into()
+                let log = format!("Failed to read {words} words of memory at {address:#010X}: {e}");
+                warn!("{log}");
+                AnalyseMessage::ReadFailed(log).into()
             }
         }
     }
@@ -670,23 +737,27 @@ impl DeviceType {
         probe: DebugProbeInfo,
         data: Vec<u8>,
     ) -> AppMessage {
-        match Self::probe_init_and_operate(probe, "STM32F411RETx".to_string(), true, move |core| {
-            core.write_8(0x08000000, &data)?;
-            debug!("Successfully flashed firmware");
-            Ok(())
-        }).await {
-            Ok(()) => CreateMessage::FlashFirmwareResult(Ok(())).into(),
+        let result = spawn_blocking(move || {
+            Self::probe_flash(probe, "STM32F411RETx".to_string(), 0x08000000, &data)
+        }).await;
+
+        match result {
+            Ok(Ok(())) => Message::FlashFirmwareResult(Ok(())).into(),
+            Ok(Err(e)) => {
+                let log = format!("Failed to flash firmware: {e}");
+                warn!("{log}");
+                Message::FlashFirmwareResult(Err(log)).into()
+            }
             Err(e) => {
-                warn!("Failed to flash firmware: {e}");
-                CreateMessage::FlashFirmwareResult(Err(format!(
-                    "Failed to flash firmware:\n  - {e}"
-                ))).into()
+                let log = format!("Failed to flash firmware: {e}");
+                error!("{log}");
+                Message::FlashFirmwareResult(Err(log)).into()
             }
         }
     }
 
     // Helper to open a probe, attach to a chip, halt core, and run a closure
-    async fn probe_init_and_operate<F, R>(
+    fn probe_init_and_operate_on_core<F, R>(
         probe: DebugProbeInfo, 
         chip_id: String, 
         halt_core: bool,
@@ -706,6 +777,32 @@ impl DeviceType {
         }
 
         f(&mut core)
+    }
+
+    // Helper to open a probe and session, and run a closure
+    fn probe_flash(
+        probe: DebugProbeInfo, 
+        chip_id: String, 
+        load_address: u32,
+        data: &[u8],
+    ) -> Result<(), String> 
+    {
+        let probe = probe.open()
+            .map_err(|e| e.to_string())?;
+        let probe_name = probe.get_name();
+        debug!("Flashing firmware using probe {}", probe_name);
+        
+        let mut session = probe.attach(chip_id, Permissions::default())
+            .map_err(|e| e.to_string())?;
+        
+        let mut loader = session.target().flash_loader();
+        loader.add_data(load_address as u64, &data)
+            .map_err(|e| e.to_string())?;
+
+        loader.commit(&mut session, probe_rs::flashing::DownloadOptions::default())
+            .map_err(|e| e.to_string())?;
+
+        Ok(())
     }
 
 }

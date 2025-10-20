@@ -292,13 +292,13 @@ impl Log {
         .spacing(10)
         .align_y(iced::Alignment::Center);
 
-        let clear_logs = Style::text_button(
+        let clear_logs = Style::text_button_small(
             "Clear",
             Some(Message::ClearLogs.into()),
             true,
         );
 
-        let copy_to_clipbard = Style::text_button(
+        let copy_to_clipbard = Style::text_button_small(
             "Copy",
             Some(Message::CopyToClipboard.into()),
             true,
@@ -345,6 +345,10 @@ impl Log {
     pub fn subscription(&self) -> Subscription<AppMessage> {
         Subscription::run(|| channel(100, log_channel))
     }
+
+    pub fn serious_errors_occurred(&self) -> bool {
+        self.entries.iter().any(|e| e.level >= Level::Error)
+    }
 }
 
 struct Logger;
@@ -383,4 +387,12 @@ async fn log_channel(mut sender: Sender<AppMessage>) {
 pub fn init_logging() {
     log::set_logger(&Logger).unwrap();
     log::set_max_level(Level::default().into());
+}
+
+/// Helper macro for internal error
+#[macro_export]
+macro_rules! internal_error {
+    ($($arg:tt)*) => {
+        log::error!(target: env!("CARGO_CRATE_NAME"), "Internal error: {}\nPlease raise an issue.", format!($($arg)*));
+    };
 }

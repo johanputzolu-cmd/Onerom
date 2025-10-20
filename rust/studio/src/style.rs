@@ -98,6 +98,9 @@ impl<'a> Style<'a> {
     /// #181820 - main background colour, used for windows and containers
     pub const COLOUR_BACKGROUND: iced::Color = as_iced_colour(0x181820);
 
+    /// #bf1f1f - background error colour
+    pub const COLOUR_BACKGROUND_ERROR: iced::Color = as_iced_colour(0x5f1f1f);
+
     /// #4a4a52 - border colour, used for button and container edges
     pub const COLOUR_BORDER: iced::Color = as_iced_colour(0x4a4a52);
 
@@ -251,34 +254,15 @@ impl<'a> Style<'a> {
         on_press: Option<AppMessage>,
         highlighted: bool,
     ) -> widget::Button<'a, AppMessage> {
-        // Set up the styles
-        let (text_color, background) = if highlighted {
-            (
-                Style::COLOUR_BUTTON_TEXT,
-                Some(Background::Color(Style::COLOUR_GOLD)),
-            )
-        } else {
-            (
-                Style::COLOUR_TEXT,
-                Some(Background::Color(Style::COLOUR_DISABLED)),
-            )
-        };
+        Style::int_text_button(content, on_press, highlighted, false, false,)
+    }
 
-        let text = Self::text_body(content.to_string()).color(Self::COLOUR_BUTTON_TEXT);
-        let mut button = button(text)
-            .style(move |_, _| button::Style {
-                background,
-                text_color,
-                border: Self::BUTTON_BORDER,
-                shadow: Self::BUTTON_SHADOW,
-            })
-            .padding([10, 20]);
-
-        if let Some(msg) = on_press {
-            button = button.on_press(msg);
-        }
-
-        button
+    pub fn error_button(
+        content: impl ToString,
+        on_press: Option<AppMessage>,
+        highlighted: bool,
+    ) -> widget::Button<'a, AppMessage> {
+        Self::int_text_button(content, on_press, highlighted, true, false)
     }
 
     pub fn text_button_small(
@@ -286,20 +270,47 @@ impl<'a> Style<'a> {
         on_press: Option<AppMessage>,
         highlighted: bool,
     ) -> widget::Button<'a, AppMessage> {
+        Style::int_text_button(content, on_press, highlighted, false, true)
+    }
+
+
+    fn int_text_button(
+        content: impl ToString,
+        on_press: Option<AppMessage>,
+        highlighted: bool,
+        error_button: bool,
+        small: bool,
+    ) -> widget::Button<'a, AppMessage> {
         // Set up the styles
-        let (text_color, background) = if highlighted {
-            (
-                Style::COLOUR_BUTTON_TEXT,
-                Some(Background::Color(Style::COLOUR_GOLD)),
-            )
+        let (text_color, background) = if !error_button {
+            if highlighted {
+                (
+                    Style::COLOUR_BUTTON_TEXT,
+                    Some(Background::Color(Style::COLOUR_GOLD)),
+                )
+            } else {
+                (
+                    Style::COLOUR_TEXT,
+                    Some(Background::Color(Style::COLOUR_DISABLED)),
+                )
+            }
         } else {
-            (
-                Style::COLOUR_TEXT,
-                Some(Background::Color(Style::COLOUR_DISABLED)),
-            )
+                (
+                    Style::COLOUR_TEXT,
+                    Some(Background::Color(Style::COLOUR_BACKGROUND_ERROR)),
+                )
         };
 
-        let text = Self::text_small(content.to_string()).color(Self::COLOUR_BUTTON_TEXT);
+        let text = if !small {
+            Self::text_body(content.to_string()).color(Self::COLOUR_BUTTON_TEXT)
+        } else {
+            Self::text_small(content.to_string()).color(Self::COLOUR_BUTTON_TEXT)
+        };
+        let padding = if !small {
+            [10, 20]
+        } else {
+            [5, 10]
+        };
         let mut button = button(text)
             .style(move |_, _| button::Style {
                 background,
@@ -307,7 +318,7 @@ impl<'a> Style<'a> {
                 border: Self::BUTTON_BORDER,
                 shadow: Self::BUTTON_SHADOW,
             })
-            .padding([5, 10]);
+            .padding(padding);
 
         if let Some(msg) = on_press {
             button = button.on_press(msg);

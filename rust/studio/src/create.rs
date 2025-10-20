@@ -21,6 +21,7 @@ use crate::hw::HardwareInfo;
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Images};
 use crate::style::Style;
 use crate::{task_from_msg, task_from_msgs};
+use crate::internal_error;
 
 #[derive(Debug, Clone)]
 /// Create tab messages
@@ -51,6 +52,8 @@ pub enum Message {
     SaveFirmware,
     /// Save the firmware image with filename
     SaveFirmwareFilename(Option<PathBuf>),
+    /// Save firmware operation complete
+    SaveFirmwareComplete,
     /// Flash firmware
     FlashFirmware,
     /// Firmware flashing completed
@@ -79,6 +82,7 @@ impl std::fmt::Display for Message {
             Message::SaveFirmwareFilename(filename) => {
                 write!(f, "SaveFirmwareFilename({:?})", filename)
             }
+            Message::SaveFirmwareComplete => write!(f, "SaveFirmwareComplete"),
             Message::FlashFirmware => write!(f, "FlashFirmware"),
             Message::FlashFirmwareResult(result) => {
                 write!(f, "FlashFirmwareResult({:?})", result)
@@ -87,14 +91,22 @@ impl std::fmt::Display for Message {
     }
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+enum State {
+    #[default]
+    Idle,
+    Building,
+    Flashing,
+    Saving,
+}
+
 /// Create tab state
 #[derive(Debug, Default, Clone)]
 pub struct Create {
     selected_hw_info: HardwareInfo,
     mcu_variants: Option<Vec<McuVariant>>,
-    image_build_content: String,
-    building: bool,
-    flashing: bool,
+    display_content: String,
+    state: State,
 }
 
 impl Create {
@@ -102,13 +114,13 @@ impl Create {
         "Create"
     }
 
-    fn default_image_build_content() -> String {
+    fn default_display_content() -> String {
         "Images not yet built...".to_string()
     }
 
     pub fn new() -> Self {
         let mut create = Self::default();
-        create.image_build_content = Self::default_image_build_content();
+        create.display_content = Self::default_display_content();
         create
     }
 
@@ -171,49 +183,114 @@ impl Create {
                 // No action needed
                 Task::none()
             }
+            Message::BuildImages => {
+                if self.is_idle() {
+                    self.state = State::Building;
+                    self.set_display_content("Building image...");
+                    Task::done(StudioMessage::BuildImages(self.selected_hw_info.clone()).into())
+                } else {
+                    warn!("Busy - skipping build images");
+                    Task::none()
+                }
+            }
             Message::BuildImagesResult(result) => {
-                self.building = false;
+                if !self.is_busy() {
+                    internal_error!("BuildImagesResult received while not busy.");
+                }
+                if !self.is_building() {
+                    internal_error!("BuildImagesResult received while not building.");
+                }
+                self.state = State::Idle;
                 self.build_images_result(result, runtime_info);
                 Task::none()
             }
-            Message::BuildImages => {
-                self.image_build_content = "Building images...".to_string();
-                self.building = true;
-                Task::done(StudioMessage::BuildImages(self.selected_hw_info.clone()).into())
-            }
             Message::SaveFirmware => {
-                Task::future(Self::save_firmware())
-            }
-            Message::SaveFirmwareFilename(filename) => {
-                let images = runtime_info.images().cloned();
-                Task::future(Self::save_firmware_filename(filename, images))
-            }
-            Message::FlashFirmware => {
-                match runtime_info.images().and_then(|imgs| Some(imgs.full_image())) {
-                    Some(fw) => {
-                        self.flashing = true;
-                        self.image_build_content = "Flashing firmware...".to_string();
-                        Task::done((DeviceMessage::FlashFirmware(fw)).into())
-                    }
-                    None => {
-                        self.image_build_content = "No firmware image available to flash.".to_string();
-                        Task::none()
-                    }
+                if !self.is_busy() {
+                    self.state = State::Saving;
+                    Task::future(Self::save_firmware())
+                } else {
+                    warn!("Busy - skipping save firmware");
+                    return Task::none();
                 }
             }
+            Message::SaveFirmwareFilename(filename) => {
+                if self.is_busy() {
+                    let images = runtime_info.images().cloned();
+                    Task::future(Self::save_firmware_filename(filename, images))
+                } else {
+                    internal_error!("SaveFirmwareFilename received while not saving.");
+                    warn!("Aborting save firmware.");
+                    return Task::none();
+                }
+            }
+            Message::SaveFirmwareComplete => {
+                if !self.is_busy() {
+                    internal_error!("SaveFirmwareComplete received while not saving.");
+                }
+                if !self.is_saving() {
+                    internal_error!("SaveFirmwareComplete received while not saving.");
+                }
+                self.state = State::Idle;
+                Task::none()
+            }
+            Message::FlashFirmware => {
+                if !self.is_busy() {
+                    match runtime_info.images().and_then(|imgs| Some(imgs.full_image())) {
+                        Some(fw) => {
+                            self.state = State::Flashing;
+                            self.set_display_content("Flashing firmware...");
+                            Task::done((DeviceMessage::FlashFirmware(fw)).into())
+                        }
+                        None => {
+                            self.set_display_content("No firmware image available to flash.");
+                            Task::none()
+                        }
+                    }
+                } else {
+                    warn!("Busy - skipping flash firmware");
+                    return Task::none();
+                }
+
+            }
             Message::FlashFirmwareResult(result) => {
-                self.flashing = false;
+                if !self.is_busy() {
+                    internal_error!("FlashFirmwareResult received while not busy.");
+                }
+                if !self.is_flashing() {
+                    internal_error!("FlashFirmwareResult received while not flashing.");
+                }
+                self.state = State::Idle;
                 match result {
                     Ok(_) => {
-                        self.image_build_content = "Firmware flashed successfully.".to_string();
+                        self.display_content = "Firmware flashed successfully.".to_string();
                     }
                     Err(e) => {
-                        self.image_build_content = format!("Error flashing firmware:\n  - {e}");
+                        self.display_content = format!("Error flashing firmware:\n  - {e}");
                     }
                 }
                 Task::none()
             }
         }
+    }
+
+    fn set_display_content(&mut self, content: impl ToString) {
+        self.display_content = content.to_string();
+    }
+
+    fn is_idle(&self) -> bool {
+        matches!(self.state, State::Idle)
+    }
+    fn is_busy(&self) -> bool {
+        !self.is_idle()
+    }
+    fn is_building(&self) -> bool {
+        matches!(self.state, State::Building)
+    }
+    fn is_flashing(&self) -> bool {
+        matches!(self.state, State::Flashing)
+    }
+    fn is_saving(&self) -> bool {
+        matches!(self.state, State::Saving)
     }
 
     async fn save_firmware() -> AppMessage {
@@ -229,11 +306,11 @@ impl Create {
     async fn save_firmware_filename(filename: Option<PathBuf>, images: Option<Images>) -> AppMessage {
         if images.is_none() {
             warn!("No images available to save firmware");
-            return AppMessage::Nop;
+            return Message::SaveFirmwareComplete.into();
         }
         if filename.is_none() {
             debug!("Save firmware cancelled by user");
-            return AppMessage::Nop;
+            return Message::SaveFirmwareComplete.into();
         }
         let images = images.unwrap();
         let filename = filename.unwrap();
@@ -247,13 +324,13 @@ impl Create {
                 error!("Error saving firmware image to {filename:?}: {e}");
             }
         }
-        AppMessage::Nop
+        Message::SaveFirmwareComplete.into()
     }
 
     fn build_images_result(&mut self, result: Result<String, String>, runtime_info: &RuntimeInfo) {
         match result {
             Ok(desc) => {
-                self.image_build_content = format!(
+                self.display_content = format!(
                     "Image built successfully, total: {} bytes ({}/{}/{})\n\n{}",
                     runtime_info.built_full_image_len().unwrap_or(0),
                     runtime_info.built_firmware_len().unwrap_or(0),
@@ -264,7 +341,7 @@ impl Create {
             }
             Err(e) => {
                 warn!("Error building : {e}");
-                self.image_build_content = format!("Error building images:\n  - {e}");
+                self.display_content = format!("Error building image:\n  - {e}");
             }
         }
     }
@@ -391,17 +468,16 @@ impl Create {
         }
 
         if self.ready_to_build(runtime_info) {
-            let content = if self.building {
+            let content = if self.is_building() {
                 "Building...".to_string()
             } else {
                 "Build Image".to_string()
             };
-            let on_press = if self.building {
-                None
+            let (on_press, highlighted) = if self.is_busy() {
+                (None, false)
             } else {
-                Some(Message::BuildImages.into())
+                (Some(Message::BuildImages.into()), true)
             };
-            let highlighted = !self.building;
             let build_button = Style::text_button(
                 content,
                 on_press,
@@ -410,20 +486,37 @@ impl Create {
 
             let button_row = row![build_button].spacing(20);
 
-            let button_row = if runtime_info.images().is_some() {
+            // Only show Save and Flash buttons if images exist _and_ not in
+            // the process of building one.
+            let button_row = if runtime_info.images().is_some() && !self.is_building() {
+                let (on_press, highlighted) = if self.is_busy() {
+                    (None, false)
+                } else {
+                    (Some(Message::SaveFirmware.into()), true)
+                };
+                let save_content = if self.is_saving() {
+                    "Saving...".to_string()
+                } else {
+                    "Save Firmware".to_string()
+                };
                 let save_button = Style::text_button(
-                    "Save Firmware",
-                    Some(Message::SaveFirmware.into()),
-                    true,
+                    save_content,
+                    on_press,
+                    highlighted,
                 );
 
-                let (on_press, highlighted) = if self.flashing {
+                let flash_content = if self.is_flashing() {
+                    "Flashing...".to_string()
+                } else {
+                    "Flash Firmware".to_string()
+                };
+                let (on_press, highlighted) = if self.is_busy() {
                     (None, false)
                 } else {
                     (Some(Message::FlashFirmware.into()), true)
                 };
                 let flash_button = Style::text_button(
-                    "Flash Firmware",
+                    flash_content,
                     on_press,
                     highlighted,
                 );
@@ -434,7 +527,7 @@ impl Create {
             };
 
             let window = Style::box_scrollable_text(
-                self.image_build_content.clone(),
+                self.display_content.clone(),
                 144.0,
                 true,
             );

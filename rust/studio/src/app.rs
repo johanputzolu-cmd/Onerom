@@ -2,7 +2,7 @@
 //
 // MIT License
 
-use iced::widget::{Space, column, row};
+use iced::widget::{column, row};
 use iced::{Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
@@ -130,15 +130,15 @@ impl<'a> App<'a> {
     pub fn view(&self) -> iced::Element<'_, AppMessage> {
         let runtime_info = self.runtime_info();
 
+        let serious_errors = self.log.serious_errors_occurred();
         let top_left_corner =
-            column![Style::text_studio_h1(), self.studio.top_level_buttons(),].spacing(20);
+            column![Style::text_studio_h1(), self.studio.top_level_buttons(serious_errors),].spacing(20);
 
         let top_right_corner = self.device.view();
 
         let top_row = row![
-            top_left_corner,
-            Space::with_width(Length::Fill),
-            top_right_corner,
+            top_left_corner.width(Length::FillPortion(5)),
+            top_right_corner.width(Length::FillPortion(4)),
         ]
         .spacing(20);
 

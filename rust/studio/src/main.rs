@@ -37,11 +37,11 @@ fn window_settings() -> iced::window::Settings {
     // Create the window settings
     iced::window::Settings {
         size: iced::Size {
-            width: 800.0,
+            width: 900.0,
             height: 850.0,
         },
         min_size: Some(iced::Size {
-            width: 800.0,
+            width: 900.0,
             height: 850.0,
         }),
         max_size: None,

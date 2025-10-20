@@ -103,8 +103,8 @@ impl StudioTab {
 
     /// Create the tab buttons
     ///
-    /// Returns a Vec of Elements, so they can be easily added to a Row
-    pub fn buttons(active: &StudioTab) -> Vec<Element<'_, AppMessage>> {
+    /// Returns a row of buttons
+    pub fn buttons(active: &StudioTab, serious_errors: bool) -> Element<'_, AppMessage> {
         let mut buttons = Vec::new();
         for tab in vec![StudioTab::Analyse, StudioTab::Create, StudioTab::Log] {
             let active = *active == tab;
@@ -113,11 +113,19 @@ impl StudioTab {
             } else {
                 Some(AppMessage::Studio(Message::TabSelected(tab.clone())))
             };
-            let button = Style::text_button(tab.name(), on_press, active);
+            let button = if serious_errors && tab == StudioTab::Log {
+                Style::error_button(tab.name(), on_press, active)
+            } else {
+                Style::text_button(tab.name(), on_press, active)
+            };
             buttons.push(button.into());
-        }
-        buttons
-    }
+        };
+        
+        // Add the buttons to a row, with spacing between them
+        Row::with_children(buttons).spacing(20).into()
+    }   
+
+
 }
 
 /// Images built by Studio
@@ -551,6 +559,7 @@ impl Studio {
             metadata,
             roms,
         };
+        let total_len = images.full_image_len();
         let fw_len = images.firmware_len();
         let md_len = images.metadata_len();
         let roms_len = images.roms_len();
@@ -559,10 +568,7 @@ impl Studio {
         let desc = builder.description();
 
         info!(
-            "Built images: firmware={} bytes, metadata={} bytes, roms={} bytes",
-            fw_len,
-            md_len,
-            roms_len
+            "Built images: total={total_len} bytes, firmware={fw_len} bytes, metadata={md_len} bytes, roms={roms_len} bytes"
         );
 
         Message::BuildImagesResult(Ok((images,desc))).into()
@@ -671,9 +677,8 @@ impl Studio {
         }
     }
 
-    pub fn top_level_buttons(&self) -> iced::Element<'_, AppMessage> {
-        let buttons = StudioTab::buttons(&self.active_tab());
-        Row::with_children(buttons).spacing(20).padding(10).into()
+    pub fn top_level_buttons(&self, serious_errors: bool) -> iced::Element<'_, AppMessage> {
+        StudioTab::buttons(&self.active_tab(), serious_errors)
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
