@@ -21,7 +21,7 @@ onerom-gen = { path = "../gen", version = "0.1.2" }
 
 airfrog-rpc = { version = "0.1.0" }
 deku = { version = "0.19", default-features = false, features = ["alloc"] }
-esp-println = { version = "0.15", features = ["esp32c3", "log-04"] }
+esp-println = { version = "0.15", features = ["esp32c3", "log-04"], optional = true }
 log = "0.4"
 static_assertions = "1.1"
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
