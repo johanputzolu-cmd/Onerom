@@ -634,7 +634,7 @@ impl Analyse {
         let content = if self.state.is_idle() {
             Self::FLASH_BUTTON_NAME
         } else {
-            "Busy..."
+            "Flashing..."
         };
 
         Style::text_button_small(content, message, highlighted)
@@ -670,14 +670,16 @@ impl Analyse {
             None
         };
 
-        let content = if self.state.is_idle() {
+        let content = if self.state != AnalyseState::Loading {
             Self::SOURCE_FILE_BUTTON_NAME
         } else {
             "Loading..."
         };
 
+        let highlight = self.state.is_idle();
+
         // Create the button
-        Style::text_button_small(content, file_control_message, true)
+        Style::text_button_small(content, file_control_message, highlight)
     }
 
     fn fw_content_heading(&self, hw_info: Option<&HardwareInfo>) -> Element<'_, AppMessage> {
