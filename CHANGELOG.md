@@ -2,6 +2,14 @@
 
 All notables changes between versions are documented in this file.
 
+## v0.5.3 - ????-??-??
+
+### Added
+
+- Added "limp mode" support to detect when an incompatible firmware has been flashed to an Ice One ROM.  It blinks fast in this state and, if it is a USB model, allows the device to drop into DFU mode when USB is connected, to allow re-flashing of a compatible firmware.  Note that "slower" MCU firmwares are permitted by "faster" MCUs - but not the other way around.  See #37 for details.
+
+### Fixes
+
 ## v0.5.2 - 2025-??-??
 
 New in this release is a command line firmware image creation tool `rust/fw`.  This dynamically creates a custom One ROM firmware image from a specified:
