@@ -17,6 +17,12 @@ jobs:
       - name: Install cargo-packager
         run: cargo install cargo-packager --locked
       
+      - name: Build release binary
+        working-directory: rust/studio
+        env:
+          PACKAGER_TARGET: x86_64-pc-windows-msvc
+        run: cargo build --release --target $env:PACKAGER_TARGET
+      
       - name: Build Windows NSIS installer
         working-directory: rust/studio
         env:
@@ -38,12 +44,18 @@ jobs:
         with:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
-
+      
       - name: Install dependencies
-        run: sudo apt-get install -y libudev-dev
+        run: sudo apt update && sudo apt install -y libudev-dev
       
       - name: Install cargo-packager
         run: cargo install cargo-packager --locked
+      
+      - name: Build release binary
+        working-directory: rust/studio
+        env:
+          PACKAGER_TARGET: x86_64-unknown-linux-gnu
+        run: cargo build --release --target $PACKAGER_TARGET
       
       - name: Build Linux deb package
         working-directory: rust/studio
@@ -70,6 +82,12 @@ jobs:
       - name: Install cargo-packager
         run: cargo install cargo-packager --locked
       
+      - name: Build release binary
+        working-directory: rust/studio
+        env:
+          PACKAGER_TARGET: x86_64-apple-darwin
+        run: cargo build --release --target $PACKAGER_TARGET
+      
       - name: Build Mac Intel dmg
         working-directory: rust/studio
         env:
@@ -94,6 +112,12 @@ jobs:
       
       - name: Install cargo-packager
         run: cargo install cargo-packager --locked
+      
+      - name: Build release binary
+        working-directory: rust/studio
+        env:
+          PACKAGER_TARGET: aarch64-apple-darwin
+        run: cargo build --release --target $PACKAGER_TARGET
       
       - name: Build Mac Apple Silicon dmg
         working-directory: rust/studio

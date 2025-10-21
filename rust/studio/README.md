@@ -60,6 +60,7 @@ sudo apt install mingw-w64
 These instructions are for building Windows installers on a Linux machine.  It produces an NSIS installer, which is more modern than the older MSI format.
 
 ```bash
+PACKAGER_TARGET=x86_64-pc-windows-gnu cargo build --release --target $PACKAGER_TARGET
 PACKAGER_TARGET=x86_64-pc-windows-gnu cargo packager --release --target $PACKAGER_TARGET --formats nsis
 ```
 
@@ -73,6 +74,7 @@ Note that this mechanism builds an app using GNU, which leads to a 50% larger in
 ## Linux (x86_64)
 
 ```bash
+PACKAGER_TARGET=x86_64-unknown-linux-gnu cargo build --release --target $PACKAGER_TARGET
 PACKAGER_TARGET=x86_64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
 ```
 
@@ -84,17 +86,20 @@ $ ls -l dist/*.deb
 ## Linux (ARM64)
 
 ```bash
+PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo build --release --target $PACKAGER_TARGET
 PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
 ```
 
 ## Mac - Intel
 
 ```bash
+PACKAGER_TARGET=x86_64-apple-darwin cargo build --release --target $PACKAGER_TARGET
 PACKAGER_TARGET=x86_64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```
 
 ## Mac - Apple Silicon
 
 ```bash
+PACKAGER_TARGET=aarch64-apple-darwin cargo build --release --target $PACKAGER_TARGET
 PACKAGER_TARGET=aarch64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```
