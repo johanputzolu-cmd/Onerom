@@ -2,6 +2,8 @@
 
 A GUI front-end for interacting with One ROM and managing firmware images.
 
+It is **much** easier to let GitHub Actions build the installers for you, but if you want to build locally, follow these instructions.
+
 ## Dependencies
 
 Assuming building Windows target on a Debian-based Linux distribution.
