@@ -687,8 +687,10 @@ impl Analyse {
         let heading = Style::text_h3("Analysis");
         if let Some(hw_info) = hw_info {
             let version = self.fw_info.as_ref().and_then(|info| Some(info.version));
+            let metadata = self.fw_info.as_ref().map_or(Some(false), |info| Some(info.metadata_present));
             let info_row = Style::hw_info_row(
                 version,
+                metadata,
                 hw_info.model,
                 hw_info.board,
                 hw_info.mcu_variant,

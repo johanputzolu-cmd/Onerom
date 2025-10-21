@@ -592,6 +592,7 @@ impl<'a> Style<'a> {
 
     pub fn hw_info_row(
         version: Option<FirmwareVersion>,
+        metadata: Option<bool>,
         model: Option<Model>,
         board: Option<Board>,
         mcu: Option<McuVariant>,
@@ -612,47 +613,67 @@ impl<'a> Style<'a> {
             None
         };
 
+        let metadata = match metadata {
+            Some(true) => Some(row![
+                Style::text_small("Metadata:"),
+                Style::text_small("Yes").color(Style::COLOUR_DARK_GOLD),
+            ].spacing(5)),
+            Some(false) => Some(row![
+                Style::text_small("Metadata:"),
+                Style::text_small("No").color(Style::COLOUR_ERROR),
+            ].spacing(5)),
+            None => None,
+        };
+
+        let fw_row = if let Some((fw_h, fw)) = fw {
+            Some(row![fw_h, fw].spacing(5))
+        } else {
+            None
+        };
+
         // Model
         let model_h = Style::text_small("Model:");
-        let model = Style::text_small(
-            model
-                .as_ref()
-                .map_or("unknown".to_string(), |m| m.name().to_string()),
-        )
-        .color(Style::COLOUR_DARK_GOLD);
+        let model = if let Some(model) = model {
+            Style::text_small(model.name()).color(Style::COLOUR_DARK_GOLD)
+        } else {
+            Style::text_small("unknown".to_string()).color(Style::COLOUR_ERROR)
+        };
 
         // Board
         let board_h = Style::text_small("Board:");
-        let board = Style::text_small(board.as_ref().map_or("unknown".to_string(), |b| {
-            if board_long {
-                b.description()
+        let board = if let Some(board) = board {
+            let board =  if board_long {
+                board.description()
             } else {
-                b.name()
-            }
-            .to_string()
-        }))
-        .color(Style::COLOUR_DARK_GOLD);
+                board.name()
+            };
+            Style::text_small(board).color(Style::COLOUR_DARK_GOLD)
+        } else {
+            Style::text_small("unknown".to_string()).color(Style::COLOUR_ERROR)
+        };
 
         // MCU
         let mcu_h = Style::text_small("MCU:");
-        let mcu = Style::text_small(
-            mcu.as_ref()
-                .map_or("unknown".to_string(), |m| m.to_string()),
-        )
-        .color(Style::COLOUR_DARK_GOLD);
+        let mcu = if let Some(mcu) = mcu {
+            Style::text_small(mcu).color(Style::COLOUR_DARK_GOLD)
+        } else {
+            Style::text_small("unknown".to_string()).color(Style::COLOUR_ERROR)
+        };
 
         let model_row = row![model_h, model].spacing(5);
         let board_row = row![board_h, board].spacing(5);
         let mcu_row = row![mcu_h, mcu].spacing(5);
 
-        if let Some((fw_h, fw)) = fw {
-            let fw_row = row![fw_h, fw].spacing(5);
-            row![fw_row, model_row, board_row, mcu_row]
-        } else {
-            row![model_row, board_row, mcu_row]
+        let mut row = row![];
+        if let Some(metadata) = metadata {
+            row = row.push(metadata)
         }
-        .spacing(20)
-        .into()
+        if let Some(fw_row) = fw_row {
+            row = row.push(fw_row);
+        }
+        row = row.push(model_row).push(board_row).push(mcu_row);
+        row = row.spacing(10);
+        row.into()
     }
 }
 

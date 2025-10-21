@@ -723,6 +723,7 @@ impl Create {
         if self.hardware_selected() {
             let hw_info_row = Style::hw_info_row(
                 None,
+                None,
                 self.selected_hw_info.model,
                 self.selected_hw_info.board,
                 self.selected_hw_info.mcu_variant,
