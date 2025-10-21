@@ -43,3 +43,10 @@ tokio = { version = "1", features = ["rt"] }
 
 [build-dependencies]
 built = { version = "0.8", features = ["git2"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
