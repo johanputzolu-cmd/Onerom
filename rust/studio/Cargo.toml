@@ -28,7 +28,7 @@ homepage = "https://onerom.org"
 description = "One ROM Studio" 
 longDescription = "One ROM Studio - Manage One ROM, the most flexible retro ROM replacement"
 formats = ["dmg", "nsis", "deb"]
-icons = ["assets/icon.png", "assets/icon.ico"]
+icons = ["assets/onerom-512x512.png", "assets/onerom-256x256.png", "assets/onerom-128x128.png", "assets/onerom-64x64.png", "assets/onerom-32x32.png", "assets/onerom-16x16.png", "assets/onerom.ico"]
 out-dir = "./dist"
 
 # Windows installer
