@@ -17,3 +17,56 @@ Install ming-w64 for Windows builds:
 ```bash
 sudo apt install mingw-w64
 ```
+
+## Packaging
+
+### Dependencies
+
+Assumes all commands are run from this project directory:
+
+Install cargo packager:
+
+```bash
+cargo install cargo-packager
+```
+
+Install NSIS for Windows installer creation:
+
+```bash
+sudo apt install nsis
+```
+
+Install Windows GNU toolchain:
+
+```bash
+sudo apt install mingw-w64
+```
+
+### Windows NSIS
+
+These instructions are for building Windows installers on a Linux machine.
+
+```bash
+cargo packager --release --target x86_64-pc-windows-gnu --formats nsis
+```
+
+```bash
+$ ls -l dist/*.exe
+-rw-r--r-- 1 pdf pdf 10081302 Oct 21 09:05 dist/onerom-studio_0.1.0_x64-setup.exe
+```
+
+Note that this mechanism builds an app using GNU, which leads to a 50% larger installer and 5x larger binary than the MSVC version.  However, the MVSC target is much harder to build on linux.  For testing, using Linux is fine, but for releases, use a Windows machine with the MSVC target (or the CI).
+
+
+## Linux
+
+```bash
+cargo packager --release --target x86_64-unknown-linux-gnu --formats deb
+```
+
+```bash
+$ ls -l dist/*.deb
+-rw-r--r-- 1 pdf pdf 13741434 Oct 21 09:06 dist/onerom-studio_0.1.0_amd64.deb
+```
+
+## Mac

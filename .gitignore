@@ -16,6 +16,7 @@ config/docker/*
 images/users/*
 !images/user/README.md
 
+dist/
 output/
 
 # Rust build artifacts

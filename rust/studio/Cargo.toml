@@ -20,6 +20,41 @@ name = "One ROM Studio"
 identifier = "rocks.piers.onerom-studio"
 icon = ["assets/icon.png"]
 
+# Packager configuration - creates bundles and isntallers
+[package.metadata.packager]
+enabled = true
+name = "onerom-studio"
+product_name = "One ROM Studio"
+publisher = "piers.rocks"
+authors = ["Piers Finlayson"]
+identifier = "rocks.piers.onerom-studio"
+license-file = "LICENSE.txt"
+homepage = "https://onerom.org"
+description = "One ROM Studio" 
+longDescription = "One ROM Studio - Manage One ROM, the most flexible retro ROM replacement"
+formats = ["dmg", "nsis", "deb"]
+icons = ["assets/icon.png", "assets/icon.ico"]
+out-dir = "./dist"
+before-packaging-command = "cargo build --release"
+
+# Windows installer
+[package.metadata.packager.nsis]
+installer-mode = "currentUser"
+header-image = "assets/one-rom-header.bmp"
+sidebar-image = "assets/one-rom-sidebar.bmp"
+installer-icon = "assets/icon.ico"
+display-language-selector = false
+
+# Linux packages
+[package.metadata.packager.linux]
+
+# Mac packages
+[package.metadata.packager.macos]
+minimum-system-version = "10.13"
+background-app = false
+[package.metadata.packager.dmg]
+background = "assets/one rom image.png"
+
 [dependencies]
 onerom-config = { path = "../config", version = "0.2.1" }
 onerom-fw = { path = "../fw", version = "0.1.0" }
@@ -44,9 +79,3 @@ tokio = { version = "1", features = ["rt"] }
 [build-dependencies]
 built = { version = "0.8", features = ["git2"] }
 
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-strip = true
-panic = "abort"
