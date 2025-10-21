@@ -72,4 +72,5 @@ tokio = { version = "1", features = ["rt"] }
 
 [build-dependencies]
 built = { version = "0.8", features = ["git2"] }
-
+git2 = "0.20"
+embed-resource = "3"

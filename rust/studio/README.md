@@ -90,13 +90,13 @@ PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo packager --release --target $PAC
 ## Mac - Intel
 
 ```bash
-PACKAGER_TARGET=x86_64-apple-darwin cargo build --release --target $PACKAGER_TARGET
+PACKAGER_TARGET=x86_64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
 PACKAGER_TARGET=x86_64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```
 
 ## Mac - Apple Silicon
 
 ```bash
-PACKAGER_TARGET=aarch64-apple-darwin cargo build --release --target $PACKAGER_TARGET
+PACKAGER_TARGET=aarch64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
 PACKAGER_TARGET=aarch64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```
