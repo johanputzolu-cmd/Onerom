@@ -24,12 +24,7 @@ Install ming-w64 for Windows builds:
 sudo apt install mingw-w64
 ```
 
-And the Linux ARM64 target and toolchain for Raspberry Pi 64-bit support:
-
-```bash
-rustup target add aarch64-unknown-linux-gnu
-sudo apt install gcc-aarch64-linux-gnu
-```
+To run th ARM64 Linux build you really need to be building on the platform (or using CI), as libudev is a pain to build as part of the cross compilation.
 
 ## Packaging
 
