@@ -4,12 +4,12 @@ A GUI front-end for interacting with One ROM and managing firmware images.
 
 ## Dependencies
 
-Assuming building on a Debian-based Linux distribution.
+Assuming building Windows target on a Debian-based Linux distribution.
 
 Install the Rust Windows targets:
 
 ```bash
-rustup target add x64_64-pc-windows-gnu
+rustup target add x86_64-pc-windows-gnu
 ```
 
 Install ming-w64 for Windows builds:
@@ -22,12 +22,12 @@ sudo apt install mingw-w64
 
 ### Dependencies
 
-Assumes all commands are run from this project directory:
+Assumes all commands are run from this project directory.
 
 Install cargo packager:
 
 ```bash
-cargo install cargo-packager
+cargo install cargo-packager --locked
 ```
 
 Install NSIS for Windows installer creation:
@@ -69,4 +69,14 @@ $ ls -l dist/*.deb
 -rw-r--r-- 1 pdf pdf 13741434 Oct 21 09:06 dist/onerom-studio_0.1.0_amd64.deb
 ```
 
-## Mac
+## Mac - Intel
+
+```bash
+cargo packager --release --target x86_64-apple-darwin --formats dmg
+```
+
+## Mac - Apple Silicon
+
+```bash
+cargo packager --release --target aarch64-apple-darwin --formats dmg
+```
