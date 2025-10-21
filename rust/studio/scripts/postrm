@@ -4,6 +4,7 @@ set -e
 case "$1" in
     remove|purge)
         if command -v udevadm >/dev/null 2>&1; then
+            echo "Reloading udev rules after removing One ROM Studio..."
             udevadm control --reload-rules
             udevadm trigger --action=change
         fi
