@@ -15,11 +15,6 @@ categories = ["embedded", "hardware-support"]
 name = "onerom-studio"
 path = "src/main.rs"
 
-[package.metadata.bundle]
-name = "One ROM Studio"
-identifier = "rocks.piers.onerom-studio"
-icon = ["assets/icon.png"]
-
 # Packager configuration - creates bundles and isntallers
 [package.metadata.packager]
 enabled = true

@@ -120,6 +120,7 @@ jobs:
         working-directory: rust/studio
         env:
           PACKAGER_TARGET: x86_64-apple-darwin
+          LIBUSB_STATIC: 1
         run: cargo build --release --target $PACKAGER_TARGET
       
       - name: Build Mac Intel dmg
@@ -151,6 +152,7 @@ jobs:
         working-directory: rust/studio
         env:
           PACKAGER_TARGET: aarch64-apple-darwin
+          LIBUSB_STATIC: 1
         run: cargo build --release --target $PACKAGER_TARGET
       
       - name: Build Mac Apple Silicon dmg
