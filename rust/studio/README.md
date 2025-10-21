@@ -71,8 +71,8 @@ Note that this mechanism builds an app using GNU, which leads to a 50% larger in
 ## Linux (x86_64)
 
 ```bash
-PACKAGER_TARGET=x86_64-unknown-linux-gnu cargo build --release --target $PACKAGER_TARGET
-PACKAGER_TARGET=x86_64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
+env PACKAGER_TARGET=x86_64-unknown-linux-gnu cargo build --release --target $PACKAGER_TARGET
+env PACKAGER_TARGET=x86_64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
 ```
 
 ```bash
@@ -83,20 +83,20 @@ $ ls -l dist/*.deb
 ## Linux (ARM64)
 
 ```bash
-PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo build --release --target $PACKAGER_TARGET
-PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
+env PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo build --release --target $PACKAGER_TARGET
+env PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
 ```
 
 ## Mac - Intel
 
 ```bash
-PACKAGER_TARGET=x86_64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
-PACKAGER_TARGET=x86_64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
+env PACKAGER_TARGET=x86_64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
+env PACKAGER_TARGET=x86_64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```
 
 ## Mac - Apple Silicon
 
 ```bash
-PACKAGER_TARGET=aarch64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
-PACKAGER_TARGET=aarch64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
+env PACKAGER_TARGET=aarch64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
+env PACKAGER_TARGET=aarch64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```
