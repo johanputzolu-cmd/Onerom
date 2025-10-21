@@ -350,6 +350,10 @@ impl Device {
                 }
             }
         }
+
+        // Finally, if there's no selected device, but there's a selected probe
+        // device, select it
+        self.check_selected();
     }
 
     fn usb_devices_detected(&mut self, devices: Vec<UsbDeviceType>) {
@@ -392,12 +396,7 @@ impl Device {
 
         // Finally, if there's no selected device, but there's a selected USB
         // device, select it
-        if self.selected.is_none() {
-            if let Some(usb_device) = &self.selected_usb_device {
-                self.selected = DeviceType::from_usb(usb_device.clone());
-                info!("Auto-selected active device: {}", usb_device);
-            }
-        } 
+        self.check_selected();
     }
 
     fn set_selected_probe(&mut self, probe: Option<DebugProbeInfo>) {
@@ -444,11 +443,12 @@ impl Device {
 
     fn check_selected(&mut self) {
         if self.selected.is_none() {
-            let changed = if let Some(probe) = &self.selected_probe {
-                self.selected = DeviceType::from_debug_probe(probe.clone());
-                true
-            } else if let Some(usb_device) = &self.selected_usb_device {
+            // Prefer USB over debug probe
+            let changed = if let Some(usb_device) = &self.selected_usb_device {
                 self.selected = DeviceType::from_usb(usb_device.clone());
+                true
+            } else if let Some(probe) = &self.selected_probe {
+                self.selected = DeviceType::from_debug_probe(probe.clone());
                 true
             } else {
                 false
