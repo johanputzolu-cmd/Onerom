@@ -21,7 +21,7 @@ jobs:
         working-directory: rust/studio
         env:
           PACKAGER_TARGET: x86_64-pc-windows-msvc
-        run: cargo packager --release --target $PACKAGER_TARGET --formats nsis
+        run: cargo packager --release --target $env:PACKAGER_TARGET --formats nsis
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
