@@ -51,9 +51,9 @@ background-app = false
 [package.metadata.packager.dmg]
 background = "assets/onerom-dmg.png"
 windowSize = { width = 540, height = 380 }
-windowPosition = { x = 200, y = 200 }  # where window appears on screen
-appPosition = { x = 140, y = 120 }  # your app icon position
-appFolderPosition = { x = 400, y = 120 } 
+windowPosition = { x = 200, y = 200 }
+appPosition = { x = 140, y = 160 }
+appFolderPosition = { x = 400, y = 160 } 
 
 [dependencies]
 onerom-config = { path = "../config", version = "0.2.1" }
