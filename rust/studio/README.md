@@ -6,6 +6,12 @@ A GUI front-end for interacting with One ROM and managing firmware images.
 
 Assuming building Windows target on a Debian-based Linux distribution.
 
+For building linux targets:
+
+```bash
+sudo apt install libudev-dev
+```
+
 Install the Rust Windows targets:
 
 ```bash
@@ -16,6 +22,13 @@ Install ming-w64 for Windows builds:
 
 ```bash
 sudo apt install mingw-w64
+```
+
+And the Linux ARM64 target and toolchain for Raspberry Pi 64-bit support:
+
+```bash
+rustup target add aarch64-unknown-linux-gnu
+sudo apt install gcc-aarch64-linux-gnu
 ```
 
 ## Packaging
@@ -42,12 +55,12 @@ Install Windows GNU toolchain:
 sudo apt install mingw-w64
 ```
 
-### Windows NSIS
+### Windows (x86_64)
 
-These instructions are for building Windows installers on a Linux machine.
+These instructions are for building Windows installers on a Linux machine.  It produces an NSIS installer, which is more modern than the older MSI format.
 
 ```bash
-cargo packager --release --target x86_64-pc-windows-gnu --formats nsis
+PACKAGER_TARGET=x86_64-pc-windows-gnu cargo packager --release --target $PACKAGER_TARGET --formats nsis
 ```
 
 ```bash
@@ -57,11 +70,10 @@ $ ls -l dist/*.exe
 
 Note that this mechanism builds an app using GNU, which leads to a 50% larger installer and 5x larger binary than the MSVC version.  However, the MVSC target is much harder to build on linux.  For testing, using Linux is fine, but for releases, use a Windows machine with the MSVC target (or the CI).
 
-
-## Linux
+## Linux (x86_64)
 
 ```bash
-cargo packager --release --target x86_64-unknown-linux-gnu --formats deb
+PACKAGER_TARGET=x86_64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
 ```
 
 ```bash
@@ -69,14 +81,20 @@ $ ls -l dist/*.deb
 -rw-r--r-- 1 pdf pdf 13741434 Oct 21 09:06 dist/onerom-studio_0.1.0_amd64.deb
 ```
 
+## Linux (ARM64)
+
+```bash
+PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
+```
+
 ## Mac - Intel
 
 ```bash
-cargo packager --release --target x86_64-apple-darwin --formats dmg
+PACKAGER_TARGET=x86_64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```
 
 ## Mac - Apple Silicon
 
 ```bash
-cargo packager --release --target aarch64-apple-darwin --formats dmg
+PACKAGER_TARGET=aarch64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
 ```

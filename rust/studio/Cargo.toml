@@ -35,7 +35,7 @@ longDescription = "One ROM Studio - Manage One ROM, the most flexible retro ROM 
 formats = ["dmg", "nsis", "deb"]
 icons = ["assets/icon.png", "assets/icon.ico"]
 out-dir = "./dist"
-before-packaging-command = "cargo build --release"
+before-packaging-command = "cargo build --release --target ${PACKAGER_TARGET}"
 
 # Windows installer
 [package.metadata.packager.nsis]
