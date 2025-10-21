@@ -43,6 +43,7 @@ display-language-selector = false
 [package.metadata.packager.linux]
 generate-desktop-entry = true
 [package.metadata.packager.deb]
+files = { "scripts/70-onerom-studio.rules" = "/lib/udev/rules.d/70-onerom-studio.rules" }
 
 # Mac package
 [package.metadata.packager.macos]
