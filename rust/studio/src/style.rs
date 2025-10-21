@@ -26,7 +26,7 @@ pub const ICED_THEME: iced::Theme = iced::Theme::Dark;
 /// Assets
 const FONT_MICHROMA_BYTES: &[u8] = include_bytes!("../fonts/Michroma-Regular.ttf");
 const FONT_COURIER_REG_BYTES: &[u8] = include_bytes!("../fonts/CourierPrime-Regular.ttf");
-const ICON_BYTES: &[u8] = include_bytes!("../assets/icon.png");
+const ICON_BYTES: &[u8] = include_bytes!("../assets/onerom-32x32.png");
 
 /// Michroma - One ROM's font
 pub fn font_michroma_bytes() -> &'static [u8] {

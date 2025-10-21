@@ -34,13 +34,16 @@ out-dir = "./dist"
 # Windows installer
 [package.metadata.packager.nsis]
 installer-mode = "currentUser"
-header-image = "assets/one-rom-header.bmp"
-sidebar-image = "assets/one-rom-sidebar.bmp"
-installer-icon = "assets/icon.ico"
+header-image = "assets/onerom-header.bmp"
+sidebar-image = "assets/onerom-sidebar.bmp"
+installer-icon = "assets/onerom.ico"
 display-language-selector = false
 
 # Linux packages
 [package.metadata.packager.linux]
+generate-desktop-entry = true
+[package.metadata.packager.deb]
+
 
 # Mac packages
 [package.metadata.packager.macos]

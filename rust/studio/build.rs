@@ -51,7 +51,7 @@ fn compile_windows_resources() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let icon_path = PathBuf::from(manifest_dir)
         .join("assets")
-        .join("icon.ico")
+        .join("onerom.ico")
         .display()
         .to_string()
         .replace("\\", "/");
