@@ -120,6 +120,7 @@ jobs:
         with:
           toolchain: stable
           target: x86_64-apple-darwin
+          cache: false
       
       - name: Install cargo-packager
         run: cargo install cargo-packager --locked
