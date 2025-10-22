@@ -16,7 +16,7 @@ use onerom_config::mcu::{Family, MCU_VARIANTS, Variant as McuVariant};
 use onerom_fw::net::{Release, Releases};
 
 use crate::app::AppMessage;
-use crate::device::{Client, Message as DeviceMessage};
+use crate::device::{Client, Device, Message as DeviceMessage};
 use crate::hw::HardwareInfo;
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Images};
 use crate::style::Style;
@@ -476,7 +476,7 @@ impl Create {
         self.hardware_selected() && runtime_info.selected_firmware().is_some() && runtime_info.config().is_some()
     }
 
-    pub fn view<'a>(&'a self, runtime_info: &'a RuntimeInfo) -> iced::Element<'a, AppMessage> {
+    pub fn view<'a>(&'a self, runtime_info: &'a RuntimeInfo, device: &Device) -> iced::Element<'a, AppMessage> {
         let mut columns = column![
             row![
                 self.select_hw_heading_row(),
@@ -547,7 +547,7 @@ impl Create {
                 } else {
                     "Flash Firmware".to_string()
                 };
-                let (on_press, highlighted) = if self.is_busy() {
+                let (on_press, highlighted) = if self.is_busy() || device.selected().is_none() {
                     (None, false)
                 } else {
                     (Some(Message::FlashFirmware.into()), true)
