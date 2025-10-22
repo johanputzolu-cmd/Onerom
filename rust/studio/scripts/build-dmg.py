@@ -114,7 +114,7 @@ def detect_architecture(binary_path):
     if 'x86_64-apple-darwin' in path_str:
         return 'x64'
     elif 'aarch64-apple-darwin' in path_str:
-        return 'arm64'
+        return 'aarch64'
     else:
         # Fallback: try to detect from file command
         try:
@@ -122,8 +122,8 @@ def detect_architecture(binary_path):
                                   capture_output=True, text=True, check=True)
             if 'x86_64' in result.stdout:
                 return 'x64'
-            elif 'arm64' in result.stdout:
-                return 'arm64'
+            elif 'aarch64' in result.stdout:
+                return 'aarch64'
         except subprocess.CalledProcessError:
             pass
     
