@@ -137,15 +137,13 @@ jobs:
           PACKAGER_TARGET: x86_64-apple-darwin
         run: cargo packager --release --target $PACKAGER_TARGET --formats dmg
 
-      - name: Set custom DMG icon
+      - name: Use dmgbuild to set DMG background, icon, and window properties
         working-directory: rust/studio
         run: |
-          sips -i assets/onerom-512x512.png
-          DeRez -only icns assets/onerom-512x512.png > dist/icon.rsrc
-          DMG_FILE=$(ls dist/*.dmg)
-          Rez -append dist/icon.rsrc -o "$DMG_FILE"
-          SetFile -a C "$DMG_FILE"
-          rm dist/icon.rsrc
+          python3 -m pip install -r scripts/requirements.txt
+          brew install fileicon
+          scripts/build-dmg.py
+          rm dist/*_cargo.dmg
       
       - name: Upload Mac Intel artifact
         uses: actions/upload-artifact@v4
@@ -179,15 +177,13 @@ jobs:
           PACKAGER_TARGET: aarch64-apple-darwin
         run: cargo packager --release --target $PACKAGER_TARGET --formats dmg
       
-      - name: Set custom DMG icon
+      - name: Use dmgbuild to set DMG background, icon, and window properties
         working-directory: rust/studio
         run: |
-          sips -i assets/onerom-512x512.png
-          DeRez -only icns assets/onerom-512x512.png > dist/icon.rsrc
-          DMG_FILE=$(ls dist/*.dmg)
-          Rez -append dist/icon.rsrc -o "$DMG_FILE"
-          SetFile -a C "$DMG_FILE"
-          rm dist/icon.rsrc
+          python3 -m pip install -r scripts/requirements.txt
+          brew install fileicon
+          scripts/build-dmg.py
+          rm dist/*_cargo.dmg
 
       - name: Upload Mac Apple Silicon artifact
         uses: actions/upload-artifact@v4
