@@ -43,6 +43,7 @@ pub enum Message {
     ClearDownloadedConfig,
     BuildImages(HardwareInfo),
     BuildImagesResult(Result<(Images, String), String>),
+    HelpPressed,
 }
 
 impl std::fmt::Display for Message {
@@ -68,6 +69,7 @@ impl std::fmt::Display for Message {
             Message::ClearDownloadedConfig => write!(f, "ClearDownloadedConfig"),
             Message::BuildImages(hw) => write!(f, "BuildImages({hw})"),
             Message::BuildImagesResult(_) => write!(f, "BuildImagesResult"),
+            Message::HelpPressed => write!(f, "HelpPressed"),
         }
     }
 }
@@ -454,7 +456,12 @@ impl Studio {
                 };
                 Task::done(msg.into())
             }
+            Message::HelpPressed => self.help_pressed(),
         }
+    }
+
+    fn help_pressed(&self) -> Task<AppMessage> {
+        Task::none()
     }
 
     async fn build_images_async(hw_info: HardwareInfo, runtime_info: RuntimeInfo) -> AppMessage {

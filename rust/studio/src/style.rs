@@ -4,6 +4,7 @@
 
 //! Style constants and objects
 
+use iced::alignment::{Horizontal, Vertical};
 use iced::border::Radius;
 use iced::overlay::menu;
 use iced::theme::Theme;
@@ -11,6 +12,7 @@ use iced::widget;
 use iced::widget::text::{Rich, Span, Text};
 use iced::widget::{
     PickList, Row, Scrollable, Space, button, column, container, pick_list, row, scrollable, text,
+    mouse_area,
 };
 use iced::{Background, Border, Element, Length, Shadow};
 use onerom_config::fw::FirmwareVersion;
@@ -64,6 +66,14 @@ pub enum Link {
     OneRom,
     /// https://piers.rocks
     PiersRocks,
+    /// https://zadig.akeo.ie/
+    Zadig,
+    /// https://onerom.org/prog/#windows
+    WinUsb,
+    /// https://github.com/piersfinlayson/one-rom/issues
+    GitHubIssue,
+    /// https://onerom.org/prog/#linux
+    LinuxUdev,
 }
 
 impl Link {
@@ -71,6 +81,10 @@ impl Link {
         match self {
             Link::OneRom => "https://onerom.org",
             Link::PiersRocks => "https://piers.rocks",
+            Link::Zadig => "https://zadig.akeo.ie/",
+            Link::WinUsb => "https://onerom.org/prog/#windows",
+            Link::GitHubIssue => "https://github.com/piersfinlayson/one-rom/issues",
+            Link::LinuxUdev => "https://onerom.org/prog/#linux",
         }
     }
 }
@@ -98,8 +112,8 @@ impl<'a> Style<'a> {
     /// #181820 - main background colour, used for windows and containers
     pub const COLOUR_BACKGROUND: iced::Color = as_iced_colour(0x181820);
 
-    /// #bf1f1f - background error colour
-    pub const COLOUR_BACKGROUND_ERROR: iced::Color = as_iced_colour(0x5f1f1f);
+    /// Background error colour - use same as error colour
+    pub const COLOUR_BACKGROUND_ERROR: iced::Color = Self::COLOUR_ERROR;
 
     /// #4a4a52 - border colour, used for button and container edges
     pub const COLOUR_BORDER: iced::Color = as_iced_colour(0x4a4a52);
@@ -125,6 +139,8 @@ impl<'a> Style<'a> {
 
     /// #ff5f5f - error log level
     pub const COLOUR_ERROR: iced::Color = as_iced_colour(0xff5f5f);
+
+    pub const COLOUR_OVERLAY_BACKGROUND: iced::Color = iced::Color::from_rgba(0.0, 0.0, 0.0, 0.75);
 
     // Font sizes
 
@@ -426,7 +442,7 @@ impl<'a> Style<'a> {
             shadow: Shadow::default(),
         }
     }
-    fn link(content: impl ToString, size: u16, link: Link) -> widget::Button<'a, AppMessage> {
+    pub fn link(content: impl ToString, size: u16, link: Link) -> widget::Button<'a, AppMessage> {
         let text = Self::text_body(content.to_string())
             .size(size)
             .color(Self::COLOUR_GOLD);
@@ -515,6 +531,8 @@ impl<'a> Style<'a> {
             .into()
     }
 
+    // Creates a bordered container for the specified content - like an overlaid
+    // window, or a text box
     pub fn container(
         content: impl Into<Element<'a, AppMessage>>,
     ) -> widget::Container<'a, AppMessage> {
@@ -525,6 +543,38 @@ impl<'a> Style<'a> {
                 border: Self::BUTTON_BORDER,
                 ..widget::container::Style::default()
             })
+    }
+
+    // Creates an overlaid container (actually two containers), to cover the main
+    // layer with a semi-opaque background, and centre the required overlay content
+    pub fn overlay_container(
+        content: impl Into<Element<'a, AppMessage>>,
+    ) -> Element<'a, AppMessage> {
+        // The actual overlay container with the specified content
+        let inner = Self::container(content)
+            .width(500.0)
+            .height(Length::Shrink);
+
+        // An outer container to centre the inner container, and make the under layer
+        // appear greyed out
+        let outer = container(inner)
+            .padding(20)
+            .style(|_| widget::container::Style {
+                background: Some(Background::Color(Style::COLOUR_OVERLAY_BACKGROUND)),
+                ..widget::container::Style::default()
+            })
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center);
+
+        // A mouse area to block clicks to the underlying layer.  The pointer is set
+        // to idle, so it doesn't indicate buttons on the underlying layer can be
+        // pressed.
+        mouse_area(outer)
+            .on_press(AppMessage::Nop)
+            .interaction(iced::mouse::Interaction::Idle)
+            .into()
     }
 
     pub fn pick_list_reg<T, L, V>(

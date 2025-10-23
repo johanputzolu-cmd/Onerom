@@ -4,7 +4,8 @@
 
 use dfu_rs::{DeviceInfo as DfuDeviceInfo, Device as DfuDevice, DfuType, Error as DfuError};
 use iced::alignment::Alignment::Center;
-use iced::widget::{column, Column, container, row};
+use iced::alignment::Horizontal;
+use iced::widget::{column, container, row, Column, Space};
 use iced::{time, Element, Length, Subscription, Task};
 use futures::stream::{self, Stream, StreamExt};
 #[allow(unused_imports)]
@@ -19,7 +20,8 @@ use crate::analyse::Message as AnalyseMessage;
 use crate::app::AppMessage;
 use crate::create::Message as CreateMessage;
 use crate::studio::RuntimeInfo;
-use crate::style::Style;
+use crate::style::{Style, Link};
+
 use crate::internal_error;
 
 const DEVICE_DETECTION_RETRY_SHORT: Duration = Duration::from_secs(5);
@@ -515,7 +517,7 @@ impl Device {
             container(Style::text_small("Use:")).height(Length::Fixed(30.0)).align_y(Center),
         ]
         .spacing(10)
-        .align_x(iced::alignment::Horizontal::Right);
+        .align_x(Horizontal::Right);
 
         // Create the Probe pick list
         let probe_list: Element<'_, AppMessage> = if self.has_detected_probes() {
@@ -570,9 +572,11 @@ impl Device {
         // Create the buttons
         let probe_button = Style::text_button_small("Probe", on_press_probe, highlight_probe_button);
         let usb_button = Style::text_button_small("USB", on_press_usb, highlight_usb_button);
+        let help_button = Style::text_button_small("Help", Some(AppMessage::Help(true)), true);
         let button_row = row![
             probe_button,
             usb_button,
+            help_button,
         ].spacing(10)
             .align_y(Center);
         let button_row = container(button_row)
@@ -600,7 +604,7 @@ impl Device {
         ]
             .spacing(20)
             .width(Length::Fill)
-            .align_x(iced::alignment::Horizontal::Center)
+            .align_x(Horizontal::Center)
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
@@ -620,6 +624,124 @@ impl Device {
             time::every(check_probes_duration).map(|_| Message::DetectProbes),
         ])
     }
+
+    pub fn help_overlay(&self) -> Element<'_, AppMessage> {
+        let main_content = if cfg!(target_os = "windows") {
+            self.help_content_win()
+        } else if cfg!(target_os = "linux") {
+            self.help_content_linux()
+        } else if cfg!(target_os = "macos") {
+            self.help_content_macos()
+        } else {
+            Style::text_body("No device help available for this platform").into()
+        };
+
+        let exit_button = row![
+            Style::text_button("Exit", Some(AppMessage::Help(false)), true),
+        ];
+
+        column![
+            Style::text_h2("Device Help").align_x(Horizontal::Center),
+            Style::horiz_line(),
+            main_content,
+            exit_button,
+        ]
+        .align_x(Horizontal::Center)
+        .spacing(20).into()
+    }
+
+    pub fn help_content_linux(&self) -> Element<'_, AppMessage> {
+        let help_row_1 = row![
+            Style::text_body("When installing from the official One ROM Studio .deb package, udev rules should be automatically set up to allow One ROM Studio to access debug probes and One ROM USB devices."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_2 = row![
+            Style::text_body("If you have compiled One ROM Studio from source, or are using a different distribution method, you may need to set up udev rules manually."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_3 = row![
+            Style::text_body("See "),
+            Style::link("here", Style::FONT_SIZE_BODY, Link::LinuxUdev),
+            Style::text_body(" for instructions."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_4 = row![
+            Style::text_body("Also try reconnecting the device, restarting One ROM Studio, and rebooting your machine."),
+            Space::with_width(Length::Fill),
+        ];
+        column![
+            help_row_1,
+            help_row_2,
+            help_row_3,
+            help_row_4,
+        ]
+        .spacing(20)
+        .align_x(Horizontal::Center)
+        .into()
+    }
+
+    pub fn help_content_macos(&self) -> Element<'_, AppMessage> {
+        let help_row_1 = row![
+            Style::text_body("There is no special USB device setup required on macOS to allow One ROM Studio to access your devices.  However, when plugging in devices you may need to choose 'Allow' so that your Mac can access them."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_2 = row![
+            Style::text_body("If One ROM does detect a connected device, try reconnecting it, restarting One ROM Studio, and rebooting your Mac."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_3 = row![
+            Style::text_body("If problems persist, please raise a "),
+            Style::link("GitHub issue", Style::FONT_SIZE_BODY, Link::GitHubIssue),
+            Style::text_body("."),
+            Space::with_width(Length::Fill),
+        ];
+        column![
+            help_row_1,
+            help_row_2,
+            help_row_3,
+        ]
+        .spacing(20)
+        .align_x(Horizontal::Center)
+        .into()
+    }
+
+    pub fn help_content_win(&self) -> Element<'_, AppMessage> {
+        let help_row_1 = row![
+            Style::text_body("If you have plugged in a One ROM USB and it has not been detected, you may need to install the WinUSB driver for it."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_2 = row![
+            Style::text_body("See "),
+            Style::link("here", Style::FONT_SIZE_BODY, Link::WinUsb),
+            Style::text_body(" for instructions."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_3 = row![
+            Style::text_body("Generic debug probes should be automatically detected when plugged in, although specific probes may need a custom driver."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_4 = row![
+            Style::text_body("Try reconnecting the device, restarting One ROM Studio, and rebooting your PC."),
+            Space::with_width(Length::Fill),
+        ];
+        let help_row_5 = row![
+            Style::text_body("If problems persist, please raise a "),
+            Style::link("GitHub issue", Style::FONT_SIZE_BODY, Link::GitHubIssue),
+            Style::text_body("."),
+            Space::with_width(Length::Fill),
+        ];
+        column![
+            help_row_1,
+            help_row_2,
+            help_row_3,
+            help_row_4,
+            help_row_5,
+        ]
+        .spacing(20)
+        .align_x(Horizontal::Center)
+        .into()
+    }
+
 }
 
 /// A type of a device

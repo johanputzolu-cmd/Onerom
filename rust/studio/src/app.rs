@@ -2,9 +2,9 @@
 //
 // MIT License
 
-use iced::widget::{column, row, Space};
+use iced::widget::{column, row, Space, Stack};
 use iced::alignment::Vertical::Bottom;
-use iced::{Length, Subscription, Task};
+use iced::{Element, Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
@@ -55,9 +55,11 @@ pub enum AppMessage {
     /// Style related messages
     Style(StyleMessage),
 
+    /// Help related messages
+    Help(bool),
+
     /// No-operation message, where it's easier to return a message than none
     /// at all (for example in match arms).
-    #[allow(dead_code)]
     Nop,
 }
 
@@ -70,6 +72,7 @@ impl std::fmt::Display for AppMessage {
             AppMessage::Log(msg) => write!(f, "Log::{msg}"),
             AppMessage::Studio(msg) => write!(f, "Studio::{msg}"),
             AppMessage::Style(msg) => write!(f, "Style::{msg}"),
+            AppMessage::Help(flag) => write!(f, "Help({flag})"),
             AppMessage::Nop => write!(f, "Nop"),
         }
     }
@@ -83,6 +86,7 @@ pub struct App<'a> {
     log: Log,
     studio: Studio,
     style: Style<'a>,
+    help: bool,
 }
 
 impl<'a> App<'a> {
@@ -94,6 +98,7 @@ impl<'a> App<'a> {
             style: Style::new(),
             log: Log::new(),
             studio: Studio::new(),
+            help: false,
         }
     }
 
@@ -123,11 +128,15 @@ impl<'a> App<'a> {
             AppMessage::Studio(studio_msg) => self.studio.update(studio_msg).map(|m| m.into()),
             AppMessage::Log(log_msg) => self.log.update(&runtime_info, log_msg).map(|m| m.into()),
             AppMessage::Style(style_msg) => self.style.update(style_msg).map(|m| m.into()),
+            AppMessage::Help(flag) => {
+                self.help = flag;
+                Task::none()
+            }
             AppMessage::Nop => Task::none(),
         }
     }
 
-    pub fn view(&self) -> iced::Element<'_, AppMessage> {
+    pub fn view(&self) -> Element<'_, AppMessage> {
         let runtime_info = self.runtime_info();
 
         let serious_errors = self.log.serious_errors_occurred();
@@ -154,7 +163,7 @@ impl<'a> App<'a> {
             StudioTab::Log => self.log.view(runtime_info),
         };
 
-        column![
+        let main_view = column![
             top_row,
             Space::with_height(20.0),
             Style::horiz_line(),
@@ -165,8 +174,19 @@ impl<'a> App<'a> {
             Space::with_height(20.0),
             Style::footer(),
         ]
-        .padding([20, 20])
-        .into()
+        .padding([20, 20]);
+
+        if self.help {
+            let help_overlay = self.device.help_overlay();
+            let overlay = Style::overlay_container(help_overlay);
+
+            Stack::new()
+                .push(main_view)
+                .push(overlay)
+                .into()
+        } else {
+            main_view.into()
+        }
     }
 
     pub fn subscription(&self) -> Subscription<AppMessage> {
