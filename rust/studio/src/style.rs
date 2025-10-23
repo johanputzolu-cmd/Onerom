@@ -68,11 +68,11 @@ pub enum Link {
     PiersRocks,
     /// https://zadig.akeo.ie/
     Zadig,
-    /// https://onerom.org/prog/#windows
+    /// https://onerom.org/web/#windows
     WinUsb,
     /// https://github.com/piersfinlayson/one-rom/issues
     GitHubIssue,
-    /// https://onerom.org/prog/#linux
+    /// https://onerom.org/web/#linux
     LinuxUdev,
 }
 
