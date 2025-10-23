@@ -576,6 +576,7 @@ impl Device {
         let button_row = row![
             probe_button,
             usb_button,
+            Space::with_width(Length::Fill),
             help_button,
         ].spacing(10)
             .align_y(Center);
