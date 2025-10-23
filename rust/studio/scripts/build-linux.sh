@@ -25,7 +25,27 @@ sudo apt update && sudo apt install -y libudev-dev libusb-1.0-0-dev gcc-aarch64-
 
 # Also need aarch64 libudev-dev and libusb files
 sudo dpkg --add-architecture arm64
+
+# On Ubuntu 22.04 and earlier, arm64 packages need ports.ubuntu.com
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [ "$ID" = "ubuntu" ] && [ "$VERSION_ID" = "22.04" ]; then
+        echo "Configuring ports.ubuntu.com for arm64 packages (Ubuntu 22.04)"
+        sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
+        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main universe" | sudo tee -a /etc/apt/sources.list
+        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe" | sudo tee -a /etc/apt/sources.list
+        echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main universe" | sudo tee -a /etc/apt/sources.list
+    fi
+fi
+
 sudo apt update && sudo apt install -y libudev-dev:arm64 libusb-1.0-0-dev:arm64
+
+# Verify they actually installed
+if ! dpkg -l | grep -q "libudev-dev.*arm64"; then
+    echo "ERROR: libudev-dev:arm64 not installed" >&2
+    exit 1
+fi
+echo "libudev-dev:arm64 is installed."
 
 # Install the Rust targets
 rustup target add x86_64-unknown-linux-gnu
@@ -44,7 +64,7 @@ cargo clean --target aarch64-unknown-linux-gnu
 rm -fr dist/*.deb
 
 #
-# Intel silicon (x86_64)
+# Intel (x86_64)
 #
 
 # Build One ROM Studio
@@ -59,7 +79,7 @@ cargo packager --release --target $PACKAGER_TARGET --formats deb
 echo "Linux x86_64 build complete."
 
 #
-# ARM silicon (aarch64)
+# ARM (aarch64)
 #
 
 # Build One ROM Studio
