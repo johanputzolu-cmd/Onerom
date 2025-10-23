@@ -26,6 +26,8 @@ jobs:
           path: rust/studio/dist/*.exe
 
   # Builds both Intel and ARM Linux debs
+  # Deliberately built on an older image to ensure compatibility with older
+  # glibc
   build-linux:
     runs-on: ubuntu-22.04
     steps:

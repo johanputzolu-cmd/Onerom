@@ -32,7 +32,8 @@ rustup target add x86_64-unknown-linux-gnu
 rustup target add aarch64-unknown-linux-gnu
 
 # Install cargo-packager if not already installed
-cargo install cargo-packager --locked
+# Forced to ensure it builds against glibc version on this system
+cargo install cargo-packager --locked --force
 
 #
 # Clean previous builds
@@ -80,6 +81,6 @@ echo "Linux ARM64 build complete."
 # Inject deb scripts
 #
 echo "Injecting deb scripts into generated .deb files..."
-scripts/inject-deb-scripts.sh dist
+/bin/bash scripts/inject-deb-scripts.sh dist
 
 echo "Build complete."
