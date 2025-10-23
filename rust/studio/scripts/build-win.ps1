@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-#Requires -Version 7.0
+#Requires -Version 5.0
 
 # Builds the One ROM Studio application and NSIS installers for Windows.
 #
@@ -12,12 +12,6 @@
 # ```
 
 $ErrorActionPreference = "Stop"
-
-# Check we're running on Windows
-if ($IsLinux -or $IsMacOS) {
-    Write-Error "This script must be run on Windows"
-    exit 1
-}
 
 #
 # Setup
