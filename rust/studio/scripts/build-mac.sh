@@ -62,6 +62,7 @@ echo "Building for target: $PACKAGER_TARGET"
 cargo build --release --target $PACKAGER_TARGET
 
 # Package as a dmg
+echo "Packaging dmg for target: $PACKAGER_TARGET"
 cargo packager --release --target $PACKAGER_TARGET --formats dmg
 
 # Update the dmg background, icon positions and volume icon
@@ -70,6 +71,8 @@ scripts/update-dmg.py
 # Clean intermediate dmg and Cargo build
 cargo clean --target x86_64-apple-darwin
 rm dist/*_cargo.dmg
+
+echo "Intel dmg build complete."
 
 #
 # Apple Silicon (aarch64)
@@ -81,6 +84,7 @@ echo "Building for target: $PACKAGER_TARGET"
 cargo build --release --target $PACKAGER_TARGET
 
 # Package as a dmg
+echo "Packaging dmg for target: $PACKAGER_TARGET"
 cargo packager --release --target $PACKAGER_TARGET --formats dmg
 
 # Update the dmg background, icon positions and volume icon
@@ -89,3 +93,5 @@ scripts/update-dmg.py
 # Clean intermediate dmg and Cargo build
 cargo clean --target aarch64-apple-darwin
 rm dist/*_cargo.dmg
+
+echo "Apple silicon dmg build complete."
