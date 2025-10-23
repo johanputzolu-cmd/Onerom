@@ -1,24 +1,24 @@
 #!/bin/sh
 set -e
 
-# Builds the Rust Studio application and dmg packages for macOS.
+# Builds the One ROM Studio application and dmg packages for macOS.
 #
 # Pre-requisites:
 # - Rust:
 #
-# ```zsh
+# ```sh
 #   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # ```
 #
 # - Homebrew:
 #
-# ```zsh
+# ```sh
 #   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 # ```
 #
 # - Python 3 and pip: https://www.python.org/downloads/macos/
 
-# Check it's running on macOS
+# Check we're running on macOS
 if [ "$(uname -s)" != "Darwin" ]; then
     echo "Error: This script must be run on macOS" >&2
     exit 1
@@ -50,7 +50,7 @@ python3 -m pip install --break-system-packages -r scripts/requirements.txt
 
 cargo clean --target x86_64-apple-darwin
 cargo clean --target aarch64-apple-darwin
-rm -fr dist/
+rm -fr dist/*.dmg
 
 #
 # Intel silicon (x86_64)
