@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Builds Windows (x86_64) installer
   build-windows:
     runs-on: windows-latest
     steps:
@@ -14,20 +15,9 @@ jobs:
           toolchain: stable
           target: x86_64-pc-windows-msvc
       
-      - name: Install cargo-packager
-        run: cargo install cargo-packager --locked
-      
-      - name: Build release binary
+      - name: Build Windows installer
         working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: x86_64-pc-windows-msvc
-        run: cargo build --release --target $env:PACKAGER_TARGET
-      
-      - name: Build Windows NSIS installer
-        working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: x86_64-pc-windows-msvc
-        run: cargo packager --release --target $env:PACKAGER_TARGET --formats nsis
+        run: scripts\build-windows.ps1
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -35,7 +25,8 @@ jobs:
           name: windows-x64-installer
           path: rust/studio/dist/*.exe
 
-  build-linux-intel:
+  # Builds both Intel and ARM Linux debs
+  build-linux:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -45,113 +36,20 @@ jobs:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
       
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y libudev-dev
-      
-      - name: Install cargo-packager
-        run: cargo install cargo-packager --locked --force
-      
-      - name: Build release binary
+      - name: Build Intel and ARM debs
         working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: x86_64-unknown-linux-gnu
-        run: cargo build --release --target $PACKAGER_TARGET
-      
-      - name: Build Linux deb package
-        working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: x86_64-unknown-linux-gnu
-        run: cargo packager --release --target $PACKAGER_TARGET --formats deb
-      
-      - name: Inject maintainer scripts into deb for udev updates
-        working-directory: rust/studio
-        run: scripts/inject-deb-scripts.sh dist
+        run: scripts/build-linux.sh
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-x64-deb
+          name: linux-debs
           path: rust/studio/dist/*.deb
 
-  build-linux-arm64:
-    runs-on: ubuntu-22.04-arm
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          target: aarch64-unknown-linux-gnu
-      
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y libudev-dev
-      
-      - name: Install cargo-packager
-        run: cargo install cargo-packager --locked --force
-      
-      - name: Build release binary
-        working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: aarch64-unknown-linux-gnu
-        run: cargo build --release --target $PACKAGER_TARGET
-      
-      - name: Build Linux deb package
-        working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: aarch64-unknown-linux-gnu
-        run: cargo packager --release --target $PACKAGER_TARGET --formats deb
-
-      - name: Inject maintainer scripts into deb for udev updates
-        working-directory: rust/studio
-        run: scripts/inject-deb-scripts.sh dist
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-arm64-deb
-          path: rust/studio/dist/*.deb
-
-  build-mac-intel:
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          target: x86_64-apple-darwin
-      
-      - name: Install cargo-packager
-        run: cargo install cargo-packager --locked
-      
-      - name: Build release binary
-        working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: x86_64-apple-darwin
-          LIBUSB_STATIC: 1
-        run: cargo build --release --target $PACKAGER_TARGET
-      
-      - name: Build Mac Intel dmg
-        working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: x86_64-apple-darwin
-        run: cargo packager --release --target $PACKAGER_TARGET --formats dmg
-
-      - name: Use dmgbuild to set DMG background, icon, and window properties
-        working-directory: rust/studio
-        run: |
-          python3 -m pip install --break-system-packages -r scripts/requirements.txt
-          brew install fileicon
-          scripts/build-dmg.py
-          rm dist/*_cargo.dmg
-      
-      - name: Upload Mac Intel artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mac-intel-dmg
-          path: rust/studio/dist/*.dmg
-
-  build-mac-apple-silicon:
+  # Builds both Intel and Apple silicon dmgs
+  # DO NOT RELEASE THESE VERSIONS
+  # The dmg file icon cannot be properly set using headless CI
+  build-mac:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -161,32 +59,12 @@ jobs:
           toolchain: stable
           target: aarch64-apple-darwin
       
-      - name: Install cargo-packager
-        run: cargo install cargo-packager --locked
-      
-      - name: Build release binary
+      - name: Build Intel and Apple silicon dmgs
         working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: aarch64-apple-darwin
-          LIBUSB_STATIC: 1
-        run: cargo build --release --target $PACKAGER_TARGET
-      
-      - name: Build Mac Apple Silicon dmg
-        working-directory: rust/studio
-        env:
-          PACKAGER_TARGET: aarch64-apple-darwin
-        run: cargo packager --release --target $PACKAGER_TARGET --formats dmg
-      
-      - name: Use dmgbuild to set DMG background, icon, and window properties
-        working-directory: rust/studio
-        run: |
-          python3 -m pip install --break-system-packages -r scripts/requirements.txt
-          brew install fileicon
-          scripts/build-dmg.py
-          rm dist/*_cargo.dmg
+        run: scripts/build-mac.sh
 
       - name: Upload Mac Apple Silicon artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mac-apple-silicon-dmg
+          name: mac-dmgs
           path: rust/studio/dist/*.dmg
