@@ -19,7 +19,6 @@ $ErrorActionPreference = "Stop"
 
 # Install the Rust targets
 rustup target add x86_64-pc-windows-msvc
-rustup target add aarch64-pc-windows-msvc
 
 # Install cargo-packager if not already installed
 cargo install cargo-packager --locked
