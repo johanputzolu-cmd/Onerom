@@ -2,12 +2,19 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.5.3 - ????-??-??
+## v0.5.3 - 202510-24
 
-The major addition in this release is the companion desktop application, One ROM Studio, which provides a native GUI for creating One ROM firmware images, and analysing and flashing One ROM devices.  It is available for:
-- Windows (64-bit Intel)
-- Linux (x86_64 and 64-bit ARM)
-- MacOS (Apple and Intel silicon, macOS 13+)
+The major addition in this release is the companion desktop application, One ROM Studio, which provides a native GUI for creating One ROM firmware images, and analysing and flashing One ROM devices.
+
+<img src="docs/images/one-rom-studio-win-v0.1.0.png" alt="One ROM Studio on Windows" width="500">
+
+Features include:
+- Supported platforms: Windows, Mac, Linux (Ubuntu, Debian and Raspberry Pi OS)
+- Supported One ROMs: all variants including Ice/Fire and Pro/USB
+- Program One ROMs with a choice of ROM images
+- Generate and save One ROM firmware files
+- Analyse One ROM devices and firmware files
+- Automatic debug probe and One ROM USB detection
 
 One ROM Studio can be downloaded from https://onerom.org/studio/.
 
