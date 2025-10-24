@@ -4281,6 +4281,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "onerom-fw"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b6cddabeb28135c46c9958c6e32b8bf5e890736ae5e149c385ba75d1a6201e9"
+dependencies = [
+ "clap",
+ "env_logger",
+ "log",
+ "onerom-config 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "onerom-gen 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "zip 6.0.0",
+]
+
+[[package]]
 name = "onerom-gen"
 version = "0.1.2"
 dependencies = [
@@ -4352,15 +4369,15 @@ dependencies = [
  "git2",
  "iced",
  "log",
- "onerom-config 0.2.1",
- "onerom-fw",
- "onerom-gen 0.1.2",
+ "onerom-config 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "onerom-fw 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "onerom-gen 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "open",
  "probe-rs",
  "reqwest",
  "rfd",
  "rusb",
- "sdrr-fw-parser",
+ "sdrr-fw-parser 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
  "tokio",
@@ -5514,6 +5531,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sdrr-fw-parser"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5dbc4812e8e1c83c5134bc771a832cea9529d2f72b6f950fb24b3f729430008"
+dependencies = [
+ "airfrog-rpc",
+ "deku 0.19.1",
+ "log",
+ "onerom-config 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "onerom-gen 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "static_assertions",
+]
+
+[[package]]
 name = "sdrr-gen"
 version = "0.5.2"
 dependencies = [
@@ -5521,7 +5553,7 @@ dependencies = [
  "bytes",
  "clap",
  "onerom-config 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "onerom-gen 0.1.2",
+ "onerom-gen 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest",
  "strum 0.27.2",
  "thiserror 2.0.16",
@@ -5537,7 +5569,7 @@ dependencies = [
  "chrono",
  "clap",
  "goblin",
- "sdrr-fw-parser",
+ "sdrr-fw-parser 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "smol",
 ]
 
