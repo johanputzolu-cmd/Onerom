@@ -544,7 +544,7 @@ uint8_t check_idcode(void) {
             break;
     }
     if (mismatch) {
-        LOG("!!! MCU mismatch: actual %s, firmware expected %s", idcode_mcu_variant, mcu_variant);
+        LOG("!!! MCU mismatch: actual %s, firmware expected %s", idcode, sdrr_info.mcu_line);
     }
     return mismatch;
 }
