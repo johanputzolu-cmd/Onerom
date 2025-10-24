@@ -2,7 +2,13 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.5.3 - 202510-24
+## v0.5.4 - 2025-??-??
+
+### Fixes
+
+- [#43](https://github.com/piersfinlayson/one-rom/issues/43) - Let sdrr-fw-parser parse later versions of fw. Supports up to v0.5.999 with no code/wasm/site changes required.
+
+## v0.5.3 - 2025-10-24
 
 The major addition in this release is the companion desktop application, One ROM Studio, which provides a native GUI for creating One ROM firmware images, and analysing and flashing One ROM devices.
 
