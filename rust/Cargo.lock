@@ -4225,9 +4225,7 @@ checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
 
 [[package]]
 name = "onerom-config"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cde0d2803ffbf39e6f8f196e0a4cca96dd7cf75fe44eafba34883cb4694f4e5"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -4236,6 +4234,8 @@ dependencies = [
 [[package]]
 name = "onerom-config"
 version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba92aa26e30906b713e57fe529460bcacb1f7b6c4ad75bc387dd8fa4df2aa517"
 dependencies = [
  "serde",
  "serde_json",
@@ -4272,8 +4272,8 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "onerom-config 0.2.1",
- "onerom-gen 0.1.1",
+ "onerom-config 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "onerom-gen",
  "reqwest",
  "serde",
  "serde_json",
@@ -4282,20 +4282,9 @@ dependencies = [
 
 [[package]]
 name = "onerom-gen"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11ce1139d749d078065f447c2a28e88c25834b4bf4e67790e30ea24615884ae2"
-dependencies = [
- "onerom-config 0.2.0",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "onerom-gen"
 version = "0.1.2"
 dependencies = [
- "onerom-config 0.2.1",
+ "onerom-config 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "serde_json",
 ]
@@ -4354,7 +4343,7 @@ dependencies = [
  "log",
  "onerom-config 0.2.1",
  "onerom-fw",
- "onerom-gen 0.1.2",
+ "onerom-gen",
  "open",
  "probe-rs",
  "reqwest",
@@ -5508,20 +5497,20 @@ dependencies = [
  "esp-println",
  "log",
  "onerom-config 0.2.1",
- "onerom-gen 0.1.2",
+ "onerom-gen",
  "serde",
  "static_assertions",
 ]
 
 [[package]]
 name = "sdrr-gen"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "bytes",
  "clap",
- "onerom-config 0.2.0",
- "onerom-gen 0.1.1",
+ "onerom-config 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "onerom-gen",
  "reqwest",
  "strum 0.27.2",
  "thiserror 2.0.16",
