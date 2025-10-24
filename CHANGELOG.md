@@ -4,6 +4,10 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.4 - 2025-??-??
 
+### Added
+
+- `onerom-config` 0.2.2 - Added method to query ROM power pins.
+
 ### Fixes
 
 - [#43](https://github.com/piersfinlayson/one-rom/issues/43) - Let sdrr-fw-parser parse later versions of fw. Supports up to v0.5.999 with no code/wasm/site changes required.

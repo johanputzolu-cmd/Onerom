@@ -254,6 +254,10 @@ fn generate_rust_code(config: &RomTypesConfig) -> String {
     code.push_str(generate_programming_pin_spec_struct());
     code.push_str("\n\n");
 
+    // Generate power pin spec struct
+    code.push_str(generate_power_pin_spec_struct());
+    code.push_str("\n\n");
+
     // Generate RomType enum
     code.push_str(&generate_rom_type_enum(config));
     code.push_str("\n\n");
@@ -336,6 +340,18 @@ pub struct ProgrammingPinSpec {
     
     /// Required state during read operations
     pub read_state: ProgrammingPinState,
+}"#
+}
+
+fn generate_power_pin_spec_struct() -> &'static str {
+    r#"/// Power pin specification
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PowerPinSpec {
+    /// Pin name ("vcc" or "gnd")
+    pub name: &'static str,
+    
+    /// Physical pin number on the ROM package
+    pub pin: u8,
 }"#
 }
 
@@ -466,6 +482,11 @@ fn generate_rom_type_impl(config: &RomTypesConfig) -> String {
 
     // Generate programming_pins
     code.push_str(&generate_programming_pins_method(config));
+    code.push_str("\n\n");
+
+    // Generate power_pins
+    code.push_str(&generate_power_pins_method(config));
+    code.push_str("\n\n");
 
     code.push_str("}\n");
     code
@@ -866,6 +887,53 @@ fn generate_programming_pins_method(config: &RomTypesConfig) -> String {
             } else {
                 code.push_str(&format!("            RomType::Rom{} => None,\n", type_name));
             }
+        }
+    }
+
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+    code
+}
+
+fn generate_power_pins_method(config: &RomTypesConfig) -> String {
+    let mut code = String::new();
+
+    code.push_str("    /// Get power pin specifications\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// Returns VCC and GND pin locations for the ROM package.\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// # Examples\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// ```\n");
+    code.push_str("    /// use onerom_config::rom::RomType;\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// let pins = RomType::Rom2364.power_pins();\n");
+    code.push_str("    /// assert_eq!(pins.len(), 2);\n");
+    code.push_str("    /// ```\n");
+    code.push_str("    pub const fn power_pins(&self) -> &'static [PowerPinSpec] {\n");
+    code.push_str("        match self {\n");
+
+    for (type_name, _rom_type) in get_sorted_rom_types(config) {
+        if let Some(rom_type) = config.rom_types.get(type_name) {
+            let (gnd_pin, vcc_pin) = if rom_type.pins == 24 {
+                (12, 24)
+            } else {
+                (14, 28)
+            };
+            
+            code.push_str(&format!(
+                "            RomType::Rom{} => &[\n",
+                type_name
+            ));
+            code.push_str(&format!(
+                "                PowerPinSpec {{ name: \"gnd\", pin: {} }},\n",
+                gnd_pin
+            ));
+            code.push_str(&format!(
+                "                PowerPinSpec {{ name: \"vcc\", pin: {} }},\n",
+                vcc_pin
+            ));
+            code.push_str("            ],\n");
         }
     }
 
