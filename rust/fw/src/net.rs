@@ -31,33 +31,69 @@ pub async fn fetch_license_async(url: &str) -> Result<String, Error> {
 }
 
 /// Retrieves a ROM file from a URL, extracting it from a zip file if needed
-pub fn fetch_rom_file(url: &str, extract: Option<String>) -> Result<Vec<u8>, Error> {
-    // Get the file itself
-    debug!("Fetching ROM file from {}", url);
-    let response = reqwest::blocking::get(url).map_err(Error::network)?;
-    let bytes = response.bytes().map_err(Error::network)?;
+/// Function will skip using the filename if `file` data if provided (used for caching zip files)
+/// If cache_return is true, the function will return the full file data as well as any extracted data
+/// 
+/// Returns:
+/// - Ok(Vec<u8>, Vec<u8>) - The extracted file data and full file if cache_return
+pub fn fetch_rom_file(url: &str, file: &[u8], extract: Option<String>, cache_return: bool) -> Result<(Vec<u8>, Vec<u8>), Error> {
+    let bytes = if file.is_empty() {
+        // Get the file itself
+        debug!("Fetching ROM file from {}", url);
+        let response = reqwest::blocking::get(url).map_err(Error::network)?;
+        response.bytes().map_err(Error::network)?
+    } else {
+        debug!("Using cached ROM file for {}", url);
+        bytes::Bytes::from(file.to_vec())
+    };
 
     // Now extract if needed
-    if let Some(extract) = extract {
-        extract_file(&bytes, &extract)
+    let file = if let Some(extract) = extract {
+        extract_file(&bytes, &extract)?
     } else {
-        Ok(bytes.to_vec())
-    }
+        bytes.to_vec()
+    };
+
+    let cache = if cache_return {
+        bytes.to_vec()
+    } else {
+        Vec::new()
+    };
+
+    Ok((file, cache))
 }
 
 /// Retrieves a ROM file from a URL, extracting it from a zip file if needed
-pub async fn fetch_rom_file_async(url: &str, extract: Option<String>) -> Result<Vec<u8>, Error> {
-    // Get the file itself
-    debug!("Fetching ROM file from {}", url);
-    let response = reqwest::get(url).await.map_err(Error::network)?;
-    let bytes = response.bytes().await.map_err(Error::network)?;
+/// Function will skip using the filename if `file` data if provided (used for caching zip files)
+/// If cache_return is true, the function will return the full file data as well as any extracted data
+/// 
+/// Returns:
+/// - Ok(Vec<u8>, Vec<u8>) - The extracted file data and full file data if cache_return
+pub async fn fetch_rom_file_async(url: &str, file: &[u8], extract: Option<String>, cache_return: bool) -> Result<(Vec<u8>, Vec<u8>), Error> {
+    let bytes = if file.is_empty() {
+        // Get the file itself
+        debug!("Fetching ROM file from {}", url);
+        let response = reqwest::get(url).await.map_err(Error::network)?;
+        response.bytes().await.map_err(Error::network)?
+    } else {
+        debug!("Using cached ROM file for {}", url);
+        bytes::Bytes::from(file.to_vec())
+    };
 
     // Now extract if needed
-    if let Some(extract) = extract {
-        extract_file(&bytes, &extract)
+    let file = if let Some(extract) = extract {
+        extract_file(&bytes, &extract)?
     } else {
-        Ok(bytes.to_vec())
-    }
+        bytes.to_vec()
+    };
+
+    let cache = if cache_return {
+        bytes.to_vec()
+    } else {
+        Vec::new()
+    };
+
+    Ok((file, cache))
 }
 
 fn extract_file(data: &[u8], extract: &str) -> Result<Vec<u8>, Error> {

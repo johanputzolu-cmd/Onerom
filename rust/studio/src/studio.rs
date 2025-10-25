@@ -11,8 +11,9 @@ use std::time::Duration;
 use onerom_config::fw::FirmwareVersion;
 use onerom_config::hw::Board;
 use onerom_config::mcu::Variant as McuVariant;
-use onerom_fw::net::{fetch_rom_file_async, Release, Releases};
-use onerom_gen::{Builder, FileData, FIRMWARE_SIZE, MAX_METADATA_LEN};
+use onerom_fw::get_rom_files_async;
+use onerom_fw::net::{Release, Releases};
+use onerom_gen::{Builder, FIRMWARE_SIZE, MAX_METADATA_LEN};
 
 use crate::analyse::Analyse;
 use crate::app::AppMessage;
@@ -498,38 +499,16 @@ impl Studio {
             }
         };
 
-        // Get ROM files we need to download
-        let file_specs = builder.file_specs();
-        for spec in file_specs {
-            let id = spec.id;
-            let url = &spec.source;
-            let extract = spec.extract;
-            debug!("Downloading ROM file from {url} (extract={extract:?})");
-            match fetch_rom_file_async(url, extract).await {
-                Ok(data) => {
-                    info!("Downloaded ROM file {url} ({} bytes)", data.len());
-
-                    // Give it to the builder
-                    let data = FileData {
-                        id,
-                        data,
-                    };
-                    
-                    match builder.add_file(data) {
-                        Ok(()) => {
-                            trace!("Added ROM file {url} to builder");
-                        }
-                        Err(e) => {
-                            warn!("Failed to add ROM file {url} to builder: {e:?}");
-                            return CreateMessage::BuildImagesResult(Err(format!("Failed to add ROM file {url} to builder:\n  - {e:?}"))).into();
-                        }
-                    }
-                }
-                Err(e) => {
-                    warn!("Failed to download ROM file {}: {}", url, e);
-                    return CreateMessage::BuildImagesResult(Err(format!("Failed to download ROM file {url}:\n  - {e}"))).into();
-                }
-            };
+        // Get ROM files we need to download.  Cache them so that if we're asked to download the
+        // same file again (for example zip with multiple extracts) we don't redownload it.
+        //
+        // Should implement in fw::get_rom_files_async copying existing get_rom_files()
+        match get_rom_files_async(&mut builder).await {
+            Ok(()) => (),
+            Err(e) => {
+                warn!("Failed to get ROM files: {e:?}");
+                return CreateMessage::BuildImagesResult(Err(format!("Failed to get ROM files:\n  - {e:?}"))).into();
+            }
         }
 
         // Get firmware version
