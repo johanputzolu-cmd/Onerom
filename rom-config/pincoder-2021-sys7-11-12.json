@@ -1,70 +1,14 @@
 {
     "$schema": "https://images.onerom.org/configs/schema.json",
     "version": 1,
-    "name": "Pincoder 2021 System 7 Tests 7-12",
-    "description": "Pincoder version 2021-03-31 for Williams System 7, Tests 7-12 (7 ROMs)",
+    "name": "Pincoder 2021 System 7 Tests 10-12",
+    "description": "Pincoder version 2021-03-31 for Williams System 7, Tests 10-12 and CMOS utils (6 ROMs)",
     "categories" : [
         "motorola-6800",
         "arcade",
         "pinball"
     ],
     "rom_sets": [
-        {
-            "type": "single",
-            "roms": [
-                {
-                    "description": "07-bounce",
-                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
-                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/07-bounce.bin",
-                    "label": "07-bounce",
-                    "type": "2332",
-                    "cs1": "active_low",
-                    "cs2": "active_high"
-                }
-            ]
-        },
-        {
-            "type": "single",
-            "roms": [
-                {
-                    "description": "08-interrupts",
-                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
-                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/08-interrupts.bin",
-                    "label": "08-interrupts",
-                    "type": "2332",
-                    "cs1": "active_low",
-                    "cs2": "active_high"
-                }
-            ]
-        },
-        {
-            "type": "single",
-            "roms": [
-                {
-                    "description": "09-lamps",
-                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
-                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/09-lamps.bin",
-                    "label": "09-lamps",
-                    "type": "2332",
-                    "cs1": "active_low",
-                    "cs2": "active_high"
-                }
-            ]
-        },
-        {
-            "type": "single",
-            "roms": [
-                {
-                    "description": "10-solenoids",
-                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
-                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/10-solenoids.bin",
-                    "label": "10-solenoids",
-                    "type": "2332",
-                    "cs1": "active_low",
-                    "cs2": "active_high"
-                }
-            ]
-        },
         {
             "type": "single",
             "roms": [
@@ -101,6 +45,48 @@
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
                     "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/12-flippers.bin",
                     "label": "12-flippers",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "clear_cmos",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/clear_cmos.bin",
+                    "label": "clear_cmos",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "edit_cmos",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/edit_cmos.bin",
+                    "label": "edit_cmos",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "init_cmos",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/4K/init_cmos.bin",
+                    "label": "init_cmos",
                     "type": "2332",
                     "cs1": "active_low",
                     "cs2": "active_high"
