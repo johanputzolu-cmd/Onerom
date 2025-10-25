@@ -15,6 +15,7 @@
 //! into a final ROM image to be flashed to One ROM, at an offset pointed to by
 //! the metadata.
 
+use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::cmp::Ordering;
@@ -40,6 +41,7 @@ const ROM_SET_METADATA_LEN: usize = 16; // sdrr_rom_set_t
 /// How to handle ROM images that are too small for the ROM type
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum SizeHandling {
     /// No special handling.  Errors if the image size does not exactly match
     /// the ROM size.
@@ -50,11 +52,17 @@ pub enum SizeHandling {
     /// if the image size is not an exact divisor of the ROM size.
     Duplicate,
 
+    /// Truncates the image to fit the ROM size.  Errors if the image is an
+    /// exact match size-wise.
+    Truncate,
+
     /// Pads the image out with [`PAD_BLANK_BYTE`].
     Pad,
 }
 
+/// Possible Chip Select line logic options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum CsLogic {
     /// Chip Select line is active low
@@ -66,6 +74,19 @@ pub enum CsLogic {
     /// Used for 2332/2316 ROMs, when a CS line isn't used because it's always
     /// tied active.
     Ignore,
+}
+
+/// Location within a larger ROM image that the specific image to use resides
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(rename_all = "snake_case")]
+pub struct Location {
+    /// Start of the image within the larger ROM image
+    pub start: usize,
+
+    /// Length of the image within the larger ROM image.  Must match the
+    /// selected ROM type, or SizeHandling will be applied.
+    pub length: usize,
 }
 
 impl CsLogic {
@@ -96,11 +117,17 @@ impl CsLogic {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum CsConfig {
     /// Configuration of the 3 possible Chip Select lines
     ChipSelect {
+        /// Where type is ChipSelect, CS1 is always required
         cs1: CsLogic,
+
+        /// Second chip select line, required for certain ROM Types
         cs2: Option<CsLogic>,
+
+        /// Third chip select line, required for certain ROM Types
         cs3: Option<CsLogic>,
     },
     /// Configuration using CE/OE instead of chip select
@@ -141,28 +168,43 @@ impl CsConfig {
 
 /// Single ROM image.  May be part of a ROM set
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Rom {
     index: usize,
+
     filename: String,
+
+    // Optional alternative label for the ROM, replacing filename
+    label: Option<String>,
+
     rom_type: RomType,
+
     cs_config: CsConfig,
+
     data: Vec<u8>,
+
+    // Optional location within a larger ROM image
+    location: Option<Location>,
 }
 
 impl Rom {
     fn new(
         index: usize,
         filename: String,
+        label: Option<String>,
         rom_type: &RomType,
         cs_config: CsConfig,
         data: Vec<u8>,
+        location: Option<Location>,
     ) -> Self {
         Self {
             index,
             filename,
+            label,
             rom_type: rom_type.clone(),
             cs_config,
             data,
+            location,
         }
     }
 
@@ -176,9 +218,10 @@ impl Rom {
         &self.cs_config
     }
 
-    /// Returns the ROM filename
+    /// Returns the ROM filename to use in metadata.  Uses label if specified,
+    /// otherwise the actual filename string.
     pub fn filename(&self) -> &str {
-        &self.filename
+        self.label.as_deref().unwrap_or(&self.filename)
     }
 
     /// Returns a [`Rom`] instance.
@@ -189,12 +232,37 @@ impl Rom {
     pub fn from_raw_rom_image(
         index: usize,
         filename: String,
+        label: Option<String>,
         source: &[u8],
         mut dest: Vec<u8>,
         rom_type: &RomType,
         cs_config: CsConfig,
         size_handling: &SizeHandling,
+        location: Option<Location>,
     ) -> Result<Self> {
+        // Slice source if location specified
+        let source = if let Some(loc) = location {
+            // Bounds check
+            let end = loc.start
+                .checked_add(loc.length)
+                .ok_or(Error::BadLocation {
+                    id: index,
+                    reason: format!("Location overflow: start={:#X} length={:#X}", loc.start, loc.length),
+                })?;
+            
+            if end > source.len() {
+                return Err(Error::RomTooSmall {
+                    index,
+                    expected: end,
+                    actual: source.len(),
+                });
+            }
+            
+            &source[loc.start..end]
+        } else {
+            source
+        };
+        
         let expected_size = rom_type.size_bytes();
         if dest.len() < expected_size {
             return Err(Error::BufferTooSmall {
@@ -253,18 +321,39 @@ impl Rom {
                             *byte = PAD_BLANK_BYTE;
                         }
                     }
+                    SizeHandling::Truncate => {
+                        return Err(Error::RomTooLarge {
+                            rom_size: source.len(),
+                            expected_size,
+                        });
+                    }
                 }
             }
             Ordering::Greater => {
-                // File too large - always an error
-                return Err(Error::RomTooLarge {
-                    rom_size: source.len(),
-                    expected_size,
-                });
+                match size_handling {
+                    SizeHandling::Truncate => {
+                        // Copy only up to expected size
+                        dest[..expected_size].copy_from_slice(&source[..expected_size]);
+                    }
+                    _ => {
+                        return Err(Error::RomTooLarge {
+                            rom_size: source.len(),
+                            expected_size,
+                        });
+                    }
+                }
             }
         }
 
-        Ok(Self::new(index, filename, rom_type, cs_config, dest))
+        Ok(Self::new(
+            index,
+            filename,
+            label,
+            rom_type,
+            cs_config,
+            dest,
+            location,
+        ))
     }
 
     // Transforms from a physical address (based on the hardware pins) to
@@ -394,25 +483,37 @@ impl Rom {
 }
 
 /// Type of ROM set
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RomSetType {
-    /// Single ROM
+    /// Single ROM - the default
+    #[default]
     Single,
 
-    /// Set of dynamically banked ROMS
+    /// Set of dynamically banked ROMs. Used to switch between active ROM at
+    /// runtime using jumpers
     Banked,
 
-    /// Set of multiple ROMs selected by CS lines
+    /// Set of multiple ROMs selected by CS lines.  This allows a single One
+    /// ROM to serve up to 3 ROM sockets simultaneously.
     Multi,
 }
 
 /// A set of ROMs, where the set type is RomSetType
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct RomSet {
+    /// ID of the ROM set
     pub id: usize,
+
+    /// Type of ROM set
     pub set_type: RomSetType,
+
+    /// Serving algorithm for the ROM set
     pub serve_alg: ServeAlg,
+
+    /// ROMs in the set
     pub roms: Vec<Rom>,
 }
 

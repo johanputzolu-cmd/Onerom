@@ -333,6 +333,7 @@ fn generate_hw_config_enum(configs: &[HwConfigData]) -> String {
         "/// Defines pin mappings and capabilities for different One ROM board revisions.\n",
     );
     code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]\n");
+    code.push_str("#[cfg_attr(feature = \"schemars\", derive(schemars::JsonSchema))]");
     code.push_str("pub enum Board {\n");
 
     for config in configs {
@@ -987,6 +988,7 @@ fn generate_hw_models(configs: &[HwConfigData]) -> String {
 
     code.push_str("/// Hardware models\n");
     code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]\n");
+    code.push_str("#[cfg_attr(feature = \"schemars\", derive(schemars::JsonSchema))]");
     code.push_str("pub enum Model {\n");
     code.push_str("    /// Fire (RP2350) Model\n");
     code.push_str("    Fire,\n");

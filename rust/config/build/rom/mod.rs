@@ -274,6 +274,7 @@ fn generate_control_line_type_enum() -> &'static str {
 /// Defines whether a control line is user-configurable (mask-programmable)
 /// or fixed active-low per JEDEC standard.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum ControlLineType {
     /// CS line with user-configurable polarity (23xxx series mask ROMs)
     ///
@@ -294,6 +295,7 @@ fn generate_control_line_spec_struct() -> &'static str {
 /// Defines the physical pin number and behavior type for control signals
 /// like chip select (CS), chip enable (CE), and output enable (OE).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ControlLineSpec {
     /// Signal name (e.g., "cs1", "ce", "oe")
     pub name: &'static str,
@@ -312,6 +314,7 @@ fn generate_programming_pin_spec_struct() -> &'static str {
 /// Defines the required state for programming-related pins (Vpp, /PGM)
 /// during normal read operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub enum ProgrammingPinState {
     /// Pin must be at Vcc (5V)
     Vcc,
@@ -331,6 +334,7 @@ pub enum ProgrammingPinState {
 
 /// Programming pin specification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ProgrammingPinSpec {
     /// Pin name (e.g., "vpp", "pgm", "oe_vpp")
     pub name: &'static str,
@@ -346,6 +350,7 @@ pub struct ProgrammingPinSpec {
 fn generate_power_pin_spec_struct() -> &'static str {
     r#"/// Power pin specification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PowerPinSpec {
     /// Pin name ("vcc" or "gnd")
     pub name: &'static str,
@@ -374,6 +379,7 @@ fn generate_rom_type_enum(config: &RomTypesConfig) -> String {
     code.push_str("/// assert_eq!(rom.num_addr_lines(), 13);\n");
     code.push_str("/// ```\n");
     code.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]\n");
+    code.push_str("#[cfg_attr(feature = \"schemars\", derive(schemars::JsonSchema))]\n");
     code.push_str("pub enum RomType {\n");
 
     for (type_name, _rom_type) in get_sorted_rom_types(config) {
@@ -382,6 +388,7 @@ fn generate_rom_type_enum(config: &RomTypesConfig) -> String {
                 "    /// {} - {} bytes, {}-pin package\n",
                 rom_type.description, rom_type.size, rom_type.pins
             ));
+            code.push_str(&format!("    #[cfg_attr(feature = \"schemars\", schemars(rename = \"{type_name}\"))]\n"));
             code.push_str(&format!("    Rom{},\n", type_name));
         }
     }

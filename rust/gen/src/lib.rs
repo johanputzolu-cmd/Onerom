@@ -95,6 +95,10 @@ pub enum Error {
     UnvalidatedLicense {
         id: usize,
     },
+    BadLocation {
+        id: usize,
+        reason: String,
+    }
 }
 type Result<T> = core::result::Result<T, Error>;
 
