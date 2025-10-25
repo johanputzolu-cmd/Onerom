@@ -1,0 +1,139 @@
+{
+    "$schema": "https://images.onerom.org/configs/schema.json",
+    "version": 1,
+    "name": "Pincoder version 2021 System 7 Tests 1-6 (8 ROMs)",
+    "description": "Pincoder version 2021-03-31 for Williams System 7, Tests 1-6 (8 ROMs)",
+    "categories" : [
+        "motorola-6800",
+        "arcade",
+        "pinball"
+    ],
+    "rom_sets": [
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "01a-leds",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/01a-leds.bin",
+                    "label": "01a-leds",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "01b-bus",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/01b-bus.bin",
+                    "label": "01b-bus",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "01c-transceivers",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/01c-transceivers.bin",
+                    "label": "01c-transceivers",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "02-blanking",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/02-blanking.bin",
+                    "label": "02-blanking",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "03-cmos-IC19",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/03-cmos-IC19.bin",
+                    "label": "03-cmos-IC19",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "04-ram-IC13",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/04-ram-IC13.bin",
+                    "label": "04-ram-IC13",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "04-ram-IC16",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/04-ram-IC16.bin",
+                    "label": "04-ram-IC16",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "05-displays",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/05-displays.bin",
+                    "label": "05-displays",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "06-switches",
+                    "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
+                    "extract": "pincoder_roms_2021.03.31.1434/Williams/sys7/06-switches.bin",
+                    "label": "06-switches",
+                    "type": "2332",
+                    "cs1": "active_low",
+                    "cs2": "active_high"
+                }
+            ]
+        }
+    ]
+}
