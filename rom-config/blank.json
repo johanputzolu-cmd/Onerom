@@ -1,0 +1,9 @@
+{
+    "version": 1,
+    "name": "Blank (no ROMs)",
+    "description": "Empty ROM configuration for manufacturing",
+    "categories": [
+        "manufacturing"
+    ],
+    "rom_sets": []
+}
