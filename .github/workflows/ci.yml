@@ -54,6 +54,14 @@ jobs:
     - name: Install Rust wasm-pack
       run: cargo install wasm-pack
 
+    - name: Run various Rust tests
+      working-directory: rust
+      run: ci/rust-tests.sh
+
+    - name: Build Rust docs
+      working-directory: rust
+      run: ci/rust-docs.sh
+
     - name: Test option combinations
       run: |
         export TOOLCHAIN=/usr/bin
