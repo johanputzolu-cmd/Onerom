@@ -37,21 +37,34 @@ A slightly more advanced config with 2 ROM images:
             "description": "A simple ROM set with 2 ROMs",
             "roms": [
                 {
-                    "name": "Super Mario Bros.",
-                    "source": {
-                        "type": "local_file",
-                        "path": "/path/to/super_mario_bros.nes"
-                    }
+                    "description": "ROM 1",
+                    "file": "http://example.com/rom1.bin",
+                    "type": "2364",
+                    "cs1": "active_low"
                 },
                 {
-                    "name": "The Legend of Zelda",
-                    "source": {
-                        "type": "local_file",
-                        "path": "/path/to/legend_of_zelda.nes"
-                    }
+                    "description": "ROM 2",
+                    "file": "http://example.com/rom2.bin",
+                    "type": "2364",
+                    "cs1": "active_low"
                 }
             ]
         }
     ]
 }
 ```
+
+## Complex Configs
+
+There's quite a few advanced options including:
+- ROM Set types "multi" and "banked" for multi-ROM sets and dynamically bank switched ROM sets
+- Local file and URL file sources (most generators only support URLs)
+- The ability to specify licenses which must be accepted before building a config
+- The ability to configure chip selects in multiple directions
+- Support for all 24 and 28 pin ROM types
+- Optional categories for better organization
+- Support for archived ROM files (zips)
+- Retrieve sections of a larger ROM file
+- Duplicate and pad ROM images, if the ROM file provided is smaller than the expected size, and truncate if larger
+
+Use the configs in this directory and the schema to build your own complex configs.
