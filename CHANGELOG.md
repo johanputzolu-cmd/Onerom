@@ -9,10 +9,14 @@ NOTE TO SELF: - when releasing one-rom-wasn v0.1.5, update one-rom-site/visualiz
 ### Added
 
 - `onerom-config` 0.2.2 - Added method to query ROM power pins.
-- Added support for ROM configs loading partial slices of ROM images from larger files.
-- Added support to ROM files being caches, to avoid re-loading from network when a single config uses the same image multiple times.
-- Blank ROM config (for manufacturing/testing) - /rom-configs/blank.json
-- Added pincode 2021 version system 7 ROM configs (2332 ROMs)
+- Studio:
+  - Added support for ROM configs loading partial slices of ROM images from larger files.
+  - Added support to ROM files being caches, to avoid re-loading from network when a single config uses the same image multiple times.
+  - Added network connectivity status.
+  - Added progress indication for activities.
+- ROM Configs:
+  - Blank ROM config (for manufacturing/testing) - /rom-configs/blank.json
+  - Added pincode 2021 version system 7 ROM configs (2332 ROMs)
 - Allow `sdrr-fw-parser` to parse up to v0.5.999 firmware versions. 
 
 ### Fixes
