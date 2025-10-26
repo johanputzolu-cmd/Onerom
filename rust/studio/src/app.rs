@@ -172,7 +172,7 @@ impl<'a> App<'a> {
             Style::blank_space(),
             Style::horiz_line(),
             Space::with_height(20.0),
-            Style::footer(),
+            self.style.footer(runtime_info),
         ]
         .padding([20, 20]);
 

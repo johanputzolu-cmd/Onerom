@@ -45,6 +45,13 @@ pub enum Message {
     BuildImages(HardwareInfo),
     BuildImagesResult(Result<(Images, String), String>),
     HelpPressed,
+
+    // Used to indicate network is down.  Only returned when trying to fetch
+    // configs or releases manifests - not any other files - as those failures
+    // might be due to images.onerom.org misconfiguration, rather than network
+    // issues.  This assumes releases and configs manifests are never mis-
+    // configured.
+    DownloadFailed,
 }
 
 impl std::fmt::Display for Message {
@@ -71,6 +78,7 @@ impl std::fmt::Display for Message {
             Message::BuildImages(hw) => write!(f, "BuildImages({hw})"),
             Message::BuildImagesResult(_) => write!(f, "BuildImagesResult"),
             Message::HelpPressed => write!(f, "HelpPressed"),
+            Message::DownloadFailed => write!(f, "DownloadFailed"),
         }
     }
 }
@@ -241,6 +249,21 @@ impl Images {
     }
 }
 
+/// Network state
+#[derive(Debug, Default, Clone)]
+pub enum NetworkState {
+    #[default]
+    Untested,
+    Online,
+    Offline,
+}
+
+impl NetworkState {
+    pub fn is_offline(&self) -> bool {
+        matches!(self, NetworkState::Offline)
+    }
+}
+
 /// Contains information retrieved/computed at runtime
 #[derive(Debug, Clone, Default)]
 pub struct RuntimeInfo {
@@ -267,9 +290,30 @@ pub struct RuntimeInfo {
 
     // Built images
     images: Option<Images>,
+
+    // Network state
+    network_state: NetworkState,
 }
 
 impl RuntimeInfo {
+    pub fn network_online(&mut self) {
+        if self.network_state.is_offline() {
+            info!("Network is online");
+        }
+        self.network_state = NetworkState::Online;
+    }
+
+    pub fn network_offline(&mut self) {
+        if !self.network_state.is_offline() {
+            warn!("Network is offline");
+        }
+        self.network_state = NetworkState::Offline;
+    }
+
+    pub fn is_offline(&self) -> bool {
+        self.network_state.is_offline()
+    }
+
     pub fn releases(&self) -> Option<&Releases> {
         self.releases.as_ref()
     }
@@ -409,6 +453,7 @@ impl Studio {
             }
             Message::FetchReleases => Task::future(Self::fetch_releases_async()),
             Message::Releases(releases) => {
+                self.download_succeeded();
                 self.runtime_info.set_releases(releases.clone());
                 Task::done(CreateMessage::ReleasesUpdated.into())
             }
@@ -416,10 +461,12 @@ impl Studio {
                 self.download_release(release, board, mcu)
             }
             Message::ReleaseDownloaded(data) => {
+                self.download_succeeded();
                 self.runtime_info.set_firmware(data.clone());
                 Task::none()
             }
             Message::ClearDownloadedRelease => {
+                self.download_succeeded();
                 self.runtime_info.clear_firmware();
                 Task::none()
             }
@@ -427,6 +474,7 @@ impl Studio {
                 Task::future(Self::fetch_configs_async())
             }
             Message::Configs(configs) => {
+                self.download_succeeded();
                 self.runtime_info.set_configs(configs.clone());
                 Task::done(CreateMessage::ConfigsUpdated.into())
             }
@@ -434,6 +482,7 @@ impl Studio {
                 self.download_config(name)
             }
             Message::ConfigDownloaded(data) => {
+                self.download_succeeded();
                 self.runtime_info.set_config(data.clone());
                 Task::none()
             }
@@ -458,7 +507,19 @@ impl Studio {
                 Task::done(msg.into())
             }
             Message::HelpPressed => self.help_pressed(),
+            Message::DownloadFailed => {
+                self.download_failed();
+                Task::none()
+            }
         }
+    }
+
+    fn download_failed(&mut self) {
+        self.runtime_info.network_offline()
+    }
+
+    fn download_succeeded(&mut self) {
+        self.runtime_info.network_online()
     }
 
     fn help_pressed(&self) -> Task<AppMessage> {
@@ -565,7 +626,7 @@ impl Studio {
             Ok(releases) => AppMessage::Studio(Message::Releases(releases)),
             Err(e) => {
                 warn!("Failed to fetch releases from network\n  - {e}");
-                AppMessage::Nop
+                Message::DownloadFailed.into()
             }
         }
     }
@@ -575,7 +636,7 @@ impl Studio {
             Ok(configs) => AppMessage::Studio(Message::Configs(configs)),
             Err(e) => {
                 warn!("Failed to fetch configs from network\n  - {e}");
-                AppMessage::Nop
+                Message::DownloadFailed.into()
             }
         }
     }

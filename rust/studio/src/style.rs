@@ -12,7 +12,7 @@ use iced::widget;
 use iced::widget::text::{Rich, Span, Text};
 use iced::widget::{
     PickList, Row, Scrollable, Space, button, column, container, pick_list, row, scrollable, text,
-    mouse_area,
+    mouse_area, Image, tooltip,
 };
 use iced::{Background, Border, Element, Length, Shadow};
 use onerom_config::fw::FirmwareVersion;
@@ -21,6 +21,8 @@ use onerom_config::mcu::Variant as McuVariant;
 use std::borrow::Borrow;
 
 use crate::app::AppMessage;
+use crate::image::Images;
+use crate::studio::RuntimeInfo;
 
 /// Iced theme to use - this module builds on this theme
 pub const ICED_THEME: iced::Theme = iced::Theme::Dark;
@@ -91,6 +93,7 @@ impl Link {
 
 /// One ROM Studio style constants and helpers
 pub struct Style<'a> {
+    images: Images,
     _marker: std::marker::PhantomData<&'a ()>,
 }
 
@@ -107,7 +110,9 @@ impl<'a> Style<'a> {
 
     /// #9a9aa8 - dimmed text colour, used for de-selected and less important
     /// text
-    pub const COLOUR_TEXT_DIM: iced::Color = as_iced_colour(0x9a9aa8);
+    pub const COLOUR_TEXT_DIM_U32: u32 = 0x9a9aa8;
+    pub const COLOUR_TEXT_DIM_STR: &'static str = "#9a9aa8";
+    pub const COLOUR_TEXT_DIM: iced::Color = as_iced_colour(Self::COLOUR_TEXT_DIM_U32);
 
     /// #181820 - main background colour, used for windows and containers
     pub const COLOUR_BACKGROUND: iced::Color = as_iced_colour(0x181820);
@@ -138,7 +143,9 @@ impl<'a> Style<'a> {
     pub const COLOUR_WARN: iced::Color = as_iced_colour(0xffaf00);
 
     /// #ff5f5f - error log level
-    pub const COLOUR_ERROR: iced::Color = as_iced_colour(0xff5f5f);
+    pub const COLOUR_ERROR_U32: u32 = 0xff5f5f;
+    pub const COLOUR_ERROR_STR: &'static str = "#ff5f5f";
+    pub const COLOUR_ERROR: iced::Color = as_iced_colour(Self::COLOUR_ERROR_U32);
 
     pub const COLOUR_OVERLAY_BACKGROUND: iced::Color = iced::Color::from_rgba(0.0, 0.0, 0.0, 0.75);
 
@@ -202,6 +209,7 @@ impl<'a> Style<'a> {
     /// Create a new Style object
     pub fn new() -> Self {
         Style {
+            images: Images::new(),
             _marker: std::marker::PhantomData,
         }
     }
@@ -453,7 +461,7 @@ impl<'a> Style<'a> {
             .on_press(AppMessage::Style(Message::ClickLink(link)))
     }
 
-    pub fn version_row() -> Element<'a, AppMessage> {
+    fn version() -> Element<'a, AppMessage> {
         let commit_id = if let Some(commit_id) = crate::built::GIT_COMMIT_HASH_SHORT {
             format!(
                 " ({}{})", 
@@ -467,12 +475,38 @@ impl<'a> Style<'a> {
         } else {
             "".to_string()
         };
-        let text = Style::text_small(format!("v{}{}", env!("CARGO_PKG_VERSION"), commit_id))
-            .color(Self::COLOUR_TEXT_DIM);
+        Style::text_small(format!("v{}{}", env!("CARGO_PKG_VERSION"), commit_id))
+            .color(Self::COLOUR_TEXT_DIM)
+            .into()
+    }
+
+    fn network_icon(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {
+        let (network_icon, net_tooltip) = if runtime_info.is_offline() {
+            (
+                self.images.icon_network_disconnected(), 
+                Self::text_extra_small("Network offline").color(Self::COLOUR_ERROR)
+            )
+        } else {
+            (
+                self.images.icon_network_connected(),
+                Self::text_extra_small("Network online").color(Self::COLOUR_TEXT_DIM)
+            )
+        };
+        tooltip(
+            Image::new(network_icon),
+            net_tooltip,
+            tooltip::Position::Top,
+        ).into()
+    }
+
+    fn footer_row_0(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {
         row![
+            self.network_icon(runtime_info),
             Space::with_width(Length::Fill),
-            text
-        ].into()
+            Self::version()
+        ]
+        .align_y(Vertical::Center)
+        .into()
     }
 
     fn footer_1_left() -> Element<'a, AppMessage> {
@@ -521,13 +555,14 @@ impl<'a> Style<'a> {
             .push(right)
     }
 
-    pub fn footer() -> Element<'a, AppMessage> {
+    pub fn footer(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {
         column![
-            Self::version_row(),
+            self.footer_row_0(runtime_info),
+            Space::with_height(5.0),
             Self::footer_row_1(),
+            Space::with_height(5.0),
             Self::footer_row_2(),
         ]
-            .spacing(5)
             .into()
     }
 

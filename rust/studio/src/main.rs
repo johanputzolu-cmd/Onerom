@@ -14,6 +14,7 @@ mod config;
 mod create;
 mod device;
 mod hw;
+mod image;
 mod log;
 mod studio;
 mod style;
