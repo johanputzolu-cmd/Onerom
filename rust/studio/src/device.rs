@@ -2,11 +2,11 @@
 //
 // MIT License
 
-use dfu_rs::{DeviceInfo as DfuDeviceInfo, Device as DfuDevice, DfuType, Error as DfuError};
+use dfu_rs::{DEFAULT_USB_TIMEOUT, search_for_dfu, DeviceInfo as DfuDeviceInfo, Device as DfuDevice, DfuType};
 use iced::alignment::Alignment::Center;
 use iced::alignment::Horizontal;
 use iced::widget::{column, container, row, Column, Space};
-use iced::{time, Element, Length, Subscription, Task};
+use iced::{Element, Length, Subscription, Task};
 use futures::stream::{self, Stream, StreamExt};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
@@ -24,8 +24,6 @@ use crate::style::{Style, Link};
 
 use crate::internal_error;
 
-const DEVICE_DETECTION_RETRY_SHORT: Duration = Duration::from_secs(5);
-const DEVICE_DETECTION_RETRY_LONG: Duration = Duration::from_secs(5);
 const PROBE_CORE_HALT_TIMEOUT: Duration = Duration::from_millis(100);
 
 /// Sources of work
@@ -126,6 +124,7 @@ pub enum Message {
     FlashFirmwareResult(Client, Result<(), String>),
     DeviceData(Client, Vec<u8>),
     ReadFailed(Client, String),
+    Rescan,
 }
 
 impl std::fmt::Display for Message {
@@ -178,6 +177,7 @@ impl std::fmt::Display for Message {
             Message::ReadFailed(client, error) => {
                 write!(f, "ReadFailed(client={client}, {})", error)
             }
+            Message::Rescan => write!(f, "Rescan"),
         }
     }
 }
@@ -274,8 +274,10 @@ impl Device {
                     Client::Analyse => AnalyseMessage::FlashComplete(result).into(),
                     Client::Create => CreateMessage::FlashFirmwareResult(result).into(),
                 };
-                Task::future(Self::get_usb_device_list_async())
-                    .chain(Task::done(msg))
+                // Pause briefly before re-enumeration to allow the device to reset
+                // and then send the done message
+                Task::done(msg)
+                    .chain(Task::future(Self::get_usb_device_list_delay(Duration::from_millis(1000))))
             }
             Message::ReadDevice {
                 client,
@@ -302,6 +304,17 @@ impl Device {
                 assert_eq!(client, Client::Analyse);
                 self.operating = None;
                 Task::done(AnalyseMessage::ReadFailed(error).into())
+            }
+            Message::Rescan => {
+                if self.is_idle() {
+                    Task::batch([
+                        Task::done(Message::DetectUsbDevices.into()),
+                        Task::done(Message::DetectProbes.into()),
+                    ])
+                } else {
+                    trace!("Skipping device rescan while operating");
+                    Task::none()
+                }
             }
         }
     }
@@ -381,8 +394,7 @@ impl Device {
                 // Clear out and possibly select a new USB device
                 if let Some(was_selected) = &self.selected_usb_device {
                     info!(
-                        "Selected USB device has been disconnected: {}",
-                        was_selected
+                        "Selected USB device has been disconnected: {was_selected}",
                     );
                 }
 
@@ -484,7 +496,7 @@ impl Device {
             .chain(stream::once(Self::get_probe_list_async()))
     }
 
-    pub async fn get_probe_list_async() -> AppMessage {
+    async fn get_probe_list_async() -> AppMessage {
         let probes = Lister::new().list_all();
         if !probes.is_empty() {
             // Need to send ourselves a message, as we can't modify
@@ -495,8 +507,13 @@ impl Device {
         }
     }
 
+    async fn get_usb_device_list_delay(duration: Duration) -> AppMessage {
+        tokio::time::sleep(duration).await;
+        Self::get_usb_device_list_async().await
+    }
+
     async fn get_usb_device_list_async() -> AppMessage {
-        match DfuDevice::search(Some(DfuType::InternalFlash)) {
+        match search_for_dfu(DEFAULT_USB_TIMEOUT, Some(DfuType::InternalFlash)).await {
             Ok(devices) => {
                 // Turn into UsbDeviceType
                 let usb_devices: Vec<UsbDeviceType> = devices.into_iter().map(UsbDeviceType::from_dfu).filter_map(|d| d).collect();
@@ -509,7 +526,7 @@ impl Device {
         }
     }
 
-    pub fn view(&self) -> Column<'_, AppMessage> {
+    pub fn view<'a>(&'a self, style: &Style<'a>) -> Column<'a, AppMessage> {
         // Create the Probe and USB pick list labels
         let left_col = column![
             container(Style::text_small("Probe:")).height(Length::Fixed(25.0)).align_y(Center),
@@ -522,9 +539,12 @@ impl Device {
         // Create the Probe pick list
         let probe_list: Element<'_, AppMessage> = if self.has_detected_probes() {
             let options = self.probes.clone().into_iter().map(DebugProbeInfoWrapper).collect::<Vec<_>>();
-            Style::pick_list_small(options, self.selected_probe.clone().map(DebugProbeInfoWrapper), |p| {
-                DeviceType::from_debug_probe(p.0.clone()).selected_message()
-            })
+            let msg = if self.is_busy() {
+                |_| AppMessage::Nop
+            } else {
+                |p: DebugProbeInfoWrapper| Message::SelectProbe(p.0.clone()).into()
+            };
+            Style::pick_list_small(options, self.selected_probe.clone().map(DebugProbeInfoWrapper), msg)
             .into()
         } else {
             Style::text_body("Not detected")
@@ -536,11 +556,14 @@ impl Device {
             .align_y(Center);
 
         // Create the USB device pick list
-        let usb_device_list: Element<'_, AppMessage> = if !self.usb_devices.is_empty() {
+        let msg = if self.is_busy() {
+            |_| AppMessage::Nop
+        } else {
+            |d: UsbDeviceType| DeviceType::from_usb(d.clone()).selected_message()
+        };
+        let usb_device_list: Element<'_, AppMessage> = if self.has_detected_usb_devices() {
             let options = self.usb_devices.as_slice();
-            Style::pick_list_small(options, self.selected_usb_device.clone(), |d| {
-                DeviceType::from_usb(d.clone()).selected_message()
-            })
+            Style::pick_list_small(options, self.selected_usb_device.clone(), msg)
             .into()
         } else {
             Style::text_body("Not detected")
@@ -554,14 +577,14 @@ impl Device {
         // Figure out how the Probe/USB buttons should work
         let highlight_probe_button = self.selected().debug_probe().is_some();
         let highlight_usb_button = self.selected().usb_device().is_some();
-        let on_press_probe = if self.selected().debug_probe().is_none() && self.selected_probe.is_some() {
+        let on_press_probe = if self.is_idle() && self.selected().debug_probe().is_none() && self.selected_probe.is_some() {
             Some(Message::SelectDevice(
                 DeviceType::from_debug_probe(self.selected_probe.as_ref().unwrap().clone()),
             ).into())
         } else {
             None
         };
-        let on_press_usb = if self.selected().usb_device().is_none() && self.selected_usb_device.is_some() {
+        let on_press_usb = if self.is_idle() &&self.selected().usb_device().is_none() && self.selected_usb_device.is_some() {
             Some(Message::SelectDevice(
                 DeviceType::from_usb(self.selected_usb_device.as_ref().unwrap().clone()),
             ).into())
@@ -569,15 +592,25 @@ impl Device {
             None
         };
 
+        // Figure out how rescane button should work
+        let highlight_rescan_button = !self.is_busy();
+        let on_press_rescan = if !self.is_busy() {
+            Some(Message::Rescan.into())
+        } else {
+            None
+        };
+
         // Create the buttons
         let probe_button = Style::text_button_small("Probe", on_press_probe, highlight_probe_button);
         let usb_button = Style::text_button_small("USB", on_press_usb, highlight_usb_button);
-        let help_button = Style::text_button_small("Help", Some(AppMessage::Help(true)), true);
+        let rescan_button = Style::text_button_small("Rescan", on_press_rescan, highlight_rescan_button);
+        let help_icon = style.help_icon();
         let button_row = row![
             probe_button,
             usb_button,
+            rescan_button,
             Space::with_width(Length::Fill),
-            help_button,
+            help_icon,
         ].spacing(10)
             .align_y(Center);
         let button_row = container(button_row)
@@ -609,21 +642,7 @@ impl Device {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let check_probes_duration = if self.has_detected_probes() {
-            DEVICE_DETECTION_RETRY_LONG
-        } else {
-            DEVICE_DETECTION_RETRY_SHORT
-        };
-        let check_usb_devices_duration = if self.has_detected_usb_devices() {
-            DEVICE_DETECTION_RETRY_LONG
-        } else {
-            DEVICE_DETECTION_RETRY_SHORT
-        };
-
-        Subscription::batch([
-            time::every(check_usb_devices_duration).map(|_| Message::DetectUsbDevices),
-            time::every(check_probes_duration).map(|_| Message::DetectProbes),
-        ])
+        Subscription::none()
     }
 
     pub fn help_overlay(&self) -> Element<'_, AppMessage> {
@@ -858,27 +877,12 @@ impl DeviceType {
         address: u32,
         words: usize,
     ) -> AppMessage {
-        // Allocate buffer for the read
-        let mut buf = vec![0u32; words];
-        
-        let dfu_device = usb_device.dfu_device().clone();
-        
-        // Run the blocking USB operation on a separate thread
-        let result = spawn_blocking(move || -> Result<Vec<u32>, DfuError> {
-            dfu_device.upload(address, &mut buf)?;
-            Ok(buf)
-        }).await;
-        
-        match result {
-            Ok(Ok(data)) => {
-                let bytes: Vec<u8> = data.iter().flat_map(|w| w.to_le_bytes()).collect();
-                Message::DeviceData(client, bytes).into()
-            }
-            Ok(Err(e)) => {
-                Message::ReadFailed(client, format!("DFU upload failed:\n  - {}", e)).into()
-            }
+        match usb_device.dfu_device().upload(address, words*4).await {
+            Ok(data) => Message::DeviceData(client, data).into(),
             Err(e) => {
-                Message::ReadFailed(client, format!("Task join failed:\n  - {}", e)).into()
+                let log = format!("Failed to read {} words of memory at {address:#010X} using USB device {usb_device}: {e}", words);
+                warn!("{log}");
+                return Message::ReadFailed(client, log).into()
             }
         }
     }
@@ -888,38 +892,26 @@ impl DeviceType {
         usb_device: UsbDeviceType,
         data: Vec<u8>,
     ) -> AppMessage {
-        let dfu_device = usb_device.dfu_device().clone();
-
-        // Convert vec<u8> to vec<u32>
-        let data: Vec<u32> = data.chunks(4).map(|chunk| {
-            let mut bytes = [0u8; 4];
-            for (i, &b) in chunk.iter().enumerate() {
-                bytes[i] = b;
-            }
-            u32::from_le_bytes(bytes)
-        }).collect();
-
         // Run the blocking USB operation on a separate thread
-        let result = spawn_blocking(move || -> Result<(), DfuError> {
-            dfu_device.mass_erase()?;
-            dfu_device.download(0x08000000, &data)?;
-            Ok(())
-        }).await;
-
-        match result {
-            Ok(Ok(())) => {
+        debug!("Erase One ROM USB");
+        match usb_device.dfu_device().mass_erase().await {
+            Ok(()) => (),
+            Err(e) => {
+                let log = format!("Failed to mass erase One ROM using USB device {usb_device}: {e}");
+                warn!("{log}");
+                return Message::FlashFirmwareResult(client, Err(log)).into()
+            }
+        }
+        debug!("Flash firmware to One ROM USB");
+        match usb_device.dfu_device().download(0x08000000, &data).await {
+            Ok(()) => {
                 debug!("Successfully flashed firmware using USB device {usb_device}");
                 Message::FlashFirmwareResult(client, Ok(())).into()
-            }
-            Ok(Err(e)) => {
-                let log = format!("Failed to flash firmware to One ROM using USB device {usb_device}: {e}");
-                warn!("{log}");
-                Message::FlashFirmwareResult(client, Err(log)).into()
-            }
+            },
             Err(e) => {
                 let log = format!("Failed to flash firmware to One ROM using USB device {usb_device}: {e}");
-                error!("{log}");
-                Message::FlashFirmwareResult(client, Err(log)).into()
+                warn!("{log}");
+                return Message::FlashFirmwareResult(client, Err(log)).into()
             }
         }
     }   

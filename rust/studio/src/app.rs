@@ -147,7 +147,7 @@ impl<'a> App<'a> {
             ]
             .spacing(20);
 
-        let top_right_corner = self.device.view();
+        let top_right_corner = self.device.view(&self.style);
 
         let top_row = row![
             column![top_left_corner, Space::with_height(5.0)].width(Length::FillPortion(5)),

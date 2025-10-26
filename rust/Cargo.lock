@@ -356,11 +356,11 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19634d6336019ef220f09fd31168ce5c184b295cbf80345437cc36094ef223ca"
+checksum = "456b8a8feb6f42d237746d4b3e9a178494627745c3c56c6ea55d92ba50d026fc"
 dependencies = [
- "async-lock",
+ "autocfg",
  "cfg-if",
  "concurrent-queue",
  "futures-io",
@@ -369,7 +369,7 @@ dependencies = [
  "polling",
  "rustix 1.0.8",
  "slab",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1041,9 +1041,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b55271e5c8c478ad3f38ad24ef34923091e0548492a266d19b3c0b4d82574c63"
+checksum = "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -1075,7 +1075,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa95a34622365fa5bbf40b20b75dba8dfa8c94c734aea8ac9a5ca38af14316f1"
 dependencies = [
  "bitflags 2.9.4",
- "core-foundation 0.10.0",
+ "core-foundation 0.10.1",
  "core-graphics-types 0.2.0",
  "foreign-types",
  "libc",
@@ -1099,7 +1099,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d44a101f213f6c4cdc1853d4b78aef6db6bdfa3468798cc1d9912f4735013eb"
 dependencies = [
  "bitflags 2.9.4",
- "core-foundation 0.10.0",
+ "core-foundation 0.10.1",
  "libc",
 ]
 
@@ -1523,12 +1523,11 @@ checksum = "21d8ad60dd5b13a4ee6bd8fa2d5d88965c597c67bce32b5fc49c94f55cb50810"
 
 [[package]]
 name = "dfu-rs"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "264c6c1ea82b756edff41d94bd186ca29474b65fa728de8b83dbafaab31e118c"
+version = "0.2.0"
 dependencies = [
+ "async-io",
  "log",
- "rusb",
+ "nusb 0.2.1",
 ]
 
 [[package]]
@@ -3577,18 +3576,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "libusb1-sys"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17f6bace2f39082e9787c851afce469e7b2fe0f1cc64bbc68ca96653b63d8f17"
-dependencies = [
- "cc",
- "libc",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
 name = "libz-rs-sys"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4005,6 +3992,24 @@ dependencies = [
  "rustix 0.38.44",
  "slab",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "nusb"
+version = "0.2.1"
+source = "git+https://github.com/piersfinlayson/nusb#3b7ffac9f899712ea6a1911b95428231c546ce26"
+dependencies = [
+ "core-foundation 0.10.1",
+ "core-foundation-sys",
+ "futures-core",
+ "io-kit-sys",
+ "linux-raw-sys 0.9.4",
+ "log",
+ "once_cell",
+ "rustix 1.0.8",
+ "slab",
+ "tokio",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4437,7 +4442,6 @@ dependencies = [
  "reqwest",
  "resvg",
  "rfd",
- "rusb",
  "sdrr-fw-parser 0.5.4",
  "serde",
  "serde_json",
@@ -4841,7 +4845,7 @@ dependencies = [
  "ihex",
  "itertools",
  "jep106",
- "nusb",
+ "nusb 0.1.14",
  "object",
  "parking_lot 0.12.5",
  "probe-rs-target",
@@ -5406,16 +5410,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rusb"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45fff149b6033f25e825cbb7b2c625a11ee8e6dac09264d49beb125e39aa97bf"
-dependencies = [
- "libc",
- "libusb1-sys",
-]
-
-[[package]]
 name = "rust-ini"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5899,21 +5893,20 @@ dependencies = [
 
 [[package]]
 name = "serialport"
-version = "4.8.1"
+version = "4.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21f60a586160667241d7702c420fc223939fb3c0bb8d3fac84f78768e8970dee"
+checksum = "2acaf3f973e8616d7ceac415f53fc60e190b2a686fbcf8d27d0256c741c5007b"
 dependencies = [
  "bitflags 2.9.4",
  "cfg-if",
- "core-foundation 0.10.0",
+ "core-foundation 0.10.1",
  "core-foundation-sys",
  "io-kit-sys",
  "mach2",
  "nix 0.26.4",
- "quote",
  "scopeguard",
  "unescaper",
- "windows-sys 0.52.0",
+ "winapi",
 ]
 
 [[package]]

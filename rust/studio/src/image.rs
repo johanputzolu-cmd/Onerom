@@ -10,11 +10,13 @@ use crate::style::Style;
 
 const NETWORK_OK_SVG: &str = include_str!("../assets/network_ok.svg");
 const NETWORK_ERROR_SVG: &str = include_str!("../assets/network_error.svg");
+const HELP_SVG: &str = include_str!("../assets/help.svg");
 
 /// Stored image (pictures/icons) resources
 pub struct Images {
     network_ok: Handle,
     network_error: Handle,
+    help: Handle,
 }
 
 impl Images {
@@ -22,10 +24,12 @@ impl Images {
     pub fn new() -> Self {
         let network_ok = Self::svg_to_image(NETWORK_OK_SVG, 24, 24);
         let network_error = Self::svg_to_image(NETWORK_ERROR_SVG, 24, 24);
+        let help = Self::svg_to_image(HELP_SVG, 24, 24);
 
         Self {
             network_ok,
             network_error,
+            help,
         }
     }
 
@@ -37,11 +41,16 @@ impl Images {
         &self.network_error
     }
 
+    pub fn icon_help(&self) -> &Handle {
+        &self.help
+    }
+
     fn svg_to_image(svg_str: &str, width: u32, height: u32) -> Handle {
         // Set colours
         let svg_str = svg_str
             .replace("primaryColour", Style::COLOUR_TEXT_DIM_STR)
-            .replace("errorColour", Style::COLOUR_ERROR_STR);
+            .replace("errorColour", Style::COLOUR_ERROR_STR)
+            .replace("activeColour", Style::COLOUR_GOLD_STR);
 
         // Parse SVG
         let opts = Options::default();

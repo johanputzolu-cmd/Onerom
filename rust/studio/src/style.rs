@@ -100,7 +100,9 @@ pub struct Style<'a> {
 #[allow(dead_code)]
 impl<'a> Style<'a> {
     /// #ffb700 - One ROM gold used for buttons and highlights
-    pub const COLOUR_GOLD: iced::Color = as_iced_colour(0xffb700);
+    pub const COLOUR_GOLD_U32: u32 = 0xffb700;
+    pub const COLOUR_GOLD_STR: &'static str = "#ffb700";
+    pub const COLOUR_GOLD: iced::Color = as_iced_colour(Self::COLOUR_GOLD_U32);
 
     /// #cc9200 - one ROM dark gold used for text highlights
     pub const COLOUR_DARK_GOLD: iced::Color = as_iced_colour(0xcc9200);
@@ -497,6 +499,18 @@ impl<'a> Style<'a> {
             net_tooltip,
             tooltip::Position::Top,
         ).into()
+    }
+
+    pub fn help_icon(&self) -> Element<'a, AppMessage> {
+        let help_button = button(Image::new(self.images.icon_help()))
+            .style(|_, _| Self::link_button_style())
+            .on_press(AppMessage::Help(true));
+        tooltip(
+            help_button,
+            Self::text_extra_small("Help").color(Self::COLOUR_TEXT_DIM),
+            tooltip::Position::Top,
+        )
+        .into()
     }
 
     fn footer_row_0(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {

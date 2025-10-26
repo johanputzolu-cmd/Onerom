@@ -600,10 +600,15 @@ impl Create {
 
             let config_names = configs.names();
 
+            let msg = if self.is_busy() {
+                |_| AppMessage::Nop
+            } else {
+                |name| Message::ConfigSelected(name).into()
+            };
             let pick_list = Style::pick_list_small(
                 config_names.as_slice(),
                 selected_config,
-                |name| AppMessage::Create(Message::ConfigSelected(name)),
+                msg,
             );
 
             let mut row = row![
@@ -641,17 +646,27 @@ impl Create {
         if let Some(releases) = &runtime_info.releases() {
             let latest = releases.latest();
 
+            // Create release pick list
             let selected_release = if let Some(r) = runtime_info.selected_firmware() {
                 Some(r)
             } else {
                 releases.release_from_string(latest)
             };
 
+            let msg = if self.is_busy() {
+                |_| AppMessage::Nop
+            } else {
+                |r| Message::ReleaseSelected(r).into()
+            };
+            let release_pick_list = Style::pick_list_small(
+                releases.releases().as_slice(),
+                selected_release, 
+                msg
+            );
+
             let mut rows = row![
                 Style::text_h3("Firmware Release"),
-                Style::pick_list_small(releases.releases().as_slice(), selected_release, |r| {
-                    AppMessage::Create(Message::ReleaseSelected(r))
-                })
+                release_pick_list,
             ];
 
             // Show if release has been downloaded
@@ -691,10 +706,13 @@ impl Create {
 
     fn select_hw_row(&self) -> iced::Element<'_, AppMessage> {
         // Set up model picker
+        let msg = if self.is_busy() {
+            |_| AppMessage::Nop
+        } else {
+            |model| Message::ModelSelected(model).into()
+        };
         let model_picker =
-            Style::pick_list_small(MODELS.as_slice(), self.selected_hw_info.model, |model| {
-                AppMessage::Create(Message::ModelSelected(model))
-            });
+            Style::pick_list_small(MODELS.as_slice(), self.selected_hw_info.model, msg);
         let model_picker = row![Style::text_body("Model:"), model_picker,]
             .spacing(10)
             .align_y(iced::alignment::Vertical::Center);
@@ -705,10 +723,13 @@ impl Create {
         } else {
             &[]
         };
+        let msg = if self.is_busy() {
+            |_| AppMessage::Nop
+        } else {
+            |board| Message::BoardSelected(board).into()
+        };
         let board_picker =
-            Style::pick_list_small(board_values, self.selected_hw_info.board, |board| {
-                AppMessage::Create(Message::BoardSelected(board))
-            });
+            Style::pick_list_small(board_values, self.selected_hw_info.board, msg);
         let board_picker = row![Style::text_body("Board:"), board_picker,]
             .spacing(10)
             .align_y(iced::alignment::Vertical::Center);
@@ -719,10 +740,13 @@ impl Create {
         } else {
             &[]
         };
+        let msg = if self.is_busy() {
+            |_| AppMessage::Nop
+        } else {
+            |mcu| Message::McuSelected(mcu).into()
+        };
         let mcu_picker =
-            Style::pick_list_small(mcu_values, self.selected_hw_info.mcu_variant, |mcu| {
-                AppMessage::Create(Message::McuSelected(mcu))
-            });
+            Style::pick_list_small(mcu_values, self.selected_hw_info.mcu_variant, msg);
         let mcu_picker = row![Style::text_body("MCU:"), mcu_picker,]
             .spacing(10)
             .align_y(iced::alignment::Vertical::Center);
