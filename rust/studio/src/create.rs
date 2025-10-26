@@ -58,6 +58,8 @@ pub enum Message {
     FlashFirmware,
     /// Firmware flashing completed
     FlashFirmwareResult(Result<(), String>),
+    /// Progress tick from subscription
+    ProgressTick,
 }
 
 impl std::fmt::Display for Message {
@@ -87,6 +89,7 @@ impl std::fmt::Display for Message {
             Message::FlashFirmwareResult(result) => {
                 write!(f, "FlashFirmwareResult({:?})", result)
             }
+            Message::ProgressTick => write!(f, "ProgressTick"),
         }
     }
 }
@@ -306,6 +309,16 @@ impl Create {
                 }
                 Task::none()
             }
+            Message::ProgressTick => {
+                self.progress_tick();
+                Task::none()
+            }
+        }
+    }
+
+    fn progress_tick(&mut self) {
+        if self.is_busy() {
+            self.display_content += "."
         }
     }
 
@@ -743,6 +756,10 @@ impl Create {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        Subscription::none()
+        if self.is_busy() {
+            iced::time::every(std::time::Duration::from_millis(500)).map(|_| Message::ProgressTick)
+        } else {
+            Subscription::none()
+        }
     }
 }

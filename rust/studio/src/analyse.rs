@@ -39,6 +39,7 @@ pub enum Message {
     RereadDevice(McuVariant, FirmwareVersion),
     FlashFirmware,
     FlashComplete(Result<(), String>),
+    ProgressTick,
 }
 
 impl std::fmt::Display for Message {
@@ -55,6 +56,7 @@ impl std::fmt::Display for Message {
             Message::RereadDevice(_, _) => write!(f, "RereadDevice"),
             Message::FlashFirmware => write!(f, "FlashFirmware"),
             Message::FlashComplete(_) => write!(f, "FlashComplete(...)"),
+            Message::ProgressTick => write!(f, "ProgressTick"),
         }
     }
 }
@@ -265,6 +267,20 @@ impl Analyse {
                 self.firmware_flash_complete(result);
                 Task::none()
             }
+            Message::ProgressTick => {
+                self.progress_tick();
+                Task::none()
+            }
+        }
+    }
+
+    fn is_busy(&self) -> bool {
+        self.state.is_busy()
+    }
+
+    fn progress_tick(&mut self) {
+        if self.is_busy() {
+            self.analysis_content += "."
         }
     }
 
@@ -278,7 +294,7 @@ impl Analyse {
         self.state = AnalyseState::Flashing;
 
         if let Some(device_fw_data) = self.file_contents.as_ref() && let Some(filename) = self.fw_file.as_ref() {
-            self.analysis_content = format!("Flashing {filename:?} to device...\n");
+            self.analysis_content = format!("Flashing {filename:?} to device...");
             Task::done(DeviceMessage::FlashFirmware(
                 Client::Analyse,
                 device_fw_data.clone(),
@@ -311,7 +327,7 @@ impl Analyse {
     fn reread_device(&mut self, mcu: McuVariant, fw_version: FirmwareVersion) -> AppMessage {
         // Indicate we're rereading
         debug!("Re-reading full flash for MCU variant {} with fw v{}.{}.{}", mcu, fw_version.major(), fw_version.minor(), fw_version.patch());
-        self.analysis_content += &format!("\nRe-reading full flash from {mcu} based device with firmware v{}.{}.{}...\n", fw_version.major(), fw_version.minor(), fw_version.patch());
+        self.analysis_content += &format!("\nRe-reading full flash from {mcu} based device with firmware v{}.{}.{}...", fw_version.major(), fw_version.minor(), fw_version.patch());
         self.state = AnalyseState::Detecting(DetectState::Reread(mcu.clone(), fw_version.clone()));
 
         // Build the message re-read the flash (and re-parse)
@@ -710,6 +726,10 @@ impl Analyse {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        Subscription::none()
+        if self.is_busy() {
+            iced::time::every(std::time::Duration::from_millis(500)).map(|_| Message::ProgressTick)
+        } else {
+            Subscription::none()
+        }
     }
 }
