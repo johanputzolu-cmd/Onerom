@@ -11,7 +11,8 @@ use futures::stream::{self, Stream, StreamExt};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use probe_rs::{MemoryInterface, Permissions, Core, Error as ProbeError};
-use probe_rs::probe::DebugProbeInfo;
+use probe_rs::flashing::FlashError;
+use probe_rs::probe::{DebugProbeInfo, WireProtocol};
 use probe_rs::probe::list::Lister;
 use std::time::Duration;
 use tokio::task::spawn_blocking;
@@ -937,11 +938,13 @@ impl DeviceType {
             Ok(Err(e)) => {
                 let log = format!("Failed to read {words} words of memory at {address:#010X}: {e}");
                 warn!("{log}");
+                debug!("Precise error: {e:?}");
                 Message::ReadFailed(client, log).into()
             }
             Err(e) => {
                 let log = format!("Failed to read {words} words of memory at {address:#010X}: {e}");
                 warn!("{log}");
+                debug!("Precise error: {e:?}");
                 Message::ReadFailed(client, log).into()
             }
         }
@@ -961,11 +964,13 @@ impl DeviceType {
             Ok(Err(e)) => {
                 let log = format!("Failed to flash firmware: {e}");
                 warn!("{log}");
+                debug!("Precise error: {e:?}");
                 Message::FlashFirmwareResult(client, Err(log)).into()
             }
             Err(e) => {
                 let log = format!("Failed to flash firmware: {e}");
                 error!("{log}");
+                debug!("Precise error: {e:?}");
                 Message::FlashFirmwareResult(client, Err(log)).into()
             }
         }
@@ -981,9 +986,16 @@ impl DeviceType {
     where
         F: FnOnce(&mut Core) -> Result<R, ProbeError>
     {
-        let probe = probe.open()?;
+        // Open the probe and reset the device
+        let mut probe = probe.open()?;
         let probe_name = probe.get_name();
+        trace!("Select SWD Protocol");
+        probe.select_protocol(WireProtocol::Swd)?;
+
+        // Attach to the target chip
+        trace!("Attach to chip {}", chip_id);
         let mut session = probe.attach(chip_id, Permissions::default())?;
+        trace!("Get core");
         let mut core = session.core(0)?;
 
         if halt_core {
@@ -1002,22 +1014,37 @@ impl DeviceType {
         data: &[u8],
     ) -> Result<(), String> 
     {
-        let probe = probe.open()
+        let mut probe = probe.open()
             .map_err(|e| e.to_string())?;
         let probe_name = probe.get_name();
         debug!("Flashing firmware using probe {}", probe_name);
+
+        // Initialize the probe and session
+        trace!("Select SWD Protocol");
+        probe.select_protocol(WireProtocol::Swd)
+            .map_err(|e| e.to_string())?;
         
+        trace!("Attach to chip {chip_id}");
         let mut session = probe.attach(chip_id, Permissions::default())
             .map_err(|e| e.to_string())?;
         
+        trace!("Create flash loader");
         let mut loader = session.target().flash_loader();
+        trace!("Add data to flash loader at address {load_address:#X}");
         loader.add_data(load_address as u64, &data)
             .map_err(|e| e.to_string())?;
 
-        loader.commit(&mut session, probe_rs::flashing::DownloadOptions::default())
-            .map_err(|e| e.to_string())?;
-
-        Ok(())
+        trace!("Commit flash loader");
+        match loader.commit(&mut session, probe_rs::flashing::DownloadOptions::default()) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                match &e {
+                    FlashError::ResetAndHalt(e) => debug!("FlashError::ResetAndHalt: {e:?}"),
+                    _ => debug!("FlashError::Unknown: {e:?}"),
+                }
+                Err(e.to_string())
+            },
+        }
     }
 
 }
