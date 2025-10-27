@@ -31,7 +31,7 @@
                     "type": "2332",
                     "cs1": "active_low",
                     "cs2": "active_high",
-                    "dup": true
+                    "size_handling": "duplicate"
                 }
             ]
         },
@@ -80,7 +80,7 @@
                     "type": "2332",
                     "cs1": "active_low",
                     "cs2": "active_high",
-                    "dup": true
+                    "size_handling": "duplicate"
                 }
             ]
         },
