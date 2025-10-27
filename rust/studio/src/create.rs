@@ -380,7 +380,7 @@ impl Create {
         match result {
             Ok(desc) => {
                 self.display_content = format!(
-                    "Image built successfully, total: {} bytes ({}/{}/{} plus padding)\n\n{}",
+                    "Image built successfully, total: {} bytes ({}/{}/{} plus padding)\n\n{}\n ",
                     runtime_info.built_full_image_len().unwrap_or(0),
                     runtime_info.built_firmware_len().unwrap_or(0),
                     runtime_info.built_metadata_len().unwrap_or(0),
