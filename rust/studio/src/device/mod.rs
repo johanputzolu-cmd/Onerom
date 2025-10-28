@@ -3,7 +3,7 @@
 // MIT License
 
 //! Device handling module - USB (DFU) and debug probe devices
-//! 
+//!
 //! This file primarily handles state and top-level methods.
 //! Sub-modules handle view, messages and USB/probe specifics.
 
@@ -13,16 +13,16 @@ mod usb;
 mod view;
 
 use futures::stream::{self, Stream, StreamExt};
-use iced::{Element, Subscription, Task};
 use iced::widget::Column;
+use iced::{Element, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
 use crate::app::AppMessage;
 use crate::hw::HardwareInfo;
+use crate::internal_error;
 use crate::studio::RuntimeInfo;
 use crate::style::Style;
-use crate::internal_error;
 pub use msg::Message;
 use probe::ProbeType;
 use usb::UsbDeviceType;
@@ -104,7 +104,6 @@ impl Device {
     /// Main Device Message handling method
     pub fn update(&mut self, runtime_info: &RuntimeInfo, message: Message) -> Task<AppMessage> {
         msg::handle_message(self, runtime_info, message)
-
     }
 
     // Logic to handle a list of probes being updated:
@@ -132,7 +131,7 @@ impl Device {
                 trace!("No probes detected");
             }
         }
-        
+
         // Finally, if there' no selected device, but there's a selected probe,
         // select it.  This also clears the selected device if it has gone.
         self.check_selected();
@@ -149,7 +148,7 @@ impl Device {
                 trace!("Still connected to USB device {old_device}");
             }
         }
-        
+
         // Next, if there isn't a selected USB device, see if there's one to
         // auto-select
         if self.selected_usb_device.is_none() {
@@ -181,7 +180,7 @@ impl Device {
             debug!("Clearing selected device as no longer valid");
             self.selected = DeviceType::None;
         }
-        
+
         if self.selected.is_none() {
             // Prefer USB over debug probe
             if let Some(usb_device) = &self.selected_usb_device {
@@ -303,25 +302,19 @@ impl DeviceType {
         }
     }
 
-    pub fn read(&self, client: Client, hw_info: HardwareInfo, address: u32, words: usize) -> Task<AppMessage> {
-        Task::future(read_async(
-            self.clone(),
-            client,
-            hw_info,
-            address,
-            words,
-        ))
+    pub fn read(
+        &self,
+        client: Client,
+        hw_info: HardwareInfo,
+        address: u32,
+        words: usize,
+    ) -> Task<AppMessage> {
+        Task::future(read_async(self.clone(), client, hw_info, address, words))
     }
 
     pub fn flash(&self, client: Client, hw_info: HardwareInfo, data: Vec<u8>) -> Task<AppMessage> {
-        Task::future(flash_async(
-            self.clone(),
-            hw_info,
-            client,
-            data,
-        ))
+        Task::future(flash_async(self.clone(), hw_info, client, data))
     }
-
 }
 
 // Generic read device method
@@ -334,23 +327,9 @@ async fn read_async(
 ) -> AppMessage {
     match device {
         DeviceType::DebugProbe(p) => {
-            probe::read_async(
-                p.clone(),
-                client,
-                hw_info,
-                address,
-                words,
-            ).await
+            probe::read_async(p.clone(), client, hw_info, address, words).await
         }
-        DeviceType::Usb(u) => {
-            usb::read_async(
-                u.clone(),
-                client,
-                hw_info,
-                address,
-                words,
-            ).await
-        }
+        DeviceType::Usb(u) => usb::read_async(u.clone(), client, hw_info, address, words).await,
         DeviceType::None => {
             let log = "Attempted to read from None device";
             internal_error!("{log}");
@@ -367,22 +346,8 @@ async fn flash_async(
     data: Vec<u8>,
 ) -> AppMessage {
     match device {
-        DeviceType::DebugProbe(p) => {
-            probe::flash_async(
-                p.clone(),
-                hw_info,
-                client,
-                data,
-            ).await
-        }
-        DeviceType::Usb(u) => {
-            usb::flash_async(
-                u.clone(),
-                hw_info,
-                client,
-                data,
-            ).await
-        }
+        DeviceType::DebugProbe(p) => probe::flash_async(p.clone(), hw_info, client, data).await,
+        DeviceType::Usb(u) => usb::flash_async(u.clone(), hw_info, client, data).await,
         DeviceType::None => {
             let log = "Attempted to flash None device";
             internal_error!("{log}");
@@ -390,4 +355,3 @@ async fn flash_async(
         }
     }
 }
-

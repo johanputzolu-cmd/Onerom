@@ -130,13 +130,11 @@ impl StudioTab {
                 Style::text_button(tab.name(), on_press, active)
             };
             buttons.push(button.into());
-        };
-        
+        }
+
         // Add the buttons to a row, with spacing between them
         Row::with_children(buttons).spacing(20).into()
-    }   
-
-
+    }
 }
 
 /// Images built by Studio
@@ -470,17 +468,13 @@ impl Studio {
                 self.runtime_info.clear_firmware();
                 Task::none()
             }
-            Message::FetchConfigs => {
-                Task::future(Self::fetch_configs_async())
-            }
+            Message::FetchConfigs => Task::future(Self::fetch_configs_async()),
             Message::Configs(configs) => {
                 self.download_succeeded();
                 self.runtime_info.set_configs(configs.clone());
                 Task::done(CreateMessage::ConfigsUpdated.into())
             }
-            Message::DownloadConfig(name) => {
-                self.download_config(name)
-            }
+            Message::DownloadConfig(name) => self.download_config(name),
             Message::ConfigDownloaded(data) => {
                 self.download_succeeded();
                 self.runtime_info.set_config(data.clone());
@@ -532,14 +526,16 @@ impl Studio {
             fw.clone()
         } else {
             warn!("No firmware downloaded, cannot build images");
-            return CreateMessage::BuildImagesResult(Err("No firmware downloaded".to_string())).into();
+            return CreateMessage::BuildImagesResult(Err("No firmware downloaded".to_string()))
+                .into();
         };
 
         let config = if let Some(cfg) = runtime_info.config() {
             cfg.clone()
         } else {
             warn!("No config downloaded, cannot build images");
-            return CreateMessage::BuildImagesResult(Err("No config downloaded".to_string())).into();
+            return CreateMessage::BuildImagesResult(Err("No config downloaded".to_string()))
+                .into();
         };
 
         // Turn config into string
@@ -547,7 +543,10 @@ impl Studio {
             Ok(s) => s,
             Err(e) => {
                 warn!("Config is not valid UTF-8: {}", e);
-                return CreateMessage::BuildImagesResult(Err("Config is not valid UTF-8".to_string())).into();
+                return CreateMessage::BuildImagesResult(Err(
+                    "Config is not valid UTF-8".to_string()
+                ))
+                .into();
             }
         };
 
@@ -556,7 +555,13 @@ impl Studio {
             Ok(b) => b,
             Err(e) => {
                 warn!("Failed to create image builder from config: {e:?}");
-                return CreateMessage::BuildImagesResult(Err(format!("Failed to create image builder from config:\n  - {e:?}")).into()).into();
+                return CreateMessage::BuildImagesResult(
+                    Err(format!(
+                        "Failed to create image builder from config:\n  - {e:?}"
+                    ))
+                    .into(),
+                )
+                .into();
             }
         };
 
@@ -568,7 +573,10 @@ impl Studio {
             Ok(()) => (),
             Err(e) => {
                 warn!("Failed to get ROM files: {e:?}");
-                return CreateMessage::BuildImagesResult(Err(format!("Failed to get ROM files:\n  - {e:?}"))).into();
+                return CreateMessage::BuildImagesResult(Err(format!(
+                    "Failed to get ROM files:\n  - {e:?}"
+                )))
+                .into();
             }
         }
 
@@ -577,9 +585,9 @@ impl Studio {
             Some(fw) => fw,
             None => {
                 warn!("No selected firmware, cannot build images");
-                return CreateMessage::BuildImagesResult(Err("No selected firmware".to_string())).into();
+                return CreateMessage::BuildImagesResult(Err("No selected firmware".to_string()))
+                    .into();
             }
-            
         };
 
         // Build the firmware properties
@@ -587,7 +595,10 @@ impl Studio {
             Some(p) => p,
             None => {
                 warn!("Cannot get firmware properties, cannot build images");
-                return CreateMessage::BuildImagesResult(Err("Cannot get firmware properties".to_string())).into();
+                return CreateMessage::BuildImagesResult(Err(
+                    "Cannot get firmware properties".to_string()
+                ))
+                .into();
             }
         };
 
@@ -596,7 +607,10 @@ impl Studio {
             Ok((md, roms)) => (md, roms),
             Err(e) => {
                 warn!("Failed to build images: {e:?}");
-                return CreateMessage::BuildImagesResult(Err(format!("Failed to build images:\n  - {e:?}"))).into();
+                return CreateMessage::BuildImagesResult(Err(format!(
+                    "Failed to build images:\n  - {e:?}"
+                )))
+                .into();
             }
         };
 
@@ -618,7 +632,7 @@ impl Studio {
             "Built image: total={total_len} bytes, firmware={fw_len} bytes, metadata={md_len} bytes, roms={roms_len} bytes"
         );
 
-        Message::BuildImagesResult(Ok((images,desc))).into()
+        Message::BuildImagesResult(Ok((images, desc))).into()
     }
 
     async fn fetch_releases_async() -> AppMessage {
@@ -674,7 +688,7 @@ impl Studio {
         self.runtime_info.clear_selected_config();
 
         // Check we have Configs and get the config URL
-        let config_url  = if let Some(configs) = self.runtime_info.configs() {
+        let config_url = if let Some(configs) = self.runtime_info.configs() {
             match configs.config_url(&name) {
                 Some(url) => url,
                 None => {

@@ -4,7 +4,7 @@
 
 //! Create functionality
 
-use iced::widget::{column, row, Space};
+use iced::widget::{Space, column, row};
 use iced::{Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
@@ -18,10 +18,10 @@ use onerom_fw::net::{Release, Releases};
 use crate::app::AppMessage;
 use crate::device::{Client, Device, Message as DeviceMessage};
 use crate::hw::HardwareInfo;
-use crate::studio::{Message as StudioMessage, RuntimeInfo, Images};
+use crate::internal_error;
+use crate::studio::{Images, Message as StudioMessage, RuntimeInfo};
 use crate::style::Style;
 use crate::{task_from_msg, task_from_msgs};
-use crate::internal_error;
 
 #[derive(Debug, Clone)]
 /// Create tab messages
@@ -186,13 +186,17 @@ impl Create {
                         false
                     };
 
-                    let msg1 = if self.has_model() && let Some(board) = hw_info.board {
+                    let msg1 = if self.has_model()
+                        && let Some(board) = hw_info.board
+                    {
                         self.board_selected(runtime_info, board)
                     } else {
                         None
                     };
 
-                    let msg2 = if self.has_board() && let Some(mcu) = hw_info.mcu_variant {
+                    let msg2 = if self.has_board()
+                        && let Some(mcu) = hw_info.mcu_variant
+                    {
                         self.mcu_selected(mcu);
                         self.select_latest_release(runtime_info.releases())
                     } else {
@@ -204,7 +208,7 @@ impl Create {
                     Task::none()
                 }
             }
-            Message::ReleasesUpdated => {                
+            Message::ReleasesUpdated => {
                 let releases = runtime_info.releases();
 
                 // Select the latest firmware, unless one is already selected
@@ -238,7 +242,10 @@ impl Create {
                 }
             }
             Message::BuildImagesResult(result) => {
-                debug!("Build image result received: {}", if result.is_ok() { "OK" } else { "Error" });
+                debug!(
+                    "Build image result received: {}",
+                    if result.is_ok() { "OK" } else { "Error" }
+                );
                 if !self.is_building() {
                     internal_error!("BuildImagesResult received while not building.");
                 }
@@ -252,7 +259,9 @@ impl Create {
                     self.state = State::Saving;
                     let filename = format!(
                         "onerom-{}-{}-{}.bin",
-                        runtime_info.selected_config().unwrap_or(&"unknown".to_string()),
+                        runtime_info
+                            .selected_config()
+                            .unwrap_or(&"unknown".to_string()),
                         self.selected_hw_info.board_name(),
                         self.selected_hw_info.mcu_name(),
                     );
@@ -263,7 +272,14 @@ impl Create {
                 }
             }
             Message::SaveFirmwareFilename(filename) => {
-                debug!("Save firmware filename received: {}", if let Some(f) = &filename { format!("{f:?}") } else { "None".to_string() });
+                debug!(
+                    "Save firmware filename received: {}",
+                    if let Some(f) = &filename {
+                        format!("{f:?}")
+                    } else {
+                        "None".to_string()
+                    }
+                );
                 if self.is_busy() {
                     if filename.is_some() {
                         self.set_display_content(format!("Saving firmware to {filename:?}..."));
@@ -292,15 +308,21 @@ impl Create {
             Message::FlashFirmware => {
                 debug!("Flash firmware requested");
                 if !self.is_busy() {
-                    match runtime_info.images().and_then(|imgs| Some(imgs.full_image())) {
+                    match runtime_info
+                        .images()
+                        .and_then(|imgs| Some(imgs.full_image()))
+                    {
                         Some(fw) => {
                             self.state = State::Flashing;
                             self.set_display_content("Flashing firmware...");
-                            Task::done(DeviceMessage::FlashFirmware {
-                                client: Client::Create,
-                                hw_info: self.selected_hw_info.clone(),
-                                data: fw,
-                            }.into())
+                            Task::done(
+                                DeviceMessage::FlashFirmware {
+                                    client: Client::Create,
+                                    hw_info: self.selected_hw_info.clone(),
+                                    data: fw,
+                                }
+                                .into(),
+                            )
                         }
                         None => {
                             self.set_display_content("No firmware image available to flash.");
@@ -311,10 +333,12 @@ impl Create {
                     warn!("Busy - skipping flash firmware");
                     return Task::none();
                 }
-
             }
             Message::FlashFirmwareResult(result) => {
-                debug!("Flash firmware result received: {}", if result.is_ok() { "OK" } else { "Error" });
+                debug!(
+                    "Flash firmware result received: {}",
+                    if result.is_ok() { "OK" } else { "Error" }
+                );
                 if !self.is_busy() {
                     internal_error!("FlashFirmwareResult received while not busy.");
                 }
@@ -359,7 +383,10 @@ impl Create {
         Message::SaveFirmwareFilename(path).into()
     }
 
-    async fn save_firmware_filename(filename: Option<PathBuf>, images: Option<Images>) -> AppMessage {
+    async fn save_firmware_filename(
+        filename: Option<PathBuf>,
+        images: Option<Images>,
+    ) -> AppMessage {
         if images.is_none() {
             warn!("No images available to save firmware");
             return Message::SaveFirmwareComplete.into();
@@ -493,10 +520,16 @@ impl Create {
     }
 
     fn ready_to_build(&self, runtime_info: &RuntimeInfo) -> bool {
-        self.hardware_selected() && runtime_info.selected_firmware().is_some() && runtime_info.config().is_some()
+        self.hardware_selected()
+            && runtime_info.selected_firmware().is_some()
+            && runtime_info.config().is_some()
     }
 
-    pub fn view<'a>(&'a self, runtime_info: &'a RuntimeInfo, device: &Device) -> iced::Element<'a, AppMessage> {
+    pub fn view<'a>(
+        &'a self,
+        runtime_info: &'a RuntimeInfo,
+        device: &Device,
+    ) -> iced::Element<'a, AppMessage> {
         let mut columns = column![
             row![
                 self.select_hw_heading_row(),
@@ -535,11 +568,7 @@ impl Create {
             } else {
                 (Some(Message::BuildImages.into()), true)
             };
-            let build_button = Style::text_button_small(
-                content,
-                on_press,
-                highlighted,
-            );
+            let build_button = Style::text_button_small(content, on_press, highlighted);
 
             let button_row = row![build_button].spacing(20);
 
@@ -556,11 +585,7 @@ impl Create {
                 } else {
                     "Save Firmware".to_string()
                 };
-                let save_button = Style::text_button_small(
-                    save_content,
-                    on_press,
-                    highlighted,
-                );
+                let save_button = Style::text_button_small(save_content, on_press, highlighted);
 
                 let flash_content = if self.is_flashing() {
                     "Flashing...".to_string()
@@ -572,11 +597,7 @@ impl Create {
                 } else {
                     (Some(Message::FlashFirmware.into()), true)
                 };
-                let flash_button = Style::text_button_small(
-                    flash_content,
-                    on_press,
-                    highlighted,
-                );
+                let flash_button = Style::text_button_small(flash_content, on_press, highlighted);
 
                 button_row
                     .push(Space::with_width(Length::Fill))
@@ -586,11 +607,7 @@ impl Create {
                 button_row
             };
 
-            let window = Style::box_scrollable_text(
-                self.display_content.clone(),
-                166.0,
-                true,
-            );
+            let window = Style::box_scrollable_text(self.display_content.clone(), 166.0, true);
             let window_container = Style::container(window);
 
             columns = columns.push(button_row);
@@ -612,16 +629,9 @@ impl Create {
             } else {
                 |name| Message::ConfigSelected(name).into()
             };
-            let pick_list = Style::pick_list_small(
-                config_names.as_slice(),
-                selected_config,
-                msg,
-            );
+            let pick_list = Style::pick_list_small(config_names.as_slice(), selected_config, msg);
 
-            let mut row = row![
-                Style::text_h3("ROM Config:"),
-                pick_list,
-            ];
+            let mut row = row![Style::text_h3("ROM Config:"), pick_list,];
 
             if selected_config.is_some() {
                 // Show if config has been downloaded
@@ -665,16 +675,10 @@ impl Create {
             } else {
                 |r| Message::ReleaseSelected(r).into()
             };
-            let release_pick_list = Style::pick_list_small(
-                releases.releases().as_slice(),
-                selected_release, 
-                msg
-            );
+            let release_pick_list =
+                Style::pick_list_small(releases.releases().as_slice(), selected_release, msg);
 
-            let mut rows = row![
-                Style::text_h3("Firmware Release"),
-                release_pick_list,
-            ];
+            let mut rows = row![Style::text_h3("Firmware Release"), release_pick_list,];
 
             // Show if release has been downloaded
             if let Some(fw_len) = runtime_info.firmware_len() {
@@ -735,8 +739,7 @@ impl Create {
         } else {
             |board| Message::BoardSelected(board).into()
         };
-        let board_picker =
-            Style::pick_list_small(board_values, self.selected_hw_info.board, msg);
+        let board_picker = Style::pick_list_small(board_values, self.selected_hw_info.board, msg);
         let board_picker = row![Style::text_body("Board:"), board_picker,]
             .spacing(10)
             .align_y(iced::alignment::Vertical::Center);
@@ -752,8 +755,7 @@ impl Create {
         } else {
             |mcu| Message::McuSelected(mcu).into()
         };
-        let mcu_picker =
-            Style::pick_list_small(mcu_values, self.selected_hw_info.mcu_variant, msg);
+        let mcu_picker = Style::pick_list_small(mcu_values, self.selected_hw_info.mcu_variant, msg);
         let mcu_picker = row![Style::text_body("MCU:"), mcu_picker,]
             .spacing(10)
             .align_y(iced::alignment::Vertical::Center);

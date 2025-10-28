@@ -9,15 +9,15 @@ use iced::task::Task;
 use log::{debug, error, info, trace, warn};
 use std::time::Duration;
 
-use crate::analyse::{Message as AnalyseMessage};
+use crate::analyse::Message as AnalyseMessage;
 use crate::app::AppMessage;
 use crate::create::Message as CreateMessage;
-use crate::device::{Client, Device, DeviceType};
 use crate::device::probe::ProbeType;
 use crate::device::usb::UsbDeviceType;
+use crate::device::{Client, Device, DeviceType};
 use crate::hw::HardwareInfo;
-use crate::studio::RuntimeInfo;
 use crate::internal_error;
+use crate::studio::RuntimeInfo;
 
 /// Device messages
 #[derive(Debug, Clone)]
@@ -39,7 +39,7 @@ pub enum Message {
     SelectUsbDevice(UsbDeviceType),
 
     // Flash firmware to a device
-    FlashFirmware{
+    FlashFirmware {
         client: Client,
         hw_info: HardwareInfo,
         data: Vec<u8>,
@@ -86,21 +86,34 @@ impl std::fmt::Display for Message {
             }
             Message::DetectUsbDevices => write!(f, "DetectUsbDevices"),
             Message::UsbDevicesDetected(devices) => {
-                let devices_str = devices.iter()
-                    .map(|d| format!("VID={:04X}, PID={:04X}", d.dfu_device_info().vid, d.dfu_device_info().pid))
+                let devices_str = devices
+                    .iter()
+                    .map(|d| {
+                        format!(
+                            "VID={:04X}, PID={:04X}",
+                            d.dfu_device_info().vid,
+                            d.dfu_device_info().pid
+                        )
+                    })
                     .collect::<Vec<_>>()
                     .join(", ");
                 write!(f, "UsbDevicesDetected({})", devices_str)
             }
-            Message::FlashFirmware { client, hw_info, data } => {
-                write!(f, "FlashFirmware(client={client}, hw_info={hw_info}, data_len={})", data.len())
+            Message::FlashFirmware {
+                client,
+                hw_info,
+                data,
+            } => {
+                write!(
+                    f,
+                    "FlashFirmware(client={client}, hw_info={hw_info}, data_len={})",
+                    data.len()
+                )
             }
-            Message::FlashFirmwareResult(client, result) => {
-                match result {
-                    Ok(()) => write!(f, "FlashFirmwareResult(client={client}, Ok)"),
-                    Err(e) => write!(f, "FlashFirmwareResult(client={client}, Err: {})", e),
-                }
-            }
+            Message::FlashFirmwareResult(client, result) => match result {
+                Ok(()) => write!(f, "FlashFirmwareResult(client={client}, Ok)"),
+                Err(e) => write!(f, "FlashFirmwareResult(client={client}, Err: {})", e),
+            },
             Message::DeviceData(client, data) => {
                 write!(f, "DeviceData(client={client}, {} bytes)", data.len())
             }
@@ -113,7 +126,11 @@ impl std::fmt::Display for Message {
 }
 
 // Top-level Device Message handling routine
-pub fn handle_message(device: &mut Device, _runtime_info: &RuntimeInfo, message: Message) -> Task<AppMessage> {
+pub fn handle_message(
+    device: &mut Device,
+    _runtime_info: &RuntimeInfo,
+    message: Message,
+) -> Task<AppMessage> {
     match message {
         // Rescan all device types
         Message::Rescan => {
@@ -162,24 +179,31 @@ pub fn handle_message(device: &mut Device, _runtime_info: &RuntimeInfo, message:
         Message::SelectDevice(dev) => {
             debug!("Selecting device: {}", dev);
             device.select_device(dev)
-        },
+        }
         Message::SelectProbe(probe) => {
             debug!("Selecting probe: {}", probe);
             device.select_probe(probe)
-        },
+        }
         Message::SelectUsbDevice(usb_device) => {
             debug!("Selecting USB device: {}", usb_device);
             device.select_usb_device(usb_device)
-        },
+        }
 
         // Flash firmware request and result
-        Message::FlashFirmware{ client, hw_info, data } => {
+        Message::FlashFirmware {
+            client,
+            hw_info,
+            data,
+        } => {
             debug!("{client} Flashing firmware");
             device.operating = Some(client.clone());
             device.selected.flash(client, hw_info, data)
         }
         Message::FlashFirmwareResult(client, result) => {
-            debug!("{client} Firmware flash complete: {}", if result.is_ok() { "OK" } else { "Error" });
+            debug!(
+                "{client} Firmware flash complete: {}",
+                if result.is_ok() { "OK" } else { "Error" }
+            );
             // Force a device re-enumeration after flashing firmware
             device.operating = None;
             let msg = match client {
@@ -188,8 +212,9 @@ pub fn handle_message(device: &mut Device, _runtime_info: &RuntimeInfo, message:
             };
             // Pause briefly before re-enumeration to allow the device to reset
             // and then send the done message
-            Task::done(msg)
-                .chain(Task::future(crate::device::usb::get_usb_device_list_delay(Duration::from_millis(1000))))
+            Task::done(msg).chain(Task::future(crate::device::usb::get_usb_device_list_delay(
+                Duration::from_millis(1000),
+            )))
         }
 
         // Read device request and results
@@ -199,10 +224,13 @@ pub fn handle_message(device: &mut Device, _runtime_info: &RuntimeInfo, message:
             address,
             words,
         } => {
-            debug!("{client} Reading device memory at 0x{:08X}, {} words", address, words);
+            debug!(
+                "{client} Reading device memory at 0x{:08X}, {} words",
+                address, words
+            );
             if client != Client::Analyse {
                 internal_error!("Device read requested by unsupported client: {}", client);
-                return Task::none()
+                return Task::none();
             }
             device.operating = Some(client.clone());
             device.selected.read(client, hw_info, address, words)
@@ -221,4 +249,3 @@ pub fn handle_message(device: &mut Device, _runtime_info: &RuntimeInfo, message:
         }
     }
 }
-

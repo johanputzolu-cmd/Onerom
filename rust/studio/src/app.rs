@@ -2,15 +2,15 @@
 //
 // MIT License
 
-use iced::widget::{column, row, Space, Stack};
 use iced::alignment::Vertical::Bottom;
+use iced::widget::{Space, Stack, column, row};
 use iced::{Element, Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
 use crate::analyse::{Analyse, Message as AnalyseMessage};
 use crate::create::{Create, Message as CreateMessage};
-use crate::device::{get_devices_startup, Device, Message as DeviceMessage};
+use crate::device::{Device, Message as DeviceMessage, get_devices_startup};
 use crate::log::{Level, Log, LogEntry, Message as LogMessage};
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Studio, StudioTab};
 use crate::style::{Message as StyleMessage, Style};
@@ -140,12 +140,11 @@ impl<'a> App<'a> {
         let runtime_info = self.runtime_info();
 
         let serious_errors = self.log.serious_errors_occurred();
-        let top_left_corner =
-            column![
-                Style::text_studio_h1(),
-                self.studio.top_level_buttons(serious_errors),
-            ]
-            .spacing(20);
+        let top_left_corner = column![
+            Style::text_studio_h1(),
+            self.studio.top_level_buttons(serious_errors),
+        ]
+        .spacing(20);
 
         let top_right_corner = self.device.view(&self.style);
 
@@ -180,10 +179,7 @@ impl<'a> App<'a> {
             let help_overlay = self.device.help_overlay();
             let overlay = Style::overlay_container(help_overlay);
 
-            Stack::new()
-                .push(main_view)
-                .push(overlay)
-                .into()
+            Stack::new().push(main_view).push(overlay).into()
         } else {
             main_view.into()
         }

@@ -3,6 +3,9 @@
 // MIT License
 
 //! Style constants and objects
+//!
+//! Used to define styles, colours, fonts, and other style-related properties,
+//! and provide helper methods for creating styled widgets.
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::border::Radius;
@@ -11,8 +14,8 @@ use iced::theme::Theme;
 use iced::widget;
 use iced::widget::text::{Rich, Span, Text};
 use iced::widget::{
-    PickList, Row, Scrollable, Space, button, column, container, pick_list, row, scrollable, text,
-    mouse_area, Image, tooltip,
+    Image, PickList, Row, Scrollable, Space, button, column, container, mouse_area, pick_list, row,
+    scrollable, text, tooltip,
 };
 use iced::{Background, Border, Element, Length, Shadow};
 use onerom_config::fw::FirmwareVersion;
@@ -280,7 +283,7 @@ impl<'a> Style<'a> {
         on_press: Option<AppMessage>,
         highlighted: bool,
     ) -> widget::Button<'a, AppMessage> {
-        Style::int_text_button(content, on_press, highlighted, false, false,)
+        Style::int_text_button(content, on_press, highlighted, false, false)
     }
 
     pub fn error_button(
@@ -298,7 +301,6 @@ impl<'a> Style<'a> {
     ) -> widget::Button<'a, AppMessage> {
         Style::int_text_button(content, on_press, highlighted, false, true)
     }
-
 
     fn int_text_button(
         content: impl ToString,
@@ -321,10 +323,10 @@ impl<'a> Style<'a> {
                 )
             }
         } else {
-                (
-                    Style::COLOUR_TEXT,
-                    Some(Background::Color(Style::COLOUR_BACKGROUND_ERROR)),
-                )
+            (
+                Style::COLOUR_TEXT,
+                Some(Background::Color(Style::COLOUR_BACKGROUND_ERROR)),
+            )
         };
 
         let text = if !small {
@@ -332,11 +334,7 @@ impl<'a> Style<'a> {
         } else {
             Self::text_small(content.to_string()).color(Self::COLOUR_BUTTON_TEXT)
         };
-        let padding = if !small {
-            [10, 20]
-        } else {
-            [5, 10]
-        };
+        let padding = if !small { [10, 20] } else { [5, 10] };
         let mut button = button(text)
             .style(move |_, _| button::Style {
                 background,
@@ -366,15 +364,25 @@ impl<'a> Style<'a> {
     fn scrollbar_colour(status: &scrollable::Status, horiz: bool) -> iced::Color {
         match status {
             scrollable::Status::Active => Self::COLOUR_DARK_GOLD,
-            scrollable::Status::Hovered { is_vertical_scrollbar_hovered, is_horizontal_scrollbar_hovered } => {
-                if (horiz && *is_horizontal_scrollbar_hovered) || (!horiz && *is_vertical_scrollbar_hovered) {
+            scrollable::Status::Hovered {
+                is_vertical_scrollbar_hovered,
+                is_horizontal_scrollbar_hovered,
+            } => {
+                if (horiz && *is_horizontal_scrollbar_hovered)
+                    || (!horiz && *is_vertical_scrollbar_hovered)
+                {
                     Self::COLOUR_GOLD
                 } else {
                     Self::COLOUR_DARK_GOLD
                 }
             }
-            scrollable::Status::Dragged { is_vertical_scrollbar_dragged, is_horizontal_scrollbar_dragged } => {
-                if (horiz && *is_horizontal_scrollbar_dragged) || (!horiz && *is_vertical_scrollbar_dragged) {
+            scrollable::Status::Dragged {
+                is_vertical_scrollbar_dragged,
+                is_horizontal_scrollbar_dragged,
+            } => {
+                if (horiz && *is_horizontal_scrollbar_dragged)
+                    || (!horiz && *is_vertical_scrollbar_dragged)
+                {
                     Self::COLOUR_GOLD
                 } else {
                     Self::COLOUR_DARK_GOLD
@@ -383,9 +391,7 @@ impl<'a> Style<'a> {
         }
     }
 
-    fn scrollbar_style(
-        status: &scrollable::Status,
-    ) -> scrollable::Style {
+    fn scrollbar_style(status: &scrollable::Status) -> scrollable::Style {
         scrollable::Style {
             vertical_rail: scrollable::Rail {
                 scroller: scrollable::Scroller {
@@ -408,7 +414,11 @@ impl<'a> Style<'a> {
         }
     }
 
-    pub fn box_scrollable_text(content: impl ToString, height: f32, horiz_scroll: bool) -> Scrollable<'a, AppMessage> {
+    pub fn box_scrollable_text(
+        content: impl ToString,
+        height: f32,
+        horiz_scroll: bool,
+    ) -> Scrollable<'a, AppMessage> {
         let text = Self::text_small(content.to_string()).font(Self::FONT_COURIER_REG);
         Self::box_scrollable_element(text, height, horiz_scroll)
     }
@@ -466,7 +476,7 @@ impl<'a> Style<'a> {
     fn version() -> Element<'a, AppMessage> {
         let commit_id = if let Some(commit_id) = crate::built::GIT_COMMIT_HASH_SHORT {
             format!(
-                " ({}{})", 
+                " ({}{})",
                 if crate::built::GIT_DIRTY.unwrap_or(true) {
                     "!"
                 } else {
@@ -485,20 +495,21 @@ impl<'a> Style<'a> {
     fn network_icon(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {
         let (network_icon, net_tooltip) = if runtime_info.is_offline() {
             (
-                self.images.icon_network_disconnected(), 
-                Self::text_extra_small("Network offline").color(Self::COLOUR_ERROR)
+                self.images.icon_network_disconnected(),
+                Self::text_extra_small("Network offline").color(Self::COLOUR_ERROR),
             )
         } else {
             (
                 self.images.icon_network_connected(),
-                Self::text_extra_small("Network online").color(Self::COLOUR_TEXT_DIM)
+                Self::text_extra_small("Network online").color(Self::COLOUR_TEXT_DIM),
             )
         };
         tooltip(
             Image::new(network_icon),
             net_tooltip,
             tooltip::Position::Top,
-        ).into()
+        )
+        .into()
     }
 
     pub fn help_icon(&self) -> Element<'a, AppMessage> {
@@ -577,7 +588,7 @@ impl<'a> Style<'a> {
             Space::with_height(5.0),
             Self::footer_row_2(),
         ]
-            .into()
+        .into()
     }
 
     // Creates a bordered container for the specified content - like an overlaid
@@ -600,9 +611,7 @@ impl<'a> Style<'a> {
         content: impl Into<Element<'a, AppMessage>>,
     ) -> Element<'a, AppMessage> {
         // The actual overlay container with the specified content
-        let inner = Self::container(content)
-            .width(500.0)
-            .height(Length::Shrink);
+        let inner = Self::container(content).width(500.0).height(Length::Shrink);
 
         // An outer container to centre the inner container, and make the under layer
         // appear greyed out
@@ -713,14 +722,20 @@ impl<'a> Style<'a> {
         };
 
         let metadata = match metadata {
-            Some(true) => Some(row![
-                Style::text_small("Metadata:"),
-                Style::text_small("Yes").color(Style::COLOUR_DARK_GOLD),
-            ].spacing(5)),
-            Some(false) => Some(row![
-                Style::text_small("Metadata:"),
-                Style::text_small("No").color(Style::COLOUR_ERROR),
-            ].spacing(5)),
+            Some(true) => Some(
+                row![
+                    Style::text_small("Metadata:"),
+                    Style::text_small("Yes").color(Style::COLOUR_DARK_GOLD),
+                ]
+                .spacing(5),
+            ),
+            Some(false) => Some(
+                row![
+                    Style::text_small("Metadata:"),
+                    Style::text_small("No").color(Style::COLOUR_ERROR),
+                ]
+                .spacing(5),
+            ),
             None => None,
         };
 
@@ -741,7 +756,7 @@ impl<'a> Style<'a> {
         // Board
         let board_h = Style::text_small("Board:");
         let board = if let Some(board) = board {
-            let board =  if board_long {
+            let board = if board_long {
                 board.description()
             } else {
                 board.name()

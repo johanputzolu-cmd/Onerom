@@ -3,15 +3,15 @@
 // MIT License
 
 //! Contains device's probe handling
-//! 
+//!
 //! Uses `probe-rs`.
 
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
-use probe_rs::{MemoryInterface, Permissions, Core, Error as ProbeError};
 use probe_rs::flashing::FlashError;
-use probe_rs::probe::{DebugProbeInfo, WireProtocol};
 use probe_rs::probe::list::Lister;
+use probe_rs::probe::{DebugProbeInfo, WireProtocol};
+use probe_rs::{Core, Error as ProbeError, MemoryInterface, Permissions};
 use std::time::Duration;
 use tokio::task::spawn_blocking;
 
@@ -42,7 +42,13 @@ pub struct ProbeType(DebugProbeInfo);
 impl std::fmt::Display for ProbeType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Your custom display logic here
-        write!(f, "{} ({:04X}:{:04X})", self.0.probe_type(), self.0.vendor_id, self.0.product_id)
+        write!(
+            f,
+            "{} ({:04X}:{:04X})",
+            self.0.probe_type(),
+            self.0.vendor_id,
+            self.0.product_id
+        )
     }
 }
 
@@ -85,7 +91,8 @@ pub async fn read_async(
             let bytes: Vec<u8> = buf.iter().flat_map(|w| w.to_le_bytes()).collect();
             Ok(bytes)
         })
-    }).await;
+    })
+    .await;
 
     match result {
         Ok(Ok(bytes)) => Message::DeviceData(client, bytes).into(),
@@ -115,9 +122,9 @@ pub async fn flash_async(
         None => "STM32F411RETx".to_string(),
         Some(mcu) => mcu.chip_id().to_string(),
     };
-    let result = spawn_blocking(move || {
-        probe_flash(probe.inner().clone(), chip_id, 0x08000000, &data)
-    }).await;
+    let result =
+        spawn_blocking(move || probe_flash(probe.inner().clone(), chip_id, 0x08000000, &data))
+            .await;
 
     match result {
         Ok(Ok(())) => Message::FlashFirmwareResult(client, Ok(())).into(),
@@ -138,13 +145,13 @@ pub async fn flash_async(
 
 // Helper to open a probe, attach to a chip, halt core, and run a closure
 fn probe_init_and_operate_on_core<F, R>(
-    probe: DebugProbeInfo, 
-    chip_id: String, 
+    probe: DebugProbeInfo,
+    chip_id: String,
     halt_core: bool,
-    f: F
-) -> Result<R, ProbeError> 
+    f: F,
+) -> Result<R, ProbeError>
 where
-    F: FnOnce(&mut Core) -> Result<R, ProbeError>
+    F: FnOnce(&mut Core) -> Result<R, ProbeError>,
 {
     // Open the probe and reset the device
     let mut probe = probe.open()?;
@@ -168,30 +175,31 @@ where
 
 // Helper to open a probe and session, and run a closure
 fn probe_flash(
-    probe: DebugProbeInfo, 
-    chip_id: String, 
+    probe: DebugProbeInfo,
+    chip_id: String,
     load_address: u32,
     data: &[u8],
-) -> Result<(), String> 
-{
-    let mut probe = probe.open()
-        .map_err(|e| e.to_string())?;
+) -> Result<(), String> {
+    let mut probe = probe.open().map_err(|e| e.to_string())?;
     let probe_name = probe.get_name();
     debug!("Flashing firmware using probe {}", probe_name);
 
     // Initialize the probe and session
     trace!("Select SWD Protocol");
-    probe.select_protocol(WireProtocol::Swd)
+    probe
+        .select_protocol(WireProtocol::Swd)
         .map_err(|e| e.to_string())?;
-    
+
     trace!("Attach to chip {chip_id}");
-    let mut session = probe.attach(chip_id, Permissions::default())
+    let mut session = probe
+        .attach(chip_id, Permissions::default())
         .map_err(|e| e.to_string())?;
-    
+
     trace!("Create flash loader");
     let mut loader = session.target().flash_loader();
     trace!("Add data to flash loader at address {load_address:#X}");
-    loader.add_data(load_address as u64, &data)
+    loader
+        .add_data(load_address as u64, &data)
         .map_err(|e| e.to_string())?;
 
     trace!("Commit flash loader");
@@ -203,6 +211,6 @@ fn probe_flash(
                 _ => debug!("FlashError::Unknown: {e:?}"),
             }
             Err(e.to_string())
-        },
+        }
     }
 }

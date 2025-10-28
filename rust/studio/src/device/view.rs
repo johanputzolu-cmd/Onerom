@@ -3,22 +3,22 @@
 // MIT License
 
 //! Device view methods
-//! 
+//!
 //! Device gets the top right corner of the app, with probe and USB device
 //! pick lists and buttons - and a help icon.
 
 use iced::alignment::Alignment::Center;
 use iced::alignment::Horizontal;
-use iced::widget::{Button, column, Column, container, row, Space};
+use iced::widget::{Button, Column, Space, column, container, row};
 use iced::{Element, Length};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
 use crate::app::AppMessage;
-use crate::device::{Device, DeviceType, Message};
 use crate::device::probe::ProbeType;
 use crate::device::usb::UsbDeviceType;
-use crate::style::{Style, Link};
+use crate::device::{Device, DeviceType, Message};
+use crate::style::{Link, Style};
 
 /// Create the device view (top right of the app)
 pub fn view<'a>(device: &'a Device, style: &'a Style) -> Column<'a, AppMessage> {
@@ -33,13 +33,11 @@ pub fn view<'a>(device: &'a Device, style: &'a Style) -> Column<'a, AppMessage> 
         left_col.width(Length::FillPortion(1)),
         right_col.width(Length::FillPortion(5))
     ]
-        .spacing(10)
-        .align_y(Center);
+    .spacing(10)
+    .align_y(Center);
 
     // Turn it into a column, as that is what App wants
-    column![
-        single_row,
-    ]
+    column![single_row,]
         .spacing(20)
         .width(Length::Fill)
         .align_x(Horizontal::Center)
@@ -47,9 +45,15 @@ pub fn view<'a>(device: &'a Device, style: &'a Style) -> Column<'a, AppMessage> 
 
 fn left_column<'a>(_device: &'a Device, _style: &'a Style) -> Column<'a, AppMessage> {
     column![
-        container(Style::text_small("Probe:")).height(Length::Fixed(25.0)).align_y(Center),
-        container(Style::text_small("USB:")).height(Length::Fixed(25.0)).align_y(Center),
-        container(Style::text_small("Use:")).height(Length::Fixed(30.0)).align_y(Center),
+        container(Style::text_small("Probe:"))
+            .height(Length::Fixed(25.0))
+            .align_y(Center),
+        container(Style::text_small("USB:"))
+            .height(Length::Fixed(25.0))
+            .align_y(Center),
+        container(Style::text_small("Use:"))
+            .height(Length::Fixed(30.0))
+            .align_y(Center),
     ]
     .spacing(10)
     .align_x(Horizontal::Right)
@@ -67,28 +71,25 @@ fn right_column<'a>(device: &'a Device, style: &'a Style) -> Column<'a, AppMessa
     let help_icon = style.help_icon();
 
     // Create the button row
-    let button_row = button_row(
-        vec![probe_button, usb_button, rescan_button],
-        help_icon,
-    );
+    let button_row = button_row(vec![probe_button, usb_button, rescan_button], help_icon);
 
-    column![
-        probe_list,
-        usb_device_list,
-        button_row,
-    ].spacing(10)
+    column![probe_list, usb_device_list, button_row,].spacing(10)
 }
 
-fn button_row<'a>(buttons: Vec<Button<'a, AppMessage>>, help_icon: Element<'a, AppMessage>) -> Element<'a, AppMessage> {
+fn button_row<'a>(
+    buttons: Vec<Button<'a, AppMessage>>,
+    help_icon: Element<'a, AppMessage>,
+) -> Element<'a, AppMessage> {
     let mut row = row![];
     for button in buttons {
         row = row.push(button);
     }
-    row = row.push(Space::with_width(Length::Fill))
+    row = row
+        .push(Space::with_width(Length::Fill))
         .push(help_icon)
         .spacing(10)
         .align_y(Center);
-    
+
     container(row)
         .height(Length::Fixed(30.0))
         .align_y(Center)
@@ -104,8 +105,7 @@ fn probe_pick_list(device: &Device) -> Element<'static, AppMessage> {
         } else {
             |p: ProbeType| Message::SelectProbe(p.clone()).into()
         };
-        Style::pick_list_small(options, device.selected_probe.clone(), msg)
-        .into()
+        Style::pick_list_small(options, device.selected_probe.clone(), msg).into()
     } else {
         Style::text_body("Not detected")
             .color(Style::COLOUR_DARK_GOLD)
@@ -116,7 +116,7 @@ fn probe_pick_list(device: &Device) -> Element<'static, AppMessage> {
         .height(Length::Fixed(25.0))
         .align_y(Center)
         .into()
-} 
+}
 
 fn usb_device_pick_list(device: &Device) -> Element<'_, AppMessage> {
     // Create the USB device pick list
@@ -127,8 +127,7 @@ fn usb_device_pick_list(device: &Device) -> Element<'_, AppMessage> {
     };
     let usb_device_list: Element<'_, AppMessage> = if device.has_detected_usb_devices() {
         let options = device.usb_devices.as_slice();
-        Style::pick_list_small(options, device.selected_usb_device.clone(), msg)
-        .into()
+        Style::pick_list_small(options, device.selected_usb_device.clone(), msg).into()
     } else {
         Style::text_body("Not detected")
             .color(Style::COLOUR_DARK_GOLD)
@@ -142,10 +141,16 @@ fn usb_device_pick_list(device: &Device) -> Element<'_, AppMessage> {
 
 fn probe_button<'a>(device: &'a Device) -> Button<'a, AppMessage> {
     let highlight_probe_button = device.selected().probe().is_some();
-    let on_press_probe = if device.is_idle() && device.selected().probe().is_none() && device.selected_probe.is_some() {
-        Some(Message::SelectDevice(
-            DeviceType::from_probe(device.selected_probe.as_ref().unwrap().clone()),
-        ).into())
+    let on_press_probe = if device.is_idle()
+        && device.selected().probe().is_none()
+        && device.selected_probe.is_some()
+    {
+        Some(
+            Message::SelectDevice(DeviceType::from_probe(
+                device.selected_probe.as_ref().unwrap().clone(),
+            ))
+            .into(),
+        )
     } else {
         None
     };
@@ -155,10 +160,16 @@ fn probe_button<'a>(device: &'a Device) -> Button<'a, AppMessage> {
 
 fn usb_button<'a>(device: &'a Device) -> Button<'a, AppMessage> {
     let highlight_usb_button = device.selected().usb_device().is_some();
-    let on_press_usb = if device.is_idle() &&device.selected().usb_device().is_none() && device.selected_usb_device.is_some() {
-        Some(Message::SelectDevice(
-            DeviceType::from_usb(device.selected_usb_device.as_ref().unwrap().clone()),
-        ).into())
+    let on_press_usb = if device.is_idle()
+        && device.selected().usb_device().is_none()
+        && device.selected_usb_device.is_some()
+    {
+        Some(
+            Message::SelectDevice(DeviceType::from_usb(
+                device.selected_usb_device.as_ref().unwrap().clone(),
+            ))
+            .into(),
+        )
     } else {
         None
     };
@@ -189,9 +200,11 @@ pub fn help_overlay() -> Element<'static, AppMessage> {
         Style::text_body("No device help available for this platform").into()
     };
 
-    let exit_button = row![
-        Style::text_button("Exit", Some(AppMessage::Help(false)), true),
-    ];
+    let exit_button = row![Style::text_button(
+        "Exit",
+        Some(AppMessage::Help(false)),
+        true
+    ),];
 
     column![
         Style::text_h2("Device Help").align_x(Horizontal::Center),
@@ -200,16 +213,21 @@ pub fn help_overlay() -> Element<'static, AppMessage> {
         exit_button,
     ]
     .align_x(Horizontal::Center)
-    .spacing(20).into()
+    .spacing(20)
+    .into()
 }
 
 fn help_content_linux() -> Element<'static, AppMessage> {
     let help_row_1 = row![
-        Style::text_body("When installing from the official One ROM Studio .deb package, udev rules should be automatically set up to allow One ROM Studio to access debug probes and One ROM USB devices."),
+        Style::text_body(
+            "When installing from the official One ROM Studio .deb package, udev rules should be automatically set up to allow One ROM Studio to access debug probes and One ROM USB devices."
+        ),
         Space::with_width(Length::Fill),
     ];
     let help_row_2 = row![
-        Style::text_body("If you have compiled One ROM Studio from source, or are using a different distribution method, you may need to set up udev rules manually."),
+        Style::text_body(
+            "If you have compiled One ROM Studio from source, or are using a different distribution method, you may need to set up udev rules manually."
+        ),
         Space::with_width(Length::Fill),
     ];
     let help_row_3 = row![
@@ -219,27 +237,28 @@ fn help_content_linux() -> Element<'static, AppMessage> {
         Space::with_width(Length::Fill),
     ];
     let help_row_4 = row![
-        Style::text_body("Also try reconnecting the device, restarting One ROM Studio, and rebooting your machine."),
+        Style::text_body(
+            "Also try reconnecting the device, restarting One ROM Studio, and rebooting your machine."
+        ),
         Space::with_width(Length::Fill),
     ];
-    column![
-        help_row_1,
-        help_row_2,
-        help_row_3,
-        help_row_4,
-    ]
-    .spacing(20)
-    .align_x(Horizontal::Center)
-    .into()
+    column![help_row_1, help_row_2, help_row_3, help_row_4,]
+        .spacing(20)
+        .align_x(Horizontal::Center)
+        .into()
 }
 
 fn help_content_macos() -> Element<'static, AppMessage> {
     let help_row_1 = row![
-        Style::text_body("There is no special USB device setup required on macOS to allow One ROM Studio to access your devices.  However, when plugging in devices you may need to choose 'Allow' so that your Mac can access them."),
+        Style::text_body(
+            "There is no special USB device setup required on macOS to allow One ROM Studio to access your devices.  However, when plugging in devices you may need to choose 'Allow' so that your Mac can access them."
+        ),
         Space::with_width(Length::Fill),
     ];
     let help_row_2 = row![
-        Style::text_body("If One ROM does detect a connected device, try reconnecting it, restarting One ROM Studio, and rebooting your Mac."),
+        Style::text_body(
+            "If One ROM does detect a connected device, try reconnecting it, restarting One ROM Studio, and rebooting your Mac."
+        ),
         Space::with_width(Length::Fill),
     ];
     let help_row_3 = row![
@@ -248,19 +267,17 @@ fn help_content_macos() -> Element<'static, AppMessage> {
         Style::text_body("."),
         Space::with_width(Length::Fill),
     ];
-    column![
-        help_row_1,
-        help_row_2,
-        help_row_3,
-    ]
-    .spacing(20)
-    .align_x(Horizontal::Center)
-    .into()
+    column![help_row_1, help_row_2, help_row_3,]
+        .spacing(20)
+        .align_x(Horizontal::Center)
+        .into()
 }
 
 fn help_content_win() -> Element<'static, AppMessage> {
     let help_row_1 = row![
-        Style::text_body("If you have plugged in a One ROM USB and it has not been detected, you may need to install the WinUSB driver for it."),
+        Style::text_body(
+            "If you have plugged in a One ROM USB and it has not been detected, you may need to install the WinUSB driver for it."
+        ),
         Space::with_width(Length::Fill),
     ];
     let help_row_2 = row![
@@ -270,11 +287,15 @@ fn help_content_win() -> Element<'static, AppMessage> {
         Space::with_width(Length::Fill),
     ];
     let help_row_3 = row![
-        Style::text_body("Generic debug probes should be automatically detected when plugged in, although specific probes may need a custom driver."),
+        Style::text_body(
+            "Generic debug probes should be automatically detected when plugged in, although specific probes may need a custom driver."
+        ),
         Space::with_width(Length::Fill),
     ];
     let help_row_4 = row![
-        Style::text_body("Try reconnecting the device, restarting One ROM Studio, and rebooting your PC."),
+        Style::text_body(
+            "Try reconnecting the device, restarting One ROM Studio, and rebooting your PC."
+        ),
         Space::with_width(Length::Fill),
     ];
     let help_row_5 = row![
@@ -283,14 +304,8 @@ fn help_content_win() -> Element<'static, AppMessage> {
         Style::text_body("."),
         Space::with_width(Length::Fill),
     ];
-    column![
-        help_row_1,
-        help_row_2,
-        help_row_3,
-        help_row_4,
-        help_row_5,
-    ]
-    .spacing(20)
-    .align_x(Horizontal::Center)
-    .into()
+    column![help_row_1, help_row_2, help_row_3, help_row_4, help_row_5,]
+        .spacing(20)
+        .align_x(Horizontal::Center)
+        .into()
 }

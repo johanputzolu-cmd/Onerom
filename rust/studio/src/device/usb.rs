@@ -4,7 +4,9 @@
 
 //! Contains device's USB device handling
 
-use dfu_rs::{DEFAULT_USB_TIMEOUT, DeviceInfo as DfuDeviceInfo, Device as DfuDevice, DfuType, search_for_dfu};
+use dfu_rs::{
+    DEFAULT_USB_TIMEOUT, Device as DfuDevice, DeviceInfo as DfuDeviceInfo, DfuType, search_for_dfu,
+};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 use std::time::Duration;
@@ -19,7 +21,11 @@ pub async fn get_usb_device_list_async() -> AppMessage {
     match search_for_dfu(DEFAULT_USB_TIMEOUT, Some(DfuType::InternalFlash)).await {
         Ok(devices) => {
             // Turn into UsbDeviceType
-            let usb_devices: Vec<UsbDeviceType> = devices.into_iter().map(UsbDeviceType::from_dfu).filter_map(|d| d).collect();
+            let usb_devices: Vec<UsbDeviceType> = devices
+                .into_iter()
+                .map(UsbDeviceType::from_dfu)
+                .filter_map(|d| d)
+                .collect();
             Message::UsbDevicesDetected(usb_devices).into()
         }
         Err(e) => {
@@ -87,12 +93,15 @@ pub async fn read_async(
     address: u32,
     words: usize,
 ) -> AppMessage {
-    match usb_device.dfu_device().upload(address, words*4).await {
+    match usb_device.dfu_device().upload(address, words * 4).await {
         Ok(data) => Message::DeviceData(client, data).into(),
         Err(e) => {
-            let log = format!("Failed to read {} words of memory at {address:#010X} using USB device {usb_device}: {e}", words);
+            let log = format!(
+                "Failed to read {} words of memory at {address:#010X} using USB device {usb_device}: {e}",
+                words
+            );
             warn!("{log}");
-            return Message::ReadFailed(client, log).into()
+            return Message::ReadFailed(client, log).into();
         }
     }
 }
@@ -101,7 +110,7 @@ pub async fn read_async(
 pub async fn flash_async(
     usb_device: UsbDeviceType,
     _hw_info: HardwareInfo,
-    client: Client, 
+    client: Client,
     data: Vec<u8>,
 ) -> AppMessage {
     // Run the blocking USB operation on a separate thread
@@ -111,7 +120,7 @@ pub async fn flash_async(
         Err(e) => {
             let log = format!("Failed to mass erase One ROM using USB device {usb_device}: {e}");
             warn!("{log}");
-            return Message::FlashFirmwareResult(client, Err(log)).into()
+            return Message::FlashFirmwareResult(client, Err(log)).into();
         }
     }
     debug!("Flash firmware to One ROM USB");
@@ -119,12 +128,12 @@ pub async fn flash_async(
         Ok(()) => {
             debug!("Successfully flashed firmware using USB device {usb_device}");
             Message::FlashFirmwareResult(client, Ok(())).into()
-        },
+        }
         Err(e) => {
-            let log = format!("Failed to flash firmware to One ROM using USB device {usb_device}: {e}");
+            let log =
+                format!("Failed to flash firmware to One ROM using USB device {usb_device}: {e}");
             warn!("{log}");
-            return Message::FlashFirmwareResult(client, Err(log)).into()
+            return Message::FlashFirmwareResult(client, Err(log)).into();
         }
     }
-}   
-
+}
