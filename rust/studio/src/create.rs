@@ -121,12 +121,37 @@ impl Create {
         "Image not yet built...".to_string()
     }
 
+    /// Instantiation method
     pub fn new() -> Self {
         let mut create = Self::default();
         create.display_content = Self::default_display_content();
         create
     }
 
+    /// Is the create tab ready for operations?
+    #[allow(dead_code)]
+    pub fn is_ready(&self) -> bool {
+        self.is_idle()
+    }
+
+    // Internal state methods
+    fn is_idle(&self) -> bool {
+        matches!(self.state, State::Idle)
+    }
+    fn is_busy(&self) -> bool {
+        !self.is_idle()
+    }
+    fn is_building(&self) -> bool {
+        matches!(self.state, State::Building)
+    }
+    fn is_flashing(&self) -> bool {
+        matches!(self.state, State::Flashing)
+    }
+    fn is_saving(&self) -> bool {
+        matches!(self.state, State::Saving)
+    }
+
+    /// Main create::Message handling method
     pub fn update(
         &mut self,
         runtime_info: &RuntimeInfo,
@@ -214,9 +239,6 @@ impl Create {
             }
             Message::BuildImagesResult(result) => {
                 debug!("Build image result received: {}", if result.is_ok() { "OK" } else { "Error" });
-                if !self.is_busy() {
-                    internal_error!("BuildImagesResult received while not busy.");
-                }
                 if !self.is_building() {
                     internal_error!("BuildImagesResult received while not building.");
                 }
@@ -261,9 +283,6 @@ impl Create {
             Message::SaveFirmwareComplete => {
                 debug!("Save firmware operation complete");
                 self.display_content += "\n\nFirmware save complete.";
-                if !self.is_busy() {
-                    internal_error!("SaveFirmwareComplete received while not saving.");
-                }
                 if !self.is_saving() {
                     internal_error!("SaveFirmwareComplete received while not saving.");
                 }
@@ -277,7 +296,11 @@ impl Create {
                         Some(fw) => {
                             self.state = State::Flashing;
                             self.set_display_content("Flashing firmware...");
-                            Task::done((DeviceMessage::FlashFirmware(Client::Create, fw)).into())
+                            Task::done(DeviceMessage::FlashFirmware {
+                                client: Client::Create,
+                                hw_info: self.selected_hw_info.clone(),
+                                data: fw,
+                            }.into())
                         }
                         None => {
                             self.set_display_content("No firmware image available to flash.");
@@ -324,22 +347,6 @@ impl Create {
 
     fn set_display_content(&mut self, content: impl ToString) {
         self.display_content = content.to_string();
-    }
-
-    fn is_idle(&self) -> bool {
-        matches!(self.state, State::Idle)
-    }
-    fn is_busy(&self) -> bool {
-        !self.is_idle()
-    }
-    fn is_building(&self) -> bool {
-        matches!(self.state, State::Building)
-    }
-    fn is_flashing(&self) -> bool {
-        matches!(self.state, State::Flashing)
-    }
-    fn is_saving(&self) -> bool {
-        matches!(self.state, State::Saving)
     }
 
     async fn save_firmware(filename: String) -> AppMessage {
@@ -560,7 +567,7 @@ impl Create {
                 } else {
                     "Flash Firmware".to_string()
                 };
-                let (on_press, highlighted) = if self.is_busy() || device.selected().is_none() {
+                let (on_press, highlighted) = if self.is_busy() || !device.is_ready() {
                     (None, false)
                 } else {
                     (Some(Message::FlashFirmware.into()), true)

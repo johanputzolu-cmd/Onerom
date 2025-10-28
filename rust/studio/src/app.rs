@@ -10,7 +10,7 @@ use log::{debug, error, info, trace, warn};
 
 use crate::analyse::{Analyse, Message as AnalyseMessage};
 use crate::create::{Create, Message as CreateMessage};
-use crate::device::{Device, Message as DeviceMessage};
+use crate::device::{get_devices_startup, Device, Message as DeviceMessage};
 use crate::log::{Level, Log, LogEntry, Message as LogMessage};
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Studio, StudioTab};
 use crate::style::{Message as StyleMessage, Style};
@@ -27,7 +27,7 @@ pub fn startup_task() -> Task<AppMessage> {
         )))),
         Task::done(AppMessage::Studio(StudioMessage::FetchReleases)),
         Task::done(AppMessage::Studio(StudioMessage::FetchConfigs)),
-        Task::run(Device::get_devices_startup(), |msg| msg),
+        Task::run(get_devices_startup(), |msg| msg),
     ])
     .into()
 }

@@ -111,10 +111,6 @@ impl DetectState {
     pub fn flash_base(&self) -> Option<u32> {
         self.sample_mcu().map(|mcu| mcu.family().get_flash_base())
     }
-
-    pub fn chip_id(&self) -> Option<String> {
-        self.sample_mcu().map(|mcu| mcu.chip_id().to_string())
-    }
 }
 
 /// Analyse tab state
@@ -295,10 +291,11 @@ impl Analyse {
 
         if let Some(device_fw_data) = self.file_contents.as_ref() && let Some(filename) = self.fw_file.as_ref() {
             self.analysis_content = format!("Flashing {filename:?} to device...");
-            Task::done(DeviceMessage::FlashFirmware(
-                Client::Analyse,
-                device_fw_data.clone(),
-            ).into())
+            Task::done(DeviceMessage::FlashFirmware {
+                client: Client::Analyse,
+                hw_info: HardwareInfo::default(),
+                data: device_fw_data.clone(),
+            }.into())
         } else {
             self.analysis_content = format!("Cannot flash - no file loaded\n");
             Task::none()
@@ -332,11 +329,16 @@ impl Analyse {
 
         // Build the message re-read the flash (and re-parse)
         let address = mcu.family().get_flash_base();
-        let chip_id = mcu.chip_id().to_string();
         let words = mcu.flash_storage_bytes() / 4;
+        let hw_info = HardwareInfo {
+            board: None,
+            model: None,
+            mcu_variant: Some(mcu),
+        };
+
         DeviceMessage::ReadDevice {
             client: Client::Analyse,
-            chip_id,
+            hw_info,
             address,
             words,
         }.into()
@@ -432,9 +434,14 @@ impl Analyse {
 
         // Actually do a detection, based on current state
         let start_analysis_task = self.start_analysis(new_state);
+        let hw_info = HardwareInfo {
+            board: None,
+            model: None,
+            mcu_variant: detect_state.sample_mcu(),
+        };
         let read_device_task = Task::done(AppMessage::Device(DeviceMessage::ReadDevice {
             client: Client::Analyse,
-            chip_id: detect_state.chip_id().expect("Chip ID should be available"),
+            hw_info,
             address: detect_state
                 .flash_base()
                 .expect("Flash base should be available"),
@@ -635,13 +642,13 @@ impl Analyse {
     }
 
     fn flash_file_button(&self, device: &Device) -> Button<'_, AppMessage> {
-        let highlighted = if self.state.is_idle() && !device.selected().is_none() && device.is_idle() && self.fw_info.is_some() {
+        let highlighted = if self.state.is_idle() && device.is_ready() && self.fw_info.is_some() {
             true
         } else {
             false
         };
 
-        let message = if self.state.is_idle() && !device.selected().is_none() && self.fw_info.is_some() && !device.is_busy() {
+        let message = if self.state.is_idle() && device.is_ready() && self.fw_info.is_some() {
             Some(Message::FlashFirmware.into())
         } else {
             None
@@ -657,13 +664,13 @@ impl Analyse {
     }
 
     fn fw_source_device_control(&self, device: &Device) -> Button<'_, AppMessage> {
-        let highlighted = if self.state.is_idle() && !device.selected().is_none() {
+        let highlighted = if self.state.is_idle() && device.is_ready() {
             true
         } else {
             false
         };
 
-        let message = if self.state.is_idle() && !device.selected().is_none() {
+        let message = if self.state.is_idle() && device.is_ready() {
             Some(AppMessage::Analyse(Message::DetectDevice))
         } else {
             None

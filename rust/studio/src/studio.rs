@@ -614,8 +614,8 @@ impl Studio {
         // Get description
         let desc = builder.description();
 
-        info!(
-            "Built images: total={total_len} bytes, firmware={fw_len} bytes, metadata={md_len} bytes, roms={roms_len} bytes"
+        debug!(
+            "Built image: total={total_len} bytes, firmware={fw_len} bytes, metadata={md_len} bytes, roms={roms_len} bytes"
         );
 
         Message::BuildImagesResult(Ok((images,desc))).into()
