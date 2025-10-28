@@ -45,16 +45,14 @@ generate-desktop-entry = true
 [package.metadata.packager.deb]
 files = { "scripts/70-onerom-studio.rules" = "/lib/udev/rules.d/70-onerom-studio.rules" }
 
-# Mac package
-[package.metadata.packager.macos]
-minimum-system-version = "10.13"
-background-app = false
-[package.metadata.packager.dmg]
-background = "assets/onerom-dmg.png"
-windowSize = { width = 540, height = 380 }
-windowPosition = { x = 200, y = 200 }
-appPosition = { x = 140, y = 160 }
-appFolderPosition = { x = 400, y = 160 } 
+# Cargo bundle metadata, used on macOS (not cargo packager)
+[package.metadata.bundle]
+name = "One ROM Studio"
+identifier = "rocks.piers.onerom-studio"
+icon = ["assets/onerom-512x512.png", "assets/onerom-256x256.png", "assets/onerom-128x128.png", "assets/onerom-64x64.png", "assets/onerom-32x32.png", "assets/onerom-16x16.png"]
+short_description = "One ROM Studio"
+long_description = "One ROM Studio - Manage One ROM, the most flexible retro ROM replacement"
+osx_minimum_system_version = "10.13"
 
 [dependencies]
 onerom-config = { path = "../config", version = "0.2.2" }

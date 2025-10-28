@@ -89,16 +89,24 @@ env PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo build --release --target $PA
 env PACKAGER_TARGET=aarch64-unknown-linux-gnu cargo packager --release --target $PACKAGER_TARGET --formats deb
 ```
 
-## Mac - Intel
+## Mac - both architectures, no signing
 
 ```bash
-env PACKAGER_TARGET=x86_64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
-env PACKAGER_TARGET=x86_64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
+scripts/build-mac.sh
+```
+
+## Mac - Intel
+
+Add `nosign` to avoid the code signing and notarization steps.
+
+```bash
+scripts/build-mac-arch.sh x86_64
 ```
 
 ## Mac - Apple Silicon
 
+Add `nosign` to avoid the code signing and notarization steps.
+
 ```bash
-env PACKAGER_TARGET=aarch64-apple-darwin LIBUSB_STATIC=1 cargo build --release --target $PACKAGER_TARGET
-env PACKAGER_TARGET=aarch64-apple-darwin cargo packager --release --target $PACKAGER_TARGET --formats dmg
+scripts/build-mac-arch.sh aarch64
 ```

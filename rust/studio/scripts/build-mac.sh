@@ -3,6 +3,12 @@ set -e
 
 # Builds the One ROM Studio application and dmg packages for macOS.
 #
+# Designed to be run from CI.
+#
+# DOES NOT SIGN OR NOTARIZE THE BUILDS.
+#
+# To run with code signing and notarization, use build-mac-arch.sh directly.
+#
 # Pre-requisites:
 # - Rust:
 #
@@ -28,15 +34,12 @@ fi
 # Setup
 #
 
-# Set libusb to static linking
-export LIBUSB_STATIC=1
-
 # Install the Rust targets
 rustup target add x86_64-apple-darwin
 rustup target add aarch64-apple-darwin
 
-# Install cargo-packager if not already installed
-cargo install cargo-packager --locked
+# Install cargo-bundle if not already installed
+cargo install cargo-bundle --locked
 
 # Install fileicon if not already installed
 brew install fileicon
@@ -52,46 +55,8 @@ cargo clean --target x86_64-apple-darwin
 cargo clean --target aarch64-apple-darwin
 rm -fr dist/*.dmg
 
-#
-# Intel silicon (x86_64)
-#
+# Build for x86_64
+scripts/build-mac-arch.sh x86_64 nosign
 
-# Build One ROM Studio
-PACKAGER_TARGET="x86_64-apple-darwin"
-echo "Building for target: $PACKAGER_TARGET"
-cargo build --release --target $PACKAGER_TARGET
-
-# Package as a dmg
-echo "Packaging dmg for target: $PACKAGER_TARGET"
-cargo packager --release --target $PACKAGER_TARGET --formats dmg
-
-# Update the dmg background, icon positions and volume icon
-scripts/update-dmg.py
-
-# Clean intermediate dmg and Cargo build
-cargo clean --target x86_64-apple-darwin
-rm dist/*_cargo.dmg
-
-echo "Intel dmg build complete."
-
-#
-# Apple Silicon (aarch64)
-#
-
-# Build One ROM Studio
-PACKAGER_TARGET="aarch64-apple-darwin"
-echo "Building for target: $PACKAGER_TARGET"
-cargo build --release --target $PACKAGER_TARGET
-
-# Package as a dmg
-echo "Packaging dmg for target: $PACKAGER_TARGET"
-cargo packager --release --target $PACKAGER_TARGET --formats dmg
-
-# Update the dmg background, icon positions and volume icon
-scripts/update-dmg.py
-
-# Clean intermediate dmg and Cargo build
-cargo clean --target aarch64-apple-darwin
-rm dist/*_cargo.dmg
-
-echo "Apple silicon dmg build complete."
+# Build for aarch64
+scripts/build-mac-arch.sh aarch64 nosign

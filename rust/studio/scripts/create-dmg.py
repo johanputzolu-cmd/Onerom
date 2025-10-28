@@ -26,6 +26,7 @@ import os
 import shutil
 import tempfile
 import plistlib
+import argparse
 from pathlib import Path
 
 try:
@@ -42,17 +43,7 @@ except ImportError:
 
 
 # Configuration constants
-BINARY_NAME = "onerom-studio"
-PRODUCT_NAME = "One ROM Studio"
 VOLUME_NAME = "One ROM Studio"
-CARGO_TOML_PATH = "Cargo.toml"
-DIST_DIR = "dist"
-
-# Binary paths to check
-BINARY_PATHS = [
-    "../target/x86_64-apple-darwin/release/onerom-studio",
-    "../target/aarch64-apple-darwin/release/onerom-studio"
-]
 
 # DMG settings (matching cargo packager config)
 DMG_BACKGROUND = "assets/onerom-dmg.png"
@@ -84,147 +75,7 @@ ICON_FILES = {
     512: "assets/onerom-512x512.png",
 }
 
-# Temp directory prefix
-TEMP_DIR_PREFIX = "onerom_build_"
-
-# Archive suffix for cargo packager DMG
-CARGO_DMG_SUFFIX = "_cargo"
-
-
-def parse_cargo_version():
-    """Extract version from Cargo.toml."""
-    try:
-        with open(CARGO_TOML_PATH, 'r') as f:
-            cargo_data = toml.load(f)
-        version = cargo_data['package']['version']
-        return version
-    except Exception as e:
-        print(f"Error parsing {CARGO_TOML_PATH}: {e}", file=sys.stderr)
-        sys.exit(1)
-
-
-def detect_architecture(binary_path):
-    """
-    Detect architecture from the binary path.
-    Expected paths like: ../target/x86_64-apple-darwin/release/onerom-studio
-                         ../target/aarch64-apple-darwin/release/onerom-studio
-    """
-    path_str = str(binary_path)
-    
-    if 'x86_64-apple-darwin' in path_str:
-        return 'x64'
-    elif 'aarch64-apple-darwin' in path_str:
-        return 'aarch64'
-    else:
-        # Fallback: try to detect from file command
-        try:
-            result = subprocess.run(['file', binary_path], 
-                                  capture_output=True, text=True, check=True)
-            if 'x86_64' in result.stdout:
-                return 'x64'
-            elif 'aarch64' in result.stdout:
-                return 'aarch64'
-        except subprocess.CalledProcessError:
-            pass
-    
-    print(f"Error: Cannot detect architecture from binary path: {binary_path}", file=sys.stderr)
-    sys.exit(1)
-
-
-def mount_dmg(dmg_path):
-    """
-    Mount a DMG and return the mount point.
-    Uses -noverify -nobrowse for headless operation.
-    Auto-accepts license agreement if present.
-    """
-    print(f"Mounting {dmg_path}...")
-    try:
-        result = subprocess.run(
-            ['hdiutil', 'attach', dmg_path, '-noverify', '-nobrowse', '-noautoopen', '-plist'],
-            input='y\n',
-            capture_output=True, text=True, check=True
-        )
-        
-        # Parse plist output to get mount point
-        # The output may contain license text before the XML, so extract just the XML portion
-        stdout = result.stdout
-        
-        # Find the start of the XML plist
-        xml_start = stdout.find('<?xml')
-        if xml_start == -1:
-            print(f"Error: No XML plist found in hdiutil output:", file=sys.stderr)
-            print(f"  hdiutil stdout:", file=sys.stderr)
-            print(stdout, file=sys.stderr)
-            sys.exit(1)
-        
-        # Extract just the XML portion
-        xml_content = stdout[xml_start:]
-        
-        try:
-            plist_data = plistlib.loads(xml_content.encode())
-        except Exception as e:
-            print(f"Error: Failed to parse hdiutil plist output:", file=sys.stderr)
-            print(f"  Exception: {e}", file=sys.stderr)
-            print(f"  XML content:", file=sys.stderr)
-            print(xml_content, file=sys.stderr)
-            sys.exit(1)
-        
-        # Find the mount point from system-entities
-        for entity in plist_data.get('system-entities', []):
-            if 'mount-point' in entity:
-                mount_point = entity['mount-point']
-                print(f"✓ Mounted at: {mount_point}")
-                return mount_point
-        
-        print("Error: Could not find mount point in hdiutil output", file=sys.stderr)
-        print(f"  hdiutil plist data: {plist_data}", file=sys.stderr)
-        sys.exit(1)
-        
-    except subprocess.CalledProcessError as e:
-        print(f"Error: hdiutil failed to mount DMG:", file=sys.stderr)
-        print(f"  Return code: {e.returncode}", file=sys.stderr)
-        print(f"  stdout: {e.stdout}", file=sys.stderr)
-        print(f"  stderr: {e.stderr}", file=sys.stderr)
-        sys.exit(1)
-
-
-def unmount_dmg(mount_point):
-    """Unmount a DMG."""
-    print(f"Unmounting {mount_point}...")
-    try:
-        subprocess.run(['hdiutil', 'detach', mount_point], check=True)
-        print("✓ Unmounted")
-    except subprocess.CalledProcessError as e:
-        print(f"Warning: Failed to unmount {mount_point}: {e}", file=sys.stderr)
-
-
-def extract_app_bundle(mount_point, dest_dir):
-    """
-    Extract the .app bundle from mounted DMG.
-    Returns the path to the extracted .app.
-    """
-    # Find the .app bundle in the mount point
-    mount_path = Path(mount_point)
-    app_bundles = list(mount_path.glob('*.app'))
-    
-    if not app_bundles:
-        print(f"Error: No .app bundle found in {mount_point}", file=sys.stderr)
-        sys.exit(1)
-    
-    if len(app_bundles) > 1:
-        print(f"Warning: Multiple .app bundles found, using first: {app_bundles[0]}")
-    
-    app_bundle = app_bundles[0]
-    dest_path = Path(dest_dir) / app_bundle.name
-    
-    print(f"Copying {app_bundle.name} to {dest_dir}...")
-    shutil.copytree(app_bundle, dest_path)
-    print(f"✓ Extracted to {dest_path}")
-    
-    return dest_path
-
-
-def build_dmg_with_dmgbuild(app_bundle_path, output_dmg, version, arch):
+def build_dmg_with_dmgbuild(app_bundle_path, output_dmg):
     """Create final DMG using dmgbuild with proper layout."""
     print(f"Building final DMG with dmgbuild...")
     
@@ -384,73 +235,81 @@ def set_dmg_icon(dmg_path, icns_path):
     print(f"✓ Set custom icon on DMG")
 
 
-def main():
-    """Main build process."""
-    # Find binary path
-    binary_path = None
-    for path in BINARY_PATHS:
-        p = Path(path)
-        if p.exists():
-            binary_path = p
-            break
+def parse_arguments():
+    """Parse and validate command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description='Build macOS DMG with proper layout using dmgbuild',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Example:
+  %(prog)s --app-bundle dist/One\\ ROM\\ Studio.app --output OneROMStudio_0.5.4_aarch64.dmg --dist-dir dist
+        '''
+    )
     
-    if not binary_path:
-        print(f"Error: Binary not found at any of these paths:", file=sys.stderr)
-        for path in BINARY_PATHS:
-            print(f"  {path}", file=sys.stderr)
+    parser.add_argument(
+        '--app-bundle',
+        required=True,
+        help='Path to the signed .app bundle'
+    )
+    parser.add_argument(
+        '--output',
+        required=True,
+        help='Output DMG filename'
+    )
+    parser.add_argument(
+        '--dist-dir',
+        required=True,
+        help='Distribution directory'
+    )
+    
+    args = parser.parse_args()
+
+    # Validate app bundle path
+    app_bundle_path = Path(args.app_bundle)
+    if not app_bundle_path.exists():
+        print(f"Error: App bundle not found: {args.app_bundle}", file=sys.stderr)
         sys.exit(1)
     
-    # Parse version and architecture
-    version = parse_cargo_version()
-    arch = detect_architecture(binary_path)
+    if not app_bundle_path.is_dir() or not app_bundle_path.name.endswith('.app'):
+        print(f"Error: Provided path is not a .app bundle: {args.app_bundle}", file=sys.stderr)
+        sys.exit(1)
     
-    print(f"Building {PRODUCT_NAME} v{version} for {arch}")
-    
-    # Output paths
-    dist_dir = Path(DIST_DIR)
+    # Validate and prepare output paths
+    dist_dir = Path(args.dist_dir)
     dist_dir.mkdir(exist_ok=True)
     
-    final_dmg_name = f"{PRODUCT_NAME}_{version}_{arch}.dmg"
-    final_dmg_path = dist_dir / final_dmg_name
-    cargo_dmg_archived_name = f"{PRODUCT_NAME}_{version}_{arch}{CARGO_DMG_SUFFIX}.dmg"
-    cargo_dmg_archived_path = dist_dir / cargo_dmg_archived_name
+    output_filename = args.output
+    if not output_filename.endswith('.dmg'):
+        output_filename += '.dmg'
     
-    # Create a temporary directory for extracted .app
-    temp_app_dir = tempfile.mkdtemp(prefix=TEMP_DIR_PREFIX)
+    return {
+        'app_bundle_path': app_bundle_path,
+        'dist_dir': dist_dir,
+        'output_path': dist_dir / output_filename
+    }
+
+def main():
+    """Main build process."""
+    # Parse arguments
+    config = parse_arguments()
+    
+    app_bundle_path = config['app_bundle_path']
+    dist_dir = config['dist_dir']
+    final_dmg_path = config['output_path']
+    
+    # Create temporary ICNS path
     icns_path = dist_dir / "temp_icon.icns"
-    mount_point = None
-    cargo_packager_dmg = None
     
     try:
-        # Step 1: Find the cargo packager DMG
-        # cargo packager creates: dist/One ROM Studio_0.1.0_x64.dmg
-        cargo_packager_dmg = final_dmg_path
+        print(f"Using .app bundle: {app_bundle_path}")
         
-        if not cargo_packager_dmg.exists():
-            print(f"Error: Cargo packager DMG not found at {cargo_packager_dmg}", file=sys.stderr)
-            sys.exit(1)
-        
-        print(f"Found cargo packager DMG: {cargo_packager_dmg}")
-        
-        # Step 2: Mount the cargo packager DMG
-        mount_point = mount_dmg(cargo_packager_dmg)
-        
-        # Step 3: Extract .app bundle
-        app_bundle_path = extract_app_bundle(mount_point, temp_app_dir)
-        
-        # Step 4: Unmount the cargo packager DMG
-        unmount_dmg(mount_point)
-        mount_point = None
-        
-        # Step 5: Rename cargo packager DMG for archival
-        print(f"Archiving cargo packager DMG as {cargo_dmg_archived_name}...")
-        shutil.move(str(cargo_packager_dmg), str(cargo_dmg_archived_path))
-        
+        # Steps 2-5 removed
+
         # Step 6: Create ICNS file from PNG icons
         create_icns_from_pngs(icns_path)
         
         # Step 7: Build final DMG with dmgbuild
-        build_dmg_with_dmgbuild(app_bundle_path, final_dmg_path, version, arch)
+        build_dmg_with_dmgbuild(app_bundle_path, final_dmg_path)
         
         # Step 8: Set custom icon on DMG using fileicon
         set_dmg_icon(final_dmg_path, icns_path)
@@ -463,13 +322,6 @@ def main():
     
     finally:
         # Cleanup
-        if mount_point:
-            unmount_dmg(mount_point)
-        
-        if os.path.exists(temp_app_dir):
-            print(f"Cleaning up temporary app directory...")
-            shutil.rmtree(temp_app_dir)
-        
         if icns_path.exists():
             print(f"Cleaning up temporary ICNS file...")
             icns_path.unlink()
