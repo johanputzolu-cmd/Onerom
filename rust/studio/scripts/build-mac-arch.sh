@@ -76,12 +76,6 @@ echo "Building One ROM Studio version: $VERSION"
 echo "Building for architecture: $ARCH/$DMG_ARCH"
 echo "Building dmg: $DMG_PATH"
 
-# Unlock security keychain if signing is enabled
-if [ -n "$CODESIGN_IDENTITY" ]; then
-    echo "Unlocking keychain for code signing..."
-    security unlock-keychain
-fi
-
 # Delete old DMG
 if [ -f "${DMG_PATH}" ]; then
     echo "Removing old dmg: ${DMG_PATH}"
@@ -102,7 +96,15 @@ echo "Built app file: $APP_FILE"
 if [ -n "$CODESIGN_IDENTITY" ]; then
     # Sign the app
     echo "Signing app..."
-    codesign --deep --verify --options runtime --timestamp --sign "$CODESIGN_IDENTITY" ../target/$PACKAGER_TARGET/release/bundle/osx/One\ ROM\ Studio.app
+    codesign --deep --verify --options runtime --timestamp --sign "$CODESIGN_IDENTITY" "$APP_FILE"
+
+    # Verify the signature
+    echo "Verifying signature..."
+    codesign -dvv "$APP_FILE" 2>&1 | grep "Authority=Developer ID Application"
+    if [ $? -ne 0 ]; then
+        echo "Error: App signature verification failed" >&2
+        exit 1
+    fi
 fi
 
 # Create the dmg
@@ -110,7 +112,7 @@ echo "Creating dmg..."
 scripts/create-dmg.py \
     --app-bundle "$APP_FILE" \
     --output "${DMG_FILE}" \
-    --dist-dir ${DIST_DIR} \
+    --dist-dir ${DIST_DIR}
 
 # Check if signing is enabled
 if [ -n "$CODESIGN_IDENTITY" ]; then
@@ -123,6 +125,10 @@ if [ -n "$CODESIGN_IDENTITY" ]; then
     # Staple the notarization ticket to the dmg
     echo "Stapling dmg..."
     xcrun stapler staple "$DMG_PATH"
+
+    # Validate the stapled ticket
+    echo "Validating stapled ticket..."
+    xcrun stapler validate "$DMG_PATH"
 
     # Finished
     echo "Built and notarized dmg: $DMG_PATH"
