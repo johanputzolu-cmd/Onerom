@@ -23,11 +23,13 @@ rustup target add x86_64-pc-windows-msvc
 # Install cargo-packager if not already installed
 cargo install cargo-packager --locked
 
+$env:PACKAGER_TARGET = "x86_64-pc-windows-msvc"
+
 #
 # Clean previous builds
 #
 
-cargo clean --target x86_64-pc-windows-msvc
+cargo clean --target $env:PACKAGER_TARGET
 Remove-Item -Path "dist\*.exe" -Force -ErrorAction SilentlyContinue
 
 #
@@ -35,7 +37,7 @@ Remove-Item -Path "dist\*.exe" -Force -ErrorAction SilentlyContinue
 #
 
 # Build One ROM Studio
-$env:PACKAGER_TARGET = "x86_64-pc-windows-msvc"
+
 Write-Host "Building for target: $env:PACKAGER_TARGET"
 cargo build --release --target $env:PACKAGER_TARGET | Out-Host
 
