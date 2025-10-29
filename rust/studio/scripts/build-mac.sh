@@ -33,7 +33,7 @@ if [ "$(uname -s)" != "Darwin" ]; then
 fi
 
 # Set signing mode
-SIGN="$2"
+SIGN="$1"
 if [ "$SIGN" = "nosign" ]; then
     echo "!!! WARNING: Building without code signing or notarization" >&2
     CODESIGN_IDENTITY=""
@@ -75,6 +75,7 @@ cargo install cargo-bundle --locked
 brew install fileicon
 
 # Install python pip packages
+python3 -m pip install --upgrade pip # Ensure supports --break-system-packages
 python3 -m pip install --break-system-packages -r scripts/requirements.txt
 
 #
