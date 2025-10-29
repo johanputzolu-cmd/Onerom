@@ -73,6 +73,7 @@ ICON_FILES = {
     128: "assets/onerom-128x128.png",
     256: "assets/onerom-256x256.png",
     512: "assets/onerom-512x512.png",
+    1024: "assets/onerom-1024x1024.png",
 }
 
 def build_dmg_with_dmgbuild(app_bundle_path, output_dmg):
@@ -118,7 +119,6 @@ def build_dmg_with_dmgbuild(app_bundle_path, output_dmg):
     # Build the DMG
     dmgbuild.build_dmg(output_dmg, VOLUME_NAME, settings=settings)
     print(f"✓ Created {output_dmg}")
-
 
 def create_icns_from_pngs(output_icns_path):
     """
@@ -192,12 +192,15 @@ def create_icns_from_pngs(output_icns_path):
         
         print(f"✓ Created ICNS: {output_icns_path}")
         return output_icns_path
+
+    except Exception as e:
+        print(f"Error creating ICNS: {e}", file=sys.stderr)
+        raise
         
     finally:
         # Clean up temporary iconset directory
         if os.path.exists(iconset_dir):
             shutil.rmtree(iconset_dir)
-
 
 def set_dmg_icon(dmg_path, icns_path):
     """

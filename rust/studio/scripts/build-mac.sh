@@ -21,6 +21,11 @@ set -e
 #
 # - Team ID matches that on the Developer ID Application certificate.
 # - The app-specific password is generated in the Apple ID account settings.
+#
+# Args:
+# - nosign: Build without code signing or notarization.
+# - noclean: Skip the cargo clean step (still removes the dmg).
+# - nodeps: Skip the dependencies installation step.
 
 #
 # Checks
@@ -32,17 +37,37 @@ if [ "$(uname -s)" != "Darwin" ]; then
     exit 1
 fi
 
-# Set signing mode
-SIGN="$1"
-if [ "$SIGN" = "nosign" ]; then
-    echo "!!! WARNING: Building without code signing or notarization" >&2
-    CODESIGN_IDENTITY=""
-else
-    # Check codesign identity is set
-    if [ -z "${CODESIGN_IDENTITY:-}" ]; then
-        echo "Error: CODESIGN_IDENTITY environment variable must be set"
-        exit 1
-    fi
+# Parse arguments
+SIGN=true
+CLEAN=true
+DEPS=true
+
+for arg in "$@"; do
+    case "$arg" in
+        nosign)
+            echo "!!! WARNING: Building without code signing or notarization" >&2
+            SIGN=false
+            ;;
+        noclean)
+            echo "!!! WARNING: Not cleaning cargo artifacts" >&2
+            CLEAN=false
+            ;;
+        nodeps)
+            echo "!!! WARNING: Skipping dependencies installation step" >&2
+            DEPS=false
+            ;;
+        *)
+            echo "Error: Unknown argument '$arg'" >&2
+            echo "Usage: $0 [nosign] [noclean] [nodeps]" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# Check codesign identity if signing is enabled
+if [ "$SIGN" = true ] && [ -z "${CODESIGN_IDENTITY:-}" ]; then
+    echo "Error: CODESIGN_IDENTITY environment variable must be set"
+    exit 1
 fi
 
 #
@@ -63,20 +88,25 @@ DMG_PATH="${DIST_DIR}/${DMG_FILE}"
 # Dependencies
 #
 
-# Install the Rust targets
-echo "Installing Rust targets..."
-rustup target add x86_64-apple-darwin
-rustup target add aarch64-apple-darwin
+if [ "$DEPS" = true ]; then
+    echo "Installing dependencies..."
+    # Install the Rust targets
+    echo "Installing Rust targets..."
+    rustup target add x86_64-apple-darwin
+    rustup target add aarch64-apple-darwin
 
-# Install cargo-bundle if not already installed
-cargo install cargo-bundle --locked
+    # Install cargo-bundle if not already installed
+    cargo install cargo-bundle --locked
 
-# Install fileicon if not already installed
-brew install fileicon
+    # Install fileicon if not already installed
+    brew install fileicon
 
-# Install python pip packages
-python3 -m pip install --upgrade pip # Ensure supports --break-system-packages
-python3 -m pip install --break-system-packages -r scripts/requirements.txt
+    # Install python pip packages
+    python3 -m pip install --upgrade pip # Ensure supports --break-system-packages
+    python3 -m pip install --break-system-packages -r scripts/requirements.txt
+else
+    echo "Skipping dependencies installation step."
+fi
 
 #
 # Clean previous builds
@@ -85,7 +115,13 @@ python3 -m pip install --break-system-packages -r scripts/requirements.txt
 echo "Cleaning previous build artifacts..."
 
 # Do a Cargo clean
-cargo clean
+if [ "$CLEAN" = true ]; then
+    echo "Running cargo clean..."
+    cargo clean --target x86_64-apple-darwin
+    cargo clean --target aarch64-apple-darwin
+else
+    echo "Skipping cargo clean step."
+fi
 
 # Delete old DMG
 if [ -f "${DMG_PATH}" ]; then
@@ -123,7 +159,7 @@ lipo -create \
   -output "$APP_FILE/Contents/MacOS/onerom-studio"
 
 # Check if signing is enabled
-if [ -n "$CODESIGN_IDENTITY" ]; then
+if [ "$SIGN" = true ]; then
     # Sign the app
     echo "Signing app..."
     codesign --deep --verify --options runtime --timestamp --sign "$CODESIGN_IDENTITY" "$APP_FILE"
@@ -145,7 +181,7 @@ scripts/create-dmg.py \
     --dist-dir ${DIST_DIR}
 
 # Check if signing is enabled
-if [ -n "$CODESIGN_IDENTITY" ]; then
+if [ "$SIGN" = true ]; then
     # Notarize the dmg
     echo "Notarizing dmg..."
     xcrun notarytool submit "$DMG_PATH" \
