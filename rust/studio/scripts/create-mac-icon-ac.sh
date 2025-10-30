@@ -13,6 +13,8 @@ OUTPUT_PATH="assets/onerom-liquid-glass-icons"
 PLIST_PATH="$OUTPUT_PATH/assetcatalog_generated_info.plist"
 DEVELOPMENT_REGION="en"
 
+mkdir -p $OUTPUT_PATH
+
 # Adapted from https://github.com/electron/packager/pull/1806/files
 actool $ICON_PATH --compile $OUTPUT_PATH \
   --output-format human-readable-text --notices --warnings --errors \
