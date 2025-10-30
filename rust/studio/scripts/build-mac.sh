@@ -102,7 +102,7 @@ if [ "$DEPS" = true ]; then
     brew install fileicon
 
     # Install python pip packages
-    python3 -m pip install --upgrade pip # Ensure supports --break-system-packages
+    python3 -m pip install --upgrade pip || true # Ensure supports --break-system-packages
     python3 -m pip install --break-system-packages -r scripts/requirements.txt
 else
     echo "Skipping dependencies installation step."
