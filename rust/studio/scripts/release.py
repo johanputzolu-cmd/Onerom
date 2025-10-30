@@ -23,8 +23,7 @@ from urllib.request import urlopen
 MANIFEST_URL = "https://images.onerom.org/studio/releases.json"
 EXPECTED_TARGETS = {
     "x86_64-pc-windows-msvc",
-    "x86_64-apple-darwin",
-    "aarch64-apple-darwin",
+    "universal-apple-darwin",
     "x86_64-unknown-linux-gnu",
     "aarch64-unknown-linux-gnu",
 }
@@ -47,12 +46,7 @@ def identify_target(filename):
     if lower.endswith('.exe'):
         return 'x86_64-pc-windows-msvc'
     elif lower.endswith('.dmg'):
-        if 'aarch64' in lower or 'arm64' in lower:
-            return 'aarch64-apple-darwin'
-        elif 'x64' in lower or 'x86_64' in lower or 'x86' in lower:
-            return 'x86_64-apple-darwin'
-        else:
-            error(f"Could not determine architecture for macOS file: {filename}")
+        return 'universal-apple-darwin'
     elif lower.endswith('.deb'):
         if 'aarch64' in lower or 'arm64' in lower:
             return 'aarch64-unknown-linux-gnu'
