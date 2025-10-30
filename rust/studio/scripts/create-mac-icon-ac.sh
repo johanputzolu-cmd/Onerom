@@ -1,10 +1,15 @@
 #!/usr/bin/env zsh
 
+# Used to regenerate the macOS 26.0+ Liquid Glass icon set, from the single
+# .icon file.
+#
+# Run once, when .icon is updated, and check in the updated icon set.
+
 # Derived from:
 # https://www.hendrik-erz.de/post/supporting-liquid-glass-icons-in-apps-without-xcode
 
 ICON_PATH="assets/onerom-liquid-glass.icon"
-OUTPUT_PATH="/tmp/onerom-liquid-glass-icons"
+OUTPUT_PATH="assets/onerom-liquid-glass-icons"
 PLIST_PATH="$OUTPUT_PATH/assetcatalog_generated_info.plist"
 DEVELOPMENT_REGION="en"
 
