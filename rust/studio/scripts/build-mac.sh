@@ -154,6 +154,7 @@ echo "Built app file: $APP_FILE"
 
 # Set the liquid glass icon
 echo "Setting liquid glass icon..."
+cp -pr assets/onerom-liquid-glass-icons/Assets.car "$APP_FILE/Contents/Resources/"
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string onerom-liquid-glass" "$APP_FILE/Contents/Info.plist"
 
 # Replace App binary with a universal binary
