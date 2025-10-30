@@ -19,7 +19,7 @@ jobs:
       
       - name: Build Windows installer
         working-directory: rust/studio
-        run: .\scripts\build-win.ps1
+        run: .\scripts\build-win.ps1 nosign
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
