@@ -46,7 +46,14 @@ Steps:
     git push
     ```
 
-7. Check new releases appear at https://onerom.org/studio/
+7. Tag the current commit with the version and push:
+
+    ```bash
+    git tag studio-vX.Y.Z
+    git push origin studio-vX.Y.Z
+    ```
+
+8. Check new releases appear at https://onerom.org/studio/
 
 ## Updating Mac Icons
 

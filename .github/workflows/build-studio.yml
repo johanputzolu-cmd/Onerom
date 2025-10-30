@@ -6,6 +6,7 @@ on:
     paths:
       - 'rust/studio/**'
       - '!rust/studio/README.md'
+      - '!rust/studio/CHANGELOG.md'
 
 jobs:
   # Builds Windows (x86_64) installer
