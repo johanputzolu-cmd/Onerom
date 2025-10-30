@@ -8,6 +8,7 @@
         "arcade",
         "pinball"
     ],
+    "notes": "For more details on these ROMs, see the Pincoder website: https://pincoder.ca/",
     "rom_sets": [
         {
             "type": "single",
