@@ -2,6 +2,11 @@ name: Build One ROM Studio
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'rust/studio/**'
+    paths-ignore:
+      - 'rust/studio/README.md'
 
 jobs:
   # Builds Windows (x86_64) installer
