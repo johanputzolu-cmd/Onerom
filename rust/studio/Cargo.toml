@@ -53,6 +53,7 @@ icon = ["assets/onerom-512x512.png", "assets/onerom-256x256.png", "assets/onerom
 short_description = "One ROM Studio"
 long_description = "One ROM Studio - Manage One ROM, the most flexible retro ROM replacement"
 osx_minimum_system_version = "10.13"
+resources = ["assets/onerom-liquid-glass-icons/Assets.car"]
 
 [dependencies]
 onerom-config = { path = "../config", version = "0.2.2" }

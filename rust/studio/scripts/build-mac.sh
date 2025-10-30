@@ -147,10 +147,14 @@ echo "Building One ROM Studio for target: $PACKAGER_TARGET"
 cargo build --release --target $PACKAGER_TARGET
 
 # Package as a .app bundle - do this using ARM64 target for now
-echo "Bundling dmg for target: $PACKAGER_TARGET"
+echo "Bundling app for target: $PACKAGER_TARGET"
 cargo bundle --release --target $PACKAGER_TARGET
 APP_FILE="../target/$PACKAGER_TARGET/release/bundle/osx/One ROM Studio.app"
 echo "Built app file: $APP_FILE"
+
+# Set the liquid glass icon
+echo "Setting liquid glass icon..."
+/usr/libexec/PlistBuddy -c "Add :CFBundleIconName string onerom-liquid-glass" "$APP_FILE/Contents/Info.plist"
 
 # Replace App binary with a universal binary
 lipo -create \
