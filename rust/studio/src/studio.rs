@@ -401,6 +401,9 @@ impl RuntimeInfo {
                 manifest.remove_local_file();
             }
         }
+
+        // Clear out any built image
+        self.image = None;
     }
 
     fn clear_selected_config(&mut self) {
