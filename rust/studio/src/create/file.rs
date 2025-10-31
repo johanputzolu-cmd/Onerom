@@ -144,6 +144,10 @@ pub fn save_firmware_complete(create: &mut Create) -> Task<AppMessage> {
 pub fn config_selected(create: &mut Create, config: Config) -> Task<AppMessage> {
     debug!("Config selected: {}", config);
 
+    if create.is_busy() {
+        internal_error!("ConfigSelected received while busy.");
+    }
+
     match config {
         Config::SelectLocalFile => {
             // Open file dialog to select local config file
@@ -152,6 +156,7 @@ pub fn config_selected(create: &mut Create, config: Config) -> Task<AppMessage> 
         config => {
             // Have config details - get Studio to download it
             create.display_content = format!("Loading config: {}...", config.name());
+            create.state = State::Loading;
             task_from_msg!(StudioMessage::LoadConfig(config))
         }
     }
@@ -175,6 +180,10 @@ async fn select_local_config_file() -> AppMessage {
 pub fn config_loaded(create: &mut Create, runtime_info: &RuntimeInfo) -> Task<AppMessage> {
     debug!("Config loaded");
 
+    if create.state != State::Loading {
+        internal_error!("ConfigLoaded received while not loading.");
+    }
+
     create.display_content += &format!(
         "\n\nConfig {} loaded successfully.",
         runtime_info
@@ -182,6 +191,8 @@ pub fn config_loaded(create: &mut Create, runtime_info: &RuntimeInfo) -> Task<Ap
             .map(|c| c.name())
             .unwrap_or("none".to_string())
     );
+
+    create.state = State::Idle;
 
     Task::none()
 }

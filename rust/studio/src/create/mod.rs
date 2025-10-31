@@ -35,6 +35,7 @@ enum State {
     Building,
     Flashing,
     Saving,
+    Loading,
 }
 
 impl State {
