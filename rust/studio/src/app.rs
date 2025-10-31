@@ -7,6 +7,7 @@ use iced::widget::{Space, Stack, column, row};
 use iced::{Element, Length, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
+use std::time::Duration;
 
 use crate::analyse::{Analyse, Message as AnalyseMessage};
 use crate::create::{Create, Message as CreateMessage};
@@ -14,6 +15,14 @@ use crate::device::{Device, Message as DeviceMessage, get_devices_startup};
 use crate::log::{Level, Log, LogEntry, Message as LogMessage};
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Studio, StudioTab};
 use crate::style::{Message as StyleMessage, Style};
+
+const PROGRESS_TICK_INTERVAL: Duration = Duration::from_millis(500);
+pub fn progress_tick_subscription<T>(tick: T) -> Subscription<T>
+where
+    T: 'static + Clone + Sync + Send,
+{
+    iced::time::every(PROGRESS_TICK_INTERVAL).map(move |_| tick.clone())
+}
 
 /// Kicks off any startup tasks for the app
 ///
@@ -32,7 +41,7 @@ pub fn startup_task() -> Task<AppMessage> {
     .into()
 }
 
-/// Top level Message enum
+/// Top level Message enum - container for all sub-module messages
 #[derive(Debug, Clone)]
 pub enum AppMessage {
     /// Analyse pane messages

@@ -4,8 +4,11 @@
 
 //! One ROM Studio - a GUI application for managing One ROMs
 
-// Prevent console window on Windows in release builds
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Prevent console window on Windows in release builds using MSVC
+#![cfg_attr(
+    all(target_os = "windows", not(target_env = "gnu")),
+    windows_subsystem = "windows"
+)]
 
 mod analyse;
 mod app;

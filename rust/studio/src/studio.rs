@@ -17,12 +17,14 @@ use onerom_gen::{Builder, FIRMWARE_SIZE, MAX_METADATA_LEN};
 
 use crate::analyse::Analyse;
 use crate::app::AppMessage;
-use crate::config::{Configs, get_config_from_url};
+use crate::config::{
+    Config, ConfigManifest, SelectedConfig, download_config_async, load_config_file,
+};
 use crate::create::{Create, Message as CreateMessage};
 use crate::hw::HardwareInfo;
 use crate::log::Log;
 use crate::style::Style;
-use crate::task_from_msg;
+use crate::{internal_error, task_from_msg};
 
 const MANIFEST_RETRY_SHORT: Duration = Duration::from_secs(10);
 const MANIFEST_RETRY_LONG: Duration = Duration::from_secs(60);
@@ -38,12 +40,12 @@ pub enum Message {
     ReleaseDownloaded(Vec<u8>),
     ClearDownloadedRelease,
     FetchConfigs,
-    Configs(Configs),
-    DownloadConfig(String),
-    ConfigDownloaded(Vec<u8>),
+    ConfigManifest(ConfigManifest),
+    LoadConfig(Config),
+    ConfigLoaded(SelectedConfig),
     ClearDownloadedConfig,
-    BuildImages(HardwareInfo),
-    BuildImagesResult(Result<(Images, String), String>),
+    BuildImage(HardwareInfo),
+    BuildImageResult(Result<(Image, String), String>),
     HelpPressed,
 
     // Used to indicate network is down.  Only returned when trying to fetch
@@ -69,14 +71,16 @@ impl std::fmt::Display for Message {
             }
             Message::ClearDownloadedRelease => write!(f, "ClearDownloadedRelease"),
             Message::FetchConfigs => write!(f, "FetchConfigs"),
-            Message::Configs(configs) => write!(f, "Configs({})", configs.names_str()),
-            Message::DownloadConfig(name) => write!(f, "DownloadConfig({name})"),
-            Message::ConfigDownloaded(data) => {
-                write!(f, "ConfigDownloaded({} bytes)", data.len())
+            Message::ConfigManifest(configs) => {
+                write!(f, "ConfigManifest({})", configs.names_str())
+            }
+            Message::LoadConfig(config) => write!(f, "LoadConfig({config})"),
+            Message::ConfigLoaded(selected) => {
+                write!(f, "ConfigLoaded({} bytes)", selected.data.len())
             }
             Message::ClearDownloadedConfig => write!(f, "ClearDownloadedConfig"),
-            Message::BuildImages(hw) => write!(f, "BuildImages({hw})"),
-            Message::BuildImagesResult(_) => write!(f, "BuildImagesResult"),
+            Message::BuildImage(hw) => write!(f, "BuildImage({hw})"),
+            Message::BuildImageResult(_) => write!(f, "BuildImageResult"),
             Message::HelpPressed => write!(f, "HelpPressed"),
             Message::DownloadFailed => write!(f, "DownloadFailed"),
         }
@@ -137,9 +141,9 @@ impl StudioTab {
     }
 }
 
-/// Images built by Studio
+/// Image built by Studio
 #[derive(Debug, Clone)]
-pub struct Images {
+pub struct Image {
     firmware: Vec<u8>,
 
     metadata: Vec<u8>,
@@ -147,11 +151,11 @@ pub struct Images {
     roms: Vec<u8>,
 }
 
-impl std::fmt::Display for Images {
+impl std::fmt::Display for Image {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Images({}/{}/{}",
+            "Image({}/{}/{}",
             self.firmware.len(),
             self.metadata.len(),
             self.roms.len()
@@ -160,7 +164,7 @@ impl std::fmt::Display for Images {
 }
 
 #[allow(dead_code)]
-impl Images {
+impl Image {
     /// Returns just the required portion of the firmware image
     pub fn firmware_skinny(&self) -> &[u8] {
         &self.firmware
@@ -278,16 +282,13 @@ pub struct RuntimeInfo {
     selected_firmware: Option<Release>,
 
     // Available configs
-    configs: Option<Configs>,
-
-    // Downloaded config
-    config: Option<Vec<u8>>,
+    config_manifest: Option<ConfigManifest>,
 
     // Selected config
-    selected_config: Option<String>,
+    selected_config: Option<SelectedConfig>,
 
-    // Built images
-    images: Option<Images>,
+    // Built image
+    image: Option<Image>,
 
     // Network state
     network_state: NetworkState,
@@ -320,8 +321,8 @@ impl RuntimeInfo {
         self.releases = Some(releases);
     }
 
-    fn set_configs(&mut self, configs: Configs) {
-        self.configs = Some(configs);
+    fn set_configs(&mut self, configs: ConfigManifest) {
+        self.config_manifest = Some(configs);
     }
 
     pub fn hw_info(&self) -> Option<&HardwareInfo> {
@@ -341,8 +342,8 @@ impl RuntimeInfo {
         self.firmware.as_ref().map(|f| f.len())
     }
 
-    pub fn config_len(&self) -> Option<usize> {
-        self.config.as_ref().map(|c| c.len())
+    pub fn selected_config_len(&self) -> Option<usize> {
+        self.selected_config.as_ref().map(|c| c.data.len())
     }
 
     fn set_firmware(&mut self, firmware: Vec<u8>) {
@@ -351,6 +352,10 @@ impl RuntimeInfo {
 
     fn clear_firmware(&mut self) {
         self.firmware = None;
+    }
+
+    pub fn firmware_selected(&self) -> bool {
+        self.selected_firmware.is_some()
     }
 
     pub fn selected_firmware(&self) -> Option<&Release> {
@@ -366,54 +371,61 @@ impl RuntimeInfo {
         self.firmware = None;
     }
 
-    pub fn configs(&self) -> Option<&Configs> {
-        self.configs.as_ref()
-    }
-
-    fn set_config(&mut self, config: Vec<u8>) {
-        self.config = Some(config);
+    pub fn config_manifest(&self) -> Option<&ConfigManifest> {
+        self.config_manifest.as_ref()
     }
 
     pub fn clear_config(&mut self) {
-        self.config = None;
+        self.selected_config = None;
     }
 
-    pub fn selected_config(&self) -> Option<&String> {
+    pub fn config_selected(&self) -> bool {
+        self.selected_config.is_some()
+    }
+
+    pub fn selected_config(&self) -> Option<&SelectedConfig> {
         self.selected_config.as_ref()
     }
 
-    fn set_selected_config(&mut self, name: String) {
-        self.selected_config = Some(name);
+    pub fn set_selected_config(&mut self, selected: SelectedConfig) {
+        self.selected_config = Some(selected.clone());
+
+        if let Some(manifest) = &mut self.config_manifest {
+            if selected.config.is_file() {
+                // If the selected config is a local file, we need to ensure
+                // it's at the start of the manifest
+                manifest.update_local_file(selected.config);
+            } else {
+                // If the selected config is not a local file, clear out any
+                // local file
+                manifest.remove_local_file();
+            }
+        }
     }
 
     fn clear_selected_config(&mut self) {
         self.selected_config = None;
-        self.config = None;
     }
 
-    pub fn config(&self) -> Option<&Vec<u8>> {
-        self.config.as_ref()
-    }
-
-    /// Returns reference to images
-    pub fn images(&self) -> Option<&Images> {
-        self.images.as_ref()
+    /// Returns reference to image
+    pub fn image(&self) -> Option<&Image> {
+        self.image.as_ref()
     }
 
     pub fn built_firmware_len(&self) -> Option<usize> {
-        self.images().map(|imgs| imgs.firmware_len())
+        self.image().map(|imgs| imgs.firmware_len())
     }
 
     pub fn built_metadata_len(&self) -> Option<usize> {
-        self.images().map(|imgs| imgs.metadata_len())
+        self.image().map(|imgs| imgs.metadata_len())
     }
 
     pub fn built_roms_len(&self) -> Option<usize> {
-        self.images().map(|imgs| imgs.roms_len())
+        self.image().map(|imgs| imgs.roms_len())
     }
 
     pub fn built_full_image_len(&self) -> Option<usize> {
-        self.images().map(|imgs| imgs.full_image_len())
+        self.image().map(|imgs| imgs.full_image_len())
     }
 }
 
@@ -468,34 +480,36 @@ impl Studio {
                 self.runtime_info.clear_firmware();
                 Task::none()
             }
-            Message::FetchConfigs => Task::future(Self::fetch_configs_async()),
-            Message::Configs(configs) => {
+            Message::FetchConfigs => Task::future(Self::fetch_configs_async(
+                self.runtime_info.selected_config().cloned(),
+            )),
+            Message::ConfigManifest(configs) => {
                 self.download_succeeded();
                 self.runtime_info.set_configs(configs.clone());
                 Task::done(CreateMessage::ConfigsUpdated.into())
             }
-            Message::DownloadConfig(name) => self.download_config(name),
-            Message::ConfigDownloaded(data) => {
+            Message::LoadConfig(config) => self.load_config(config),
+            Message::ConfigLoaded(selected) => {
                 self.download_succeeded();
-                self.runtime_info.set_config(data.clone());
-                Task::none()
+                self.runtime_info.set_selected_config(selected);
+                Task::done(CreateMessage::ConfigLoaded.into())
             }
             Message::ClearDownloadedConfig => {
                 self.runtime_info.clear_config();
                 Task::none()
             }
-            Message::BuildImages(hw_info) => {
-                Task::future(Self::build_images_async(hw_info, self.runtime_info.clone()))
+            Message::BuildImage(hw_info) => {
+                Task::future(Self::build_image_async(hw_info, self.runtime_info.clone()))
             }
-            Message::BuildImagesResult(result) => {
+            Message::BuildImageResult(result) => {
                 let msg = match result {
-                    Ok((images, desc)) => {
-                        self.runtime_info.images = Some(images);
-                        CreateMessage::BuildImagesResult(Ok(desc))
+                    Ok((image, desc)) => {
+                        self.runtime_info.image = Some(image);
+                        CreateMessage::BuildImageResult(Ok(desc))
                     }
                     Err(e) => {
-                        warn!("Failed to build images: {e}");
-                        CreateMessage::BuildImagesResult(Err(e))
+                        warn!("Failed to build image: {e}");
+                        CreateMessage::BuildImageResult(Err(e))
                     }
                 };
                 Task::done(msg.into())
@@ -520,30 +534,29 @@ impl Studio {
         Task::none()
     }
 
-    async fn build_images_async(hw_info: HardwareInfo, runtime_info: RuntimeInfo) -> AppMessage {
+    async fn build_image_async(hw_info: HardwareInfo, runtime_info: RuntimeInfo) -> AppMessage {
         // Check we have firmware and config
         let firmware = if let Some(fw) = runtime_info.firmware() {
             fw.clone()
         } else {
-            warn!("No firmware downloaded, cannot build images");
-            return CreateMessage::BuildImagesResult(Err("No firmware downloaded".to_string()))
+            warn!("No firmware downloaded, cannot build image");
+            return CreateMessage::BuildImageResult(Err("No firmware downloaded".to_string()))
                 .into();
         };
 
-        let config = if let Some(cfg) = runtime_info.config() {
+        let config = if let Some(cfg) = runtime_info.selected_config() {
             cfg.clone()
         } else {
-            warn!("No config downloaded, cannot build images");
-            return CreateMessage::BuildImagesResult(Err("No config downloaded".to_string()))
-                .into();
+            warn!("No config downloaded, cannot build image");
+            return CreateMessage::BuildImageResult(Err("No config downloaded".to_string())).into();
         };
 
         // Turn config into string
-        let config_str = match String::from_utf8(config.clone()) {
+        let config_str = match String::from_utf8(config.data) {
             Ok(s) => s,
             Err(e) => {
                 warn!("Config is not valid UTF-8: {}", e);
-                return CreateMessage::BuildImagesResult(Err(
+                return CreateMessage::BuildImageResult(Err(
                     "Config is not valid UTF-8".to_string()
                 ))
                 .into();
@@ -555,7 +568,7 @@ impl Studio {
             Ok(b) => b,
             Err(e) => {
                 warn!("Failed to create image builder from config: {e:?}");
-                return CreateMessage::BuildImagesResult(
+                return CreateMessage::BuildImageResult(
                     Err(format!(
                         "Failed to create image builder from config:\n  - {e:?}"
                     ))
@@ -573,7 +586,7 @@ impl Studio {
             Ok(()) => (),
             Err(e) => {
                 warn!("Failed to get ROM files: {e:?}");
-                return CreateMessage::BuildImagesResult(Err(format!(
+                return CreateMessage::BuildImageResult(Err(format!(
                     "Failed to get ROM files:\n  - {e:?}"
                 )))
                 .into();
@@ -584,8 +597,8 @@ impl Studio {
         let fw = match runtime_info.selected_firmware() {
             Some(fw) => fw,
             None => {
-                warn!("No selected firmware, cannot build images");
-                return CreateMessage::BuildImagesResult(Err("No selected firmware".to_string()))
+                warn!("No selected firmware, cannot build image");
+                return CreateMessage::BuildImageResult(Err("No selected firmware".to_string()))
                     .into();
             }
         };
@@ -594,36 +607,36 @@ impl Studio {
         let props = match hw_info.firmware_properties(&fw) {
             Some(p) => p,
             None => {
-                warn!("Cannot get firmware properties, cannot build images");
-                return CreateMessage::BuildImagesResult(Err(
+                warn!("Cannot get firmware properties, cannot build image");
+                return CreateMessage::BuildImageResult(Err(
                     "Cannot get firmware properties".to_string()
                 ))
                 .into();
             }
         };
 
-        // Build the images
+        // Build the image
         let (metadata, roms) = match builder.build(props) {
             Ok((md, roms)) => (md, roms),
             Err(e) => {
-                warn!("Failed to build images: {e:?}");
-                return CreateMessage::BuildImagesResult(Err(format!(
-                    "Failed to build images:\n  - {e:?}"
+                warn!("Failed to build image: {e:?}");
+                return CreateMessage::BuildImageResult(Err(format!(
+                    "Failed to build image:\n  - {e:?}"
                 )))
                 .into();
             }
         };
 
-        // Store images
-        let images = Images {
+        // Store image
+        let image = Image {
             firmware,
             metadata,
             roms,
         };
-        let total_len = images.full_image_len();
-        let fw_len = images.firmware_len();
-        let md_len = images.metadata_len();
-        let roms_len = images.roms_len();
+        let total_len = image.full_image_len();
+        let fw_len = image.firmware_len();
+        let md_len = image.metadata_len();
+        let roms_len = image.roms_len();
 
         // Get description
         let desc = builder.description();
@@ -632,7 +645,7 @@ impl Studio {
             "Built image: total={total_len} bytes, firmware={fw_len} bytes, metadata={md_len} bytes, roms={roms_len} bytes"
         );
 
-        Message::BuildImagesResult(Ok((images, desc))).into()
+        Message::BuildImageResult(Ok((image, desc))).into()
     }
 
     async fn fetch_releases_async() -> AppMessage {
@@ -645,9 +658,9 @@ impl Studio {
         }
     }
 
-    async fn fetch_configs_async() -> AppMessage {
-        match Configs::from_network_async().await {
-            Ok(configs) => AppMessage::Studio(Message::Configs(configs)),
+    async fn fetch_configs_async(selected: Option<SelectedConfig>) -> AppMessage {
+        match ConfigManifest::from_network_async(selected).await {
+            Ok(configs) => AppMessage::Studio(Message::ConfigManifest(configs)),
             Err(e) => {
                 warn!("Failed to fetch configs from network\n  - {e}");
                 Message::DownloadFailed.into()
@@ -684,28 +697,23 @@ impl Studio {
         Task::future(Self::download_release_async(releases, fw_ver, board, mcu))
     }
 
-    fn download_config(&mut self, name: String) -> Task<AppMessage> {
+    fn load_config(&mut self, config: Config) -> Task<AppMessage> {
         self.runtime_info.clear_selected_config();
 
-        // Check we have Configs and get the config URL
-        let config_url = if let Some(configs) = self.runtime_info.configs() {
-            match configs.config_url(&name) {
-                Some(url) => url,
-                None => {
-                    warn!("No config named {name} found, cannot download");
-                    return Task::none();
-                }
+        let task = match &config {
+            Config::Network { .. } => Task::future(download_config_async(config.clone())),
+            Config::File { .. } => Task::done(load_config_file(config.clone())),
+            Config::SelectLocalFile => {
+                internal_error!("SelectLocalFile should be handled before Studio");
+                return Task::none();
             }
-        } else {
-            error!("No configs available in Studio, cannot download");
-            return Task::none();
         };
 
         // Set the selected config
-        self.runtime_info.set_selected_config(name.clone());
+        self.runtime_info.set_selected_config(config.into());
 
         // Download the config
-        Task::future(Self::download_config_async(config_url))
+        task
     }
 
     async fn download_release_async(
@@ -727,17 +735,6 @@ impl Studio {
         }
     }
 
-    async fn download_config_async(path: String) -> AppMessage {
-        // Download the config
-        match get_config_from_url(&path).await {
-            Ok(data) => Message::ConfigDownloaded(data).into(),
-            Err(e) => {
-                warn!("Failed to download config: {}", e);
-                AppMessage::Nop
-            }
-        }
-    }
-
     pub fn top_level_buttons(&self, serious_errors: bool) -> iced::Element<'_, AppMessage> {
         StudioTab::buttons(&self.active_tab(), serious_errors)
     }
@@ -748,7 +745,7 @@ impl Studio {
         } else {
             MANIFEST_RETRY_SHORT
         };
-        let check_configs_duration = if self.runtime_info.configs().is_some() {
+        let check_configs_duration = if self.runtime_info.config_manifest().is_some() {
             MANIFEST_RETRY_LONG
         } else {
             MANIFEST_RETRY_SHORT

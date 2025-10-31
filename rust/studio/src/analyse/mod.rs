@@ -21,7 +21,7 @@ use log::{debug, error, info, trace, warn};
 use onerom_config::fw::FirmwareVersion;
 use sdrr_fw_parser::SdrrInfo;
 
-use crate::app::AppMessage;
+use crate::app::{AppMessage, progress_tick_subscription};
 use crate::device::Device;
 use crate::studio::{Message as StudioMessage, RuntimeInfo};
 
@@ -182,8 +182,7 @@ impl Analyse {
     /// Handle Analyse subscriptions
     pub fn subscription(&self) -> Subscription<Message> {
         if self.is_busy() {
-            // If busy, send progress tick every 500ms
-            iced::time::every(std::time::Duration::from_millis(500)).map(|_| Message::ProgressTick)
+            progress_tick_subscription(Message::ProgressTick)
         } else {
             Subscription::none()
         }
