@@ -127,7 +127,7 @@ fn firmware_row<'a>(
         if let Some(fw_len) = runtime_info.firmware_len() {
             // split into three rows, with number of bytes gold
             let downloaded_row = row![
-                Style::text_small("(downloaded: "),
+                Style::text_small("(loaded: "),
                 Style::text_small(format!("{}", fw_len)).color(Style::COLOUR_DARK_GOLD),
                 Style::text_small(" bytes)"),
             ]
