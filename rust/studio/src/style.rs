@@ -531,7 +531,8 @@ impl<'a> Style<'a> {
     pub fn help_link(&self, link: Link, tooltip_str: &str) -> Element<'a, AppMessage> {
         let help_button = button(Image::new(self.images.icon_help()))
             .style(|_, _| Self::link_button_style())
-            .on_press(AppMessage::Style(Message::ClickLink(link.clone())));
+            .height(28)
+            .on_press(AppMessage::Style(Message::ClickLink(link)));
         tooltip(
             help_button,
             Self::text_extra_small(tooltip_str).color(Self::COLOUR_TEXT_DIM),
