@@ -24,6 +24,7 @@ use crate::app::{AppMessage, progress_tick_subscription};
 use crate::device::Device;
 use crate::hw::HardwareInfo;
 use crate::studio::{Message as StudioMessage, RuntimeInfo};
+use crate::style::Style;
 
 pub use msg::Message;
 
@@ -212,8 +213,9 @@ impl Create {
         &'a self,
         runtime_info: &'a RuntimeInfo,
         device: &Device,
+        style: &'a Style,
     ) -> Element<'a, AppMessage> {
-        view::view(self, runtime_info, device)
+        view::view(self, runtime_info, device, style)
     }
 
     /// Create tab subscription function

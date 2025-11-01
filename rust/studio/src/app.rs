@@ -167,7 +167,7 @@ impl<'a> App<'a> {
 
         let content_row = match self.studio.active_tab() {
             StudioTab::Analyse => self.analyse.view(runtime_info, &self.device),
-            StudioTab::Create => self.create.view(runtime_info, &self.device),
+            StudioTab::Create => self.create.view(runtime_info, &self.device, &self.style),
             StudioTab::Log => self.log.view(runtime_info),
         };
 

@@ -16,13 +16,14 @@ use crate::config::Config;
 use crate::create::{Create, Message};
 use crate::device::Device;
 use crate::studio::RuntimeInfo;
-use crate::style::Style;
+use crate::style::{Link, Style};
 
 /// Create tab view
 pub fn view<'a>(
     create: &'a Create,
     runtime_info: &'a RuntimeInfo,
     device: &Device,
+    style: &'a Style,
 ) -> Element<'a, AppMessage> {
     // Create the "Select Hardware" section
     let mut columns = select_hardware_element(create);
@@ -37,7 +38,7 @@ pub fn view<'a>(
     // Add config row if hardware selected and release selected and configs exist
     if create.hardware_selected() && runtime_info.firmware_selected() {
         columns = columns
-            .push(rom_config_row(create, runtime_info))
+            .push(rom_config_row(create, runtime_info, style))
             .push(Style::horiz_line());
     }
 
@@ -56,6 +57,7 @@ pub fn view<'a>(
 fn rom_config_row<'a>(
     create: &'a Create,
     runtime_info: &'a RuntimeInfo,
+    style: &'a Style,
 ) -> iced::Element<'a, AppMessage> {
     if runtime_info.config_manifest().is_none() {
         return row![Style::text_h3("No configurations available")]
@@ -92,6 +94,13 @@ fn rom_config_row<'a>(
             row = row.push(downloaded_row);
         }
     }
+
+    let help = style.help_link(
+        Link::RomConfigs,
+        "ROM Config Help",
+    );
+    row = row.push(Space::with_width(Length::Fill))
+        .push(help);
 
     row.spacing(20)
         .align_y(iced::alignment::Vertical::Center)

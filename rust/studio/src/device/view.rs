@@ -68,7 +68,7 @@ fn right_column<'a>(device: &'a Device, style: &'a Style) -> Column<'a, AppMessa
     let probe_button = probe_button(device);
     let usb_button = usb_button(device);
     let rescan_button = rescan_button(device);
-    let help_icon = style.help_icon();
+    let help_icon = style.help_icon("Device Help");
 
     // Create the button row
     let button_row = button_row(vec![probe_button, usb_button, rescan_button], help_icon);

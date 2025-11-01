@@ -79,6 +79,8 @@ pub enum Link {
     GitHubIssue,
     /// https://onerom.org/web/#linux
     LinuxUdev,
+    /// https://images.onerom.org/#rom-configs
+    RomConfigs,
 }
 
 impl Link {
@@ -90,6 +92,7 @@ impl Link {
             Link::WinUsb => "https://onerom.org/prog/#windows",
             Link::GitHubIssue => "https://github.com/piersfinlayson/one-rom/issues",
             Link::LinuxUdev => "https://onerom.org/prog/#linux",
+            Link::RomConfigs => "https://images.onerom.org/#rom-configs",
         }
     }
 }
@@ -512,16 +515,28 @@ impl<'a> Style<'a> {
         .into()
     }
 
-    pub fn help_icon(&self) -> Element<'a, AppMessage> {
+    pub fn help_icon(&self, tooltip_str: &str) -> Element<'a, AppMessage> {
         let help_button = button(Image::new(self.images.icon_help()))
             .style(|_, _| Self::link_button_style())
             .on_press(AppMessage::Help(true));
         tooltip(
             help_button,
-            Self::text_extra_small("Help").color(Self::COLOUR_TEXT_DIM),
+            Self::text_extra_small(tooltip_str).color(Self::COLOUR_TEXT_DIM),
             tooltip::Position::Top,
         )
         .into()
+    }
+
+    /// Create a help image which links to a webapge
+    pub fn help_link(&self, link: Link, tooltip_str: &str) -> Element<'a, AppMessage> {
+        let help_button = button(Image::new(self.images.icon_help()))
+            .style(|_, _| Self::link_button_style())
+            .on_press(AppMessage::Style(Message::ClickLink(link.clone())));
+        tooltip(
+            help_button,
+            Self::text_extra_small(tooltip_str).color(Self::COLOUR_TEXT_DIM),
+            tooltip::Position::Top,
+        ).into()
     }
 
     fn footer_row_0(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {
