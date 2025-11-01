@@ -101,7 +101,7 @@ fn probe_pick_list(device: &Device) -> Element<'static, AppMessage> {
     let probe_list: Element<'_, AppMessage> = if device.has_detected_probes() {
         let options = device.probes.clone();
         let msg = if device.is_busy() {
-            |_| AppMessage::Nop
+            |_| AppMessage::Nop  // Ignore picklist selection while busy
         } else {
             |p: ProbeType| Message::SelectProbe(p.clone()).into()
         };
@@ -121,7 +121,7 @@ fn probe_pick_list(device: &Device) -> Element<'static, AppMessage> {
 fn usb_device_pick_list(device: &Device) -> Element<'_, AppMessage> {
     // Create the USB device pick list
     let msg = if device.is_busy() {
-        |_| AppMessage::Nop
+        |_| AppMessage::Nop  // Ignore picklist selection while busy
     } else {
         |d: UsbDeviceType| DeviceType::from_usb(d.clone()).selected_message()
     };

@@ -69,7 +69,7 @@ fn rom_config_row<'a>(
     let configs = manifest.internal_configs.as_slice();
     let selected: Option<Config> = runtime_info.selected_config().map(|c| c.clone().into());
     let msg = if create.is_busy() {
-        |_| AppMessage::Nop
+        |_| AppMessage::Nop  // Ignore picklist selection while busy
     } else {
         |name| Message::ConfigSelected(name).into()
     };
@@ -114,7 +114,7 @@ fn firmware_row<'a>(
         };
 
         let msg = if create.is_busy() {
-            |_| AppMessage::Nop
+            |_| AppMessage::Nop  // Ignore picklist selection while busy
         } else {
             |r| Message::ReleaseSelected(r).into()
         };
@@ -163,7 +163,7 @@ fn detect_button() -> iced::Element<'static, AppMessage> {
 fn select_hw_row(create: &Create) -> iced::Element<'_, AppMessage> {
     // Set up model picker
     let msg = if create.is_busy() {
-        |_| AppMessage::Nop
+        |_| AppMessage::Nop  // Ignore picklist selection while busy
     } else {
         |model| Message::ModelSelected(model).into()
     };
@@ -180,7 +180,7 @@ fn select_hw_row(create: &Create) -> iced::Element<'_, AppMessage> {
         &[]
     };
     let msg = if create.is_busy() {
-        |_| AppMessage::Nop
+        |_| AppMessage::Nop  // Ignore picklist selection while busy
     } else {
         |board| Message::BoardSelected(board).into()
     };
@@ -196,7 +196,7 @@ fn select_hw_row(create: &Create) -> iced::Element<'_, AppMessage> {
         &[]
     };
     let msg = if create.is_busy() {
-        |_| AppMessage::Nop
+        |_| AppMessage::Nop  // Ignore picklist selection while busy
     } else {
         |mcu| Message::McuSelected(mcu).into()
     };

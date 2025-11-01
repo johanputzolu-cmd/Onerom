@@ -82,7 +82,7 @@ impl std::fmt::Display for AppMessage {
             AppMessage::Studio(msg) => write!(f, "Studio::{msg}"),
             AppMessage::Style(msg) => write!(f, "Style::{msg}"),
             AppMessage::Help(flag) => write!(f, "Help({flag})"),
-            AppMessage::Nop => write!(f, "Nop"),
+            AppMessage::Nop => write!(f, "Nop"),  // Write Nop message
         }
     }
 }
@@ -120,7 +120,7 @@ impl<'a> App<'a> {
 
         // Log non-log no-op messages
         match &message {
-            AppMessage::Nop | AppMessage::Log(_) => {}
+            AppMessage::Nop | AppMessage::Log(_) => {}  // Do not trace log Nops
             m => trace!("{m}"),
         }
         match message {
@@ -141,7 +141,7 @@ impl<'a> App<'a> {
                 self.help = flag;
                 Task::none()
             }
-            AppMessage::Nop => Task::none(),
+            AppMessage::Nop => Task::none(),  // Do nothing with Nop messages
         }
     }
 

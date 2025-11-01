@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 use crate::app::AppMessage;
 use crate::internal_error;
-use crate::studio::Message as StudioMessage;
+use crate::studio::{Message as StudioMessage};
 
 // Configuration site base URL and manifest
 const CONFIG_SITE_BASE: &str = "images.onerom.org";
@@ -313,10 +313,11 @@ pub async fn download_config_async(config: Config) -> AppMessage {
     let url = config.url().unwrap();
     trace!("Downloading config from URL: {url}");
     match get_config_from_partial_url(url).await {
-        Ok(data) => StudioMessage::ConfigLoaded(config.with_data(data)).into(),
+        Ok(data) => StudioMessage::ConfigLoaded(Ok(config.with_data(data))).into(),
         Err(e) => {
-            warn!("Failed to download config: {}", e);
-            AppMessage::Nop
+            let log = format!("Failed to download config from {url}: {e}");
+            warn!("{log}");
+            StudioMessage::ConfigLoaded(Err(log)).into()
         }
     }
 }
@@ -327,10 +328,11 @@ pub fn load_config_file(config: Config) -> AppMessage {
     assert!(config.is_file());
     if let Config::File { filename } = &config {
         match std::fs::read(filename) {
-            Ok(data) => StudioMessage::ConfigLoaded(config.with_data(data)).into(),
+            Ok(data) => StudioMessage::ConfigLoaded(Ok(config.with_data(data))).into(),
             Err(e) => {
-                warn!("Failed to read config file {}: {}", filename.display(), e);
-                AppMessage::Nop
+                let log = format!("Failed to read config file {}: {e}", filename.display());
+                warn!("{log}");
+                StudioMessage::ConfigLoaded(Err(log)).into()
             }
         }
     } else {

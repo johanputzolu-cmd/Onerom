@@ -173,26 +173,48 @@ async fn select_local_config_file() -> AppMessage {
     if let Some(path) = result {
         Message::ConfigSelected(Config::from_local_path(path)).into()
     } else {
-        AppMessage::Nop
+        AppMessage::Nop // Silently ignore cancel load file dialog
     }
 }
 
-pub fn config_loaded(create: &mut Create, runtime_info: &RuntimeInfo) -> Task<AppMessage> {
+pub fn config_loaded(
+    create: &mut Create,
+    runtime_info: &RuntimeInfo,
+    result: Result<(), String>,
+) -> Task<AppMessage> {
     debug!("Config loaded");
 
+    // Check we are in the appropriate state
     if create.state != State::Loading {
         internal_error!("ConfigLoaded received while not loading.");
     }
 
-    create.display_content += &format!(
-        "\n\nConfig {} loaded successfully.",
-        runtime_info
-            .selected_config()
-            .map(|c| c.name())
-            .unwrap_or("none".to_string())
-    );
-
+    // Update state
     create.state = State::Idle;
+
+    // Log and display result
+    match result {
+        Ok(()) => {
+            debug!(
+                "Config {} loaded successfully.",
+                runtime_info
+                    .selected_config()
+                    .map(|c| c.name())
+                    .unwrap_or("none".to_string())
+            );
+            create.display_content += &format!(
+                "\n\nConfig {} loaded successfully.",
+                runtime_info
+                    .selected_config()
+                    .map(|c| c.name())
+                    .unwrap_or("none".to_string())
+            );
+        }
+        Err(e) => {
+            warn!("Failed to load config: {}", e);
+            create.display_content = format!("Error loading config:\n - {e}");
+        }
+    }
 
     Task::none()
 }

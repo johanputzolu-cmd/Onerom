@@ -630,7 +630,7 @@ impl<'a> Style<'a> {
         // to idle, so it doesn't indicate buttons on the underlying layer can be
         // pressed.
         mouse_area(outer)
-            .on_press(AppMessage::Nop)
+            .on_press(AppMessage::Nop)  // Ignore underlying clicks when in help
             .interaction(iced::mouse::Interaction::Idle)
             .into()
     }

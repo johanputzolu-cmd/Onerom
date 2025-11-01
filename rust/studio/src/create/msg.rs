@@ -34,6 +34,7 @@ pub enum Message {
     ModelSelected(Model),
     McuSelected(McuVariant),
     ReleaseSelected(Release),
+    ReleaseDowloaded(Result<(), String>),
 
     // Detect hardware button operation.
     // Information can be detected via connected device using Analyse tab
@@ -46,7 +47,7 @@ pub enum Message {
 
     // ROM config has been selected via pick list
     ConfigSelected(Config),
-    ConfigLoaded,
+    ConfigLoaded(Result<(), String>),
 
     // Build image
     BuildImage,
@@ -91,6 +92,14 @@ pub fn message(create: &mut Create, runtime_info: &RuntimeInfo, msg: Message) ->
             debug!("Firmware release selected: {}", release.version);
             task_from_msg!(create.select_release(release))
         }
+        Message::ReleaseDowloaded(result) => {
+            debug!("Firmware release downloaded");
+            match result {
+                Ok(()) => debug!("Release download succeeded"),
+                Err(e) => warn!("Release download failed: {e}"),
+            }
+            Task::none()
+        }
 
         // Detect hardware button operation.
         Message::DetectHardware => detect_hardware(create),
@@ -111,7 +120,7 @@ pub fn message(create: &mut Create, runtime_info: &RuntimeInfo, msg: Message) ->
 
         // ROM config has been selected via pick list
         Message::ConfigSelected(config) => config_selected(create, config),
-        Message::ConfigLoaded => config_loaded(create, runtime_info),
+        Message::ConfigLoaded(result) => config_loaded(create, runtime_info, result),
 
         // Build image
         Message::BuildImage => build_image(create, runtime_info),
@@ -145,6 +154,12 @@ impl std::fmt::Display for Message {
             Message::ReleaseSelected(release) => {
                 write!(f, "ReleaseSelected({})", release.version)
             }
+            Message::ReleaseDowloaded(result) => {
+                match result {
+                    Ok(()) => write!(f, "ReleaseDowloaded(Ok)"),
+                    Err(e) => write!(f, "ReleaseDowloaded(Err({e}))"),
+                }
+            }
 
             Message::DetectHardware => write!(f, "DetectHardware"),
             Message::DetectedHardwareInfo => write!(f, "DetectedHardwareInfo"),
@@ -153,7 +168,10 @@ impl std::fmt::Display for Message {
             Message::ConfigsUpdated => write!(f, "ConfigsUpdated"),
 
             Message::ConfigSelected(name) => write!(f, "ConfigSelected({})", name),
-            Message::ConfigLoaded => write!(f, "ConfigLoaded"),
+            Message::ConfigLoaded(result) => match result {
+                Ok(()) => write!(f, "ConfigLoaded(Ok)"),
+                Err(e) => write!(f, "ConfigLoaded(Err({e}))"),
+            },
 
             Message::BuildImage => write!(f, "BuildImage"),
             Message::BuildImageResult(result) => {

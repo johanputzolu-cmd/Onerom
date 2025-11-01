@@ -37,12 +37,12 @@ pub enum Message {
     FetchReleases,
     Releases(Releases),
     DownloadRelease(Release, Board, McuVariant),
-    ReleaseDownloaded(Vec<u8>),
+    ReleaseDownloaded(Result<Vec<u8>, String>),
     ClearDownloadedRelease,
     FetchConfigs,
     ConfigManifest(ConfigManifest),
     LoadConfig(Config),
-    ConfigLoaded(SelectedConfig),
+    ConfigLoaded(Result<SelectedConfig, String>),
     ClearDownloadedConfig,
     BuildImage(HardwareInfo),
     BuildImageResult(Result<(Image, String), String>),
@@ -66,8 +66,11 @@ impl std::fmt::Display for Message {
             Message::DownloadRelease(release, board, mcu) => {
                 write!(f, "DownloadRelease({}, {board}, {mcu})", release.version)
             }
-            Message::ReleaseDownloaded(data) => {
-                write!(f, "ReleaseDownloaded({} bytes)", data.len())
+            Message::ReleaseDownloaded(result) => {
+                match result {
+                    Ok(data) => write!(f, "ReleaseDownloaded({} bytes)", data.len()),
+                    Err(_) => write!(f, "ReleaseDownloaded(Err)"),
+                }
             }
             Message::ClearDownloadedRelease => write!(f, "ClearDownloadedRelease"),
             Message::FetchConfigs => write!(f, "FetchConfigs"),
@@ -75,8 +78,11 @@ impl std::fmt::Display for Message {
                 write!(f, "ConfigManifest({})", configs.names_str())
             }
             Message::LoadConfig(config) => write!(f, "LoadConfig({config})"),
-            Message::ConfigLoaded(selected) => {
-                write!(f, "ConfigLoaded({} bytes)", selected.data.len())
+            Message::ConfigLoaded(result) => {
+                match result {
+                    Ok(selected) => write!(f, "ConfigLoaded({} bytes)", selected.data.len()),
+                    Err(_) => write!(f, "ConfigLoaded(Err)"),
+                }
             }
             Message::ClearDownloadedConfig => write!(f, "ClearDownloadedConfig"),
             Message::BuildImage(hw) => write!(f, "BuildImage({hw})"),
@@ -473,10 +479,19 @@ impl Studio {
             Message::DownloadRelease(release, board, mcu) => {
                 self.download_release(release, board, mcu)
             }
-            Message::ReleaseDownloaded(data) => {
-                self.download_succeeded();
-                self.runtime_info.set_firmware(data.clone());
-                Task::none()
+            Message::ReleaseDownloaded(result) => {
+                match &result {
+                    Ok(data) => {
+                        self.download_succeeded();
+                        self.runtime_info.set_firmware(data.clone());
+                    }
+                    Err(_) => {
+                        self.download_failed();
+                        self.runtime_info.clear_firmware();
+                    }
+                };
+                let result = result.map(drop);
+                task_from_msg!(CreateMessage::ReleaseDowloaded(result))
             }
             Message::ClearDownloadedRelease => {
                 self.download_succeeded();
@@ -492,10 +507,20 @@ impl Studio {
                 Task::done(CreateMessage::ConfigsUpdated.into())
             }
             Message::LoadConfig(config) => self.load_config(config),
-            Message::ConfigLoaded(selected) => {
-                self.download_succeeded();
-                self.runtime_info.set_selected_config(selected);
-                Task::done(CreateMessage::ConfigLoaded.into())
+            Message::ConfigLoaded(result) => {
+                let create_result = match result {
+                    Ok(selected) => {
+                        self.download_succeeded();
+                        self.runtime_info.set_selected_config(selected);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        self.download_failed();
+                        self.runtime_info.clear_selected_config();
+                        Err(e)
+                    }
+                };
+                Task::done(CreateMessage::ConfigLoaded(create_result).into())
             }
             Message::ClearDownloadedConfig => {
                 self.runtime_info.clear_config();
@@ -726,16 +751,19 @@ impl Studio {
         mcu: McuVariant,
     ) -> AppMessage {
         // Download the firmware
-        match releases
+        let result = match releases
             .download_firmware_async(&fw_ver, &board, &mcu)
             .await
         {
-            Ok(data) => Message::ReleaseDownloaded(data).into(),
+            Ok(data) => Ok(data),
             Err(e) => {
-                warn!("Failed to download firmware: {}", e);
-                AppMessage::Nop
+                let log = format!("Failed to download release {fw_ver:?} for {board} {mcu}:\n - {e}");
+                warn!("{log}");
+                Err(log)
             }
-        }
+        };
+
+        Message::ReleaseDownloaded(result).into()
     }
 
     pub fn top_level_buttons(&self, serious_errors: bool) -> iced::Element<'_, AppMessage> {
