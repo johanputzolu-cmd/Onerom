@@ -70,7 +70,7 @@ rm -fr dist/*.deb
 # Build One ROM Studio
 PACKAGER_TARGET="x86_64-unknown-linux-gnu"
 echo "Building for target: $PACKAGER_TARGET"
-cargo build --release --target $PACKAGER_TARGET
+cargo build --bin onerom-studio --release --target $PACKAGER_TARGET
 
 # Package as a dmg
 echo "Packaging dmg for target: $PACKAGER_TARGET"
@@ -90,7 +90,7 @@ export PKG_CONFIG_SYSROOT_DIR=/
 export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
 export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 echo "Building for target: $PACKAGER_TARGET"
-cargo build --release --target $PACKAGER_TARGET
+cargo build --bin onerom-studio --release --target $PACKAGER_TARGET
 
 # Package as a dmg
 echo "Packaging dmg for target: $PACKAGER_TARGET"

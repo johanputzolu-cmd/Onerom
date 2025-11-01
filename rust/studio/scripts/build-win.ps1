@@ -71,7 +71,7 @@ if (-not $NoClean) {
 # Build One ROM Studio
 
 Write-Host "Building for target: $Target"
-cargo build --release --target $Target | Out-Host
+cargo build --bin onerom-studio --release --target $Target | Out-Host
 
 # Sign the executable
 if (-not $NoSign) {

@@ -154,12 +154,10 @@ impl std::fmt::Display for Message {
             Message::ReleaseSelected(release) => {
                 write!(f, "ReleaseSelected({})", release.version)
             }
-            Message::ReleaseDowloaded(result) => {
-                match result {
-                    Ok(()) => write!(f, "ReleaseDowloaded(Ok)"),
-                    Err(e) => write!(f, "ReleaseDowloaded(Err({e}))"),
-                }
-            }
+            Message::ReleaseDowloaded(result) => match result {
+                Ok(()) => write!(f, "ReleaseDowloaded(Ok)"),
+                Err(e) => write!(f, "ReleaseDowloaded(Err({e}))"),
+            },
 
             Message::DetectHardware => write!(f, "DetectHardware"),
             Message::DetectedHardwareInfo => write!(f, "DetectedHardwareInfo"),

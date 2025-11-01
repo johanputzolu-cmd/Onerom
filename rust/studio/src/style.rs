@@ -23,9 +23,9 @@ use onerom_config::hw::{Board, Model};
 use onerom_config::mcu::Variant as McuVariant;
 use std::borrow::Borrow;
 
-use crate::app::AppMessage;
 use crate::image::Images;
 use crate::studio::RuntimeInfo;
+use crate::{AppLink, AppMessage, app_manifest};
 
 /// Iced theme to use - this module builds on this theme
 pub const ICED_THEME: iced::Theme = iced::Theme::Dark;
@@ -53,46 +53,13 @@ pub fn icon() -> iced::window::Icon {
 #[derive(Debug, Clone)]
 pub enum Message {
     /// User clicked a link
-    ClickLink(Link),
+    ClickLink(AppLink),
 }
 
 impl std::fmt::Display for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Message::ClickLink(link) => write!(f, "ClickLink({:?})", link),
-        }
-    }
-}
-
-/// Supported links
-#[derive(Debug, Clone)]
-pub enum Link {
-    /// https://onerom.org
-    OneRom,
-    /// https://piers.rocks
-    PiersRocks,
-    /// https://zadig.akeo.ie/
-    Zadig,
-    /// https://onerom.org/web/#windows
-    WinUsb,
-    /// https://github.com/piersfinlayson/one-rom/issues
-    GitHubIssue,
-    /// https://onerom.org/web/#linux
-    LinuxUdev,
-    /// https://images.onerom.org/#rom-configs
-    RomConfigs,
-}
-
-impl Link {
-    const fn url(&self) -> &'static str {
-        match self {
-            Link::OneRom => "https://onerom.org",
-            Link::PiersRocks => "https://piers.rocks",
-            Link::Zadig => "https://zadig.akeo.ie/",
-            Link::WinUsb => "https://onerom.org/prog/#windows",
-            Link::GitHubIssue => "https://github.com/piersfinlayson/one-rom/issues",
-            Link::LinuxUdev => "https://onerom.org/prog/#linux",
-            Link::RomConfigs => "https://images.onerom.org/#rom-configs",
         }
     }
 }
@@ -156,6 +123,9 @@ impl<'a> Style<'a> {
     pub const COLOUR_ERROR: iced::Color = as_iced_colour(Self::COLOUR_ERROR_U32);
 
     pub const COLOUR_OVERLAY_BACKGROUND: iced::Color = iced::Color::from_rgba(0.0, 0.0, 0.0, 0.75);
+
+    /// #00afff - update colour, used to indicate updates are available
+    pub const COLOUR_UPDATE_STR: &'static str = "#00afff";
 
     // Font sizes
 
@@ -226,8 +196,10 @@ impl<'a> Style<'a> {
     pub fn update(&self, message: Message) -> iced::Task<Message> {
         match message {
             Message::ClickLink(link) => {
-                if let Err(e) = open::that(link.url()) {
-                    eprintln!("Failed to open link {}: {}", link.url(), e);
+                let manifest = app_manifest();
+                let url = manifest.link_url(link);
+                if let Err(e) = open::that(url) {
+                    eprintln!("Failed to open link {url}: {e}");
                 }
             }
         }
@@ -465,7 +437,12 @@ impl<'a> Style<'a> {
             shadow: Shadow::default(),
         }
     }
-    pub fn link(content: impl ToString, size: u16, link: Link) -> widget::Button<'a, AppMessage> {
+
+    pub fn link(
+        content: impl ToString,
+        size: u16,
+        link: AppLink,
+    ) -> widget::Button<'a, AppMessage> {
         let text = Self::text_body(content.to_string())
             .size(size)
             .color(Self::COLOUR_GOLD);
@@ -476,7 +453,7 @@ impl<'a> Style<'a> {
             .on_press(AppMessage::Style(Message::ClickLink(link)))
     }
 
-    fn version() -> Element<'a, AppMessage> {
+    fn app_version() -> Element<'a, AppMessage> {
         let commit_id = if let Some(commit_id) = crate::built::GIT_COMMIT_HASH_SHORT {
             format!(
                 " ({}{})",
@@ -490,7 +467,7 @@ impl<'a> Style<'a> {
         } else {
             "".to_string()
         };
-        Style::text_small(format!("v{}{}", env!("CARGO_PKG_VERSION"), commit_id))
+        Style::text_small(format!("V{}{}", env!("CARGO_PKG_VERSION"), commit_id))
             .color(Self::COLOUR_TEXT_DIM)
             .into()
     }
@@ -528,7 +505,7 @@ impl<'a> Style<'a> {
     }
 
     /// Create a help image which links to a webapge
-    pub fn help_link(&self, link: Link, tooltip_str: &str) -> Element<'a, AppMessage> {
+    pub fn help_link(&self, link: AppLink, tooltip_str: &str) -> Element<'a, AppMessage> {
         let help_button = button(Image::new(self.images.icon_help()))
             .style(|_, _| Self::link_button_style())
             .height(28)
@@ -537,21 +514,67 @@ impl<'a> Style<'a> {
             help_button,
             Self::text_extra_small(tooltip_str).color(Self::COLOUR_TEXT_DIM),
             tooltip::Position::Top,
-        ).into()
-    }
-
-    fn footer_row_0(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {
-        row![
-            self.network_icon(runtime_info),
-            Space::with_width(Length::Fill),
-            Self::version()
-        ]
-        .align_y(Vertical::Center)
+        )
         .into()
     }
 
+    fn footer_row_0(&self, runtime_info: &RuntimeInfo) -> Element<'a, AppMessage> {
+        let mut row = row![];
+        row = row.push(self.network_icon(runtime_info));
+
+        if let Some(update_icon) = self.update_available_icon() {
+            row = row.push(Space::with_width(10.0));
+            row = row.push(update_icon);
+        }
+
+        if let Some(dev_icon) = self.dev_version_icon() {
+            row = row.push(Space::with_width(10.0));
+            row = row.push(dev_icon);
+        }
+
+        row = row
+            .push(Space::with_width(Length::Fill))
+            .push(Self::app_version());
+
+        row.align_y(Vertical::Center).into()
+    }
+
+    fn update_available_icon(&self) -> Option<Element<'a, AppMessage>> {
+        let Some(new_version) = app_manifest().update_available() else {
+            return None;
+        };
+
+        let update_button = button(Image::new(self.images.icon_update_available()))
+            .padding(0)
+            .style(|_, _| Self::link_button_style())
+            .on_press(AppMessage::Style(Message::ClickLink(AppLink::AppUpdate)));
+
+        let button = tooltip(
+            update_button,
+            Self::text_extra_small(format!("V{new_version} available"))
+                .color(Self::COLOUR_TEXT_DIM),
+            tooltip::Position::Top,
+        );
+
+        Some(button.into())
+    }
+
+    fn dev_version_icon(&self) -> Option<Element<'a, AppMessage>> {
+        if !app_manifest().dev_version() {
+            return None;
+        }
+
+        let button = tooltip(
+            Image::new(self.images.icon_dev_version()),
+            Self::text_extra_small("Development Version").color(Self::COLOUR_TEXT_DIM),
+            tooltip::Position::Top,
+        );
+
+        Some(button.into())
+    }
+
     fn footer_1_left() -> Element<'a, AppMessage> {
-        Self::link("One ROM", Self::FONT_SIZE_BODY, Link::OneRom).into()
+        Self::link("One ROM", Self::FONT_SIZE_BODY, AppLink::OneRom).into()
     }
 
     fn footer_1_right() -> Rich<'a, AppMessage> {
@@ -575,7 +598,7 @@ impl<'a> Style<'a> {
     }
 
     fn footer_2_right() -> Element<'a, AppMessage> {
-        Self::link("piers.rocks", Self::FONT_SIZE_BODY, Link::PiersRocks).into()
+        Self::link("piers.rocks", Self::FONT_SIZE_BODY, AppLink::PiersRocks).into()
     }
 
     fn footer_row_1() -> Row<'a, AppMessage> {
@@ -646,7 +669,7 @@ impl<'a> Style<'a> {
         // to idle, so it doesn't indicate buttons on the underlying layer can be
         // pressed.
         mouse_area(outer)
-            .on_press(AppMessage::Nop)  // Ignore underlying clicks when in help
+            .on_press(AppMessage::Nop) // Ignore underlying clicks when in help
             .interaction(iced::mouse::Interaction::Idle)
             .into()
     }

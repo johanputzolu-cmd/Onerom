@@ -9,12 +9,9 @@ use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 
 use crate::app::AppMessage;
-use crate::internal_error;
-use crate::studio::{Message as StudioMessage};
-
-// Configuration site base URL and manifest
-const CONFIG_SITE_BASE: &str = "images.onerom.org";
-const CONFIG_MANIFEST: &str = "configs.json";
+use crate::studio::Message as StudioMessage;
+use crate::{ManifestType, PathType};
+use crate::{app_manifest, internal_error};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SelectedConfig {
@@ -171,12 +168,16 @@ impl ConfigManifest {
 
     /// Return config URL for a partial url
     pub fn config_url(url: &str) -> String {
-        format!("https://{}/{}", CONFIG_SITE_BASE, url)
+        app_manifest()
+            .url_from_path(PathType::RomConfig, url)
+            .to_string()
     }
 
     /// Return configs manifest URL
     fn manifest_url() -> String {
-        format!("https://{}/{}", CONFIG_SITE_BASE, CONFIG_MANIFEST)
+        app_manifest()
+            .manifest_url(ManifestType::RomConfig)
+            .to_string()
     }
 }
 

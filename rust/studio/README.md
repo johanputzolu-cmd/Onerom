@@ -7,7 +7,14 @@ A GUI front-end for interacting with One ROM and managing firmware images.
 All instructions assume you are in the `rust/studio` directory.  Steps 1-3 can be run in parallel.
 
 Steps:
-1. Create Mac build - on a Mac, using a local terminal (not ssh) with the appropriate Apple Developer ID certificate installed in the Login keychain:
+1. Build the schema(s):
+
+    ```bash
+    cargo run --bin gen-schema
+    cargo run --bin gen-manifest  # Not necessary
+    ```
+
+2. Create Mac build - on a Mac, using a local terminal (not ssh) with the appropriate Apple Developer ID certificate installed in the Login keychain:
 
     ```bash
     scripts/build-mac.sh
@@ -15,7 +22,7 @@ Steps:
 
     Will pop-up for Apple ID credentials for code signing and notarization.
 
-2. Create Windows build - on a Windows machine, using a local powershell, with smartcard plugged in:
+3. Create Windows build - on a Windows machine, using a local powershell, with smartcard plugged in:
 
     ```powershell
     .\scripts\build-windows.ps1
@@ -23,21 +30,21 @@ Steps:
 
     Will prompt for smartcard pin.
 
-3. Create Linux builds - on a Linux (x86_64) machine:
+4. Create Linux builds - on a Linux (x86_64) machine:
 
     ```bash
     scripts/build-linux.sh
     ```
 
-4. Copy the built installers from the `dist/` directory on each platform to the Linux machine's `dist/` directory.
+5. Copy the built installers from the `dist/` directory on each platform to the Linux machine's `dist/` directory.
 
-5. On the Linux machine, run the release script to upload the files and update the manifest - assumes you have the images.onerom.org github repo at ../../../one-rom-images:
+6. On the Linux machine, run the release script to upload the files and update the manifest - assumes you have the images.onerom.org github repo at ../../../one-rom-images:
 
     ```bash
     scripts/release.py --input-dir dist --output-dir ../../../one-rom-images
     ```
 
-6. Commit one-rom-images changes and push:
+7. Commit one-rom-images changes and push:
 
     ```bash
     cd ../../../one-rom-images
@@ -46,14 +53,14 @@ Steps:
     git push
     ```
 
-7. Tag the current commit with the version and push:
+8. Tag the current commit with the version and push:
 
     ```bash
     git tag studio-vX.Y.Z
     git push origin studio-vX.Y.Z
     ```
 
-8. Check new releases appear at https://onerom.org/studio/
+9. Check new releases appear at https://onerom.org/studio/
 
 ## Updating Mac Icons
 

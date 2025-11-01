@@ -2,6 +2,8 @@
 //
 // MIT License
 
+pub mod manifest;
+
 use iced::alignment::Vertical::Bottom;
 use iced::widget::{Space, Stack, column, row};
 use iced::{Element, Length, Subscription, Task};
@@ -15,6 +17,7 @@ use crate::device::{Device, Message as DeviceMessage, get_devices_startup};
 use crate::log::{Level, Log, LogEntry, Message as LogMessage};
 use crate::studio::{Message as StudioMessage, RuntimeInfo, Studio, StudioTab};
 use crate::style::{Message as StyleMessage, Style};
+use crate::update_app_manifest;
 
 const PROGRESS_TICK_INTERVAL: Duration = Duration::from_millis(500);
 pub fn progress_tick_subscription<T>(tick: T) -> Subscription<T>
@@ -34,8 +37,7 @@ pub fn startup_task() -> Task<AppMessage> {
             Level::Info,
             "One ROM Studio started".to_string(),
         )))),
-        Task::done(AppMessage::Studio(StudioMessage::FetchReleases)),
-        Task::done(AppMessage::Studio(StudioMessage::FetchConfigs)),
+        Task::done(AppMessage::UpdateManifest),
         Task::run(get_devices_startup(), |msg| msg),
     ])
     .into()
@@ -70,6 +72,10 @@ pub enum AppMessage {
     /// No-operation message, where it's easier to return a message than none
     /// at all (for example in match arms).
     Nop,
+
+    /// Update the manifest from disk/network
+    UpdateManifest,
+    ManifestUpdated,
 }
 
 impl std::fmt::Display for AppMessage {
@@ -82,7 +88,9 @@ impl std::fmt::Display for AppMessage {
             AppMessage::Studio(msg) => write!(f, "Studio::{msg}"),
             AppMessage::Style(msg) => write!(f, "Style::{msg}"),
             AppMessage::Help(flag) => write!(f, "Help({flag})"),
-            AppMessage::Nop => write!(f, "Nop"),  // Write Nop message
+            AppMessage::Nop => write!(f, "Nop"), // Write Nop message
+            AppMessage::UpdateManifest => write!(f, "UpdateManifest"),
+            AppMessage::ManifestUpdated => write!(f, "ManifestUpdated"),
         }
     }
 }
@@ -120,7 +128,7 @@ impl<'a> App<'a> {
 
         // Log non-log no-op messages
         match &message {
-            AppMessage::Nop | AppMessage::Log(_) => {}  // Do not trace log Nops
+            AppMessage::Nop | AppMessage::Log(_) => {} // Do not trace log Nops
             m => trace!("{m}"),
         }
         match message {
@@ -141,7 +149,12 @@ impl<'a> App<'a> {
                 self.help = flag;
                 Task::none()
             }
-            AppMessage::Nop => Task::none(),  // Do nothing with Nop messages
+            AppMessage::Nop => Task::none(), // Do nothing with Nop messages
+            AppMessage::UpdateManifest => Task::future(update_app_manifest()),
+            AppMessage::ManifestUpdated => Task::batch([
+                Task::done(AppMessage::Studio(StudioMessage::FetchReleases)),
+                Task::done(AppMessage::Studio(StudioMessage::FetchConfigs)),
+            ]),
         }
     }
 

@@ -13,7 +13,19 @@ categories = ["embedded", "hardware-support"]
 
 [[bin]]
 name = "onerom-studio"
-path = "src/main.rs"
+path = "src/bin/studio.rs"
+
+[[bin]]
+name = "gen-schema"
+path = "src/bin/gen-schema.rs"
+
+[[bin]]
+name = "gen-manifest"
+path = "src/bin/gen-manifest.rs"
+
+[lib]
+name = "onerom_studio"
+path = "src/lib.rs"
 
 # Packager configuration - creates bundles and isntallers
 [package.metadata.packager]
@@ -61,15 +73,19 @@ onerom-gen = { path = "../gen", version = "0.2.0" }
 sdrr-fw-parser = { path = "../sdrr-fw-parser", version = "0.5.4" }
 dfu-rs = { git = "https://github.com/piersfinlayson/dfu-rs.git", version = "0.2.0" }
 
+arc-swap = "1.7"
 chrono = "0.4"
+directories = "6.0"
 futures = "0.3"
 iced = { version = "0.13", features = ["tokio", "image"] }
 log = "0.4"
 open = "5.3"
-probe-rs = { version = "0.29", features = [] }
+probe-rs = { version = "0.30", features = [] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "charset"] }
 resvg = "0.45"
 rfd = "0.15"
+schemars = "1.0"
+semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tiny-skia = "0.11"
@@ -78,5 +94,5 @@ usvg = "0.45"
 
 [build-dependencies]
 built = { version = "0.8", features = ["git2"] }
-git2 = { version = "0.20", default-features = false }
 embed-resource = "3"
+git2 = { version = "0.20", default-features = false }

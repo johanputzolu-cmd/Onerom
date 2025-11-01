@@ -15,6 +15,7 @@ use onerom_fw::get_rom_files_async;
 use onerom_fw::net::{Release, Releases};
 use onerom_gen::{Builder, FIRMWARE_SIZE, MAX_METADATA_LEN};
 
+use crate::ManifestType;
 use crate::analyse::Analyse;
 use crate::app::AppMessage;
 use crate::config::{
@@ -24,7 +25,7 @@ use crate::create::{Create, Message as CreateMessage};
 use crate::hw::HardwareInfo;
 use crate::log::Log;
 use crate::style::Style;
-use crate::{internal_error, task_from_msg};
+use crate::{app_manifest, internal_error, task_from_msg};
 
 const MANIFEST_RETRY_SHORT: Duration = Duration::from_secs(10);
 const MANIFEST_RETRY_LONG: Duration = Duration::from_secs(60);
@@ -66,24 +67,20 @@ impl std::fmt::Display for Message {
             Message::DownloadRelease(release, board, mcu) => {
                 write!(f, "DownloadRelease({}, {board}, {mcu})", release.version)
             }
-            Message::ReleaseDownloaded(result) => {
-                match result {
-                    Ok(data) => write!(f, "ReleaseDownloaded({} bytes)", data.len()),
-                    Err(_) => write!(f, "ReleaseDownloaded(Err)"),
-                }
-            }
+            Message::ReleaseDownloaded(result) => match result {
+                Ok(data) => write!(f, "ReleaseDownloaded({} bytes)", data.len()),
+                Err(_) => write!(f, "ReleaseDownloaded(Err)"),
+            },
             Message::ClearDownloadedRelease => write!(f, "ClearDownloadedRelease"),
             Message::FetchConfigs => write!(f, "FetchConfigs"),
             Message::ConfigManifest(configs) => {
                 write!(f, "ConfigManifest({})", configs.names_str())
             }
             Message::LoadConfig(config) => write!(f, "LoadConfig({config})"),
-            Message::ConfigLoaded(result) => {
-                match result {
-                    Ok(selected) => write!(f, "ConfigLoaded({} bytes)", selected.data.len()),
-                    Err(_) => write!(f, "ConfigLoaded(Err)"),
-                }
-            }
+            Message::ConfigLoaded(result) => match result {
+                Ok(selected) => write!(f, "ConfigLoaded({} bytes)", selected.data.len()),
+                Err(_) => write!(f, "ConfigLoaded(Err)"),
+            },
             Message::ClearDownloadedConfig => write!(f, "ClearDownloadedConfig"),
             Message::BuildImage(hw) => write!(f, "BuildImage({hw})"),
             Message::BuildImageResult(_) => write!(f, "BuildImageResult"),
@@ -677,7 +674,10 @@ impl Studio {
     }
 
     async fn fetch_releases_async() -> AppMessage {
-        match Releases::from_network_async().await {
+        let url = app_manifest()
+            .manifest_url(ManifestType::FirmwareRelease)
+            .to_string();
+        match Releases::from_network_async_url(&url).await {
             Ok(releases) => AppMessage::Studio(Message::Releases(releases)),
             Err(e) => {
                 warn!("Failed to fetch releases from network\n  - {e}");
@@ -757,7 +757,8 @@ impl Studio {
         {
             Ok(data) => Ok(data),
             Err(e) => {
-                let log = format!("Failed to download release {fw_ver:?} for {board} {mcu}:\n - {e}");
+                let log =
+                    format!("Failed to download release {fw_ver:?} for {board} {mcu}:\n - {e}");
                 warn!("{log}");
                 Err(log)
             }

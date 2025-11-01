@@ -3,6 +3,10 @@
 ## v0.1.2 - 2025-??-??
 
 - Built with rustc 1.91
+- Move to probe-rs 0.30
+- Added ability to load ROM config JSON files from disk in Create view
+- Added online manifest to access latest URLs, with local cache file backup, and defaults as further backup
+- Added app version update check and download link
 
 ## v0.1.1 - 2025-10-30
 

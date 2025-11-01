@@ -14,11 +14,11 @@ use iced::{Element, Length};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
-use crate::app::AppMessage;
 use crate::device::probe::ProbeType;
 use crate::device::usb::UsbDeviceType;
 use crate::device::{Device, DeviceType, Message};
-use crate::style::{Link, Style};
+use crate::style::Style;
+use crate::{AppLink, AppMessage};
 
 /// Create the device view (top right of the app)
 pub fn view<'a>(device: &'a Device, style: &'a Style) -> Column<'a, AppMessage> {
@@ -101,7 +101,7 @@ fn probe_pick_list(device: &Device) -> Element<'static, AppMessage> {
     let probe_list: Element<'_, AppMessage> = if device.has_detected_probes() {
         let options = device.probes.clone();
         let msg = if device.is_busy() {
-            |_| AppMessage::Nop  // Ignore picklist selection while busy
+            |_| AppMessage::Nop // Ignore picklist selection while busy
         } else {
             |p: ProbeType| Message::SelectProbe(p.clone()).into()
         };
@@ -121,7 +121,7 @@ fn probe_pick_list(device: &Device) -> Element<'static, AppMessage> {
 fn usb_device_pick_list(device: &Device) -> Element<'_, AppMessage> {
     // Create the USB device pick list
     let msg = if device.is_busy() {
-        |_| AppMessage::Nop  // Ignore picklist selection while busy
+        |_| AppMessage::Nop // Ignore picklist selection while busy
     } else {
         |d: UsbDeviceType| DeviceType::from_usb(d.clone()).selected_message()
     };
@@ -232,7 +232,7 @@ fn help_content_linux() -> Element<'static, AppMessage> {
     ];
     let help_row_3 = row![
         Style::text_body("See "),
-        Style::link("here", Style::FONT_SIZE_BODY, Link::LinuxUdev),
+        Style::link("here", Style::FONT_SIZE_BODY, AppLink::LinuxUdev),
         Style::text_body(" for instructions."),
         Space::with_width(Length::Fill),
     ];
@@ -263,7 +263,7 @@ fn help_content_macos() -> Element<'static, AppMessage> {
     ];
     let help_row_3 = row![
         Style::text_body("If problems persist, please raise a "),
-        Style::link("GitHub issue", Style::FONT_SIZE_BODY, Link::GitHubIssue),
+        Style::link("GitHub issue", Style::FONT_SIZE_BODY, AppLink::GitHubIssue),
         Style::text_body("."),
         Space::with_width(Length::Fill),
     ];
@@ -282,7 +282,7 @@ fn help_content_win() -> Element<'static, AppMessage> {
     ];
     let help_row_2 = row![
         Style::text_body("See "),
-        Style::link("here", Style::FONT_SIZE_BODY, Link::WinUsb),
+        Style::link("here", Style::FONT_SIZE_BODY, AppLink::WinUsb),
         Style::text_body(" for instructions."),
         Space::with_width(Length::Fill),
     ];
@@ -300,7 +300,7 @@ fn help_content_win() -> Element<'static, AppMessage> {
     ];
     let help_row_5 = row![
         Style::text_body("If problems persist, please raise a "),
-        Style::link("GitHub issue", Style::FONT_SIZE_BODY, Link::GitHubIssue),
+        Style::link("GitHub issue", Style::FONT_SIZE_BODY, AppLink::GitHubIssue),
         Style::text_body("."),
         Space::with_width(Length::Fill),
     ];

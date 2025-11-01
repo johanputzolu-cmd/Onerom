@@ -27,6 +27,8 @@ EXPECTED_TARGETS = {
     "x86_64-unknown-linux-gnu",
     "aarch64-unknown-linux-gnu",
 }
+SCHEMA_SRC = "manifest/app-schema.json"
+SCHEMA_DEST = "studio/app-schema.json"
 
 def error(msg):
     print(f"ERROR: {msg}", file=sys.stderr)
@@ -186,6 +188,13 @@ def main():
         json.dump(manifest, f, indent=2)
     
     print(f"Success! Release {version} added to manifest.")
+
+    # Copy schema
+    schema_src = SCHEMA_SRC
+    schema_dest = output_dir / SCHEMA_DEST
+    print(f"Copying schema from {schema_src} to {schema_dest}")
+    shutil.copy2(schema_src, schema_dest)
+    print("Schema copied successfully.")
 
 if __name__ == '__main__':
     main()
