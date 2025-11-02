@@ -31,12 +31,15 @@ pub fn manifest_read() -> Arc<ManifestState> {
 }
 
 /// Update the manifest from network/cache/defaults.  Called once from app
-/// initialization.  Could be called again later to refresh the manifest.
-pub async fn update_manifest() -> AppMessage {
+/// initialization and subsequently on a timer.
+///
+/// `flag` indicates whether this update is being run at startup - this
+/// function returns it on ManifestUpdated.
+pub async fn update_manifest(flag: bool) -> AppMessage {
     let mut state = ManifestState::default();
     state.try_update().await;
     MANIFEST.store(Arc::new(state));
-    AppMessage::ManifestUpdated
+    AppMessage::ManifestUpdated(flag)
 }
 
 const MANIFEST_URL: &str = "https://images.onerom.org/studio.json";

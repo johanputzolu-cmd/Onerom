@@ -19,6 +19,7 @@ use crate::studio::{Message as StudioMessage, RuntimeInfo, Studio, StudioTab};
 use crate::style::{Message as StyleMessage, Style};
 use crate::update_app_manifest;
 
+// How often to tick progress updates
 const PROGRESS_TICK_INTERVAL: Duration = Duration::from_millis(500);
 pub fn progress_tick_subscription<T>(tick: T) -> Subscription<T>
 where
@@ -26,6 +27,9 @@ where
 {
     iced::time::every(PROGRESS_TICK_INTERVAL).map(move |_| tick.clone())
 }
+
+// How often to re-read the application manifest
+const MANIFEST_REFRESH_INTERVAL: Duration = Duration::from_mins(5);
 
 /// Kicks off any startup tasks for the app
 ///
@@ -37,7 +41,7 @@ pub fn startup_task() -> Task<AppMessage> {
             Level::Info,
             "One ROM Studio started".to_string(),
         )))),
-        Task::done(AppMessage::UpdateManifest),
+        Task::done(AppMessage::UpdateManifest(true)),
         Task::run(get_devices_startup(), |msg| msg),
     ])
     .into()
@@ -73,9 +77,10 @@ pub enum AppMessage {
     /// at all (for example in match arms).
     Nop,
 
-    /// Update the manifest from disk/network
-    UpdateManifest,
-    ManifestUpdated,
+    /// Update the manifest from disk/network.  Argument is whether being run
+    /// at startup - if so, trigger release/config manifest fetches afterwards.
+    UpdateManifest(bool),
+    ManifestUpdated(bool),
 }
 
 impl std::fmt::Display for AppMessage {
@@ -89,8 +94,8 @@ impl std::fmt::Display for AppMessage {
             AppMessage::Style(msg) => write!(f, "Style::{msg}"),
             AppMessage::Help(flag) => write!(f, "Help({flag})"),
             AppMessage::Nop => write!(f, "Nop"), // Write Nop message
-            AppMessage::UpdateManifest => write!(f, "UpdateManifest"),
-            AppMessage::ManifestUpdated => write!(f, "ManifestUpdated"),
+            AppMessage::UpdateManifest(flag) => write!(f, "UpdateManifest({flag})"),
+            AppMessage::ManifestUpdated(flag) => write!(f, "ManifestUpdated({flag})"),
         }
     }
 }
@@ -150,11 +155,17 @@ impl<'a> App<'a> {
                 Task::none()
             }
             AppMessage::Nop => Task::none(), // Do nothing with Nop messages
-            AppMessage::UpdateManifest => Task::future(update_app_manifest()),
-            AppMessage::ManifestUpdated => Task::batch([
-                Task::done(AppMessage::Studio(StudioMessage::FetchReleases)),
-                Task::done(AppMessage::Studio(StudioMessage::FetchConfigs)),
-            ]),
+            AppMessage::UpdateManifest(flag) => Task::future(update_app_manifest(flag)),
+            AppMessage::ManifestUpdated(flag) => {
+                // `flag` inicates whether this update was run at startup
+                match flag {
+                    true => Task::batch([
+                        Task::done(AppMessage::Studio(StudioMessage::FetchReleases)),
+                        Task::done(AppMessage::Studio(StudioMessage::FetchConfigs)),
+                    ]),
+                    false => Task::none(),
+                }
+            }
         }
     }
 
@@ -208,7 +219,11 @@ impl<'a> App<'a> {
     }
 
     pub fn subscription(&self) -> Subscription<AppMessage> {
+        let manifest_reread =
+            iced::time::every(MANIFEST_REFRESH_INTERVAL).map(|_| AppMessage::UpdateManifest(false));
+
         Subscription::batch(vec![
+            manifest_reread,
             self.studio
                 .subscription()
                 .map(|msg| AppMessage::Studio(msg)),
