@@ -6,6 +6,7 @@ members = [
     "fw",
     "gen",
     "lab",
+    "protocol",
     "schema-gen",
     "sdrr-check",
     "sdrr-fw-parser",

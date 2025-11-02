@@ -14,6 +14,7 @@ formats = ["dmg", "nsis", "deb"]
 icons = ["assets/onerom-512x512.png", "assets/onerom-256x256.png", "assets/onerom-128x128.png", "assets/onerom-64x64.png", "assets/onerom-32x32.png", "assets/onerom-16x16.png", "assets/onerom.ico"]
 binaries = [ { main = true, path = "onerom-studio" } ]
 binaries-dir = "../target/x86_64-pc-windows-msvc/release"
+version = "%VERSION%"
 
 # Windows installer
 [nsis]
@@ -22,10 +23,3 @@ header-image = "assets/onerom-header.bmp"
 sidebar-image = "assets/onerom-sidebar.bmp"
 installer-icon = "assets/onerom.ico"
 display-language-selector = false
-
-# Linux package
-[linux]
-generate-desktop-entry = true
-[deb]
-files = { "scripts/70-onerom-studio.rules" = "/lib/udev/rules.d/70-onerom-studio.rules" }
-

@@ -79,9 +79,20 @@ if (-not $NoSign) {
     & "scripts\sign-win.ps1" "..\target\$Target\release\onerom-studio.exe"
 }
 
+# Create temporary versioned Packager.toml
+$PackagerContent = Get-Content "Packager.toml"
+$PackagerContent = $PackagerContent -replace "%VERSION%", $Version
+$TempPackagerPath = "dist\Packager_temp.toml"
+
+# Write the temporary Packager.toml
+$PackagerContent | Set-Content $TempPackagerPath
+
 # Package as NSIS installer
 Write-Host "Packaging NSIS installer for target: $Target"
-cargo packager --release --target $Target --formats nsis | Out-Host
+cargo packager -c $TempPackagerPath --release --target $Target --formats nsis | Out-Host
+
+# Remove temporary Packager.toml
+Remove-Item -Path $TempPackagerPath -Force
 
 # Sign the installer
 if (-not $NoSign) {
