@@ -73,7 +73,7 @@ impl Default for ManifestState {
 impl ManifestState {
     pub async fn try_update(&mut self) {
         if let Some(manifest) = Self::fetch_from_url().await {
-            info!(
+            debug!(
                 "Application manifest v{} r{} retrieved from network",
                 self.current.version, self.current.revision,
             );
@@ -83,7 +83,7 @@ impl ManifestState {
         }
 
         if let Some(manifest) = Self::load_from_cache() {
-            info!(
+            debug!(
                 "Network info - application manifest v{} r{} loaded from cache",
                 self.current.version, self.current.revision,
             );
