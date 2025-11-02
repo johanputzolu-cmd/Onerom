@@ -363,7 +363,7 @@ impl Default for LinkUrls {
             win_usb: "https://onerom.org/web/#windows".to_string(),
             github_issue: "https://github.com/piersfinlayson/one-rom/issues".to_string(),
             linux_udev: "https://onerom.org/web/#linux".to_string(),
-            rom_configs: "https://onerom.org/web/#rom-configs".to_string(),
+            rom_configs: "https://images.onerom.org/#rom-configs".to_string(),
             app_update: "https://onerom.org/studio/#downloads".to_string(),
         }
     }
