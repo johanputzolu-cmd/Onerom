@@ -72,6 +72,10 @@ if (-not $NoClean) {
 
 Write-Host "Building for target: $Target"
 cargo build --bin onerom-studio --release --target $Target | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Cargo build failed with exit code $LASTEXITCODE"
+    exit $LASTEXITCODE
+}
 
 # Sign the executable
 if (-not $NoSign) {
@@ -82,7 +86,7 @@ if (-not $NoSign) {
 # Create temporary versioned Packager.toml
 $PackagerContent = Get-Content "Packager.toml"
 $PackagerContent = $PackagerContent -replace "%VERSION%", $Version
-$TempPackagerPath = "dist\Packager_temp.toml"
+$TempPackagerPath = "Packager_temp.toml"
 
 # Write the temporary Packager.toml
 $PackagerContent | Set-Content $TempPackagerPath
@@ -90,6 +94,11 @@ $PackagerContent | Set-Content $TempPackagerPath
 # Package as NSIS installer
 Write-Host "Packaging NSIS installer for target: $Target"
 cargo packager -c $TempPackagerPath --release --target $Target --formats nsis | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Cargo packager failed with exit code $LASTEXITCODE"
+    Remove-Item -Path $TempPackagerPath -Force -ErrorAction SilentlyContinue
+    exit $LASTEXITCODE
+}
 
 # Remove temporary Packager.toml
 Remove-Item -Path $TempPackagerPath -Force
