@@ -16,9 +16,6 @@ cargo doc -p onerom-fw
 echo "Generating documentation for onerom-gen..."
 cargo doc -p onerom-gen
 
-echo "Generating documentation for onerom-lab..."
-cargo doc -p onerom-lab
-
 echo "Generating documentation for onerom-protocol..."
 cargo doc -p onerom-protocol
 
