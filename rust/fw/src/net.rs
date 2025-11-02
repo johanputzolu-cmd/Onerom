@@ -132,7 +132,12 @@ impl Releases {
     pub async fn from_network_async() -> Result<Self, Error> {
         let url = Self::manifest_url();
         debug!("Fetching releases manifest from {}", url);
-        let response = reqwest::get(&url).await.map_err(Error::network)?;
+        Self::from_network_async_url(&url).await
+    }
+
+    pub async fn from_network_async_url(url: &str) -> Result<Self, Error> {
+        debug!("Fetching releases manifest from {}", url);
+        let response = reqwest::get(url).await.map_err(Error::network)?;
         let body = response.text().await.map_err(Error::network)?;
         Self::from_json(&body)
     }
