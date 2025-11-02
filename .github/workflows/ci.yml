@@ -54,13 +54,11 @@ jobs:
       run: cargo install wasm-pack
 
     - name: Run various Rust tests
-      working-directory: rust
       run: |
         export TOOLCHAIN=/usr/bin
         ci/rust-tests.sh
 
     - name: Build Rust docs
-      working-directory: rust
       run: |
         export TOOLCHAIN=/usr/bin
         ci/rust-docs.sh
