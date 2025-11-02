@@ -81,6 +81,10 @@ if ($LASTEXITCODE -ne 0) {
 if (-not $NoSign) {
     Write-Host "Signing executable..."
     & "scripts\sign-win.ps1" "..\target\$Target\release\onerom-studio.exe"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Signing executable failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
 }
 
 # Create temporary versioned Packager.toml
@@ -107,6 +111,10 @@ Remove-Item -Path $TempPackagerPath -Force
 if (-not $NoSign) {
     Write-Host "Signing installer..."
     & "scripts\sign-win.ps1" "dist\onerom-studio_${Version}_x64-setup.exe"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Signing installer failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
 }
 
 Write-Host "Windows x86_64 build complete."
