@@ -445,32 +445,52 @@ void check_config(
         LOG("!!! Sel pins should be using bank 0");
     }
 
-    // We expect to use pins 0-16 for address lines 
+    // We expect to use pins 0-15 or 8-23 for address lines
+    uint8_t seen_a_0_7 = 0;
+    uint8_t seen_a_16_23 = 0;
     for (int ii = 0; ii < 13; ii++) {
         uint8_t pin = info->pins->addr[ii];
-        if (pin > 16) {
-            LOG("!!! Address line A%d using invalid pin %d", ii, pin);
+        if (pin < 8) {
+            seen_a_0_7 = 1;
+        } else if (pin > 15) {
+            seen_a_16_23 = 1;
         }
     }
+    if (seen_a_0_7 && seen_a_16_23) {
+        LOG("!!! ROM address lines using invalid mix of pins");
+    }
 
-    // We expect to use pins 16-23 for data lines
+    // We expect to use pins 0-7 or 16-23 for data lines
+    uint8_t seen_d_0_7 = 0;
+    uint8_t seen_d_16_23 = 0;
     for (int ii = 0; ii < 8; ii++) {
         uint8_t pin = info->pins->data[ii];
-        if ((pin < 16) || (pin > 23)) {
-            LOG("!!! ROM line D%d using invalid pin %d", ii, pin);
+        if (pin < 8) {
+            seen_d_0_7 = 1;
+        } else if (pin > 15) {
+            seen_d_16_23 = 1;
         }
+    }
+    if (seen_d_0_7 && seen_d_16_23) {
+        LOG("!!! ROM data lines using invalid mix of pins");
     }
 
     // Check X1/X2 pins
     if (set->rom_count > 1) {
-        if (info->pins->x1 > 15) {
+        if (seen_a_0_7 && (info->pins->x1 > 16)) {
             LOG("!!! Multi-ROM mode, but pin X1 invalid");
         }
-        if (info->pins->x2 > 15) {
+        if (seen_a_0_7 && (info->pins->x2 > 17)) {
+            LOG("!!! Multi-ROM mode, but pin X2 invalid");
+        }
+        if (seen_a_16_23 && ((info->pins->x1 < 8) || (info->pins->x1 > 23))) {
+            LOG("!!! Multi-ROM mode, but pin X1 invalid");
+        }
+        if (seen_a_16_23 && ((info->pins->x2 < 8) || (info->pins->x2 > 23))) {
             LOG("!!! Multi-ROM mode, but pin X2 invalid");
         }
         if (info->pins->x1 == info->pins->x2) {
-            LOG("!!! Multi-ROM mode, but pin X1=X2");
+            LOG("!!! Multi-ROM mode, but pin X1==X2");
         }
         if (info->pins->x_jumper_pull > 1) {
             LOG("!!! X jumper pull value invalid");
@@ -498,7 +518,6 @@ void check_config(
         // Correction is done in main_loop() using a local variable
         LOG("!!! Single ROM image - wrong serve mode - will correct");
     }
-
 }
 
 void platform_logging(void) {

@@ -359,9 +359,8 @@ impl Rom {
     // Transforms from a physical address (based on the hardware pins) to
     // a logical ROM address, so we store the physical ROM mapping, rather
     // than the logical one.
-    fn address_to_logical(address: usize, board: &Board, num_addr_lines: usize) -> usize {
+    fn address_to_logical(phys_pin_to_addr_map: &[Option<usize>], address: usize, _board: &Board, num_addr_lines: usize) -> usize {
         let mut result = 0;
-        let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
 
         for (pin, item) in phys_pin_to_addr_map.iter().enumerate() {
             if let Some(addr_bit) = item {
@@ -394,11 +393,13 @@ impl Rom {
     //
     // This transformation ensures that when the hardware reads a byte through its
     // data pins, it gets the correct bit values despite the non-standard connections.
-    fn byte_to_logical(byte: u8, board: &Board) -> u8 {
+    fn byte_mangled(byte: u8, board: &Board) -> u8 {
         // Start with 0 result
         let mut result = 0;
 
-        let phys_pin_to_data_map = board.phys_pin_to_data_map();
+        // Retrieve data pin mapping - not physical pin to bit mapping, as that would be
+        // the wrong way round.
+        let data_pins = board.data_pins();
 
         // For each bit in the original byte
         #[allow(clippy::needless_range_loop)]
@@ -406,7 +407,7 @@ impl Rom {
             // Check if this bit is set in the original byte
             if (byte & (1 << bit_pos)) != 0 {
                 // Get the new position for this bit
-                let new_pos = phys_pin_to_data_map[bit_pos];
+                let new_pos = data_pins[bit_pos];
                 // Set the bit in the result at its new position
                 result |= 1 << new_pos;
             }
@@ -427,12 +428,12 @@ impl Rom {
     // This ensures that when the hardware reads from a certain address
     // through its GPIO pins, it gets the correct byte value with bits
     // arranged according to its data pin connections.
-    fn get_byte(&self, address: usize, board: &Board) -> u8 {
+    fn get_byte(&self, phys_pin_to_addr_map: &[Option<usize>], address: usize, board: &Board) -> u8 {
         // We have been passed a physical address based on the hardware pins,
         // so we need to transform it to a logical address based on the ROM
         // image.
         let num_addr_lines = self.rom_type.num_addr_lines();
-        let transformed_address = Self::address_to_logical(address, board, num_addr_lines);
+        let transformed_address = Self::address_to_logical(phys_pin_to_addr_map, address, board, num_addr_lines);
 
         // Sanity check that we did get a logical address, which must by
         // definition fit within the actual ROM size.
@@ -459,7 +460,7 @@ impl Rom {
 
         // Now transform the byte, as the physical data lines are not in the
         // expected order (0-7).
-        Self::byte_to_logical(byte, board)
+        Self::byte_mangled(byte, board)
     }
 
     fn rom_type_c_enum_val(&self) -> u8 {
@@ -538,6 +539,13 @@ impl RomSet {
         if roms.len() > 1 && set_type == RomSetType::Single {
             return Err(Error::TooManyRoms {
                 expected: 1,
+                actual: roms.len(),
+            });
+        }
+
+        if roms.len() == 1 && set_type != RomSetType::Single {
+            return Err(Error::TooFewRoms {
+                expected: 2,
                 actual: roms.len(),
             });
         }
@@ -667,8 +675,8 @@ impl RomSet {
             } else {
                 // Banked mode: use X1/X2 to select ROM
                 assert!(address < 65536, "Address out of bounds for banked ROM set");
-                let x1_pin = board.pin_x1();
-                let x2_pin = board.pin_x2();
+                let x1_pin = board.bit_x1();
+                let x2_pin = board.bit_x2();
                 let bank = if board.x_jumper_pull() == 1 {
                     ((address >> x1_pin) & 1) | (((address >> x2_pin) & 1) << 1)
                 } else {
@@ -689,7 +697,7 @@ impl RomSet {
             let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
-            return self.roms[rom_index].get_byte(masked_address, board);
+            return self.roms[rom_index].get_byte(&phys_pin_to_addr_map, masked_address, board);
         }
 
         // Multiple ROMs: check CS line states to select responding ROM.  This
@@ -710,7 +718,7 @@ impl RomSet {
             let pins_active_high = rom_in_set.cs_config.cs1_logic() == CsLogic::ActiveHigh;
 
             // Get the CS pin that controls this ROM's selection
-            let cs_pin = board.cs_pin_for_rom_in_set(rom_in_set.rom_type, index);
+            let cs_pin = board.cs_bit_for_rom_in_set(rom_in_set.rom_type, index);
             assert!(cs_pin <= 15, "Internal error: CS pin is > 15");
 
             fn is_pin_active(active_high: bool, address: usize, pin: u8) -> bool {
@@ -725,9 +733,9 @@ impl RomSet {
 
             if cs_active {
                 // Verify exactly one CS pin is active
-                let cs1_pin = board.pin_cs1(rom_in_set.rom_type);
-                let x1_pin = board.pin_x1();
-                let x2_pin = board.pin_x2();
+                let cs1_pin = board.bit_cs1(rom_in_set.rom_type);
+                let x1_pin = board.bit_x1();
+                let x2_pin = board.bit_x2();
 
                 let cs1_is_active = is_pin_active(pins_active_high, address, cs1_pin);
                 let x1_is_active = is_pin_active(pins_active_high, address, x1_pin);
@@ -741,13 +749,13 @@ impl RomSet {
                 // Only return the byte for a single CS active, otherwise
                 // it'll get a "blank" byte
                 if active_count == 1 && self.check_rom_cs_requirements(rom_in_set, address, board) {
-                    return rom_in_set.get_byte(address, board);
+                    return rom_in_set.get_byte(&phys_pin_to_addr_map, address, board);
                 }
             }
         }
 
         // No ROM is selected, so this part of the address space is set to blank value
-        Rom::byte_to_logical(PAD_NO_ROM_BYTE, board)
+        Rom::byte_mangled(PAD_NO_ROM_BYTE, board)
     }
 
     fn check_rom_cs_requirements(&self, rom_in_set: &Rom, address: usize, board: &Board) -> bool {
@@ -761,14 +769,14 @@ impl RomSet {
                     // CS2 state doesn't matter
                 }
                 CsLogic::ActiveLow => {
-                    let cs2_pin = board.pin_cs2(rom_type);
+                    let cs2_pin = board.bit_cs2(rom_type);
                     let cs2_active = (address & (1 << cs2_pin)) == 0;
                     if !cs2_active {
                         return false;
                     }
                 }
                 CsLogic::ActiveHigh => {
-                    let cs2_pin = board.pin_cs2(rom_type);
+                    let cs2_pin = board.bit_cs2(rom_type);
                     let cs2_active = (address & (1 << cs2_pin)) != 0;
                     if cs2_active {
                         return false;
@@ -784,14 +792,14 @@ impl RomSet {
                     // CS3 state doesn't matter
                 }
                 CsLogic::ActiveLow => {
-                    let cs3_pin = board.pin_cs3(rom_type);
+                    let cs3_pin = board.bit_cs3(rom_type);
                     let cs3_active = (address & (1 << cs3_pin)) == 0;
                     if !cs3_active {
                         return false;
                     }
                 }
                 CsLogic::ActiveHigh => {
-                    let cs3_pin = board.pin_cs3(rom_type);
+                    let cs3_pin = board.bit_cs3(rom_type);
                     let cs3_active = (address & (1 << cs3_pin)) != 0;
                     if cs3_active {
                         return false;
@@ -808,12 +816,12 @@ impl RomSet {
         let mut masked_address = address;
 
         // Remove the CS selection bits - only mask bits that exist on this hardware
-        masked_address &= !(1 << board.pin_cs1(rom_type));
+        masked_address &= !(1 << board.bit_cs1(rom_type));
 
-        // Only mask X1/X2 on hardware that has them (revision F)
+        // Only mask X1/X2 on hardware that has them
         if board.supports_multi_rom_sets() {
-            let x1 = board.pin_x1();
-            let x2 = board.pin_x2();
+            let x1 = board.bit_x1();
+            let x2 = board.bit_x2();
             assert!(x1 < 15 && x2 < 15, "X1/X2 pins must be less than 15");
             masked_address &= !(1 << x1);
             masked_address &= !(1 << x2);
@@ -822,11 +830,11 @@ impl RomSet {
         // Remove CS2/CS3 bits based on ROM type
         match rom_type {
             RomType::Rom2332 => {
-                masked_address &= !(1 << board.pin_cs2(rom_type));
+                masked_address &= !(1 << board.bit_cs2(rom_type));
             }
             RomType::Rom2316 => {
-                masked_address &= !(1 << board.pin_cs2(rom_type));
-                masked_address &= !(1 << board.pin_cs3(rom_type));
+                masked_address &= !(1 << board.bit_cs2(rom_type));
+                masked_address &= !(1 << board.bit_cs3(rom_type));
             }
             RomType::Rom2364 => {
                 // 2364 only uses CS1, no additional bits to remove

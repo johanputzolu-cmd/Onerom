@@ -57,6 +57,10 @@ pub enum Error {
         expected: usize,
         actual: usize,
     },
+    TooFewRoms {
+        expected: usize,
+        actual: usize,
+    },
     MissingCsConfig {
         line: &'static str,
     },

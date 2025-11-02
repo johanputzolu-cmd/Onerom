@@ -35,7 +35,7 @@ pub async fn fetch_license_async(url: &str) -> Result<String, Error> {
 /// If cache_return is true, the function will return the full file data as well as any extracted data
 /// 
 /// Returns:
-/// - Ok(Vec<u8>, Vec<u8>) - The extracted file data and full file if cache_return
+/// - `Ok(Vec<u8>, Vec<u8>)` - The extracted file data and full file if cache_return
 pub fn fetch_rom_file(url: &str, file: &[u8], extract: Option<String>, cache_return: bool) -> Result<(Vec<u8>, Vec<u8>), Error> {
     let bytes = if file.is_empty() {
         // Get the file itself
@@ -68,7 +68,7 @@ pub fn fetch_rom_file(url: &str, file: &[u8], extract: Option<String>, cache_ret
 /// If cache_return is true, the function will return the full file data as well as any extracted data
 /// 
 /// Returns:
-/// - Ok(Vec<u8>, Vec<u8>) - The extracted file data and full file data if cache_return
+/// - `Ok(Vec<u8>, Vec<u8>)` - The extracted file data and full file data if cache_return
 pub async fn fetch_rom_file_async(url: &str, file: &[u8], extract: Option<String>, cache_return: bool) -> Result<(Vec<u8>, Vec<u8>), Error> {
     let bytes = if file.is_empty() {
         // Get the file itself
