@@ -2602,7 +2602,7 @@ mod tests {
 
     // Helper: Unscramble physical byte to logical byte based on board pin mapping
     fn unscramble_physical_byte(physical_byte: u8, board: onerom_config::hw::Board) -> u8 {
-        let data_pins = board.phys_pin_to_data_map();
+        let data_pins = board.data_pins();
         let mut logical_byte = 0;
 
         // For each physical pin, if the bit is set, set the corresponding logical data line bit

@@ -407,7 +407,15 @@ impl Rom {
             // Check if this bit is set in the original byte
             if (byte & (1 << bit_pos)) != 0 {
                 // Get the new position for this bit
-                let new_pos = data_pins[bit_pos];
+                let mut new_pos = data_pins[bit_pos];
+                if new_pos > 15 {
+                    // Fire rev A
+                    assert!(new_pos < 24);
+                    new_pos -= 16;
+                } else {
+                    // All other boards
+                    assert!(new_pos < 8);
+                }
                 // Set the bit in the result at its new position
                 result |= 1 << new_pos;
             }
