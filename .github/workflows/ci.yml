@@ -55,11 +55,15 @@ jobs:
 
     - name: Run various Rust tests
       working-directory: rust
-      run: ci/rust-tests.sh
+      run: |
+        export TOOLCHAIN=/usr/bin
+        ci/rust-tests.sh
 
     - name: Build Rust docs
       working-directory: rust
-      run: ci/rust-docs.sh
+      run: |
+        export TOOLCHAIN=/usr/bin
+        ci/rust-docs.sh
 
     - name: Test option combinations
       run: |
