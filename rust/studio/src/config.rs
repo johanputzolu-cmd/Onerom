@@ -190,6 +190,11 @@ pub async fn get_config_from_partial_url(url: &String) -> Result<Vec<u8>, String
         .await
         .map_err(|e| format!("Network error fetching Config:\n  - {e}"))?;
 
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("HTTP error fetching Config: {status}"));
+    }
+
     let bytes = response
         .bytes()
         .await

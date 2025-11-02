@@ -7,7 +7,7 @@
     "latest_app_version": {
       "description": "Latest application version available",
       "type": "string",
-      "default": "0.1.1"
+      "default": "0.1.2"
     },
     "link_urls": {
       "description": "Links used by the application within the UI",
@@ -18,7 +18,7 @@
         "linux_udev": "https://onerom.org/web/#linux",
         "one_rom": "https://onerom.org",
         "piers_rocks": "https://piers.rocks",
-        "rom_configs": "https://onerom.org/web/#rom-configs",
+        "rom_configs": "https://images.onerom.org/#rom-configs",
         "win_usb": "https://onerom.org/web/#windows",
         "zadig": "https://zadig.akeo.ie/"
       }
@@ -37,7 +37,7 @@
       "$ref": "#/$defs/PathUrls",
       "default": {
         "firmware_releases": "https://images.onerom.org/releases/",
-        "rom_configs": "https://images.onerom.org/configs/"
+        "rom_configs": "https://images.onerom.org/"
       }
     },
     "revision": {
@@ -98,7 +98,7 @@
         "rom_configs": {
           "description": "ROM configuration information page",
           "type": "string",
-          "default": "https://onerom.org/web/#rom-configs"
+          "default": "https://images.onerom.org/#rom-configs"
         },
         "win_usb": {
           "description": "Windows USB driver instructions",
@@ -145,7 +145,7 @@
         "rom_configs": {
           "description": "Path to rom configs on the server",
           "type": "string",
-          "default": "https://images.onerom.org/configs/"
+          "default": "https://images.onerom.org/"
         }
       }
     },

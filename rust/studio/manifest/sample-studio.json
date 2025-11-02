@@ -1,7 +1,7 @@
 {
   "version": 1,
   "revision": 0,
-  "latest_app_version": "0.1.1",
+  "latest_app_version": "0.1.2",
   "link_urls": {
     "one_rom": "https://onerom.org",
     "piers_rocks": "https://piers.rocks",
@@ -9,7 +9,7 @@
     "win_usb": "https://onerom.org/web/#windows",
     "github_issue": "https://github.com/piersfinlayson/one-rom/issues",
     "linux_udev": "https://onerom.org/web/#linux",
-    "rom_configs": "https://onerom.org/web/#rom-configs",
+    "rom_configs": "https://images.onerom.org/#rom-configs",
     "app_update": "https://onerom.org/studio/#downloads"
   },
   "manifest_urls": {
@@ -25,6 +25,6 @@
   },
   "paths": {
     "firmware_releases": "https://images.onerom.org/releases/",
-    "rom_configs": "https://images.onerom.org/configs/"
+    "rom_configs": "https://images.onerom.org/"
   }
 }
