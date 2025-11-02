@@ -740,7 +740,11 @@ firmware: gen
 	@echo "-----"
 	@GEN_OUTPUT_DIR=$(GEN_OUTPUT_DIR) EXCLUDE_METADATA="$(EXCLUDE_METADATA)" EXTRA_C_FLAGS="$(EXTRA_C_FLAGS)" make --no-print-directory -C sdrr
 ifeq ($(MCU), rp2350)
-	picotool uf2 convert sdrr/build/$(BIN_PREFIX).bin sdrr/build/$(BIN_PREFIX).uf2
+	@if command -v picotool >/dev/null 2>&1; then \
+		picotool uf2 convert sdrr/build/$(BIN_PREFIX).bin sdrr/build/$(BIN_PREFIX).uf2; \
+	else \
+		echo "Warning: picotool not found, skipping UF2 conversion"; \
+	fi
 endif
 
 # Call make run-actual - this causes a new instance of make to be invoked and generated.mk exists, so it can load PROBE_RS_CHIP_ID
