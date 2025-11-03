@@ -543,6 +543,7 @@ fn generate_port_methods(configs: &[HwConfigData]) -> String {
         ("port_cs", "cs_port", "Chip select port"),
         ("port_sel", "sel_port", "SEL port"),
         ("port_status", "status_port", "Status LED port"),
+        ("port_usb", "usb_port", "USB pins port"),
     ];
 
     for (method_name, field_name, doc) in port_methods {
@@ -560,6 +561,7 @@ fn generate_port_methods(configs: &[HwConfigData]) -> String {
                 "cs_port" => &config.config.mcu.ports.cs_port,
                 "sel_port" => &config.config.mcu.ports.sel_port,
                 "status_port" => &config.config.mcu.ports.status_port,
+                "usb_port" => &config.config.mcu.usb.as_ref().and_then(|usb| usb.pins.as_ref().map(|pins| pins.port)).unwrap_or(Port::None),
                 _ => unreachable!(),
             };
             let port_str = format_port(port);
@@ -570,9 +572,9 @@ fn generate_port_methods(configs: &[HwConfigData]) -> String {
         }
 
         code.push_str("        }\n");
-        code.push_str("    }\n");
-        if method_name != "port_status" {
-            code.push_str("\n");
+        code.push_str("    }");
+        if method_name != "usb_port" {
+            code.push_str("\n\n");
         }
     }
 
@@ -1036,6 +1038,22 @@ fn generate_capability_methods(configs: &[HwConfigData]) -> String {
         code.push_str(&format!(
             "            Board::{} => {},\n",
             config.variant_name, has_usb
+        ));
+    }
+
+    code.push_str("        }\n");
+    code.push_str("    }\n\n");
+
+    // Get USB VBUS pin
+    code.push_str("    /// Get the USB VBUS pin\n");
+    code.push_str("    pub const fn usb_vbus_pin(&self) -> Option<u8> {\n");
+    code.push_str("        match self {\n");
+
+    for config in configs {
+        let vbus_pin = config.config.mcu.usb.as_ref().and_then(|usb| usb.pins.as_ref().map(|pins| pins.vbus));
+        code.push_str(&format!(
+            "            Board::{} => {:?},\n",
+            config.variant_name, vbus_pin
         ));
     }
 

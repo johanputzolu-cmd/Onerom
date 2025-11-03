@@ -386,6 +386,8 @@ endif
 
 # Sort out binary prefix
 ifneq ($(MCU),)
+  # Make MCU lowercase
+  MCU := $(shell echo $(MCU) | tr '[:upper:]' '[:lower:]')
   MCU_PREFIX=
   ifneq ($(filter f%,$(MCU)),)
     MCU_PREFIX=stm32
