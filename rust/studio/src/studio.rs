@@ -768,6 +768,12 @@ impl Studio {
                 trace!("Release {fw_ver:?} does not exist for {board} {mcu}");
                 return Message::ReleaseDoesntExist.into()
             }
+            Err(onerom_fw::Error::Http { status }) => {
+                info!(
+                    "Failed to download release {fw_ver:?} for {board} {mcu}: HTTP error {status}"
+                );
+                return Message::ReleaseDoesntExist.into()
+            }
             Err(e) => {
                 let log =
                     format!("Failed to download release {fw_ver:?} for {board} {mcu}:\n - {e}");

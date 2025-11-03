@@ -122,18 +122,20 @@ impl Create {
         if !self.hardware_selected() {
             return None;
         }
+        let board = self.selected_hw_info.board.as_ref().unwrap();
+        let mcu = self.selected_hw_info.mcu_variant.as_ref().unwrap();
 
         if let Some(releases) = releases {
             let latest = releases.latest();
             let latest = releases.release_from_string(latest);
-            if let Some(r) = latest {
+            if let Some(r) = latest && r.supports_hw(board, mcu) {
                 self.select_release(r.clone())
             } else {
-                warn!("No latest release found in releases");
+                debug!("No latest release found in releases for this hardware");
                 None
             }
         } else {
-            warn!("Release updated but no releases");
+            warn!("Release updated but no releases found for hardware");
             None
         }
     }

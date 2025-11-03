@@ -118,15 +118,13 @@ fn firmware_row<'a>(
         };
 
         // We don't display releases unless model and board selected
-        let board = create.selected_hw_info.board;
-        let variant = create.selected_hw_info.mcu_variant;
-        assert!(board.is_some());
-        assert!(variant.is_some());
+        let board = create.selected_hw_info.board.expect("Board should be selected");
+        let variant = create.selected_hw_info.mcu_variant.expect("MCU variant should be selected");
 
         // Choose releases to show based on hardware
         let pick_releases = releases.hw_releases(
-            &board.unwrap(),
-            &variant.unwrap(),
+            &board,
+            &variant,
         );
         let no_releases = pick_releases.is_empty();
 
@@ -139,7 +137,17 @@ fn firmware_row<'a>(
             } else if let Some(r) = runtime_info.selected_firmware() {
                 Some(r)
             } else {
-                releases.release_from_string(latest)
+                // Only display latest if it supports the selected hardware
+                match releases.release_from_string(latest) {
+                    Some(r) => {
+                        if r.supports_hw(&board, &variant) {
+                            Some(r)
+                        } else {
+                            None
+                        }
+                    },
+                    None => None,
+                }
             };
 
             // Create release pick list

@@ -18,6 +18,11 @@ pub const FIRMWARE_RELEASE_MANIFEST: &str = "releases.json";
 pub fn fetch_license(url: &str) -> Result<String, Error> {
     debug!("Fetching license from {}", url);
     let response = reqwest::blocking::get(url).map_err(Error::network)?;
+
+    if !response.status().is_success() {
+        return Err(Error::Http { status: response.status().as_u16() });
+    }
+
     let body = response.text().map_err(Error::network)?;
     Ok(body)
 }
@@ -26,6 +31,10 @@ pub fn fetch_license(url: &str) -> Result<String, Error> {
 pub async fn fetch_license_async(url: &str) -> Result<String, Error> {
     debug!("Fetching license from {}", url);
     let response = reqwest::get(url).await.map_err(Error::network)?;
+    if !response.status().is_success() {
+        return Err(Error::Http { status: response.status().as_u16() });
+    }
+
     let body = response.text().await.map_err(Error::network)?;
     Ok(body)
 }
@@ -41,6 +50,9 @@ pub fn fetch_rom_file(url: &str, file: &[u8], extract: Option<String>, cache_ret
         // Get the file itself
         debug!("Fetching ROM file from {}", url);
         let response = reqwest::blocking::get(url).map_err(Error::network)?;
+        if !response.status().is_success() {
+            return Err(Error::Http { status: response.status().as_u16() });
+        }
         response.bytes().map_err(Error::network)?
     } else {
         debug!("Using cached ROM file for {}", url);
@@ -74,6 +86,9 @@ pub async fn fetch_rom_file_async(url: &str, file: &[u8], extract: Option<String
         // Get the file itself
         debug!("Fetching ROM file from {}", url);
         let response = reqwest::get(url).await.map_err(Error::network)?;
+        if !response.status().is_success() {
+            return Err(Error::Http { status: response.status().as_u16() });
+        }
         response.bytes().await.map_err(Error::network)?
     } else {
         debug!("Using cached ROM file for {}", url);
@@ -125,6 +140,10 @@ impl Releases {
         let url = Self::manifest_url();
         debug!("Fetching releases manifest from {}", url);
         let response = reqwest::blocking::get(&url).map_err(Error::network)?;
+        if !response.status().is_success() {
+            return Err(Error::Http { status: response.status().as_u16() });
+        }
+
         let body = response.text().map_err(Error::network)?;
         Self::from_json(&body)
     }
@@ -138,6 +157,10 @@ impl Releases {
     pub async fn from_network_async_url(url: &str) -> Result<Self, Error> {
         debug!("Fetching releases manifest from {}", url);
         let response = reqwest::get(url).await.map_err(Error::network)?;
+        if !response.status().is_success() {
+            return Err(Error::Http { status: response.status().as_u16() });
+        }
+
         let body = response.text().await.map_err(Error::network)?;
         Self::from_json(&body)
     }
@@ -224,6 +247,9 @@ impl Releases {
         // Download the firmware
         debug!("Downloading firmware from {}", url);
         let response = reqwest::blocking::get(&url).map_err(Error::network)?;
+        if !response.status().is_success() {
+            return Err(Error::Http { status: response.status().as_u16() });
+        }
         let bytes = response.bytes().map_err(Error::network)?;
         Ok(bytes.to_vec())
     }
@@ -239,6 +265,9 @@ impl Releases {
         // Download the firmware
         debug!("Downloading firmware from {}", url);
         let response = reqwest::get(&url).await.map_err(Error::network)?;
+        if !response.status().is_success() {
+            return Err(Error::Http { status: response.status().as_u16() });
+        }
         let bytes = response.bytes().await.map_err(Error::network)?;
         Ok(bytes.to_vec())
     }
@@ -268,6 +297,12 @@ impl core::fmt::Display for Release {
 }
 
 impl Release {
+    pub fn supports_hw(&self, board: &HwBoard, mcu: &McuVariant) -> bool {
+        self.board_str(&board.name().to_ascii_lowercase())
+            .and_then(|b| b.mcu(&mcu.to_string().to_ascii_lowercase()))
+            .is_some()
+    }
+
     fn path(&self, board: &str, mcu: &str) -> Result<String, Error> {
         let board = self.board_str(&board.to_ascii_lowercase()).ok_or_else(|| {
             debug!("Failed to find board for {board:?}");
