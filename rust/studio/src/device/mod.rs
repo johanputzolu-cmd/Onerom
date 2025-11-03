@@ -17,6 +17,7 @@ use iced::widget::Column;
 use iced::{Element, Subscription, Task};
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
+use onerom_config::Model;
 
 use crate::app::AppMessage;
 use crate::hw::HardwareInfo;
@@ -50,6 +51,91 @@ impl std::fmt::Display for Client {
             Client::Analyse => write!(f, "Analyse"),
             Client::Create => write!(f, "Create"),
         }
+    }
+}
+
+/// Addressing modes for device read/write
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Address {
+    FlashStart,
+    FlashOffset(u32),
+    Absolute(u32),
+}
+
+impl std::fmt::Display for Address {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Address::FlashStart => write!(f, "FlashStart"),
+            Address::FlashOffset(offset) => write!(f, "FlashOffset(0x{:X})", offset),
+            Address::Absolute(addr) => write!(f, "Absolute(0x{:X})", addr),
+        }
+    }
+}
+
+impl Address {
+    pub fn abs_from_hw_info(&self, hw_info: &HardwareInfo) -> Option<u32> {
+        let offset = match self {
+            Address::Absolute(addr) => return Some(*addr),
+            Address::FlashStart => 0,
+            Address::FlashOffset(offset) => *offset,
+        };
+
+        let base = if let Some(board) = &hw_info.board {
+            board.mcu_family().get_flash_base()
+        } else if let Some(variant) = &hw_info.mcu_variant {
+            variant.family().get_flash_base()
+        } else if let Some(model) = &hw_info.model {
+            model.mcu_family().get_flash_base()
+        } else {
+            trace!("No board, MCU or model info to get flash base address");
+            return None;
+        };
+
+        Some(base + offset)
+    }
+
+    pub fn abs_from_device(&self, device: &DeviceType) -> Option<u32> {
+        match device {
+            DeviceType::DebugProbe(_) => None,
+            DeviceType::Usb(usb) => Some(self.abs_from_usb_device(usb)),
+            DeviceType::None => None,
+        }
+    }
+
+    pub fn abs_from_usb_device(&self, usb_device: &UsbDeviceType) -> u32 {
+        let offset = match self {
+            // Remap if the flash base address of the other model is requested
+            Address::Absolute(addr) => {
+                let addr = match usb_device {
+                    UsbDeviceType::Fire(_) => {
+                        if *addr == Model::Ice.mcu_family().get_flash_base() {
+                            trace!("Attempt to read from Ice flash base address via Fire USB, remapping");
+                            Model::Fire.mcu_family().get_flash_base()
+                        } else {
+                            *addr
+                        }
+                    }
+                    UsbDeviceType::Ice(_) => {
+                        if *addr == Model::Fire.mcu_family().get_flash_base() {
+                            trace!("Attempt to read from Fire flash base address via Ice USB, remapping");
+                            Model::Ice.mcu_family().get_flash_base()
+                        } else {
+                            *addr
+                        }
+                    }
+                };
+                return addr
+            },
+            Address::FlashStart => 0,
+            Address::FlashOffset(offset) => *offset,
+        };
+
+        let base = match usb_device {
+            UsbDeviceType::Ice(_) => Model::Ice.mcu_family().get_flash_base(),
+            UsbDeviceType::Fire(_) => Model::Fire.mcu_family().get_flash_base(),
+        };
+
+        base + offset
     }
 }
 
@@ -306,7 +392,7 @@ impl DeviceType {
         &self,
         client: Client,
         hw_info: HardwareInfo,
-        address: u32,
+        address: Address,
         words: usize,
     ) -> Task<AppMessage> {
         Task::future(read_async(self.clone(), client, hw_info, address, words))
@@ -322,7 +408,7 @@ async fn read_async(
     device: DeviceType,
     client: Client,
     hw_info: HardwareInfo,
-    address: u32,
+    address: Address,
     words: usize,
 ) -> AppMessage {
     match device {

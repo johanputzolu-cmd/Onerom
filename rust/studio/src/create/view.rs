@@ -111,22 +111,47 @@ fn firmware_row<'a>(
     if let Some(releases) = &runtime_info.releases() {
         let latest = releases.latest();
 
-        // Create release pick list
-        let selected_release = if let Some(r) = runtime_info.selected_firmware() {
-            Some(r)
-        } else {
-            releases.release_from_string(latest)
-        };
-
         let msg = if create.is_busy() {
             |_| AppMessage::Nop // Ignore picklist selection while busy
         } else {
             |r| Message::ReleaseSelected(r).into()
         };
-        let release_pick_list =
-            Style::pick_list_small(releases.releases().as_slice(), selected_release, msg);
 
-        let mut rows = row![Style::text_h3("Firmware Release"), release_pick_list,];
+        // We don't display releases unless model and board selected
+        let board = create.selected_hw_info.board;
+        let variant = create.selected_hw_info.mcu_variant;
+        assert!(board.is_some());
+        assert!(variant.is_some());
+
+        // Choose releases to show based on hardware
+        let pick_releases = releases.hw_releases(
+            &board.unwrap(),
+            &variant.unwrap(),
+        );
+        let no_releases = pick_releases.is_empty();
+
+        let mut row = row![Style::text_h3("Firmware Release")];
+
+        if !no_releases {
+            // Get selected release
+            let selected_release = if pick_releases.is_empty() {
+                None
+            } else if let Some(r) = runtime_info.selected_firmware() {
+                Some(r)
+            } else {
+                releases.release_from_string(latest)
+            };
+
+            // Create release pick list
+            let release_pick_list =
+                Style::pick_list_small(pick_releases, selected_release, msg);
+
+            row = row.push(release_pick_list);
+        } else {
+            let no_releases = Style::text_body("No releases found")
+                .color(Style::COLOUR_DARK_GOLD);
+            row = row.push(no_releases);
+        }
 
         // Show if release has been downloaded
         if let Some(fw_len) = runtime_info.firmware_len() {
@@ -137,11 +162,11 @@ fn firmware_row<'a>(
                 Style::text_small(" bytes)"),
             ]
             .spacing(0);
-            rows = rows.push(downloaded_row);
+            row = row.push(downloaded_row);
         }
 
         // Return the row
-        rows.spacing(20).align_y(iced::alignment::Vertical::Center)
+        row.spacing(20).align_y(iced::alignment::Vertical::Center)
     } else {
         row![Style::text_h3("No firmware releases available")]
     }

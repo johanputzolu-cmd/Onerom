@@ -404,7 +404,9 @@ impl log::Log for Logger {
         // When using the crate name we have to turn - into _ as the latter is
         // what we get called with
         let crate_name = env!("CARGO_CRATE_NAME").replace("-", "_");
-        metadata.target().starts_with(&crate_name) || metadata.target().starts_with("dfu")
+        metadata.target().starts_with(&crate_name)
+            || metadata.target().starts_with("dfu")
+            || metadata.target().starts_with("picoboot")
     }
 
     // Log the record by sending it to the log channel

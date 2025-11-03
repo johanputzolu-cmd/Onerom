@@ -39,6 +39,7 @@ pub enum Message {
     Releases(Releases),
     DownloadRelease(Release, Board, McuVariant),
     ReleaseDownloaded(Result<Vec<u8>, String>),
+    ReleaseDoesntExist,
     ClearDownloadedRelease,
     FetchConfigs,
     ConfigManifest(ConfigManifest),
@@ -71,6 +72,7 @@ impl std::fmt::Display for Message {
                 Ok(data) => write!(f, "ReleaseDownloaded({} bytes)", data.len()),
                 Err(_) => write!(f, "ReleaseDownloaded(Err)"),
             },
+            Message::ReleaseDoesntExist => write!(f, "ReleaseDoesntExist"),
             Message::ClearDownloadedRelease => write!(f, "ClearDownloadedRelease"),
             Message::FetchConfigs => write!(f, "FetchConfigs"),
             Message::ConfigManifest(configs) => {
@@ -354,7 +356,7 @@ impl RuntimeInfo {
     }
 
     fn clear_firmware(&mut self) {
-        self.firmware = None;
+        self.clear_selected_firmware();
     }
 
     pub fn firmware_selected(&self) -> bool {
@@ -489,6 +491,12 @@ impl Studio {
                 };
                 let result = result.map(drop);
                 task_from_msg!(CreateMessage::ReleaseDowloaded(result))
+            }
+            Message::ReleaseDoesntExist => {
+                self.runtime_info.clear_firmware();
+                task_from_msg!(CreateMessage::ReleaseDowloaded(Err(
+                    "Requested firmware release does not exist".to_string()
+                )))
             }
             Message::ClearDownloadedRelease => {
                 self.download_succeeded();
@@ -756,6 +764,10 @@ impl Studio {
             .await
         {
             Ok(data) => Ok(data),
+            Err(onerom_fw::Error::ReleaseNotFound) => {
+                trace!("Release {fw_ver:?} does not exist for {board} {mcu}");
+                return Message::ReleaseDoesntExist.into()
+            }
             Err(e) => {
                 let log =
                     format!("Failed to download release {fw_ver:?} for {board} {mcu}:\n - {e}");

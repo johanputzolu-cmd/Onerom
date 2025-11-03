@@ -164,6 +164,18 @@ impl Releases {
         &self.releases
     }
 
+    pub fn hw_releases(&self, board: &HwBoard, mcu: &McuVariant) -> Vec<Release> {
+        self.releases
+            .iter()
+            .filter(|r| {
+                r.board_str(&board.name().to_ascii_lowercase())
+                    .and_then(|b| b.mcu(&mcu.to_string().to_ascii_lowercase()))
+                    .is_some()
+            })
+            .cloned()
+            .collect()
+    }
+
     pub fn releases_str(&self) -> String {
         self.releases
             .iter()
@@ -257,7 +269,7 @@ impl core::fmt::Display for Release {
 
 impl Release {
     fn path(&self, board: &str, mcu: &str) -> Result<String, Error> {
-        let board = self.board(&board.to_ascii_lowercase()).ok_or_else(|| {
+        let board = self.board_str(&board.to_ascii_lowercase()).ok_or_else(|| {
             debug!("Failed to find board for {board:?}");
             Error::release_not_found()
         })?;
@@ -266,7 +278,7 @@ impl Release {
         Ok(format!("{path}/{}", board.path(mcu)?))
     }
 
-    fn board(&self, board: &str) -> Option<&Board> {
+    fn board_str(&self, board: &str) -> Option<&Board> {
         self.boards.iter().find(|b| b.name == board)
     }
 

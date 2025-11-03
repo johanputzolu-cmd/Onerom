@@ -14,7 +14,7 @@ use sdrr_fw_parser::{Parser, SdrrInfo, readers::MemoryReader};
 
 use crate::analyse::{Analyse, AnalyseState, FW_VERSION_METADATA, Message};
 use crate::app::AppMessage;
-use crate::device::{Client, Message as DeviceMessage};
+use crate::device::{Address, Client, Message as DeviceMessage};
 use crate::hw::HardwareInfo;
 use crate::studio::Message as StudioMessage;
 
@@ -76,8 +76,11 @@ impl DetectState {
         }
     }
 
-    pub fn flash_base(&self) -> Option<u32> {
-        self.sample_mcu().map(|mcu| mcu.family().get_flash_base())
+    pub fn flash_base(&self) -> Address {
+        match self.sample_mcu() {
+            Some(mcu) => Address::Absolute(mcu.family().get_flash_base()),
+            None => Address::FlashStart,
+        }
     }
 }
 
@@ -258,9 +261,7 @@ pub fn detect_device(analyse: &mut Analyse, err: Option<String>) -> Task<AppMess
     let read_device_task = Task::done(AppMessage::Device(DeviceMessage::ReadDevice {
         client: Client::Analyse,
         hw_info,
-        address: detect_state
-            .flash_base()
-            .expect("Flash base should be available"),
+        address: detect_state.flash_base(),
         words: 65536 / 4,
     }));
 
@@ -294,7 +295,7 @@ pub fn reread_device(
     // Build the message re-read the flash (and re-parse).  We now have the
     // MCU variant, so can get the full flash size - this is what we need to
     // read.
-    let address = mcu.family().get_flash_base();
+    let address = Address::Absolute(mcu.family().get_flash_base());
     let words = mcu.flash_storage_bytes() / 4;
     let hw_info = HardwareInfo {
         board: None,

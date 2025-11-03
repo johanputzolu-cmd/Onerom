@@ -1176,8 +1176,18 @@ fn generate_hw_models(configs: &[HwConfigData]) -> String {
     code.push_str("            ],\n");
 
     code.push_str("        }\n");
-    code.push_str("    }\n");
-    code.push_str("}");
+    code.push_str("    }\n\n");
 
+    // Get the mcu family for this model
+    code.push_str("    /// Get the MCU family for this model\n");
+    code.push_str("    pub fn mcu_family(&self) -> Family {\n");
+    code.push_str("        match self {\n");
+    code.push_str("            Model::Fire => Family::Rp2350,\n");
+    code.push_str("            Model::Ice => Family::Stm32f4,\n");
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+
+
+    code.push_str("}");
     code
 }

@@ -16,7 +16,7 @@ use std::time::Duration;
 use tokio::task::spawn_blocking;
 
 use crate::app::AppMessage;
-use crate::device::{Client, Message};
+use crate::device::{Address, Client, Message};
 use crate::hw::HardwareInfo;
 
 // Time to wait for core halt operations
@@ -77,13 +77,24 @@ pub async fn read_async(
     probe: ProbeType,
     client: Client,
     hw_info: HardwareInfo,
-    address: u32,
+    address: Address,
     words: usize,
 ) -> AppMessage {
+    // Get the chip ID
     let chip_id = match hw_info.mcu_variant {
         None => "STM32F411RETx".to_string(),
         Some(mcu) => mcu.chip_id().to_string(),
     };
+
+    // Get the absolute address
+    let address = if let Some(address) = address.abs_from_hw_info(&hw_info) {
+        address
+    } else {
+        let log = format!("Failed to resolve address for reading {words} words of memory at {address}");
+        warn!("{log}");
+        return Message::ReadFailed(client, log).into();
+    };
+
     let result = spawn_blocking(move || {
         probe_init_and_operate_on_core(probe.inner().clone(), chip_id, true, |core| {
             let mut buf = vec![0u32; words];

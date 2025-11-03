@@ -14,7 +14,7 @@ use crate::app::AppMessage;
 use crate::create::Message as CreateMessage;
 use crate::device::probe::ProbeType;
 use crate::device::usb::UsbDeviceType;
-use crate::device::{Client, Device, DeviceType};
+use crate::device::{Address, Client, Device, DeviceType};
 use crate::hw::HardwareInfo;
 use crate::internal_error;
 use crate::studio::RuntimeInfo;
@@ -50,7 +50,7 @@ pub enum Message {
     ReadDevice {
         client: Client,
         hw_info: HardwareInfo,
-        address: u32,
+        address: Address,
         words: usize,
     },
     DeviceData(Client, Vec<u8>),
@@ -80,8 +80,7 @@ impl std::fmt::Display for Message {
             } => {
                 write!(
                     f,
-                    "ReadDevice(client={client}, hw_info={hw_info}, address=0x{:X}, words={})",
-                    address, words
+                    "ReadDevice(client={client}, hw_info={hw_info}, address={address}, words={words})",
                 )
             }
             Message::DetectUsbDevices => write!(f, "DetectUsbDevices"),
@@ -91,8 +90,8 @@ impl std::fmt::Display for Message {
                     .map(|d| {
                         format!(
                             "VID={:04X}, PID={:04X}",
-                            d.dfu_device_info().vid,
-                            d.dfu_device_info().pid
+                            d.vid(),
+                            d.pid()
                         )
                     })
                     .collect::<Vec<_>>()
@@ -225,8 +224,7 @@ pub fn handle_message(
             words,
         } => {
             debug!(
-                "{client} Reading device memory at 0x{:08X}, {} words",
-                address, words
+                "{client} Reading device memory at {address}, {words} words",
             );
             if client != Client::Analyse {
                 internal_error!("Device read requested by unsupported client: {}", client);
@@ -242,7 +240,7 @@ pub fn handle_message(
             Task::done(AnalyseMessage::DeviceData(data).into())
         }
         Message::ReadFailed(client, error) => {
-            warn!("{client} Device read failed: {}", error);
+            debug!("{client} Device read failed: {}", error);
             assert_eq!(client, Client::Analyse);
             device.operating = None;
             Task::done(AnalyseMessage::ReadFailed(error).into())

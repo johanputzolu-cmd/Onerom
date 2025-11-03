@@ -6,6 +6,8 @@ All notables changes between versions are documented in this file.
 
 NOTE TO SELF: - when releasing one-rom-wasn v0.1.5, update one-rom-site/visualizer/index.html::loadWasm() to use v0.1.5 version, not the tip.
 
+Fire USB support added using board `fire-24-usb-b`.
+
 ### Added
 
 - `onerom-config` 0.2.2 - Added method to query ROM power pins.
