@@ -10,8 +10,11 @@ Steps:
 1. Build the schema(s):
 
     ```bash
-    cargo run --bin gen-schema
-    cargo run --bin gen-manifest  # Not necessary
+    cargo run --release --bin gen-schema
+    cargo run --release --bin gen-manifest
+    git diff manifest/app-schema.json ../../../one-rom-images/studio/app-schema.json
+    # If differences
+    cp manifest/app-schema.json ../../../one-rom-images/studio/app-schema.json
     ```
 
 2. Create Mac build - on a Mac, using a local terminal (not ssh) with the appropriate Apple Developer ID certificate installed in the Login keychain:
