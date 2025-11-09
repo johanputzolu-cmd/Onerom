@@ -28,7 +28,7 @@ name = "onerom_studio"
 path = "src/lib.rs"
 
 # Cargo bundle metadata, used on macOS (not cargo packager)
-[package.metadata.bundle]
+[package.metadata.bundle.bin.onerom-studio]
 name = "One ROM Studio"
 identifier = "rocks.piers.onerom-studio"
 icon = ["assets/onerom-512x512.png", "assets/onerom-256x256.png", "assets/onerom-128x128.png", "assets/onerom-64x64.png", "assets/onerom-32x32.png", "assets/onerom-16x16.png"]
