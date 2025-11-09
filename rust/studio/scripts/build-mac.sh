@@ -139,12 +139,12 @@ echo "Building dmg: $DMG_PATH"
 # Build for Intel
 PACKAGER_TARGET="x86_64-apple-darwin"
 echo "Building One ROM Studio for target: $PACKAGER_TARGET"
-cargo build --bin onerom-studio --release --target $PACKAGER_TARGET
+cargo build --release --target $PACKAGER_TARGET
 
 # Build for ARM64
 PACKAGER_TARGET="aarch64-apple-darwin"
 echo "Building One ROM Studio for target: $PACKAGER_TARGET"
-cargo build --bin onerom-studio --release --target $PACKAGER_TARGET
+cargo build --release --target $PACKAGER_TARGET
 
 # Package as a .app bundle - do this using ARM64 target for now
 echo "Bundling app for target: $PACKAGER_TARGET"
@@ -162,6 +162,10 @@ lipo -create \
   ../target/x86_64-apple-darwin/release/onerom-studio \
   ../target/aarch64-apple-darwin/release/onerom-studio \
   -output "$APP_FILE/Contents/MacOS/onerom-studio"
+
+# Delete other binaries if built
+rm -f ../target/x86_64-apple-darwin/release/gen-manifest
+rm -f ../target/x86_64-apple-darwin/release/gen-schema
 
 # Check if signing is enabled
 if [ "$SIGN" = true ]; then
