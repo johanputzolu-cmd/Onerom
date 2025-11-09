@@ -65,6 +65,8 @@ Steps:
 
 9. Check new releases appear at https://onerom.org/studio/
 
+10. Update the Studio manifest `one-rom-images/studio.json` with the latest version.
+
 ## Updating Mac Icons
 
 1. From an up to date Apple Silicon Mac, open `assets/onerom-liquid-glass.icon`.
