@@ -416,6 +416,10 @@ impl log::Log for Logger {
             return;
         }
 
+        // Print out the log when on Windows/GNU (dev platform)
+        #[cfg(all(target_os = "windows", target_env = "gnu"))]
+        println!("[{:05}] {}", record.level().as_str(), record.args());
+
         // Send the log entry to the channel
         if let Some(sender) = LOG_SENDER.get() {
             let entry = LogEntry::new(record.level().into(), format!("{}", record.args()));

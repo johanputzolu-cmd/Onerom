@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.1.2 - 2025-??-??
+## v0.1.3 - 2025-??-??
+
+### Fixed
+
+- Panic (crash) when analyzing a Fire with a debug probe.  Moved to fork of probe-rs with fix for panic.
+
+## v0.1.2 - 2025-11-09
 
 - Built with rustc 1.91
 - Move to probe-rs 0.30
