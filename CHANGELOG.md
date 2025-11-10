@@ -6,7 +6,11 @@ All notables changes between versions are documented in this file.
 
 NOTE TO SELF: - when releasing one-rom-wasn v0.1.5, update one-rom-site/visualizer/index.html::loadWasm() to use v0.1.5 version, not the tip.
 
-Fire USB support added using board `fire-24-usb-b`.
+### Added
+
+- Added first RP2350 USB version, [Fire 24 USB B](sdrr-pcb/unverified/fire-24-24-b/README.md), as unverified.
+- Added [Ice 24 USB H3](sdrr-pcb/unverified/one-rom-ice-usb-h3-24-pin/README.md) as unverified.
+- Moved [Ice 24 USB H2](sdrr-pcb/verified/one-rom-ice-usb-h2-24-pin/README.md) to verified.
 
 ### Added
 
