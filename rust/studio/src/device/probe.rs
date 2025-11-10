@@ -133,8 +133,12 @@ pub async fn flash_async(
         None => "STM32F411RETx".to_string(),
         Some(mcu) => mcu.chip_id().to_string(),
     };
+    let address = match hw_info.mcu_variant {
+        None => 0x08000000,
+        Some(mcu) => mcu.family().get_flash_base(),
+    };
     let result =
-        spawn_blocking(move || probe_flash(probe.inner().clone(), chip_id, 0x08000000, &data))
+        spawn_blocking(move || probe_flash(probe.inner().clone(), chip_id, address, &data))
             .await;
 
     match result {
