@@ -1,14 +1,14 @@
 # One ROM Ice USB H2 24 Pin 
 
-**Unverified**: Essentially identical electrically to H2, but not yet built and tested.  Low risk of errors.
+**Unverified**: Essentially identical electrically to H.
 
-Very similar to rev H (../../verified/stm32f4-24-pin-rev-h/README.md) but with the following changes:
+Very similar to [rev H](../stm32f4-24-pin-rev-h/README.md) but with the following changes:
 - Slight re-arrangement of test pads on underside.
 - Addition of vias in some of the test pads.
 
 There is a single set of gerbers, one CPL/POS file and one BOM file for the STM32F411RET6 MCU.
 
-To create the BOM for an alternate MCU, just replace the microcontroller part number.  For the STM32F405RFT6, you must also replace RC4/RC5/C9 - see the schematic for details.
+To create the BOM for an alternate MCU, replace the microcontroller part number.  For the STM32F405RET6, you must also replace RC4/RC5/C9 - see the schematic for details.
 
 <div style="text-align: center;">
   <a href="./stm32f4-24-pin-rev-h2-top-and-bottom.png">
