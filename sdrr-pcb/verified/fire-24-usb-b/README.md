@@ -2,7 +2,7 @@
 
 23xx Fire (RP2350 24 pin) USB One ROM PCB.
 
-**Unverified** - A number of boards have been received and appear basically functional for ROM serving and USB.  However, only limited testing has been done so far.  You should always check the gerbers, component lists and component orientations with your supplier before ordering.
+**Verified** - Individual ROMs, multi-ROM sets and dynamically banked ROMs have all been tested.  Testing has primarily taken place using the C64.  You should always check the gerbers, component lists and component orientations with your supplier before ordering.
 
 ## Contents
 
