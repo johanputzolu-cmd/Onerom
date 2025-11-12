@@ -2,9 +2,13 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.5.4 - 2025-??-??
+## v0.5.5 - 2025-??-??
 
-NOTE TO SELF: - when releasing one-rom-wasn v0.1.5, update one-rom-site/visualizer/index.html::loadWasm() to use v0.1.5 version, not the tip.
+NOTE TO SELF: - when releasing one-rom-wasm v0.1.5, update one-rom-site/visualizer/index.html::loadWasm() to use v0.1.5 version, not the tip.
+
+## v0.5.4 - 2025-11-12
+
+This release adds support for the One ROM Fire (RP2350) USB version, via hardware revision `fire-24-usb-b`.  Current USB support is per Ice - plugging in USB disables ROM serving, and puts the RP2350 into DFU mode to allow firmware updates.  A future release is expected to add Fire USB support in parallel to ROM serving. 
 
 ### Added
 
@@ -16,19 +20,17 @@ NOTE TO SELF: - when releasing one-rom-wasn v0.1.5, update one-rom-site/visualiz
 
 - `onerom-config` 0.2.2 - Added method to query ROM power pins.
 - Studio:
-  - Added support for ROM configs loading partial slices of ROM images from larger files.
-  - Added support to ROM files being caches, to avoid re-loading from network when a single config uses the same image multiple times.
-  - Added network connectivity status.
-  - Added progress indication for activities.
+    - See [rust/studio/CHANGELOG.md](rust/studio/CHANGELOG.md) for details.
+    - Studio is released independently of firmware - see `studio-*` github tags.
 - ROM Configs:
-  - Blank ROM config (for manufacturing/testing) - /rom-configs/blank.json
-  - Added pincode 2021 version system 7 ROM configs (2332 ROMs)
+    - Blank ROM config (for manufacturing/testing) - /rom-configs/blank.json
+    - Added pincoder 2021 version system 3, 5, 6 and 7 ROM configs (2332 ROMs)
 - Allow `sdrr-fw-parser` to parse up to v0.5.999 firmware versions. 
 
 ### Fixes
 
 - [#43](https://github.com/piersfinlayson/one-rom/issues/43) - Let sdrr-fw-parser parse later versions of fw. Supports up to v0.5.999 with no code/wasm/site changes required.
-- Allow multi-ROM sets to be built in One ROM Studio.
+- Allow multi-ROM sets to be built in One ROM Studio.  Unsure when this was regressed
 
 ## v0.5.3 - 2025-10-24
 
