@@ -28,6 +28,7 @@ NOTE TO SELF: - when releasing one-rom-wasn v0.1.5, update one-rom-site/visualiz
 ### Fixes
 
 - [#43](https://github.com/piersfinlayson/one-rom/issues/43) - Let sdrr-fw-parser parse later versions of fw. Supports up to v0.5.999 with no code/wasm/site changes required.
+- Allow multi-ROM sets to be built in One ROM Studio.
 
 ## v0.5.3 - 2025-10-24
 

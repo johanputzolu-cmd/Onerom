@@ -294,6 +294,13 @@ impl Builder {
                     // Check all other ROMs have the same CS configuration
                     for (idx, rom) in set.roms.iter().enumerate().skip(1) {
                         if rom.cs1 != first_cs1 || rom.cs2 != first_cs2 || rom.cs3 != first_cs3 {
+                            if (rom.cs2 != first_cs2) && let Some(cs) = rom.cs2 && (cs == CsLogic::Ignore) {
+                                // Ignore difference if cs2 is ignore
+                                // If there are 3 CS lines on ROM 1, cs2 must
+                                // be the same, but we don't support that yet
+                                continue;
+                            }
+                            // Should do a similar test for CS3, but we don't support that yet
                             return Err(Error::InvalidConfig {
                                 error: format!(
                                     "{:?} set requires all ROMs to have identical CS configuration. ROM 0 has cs1={:?}/cs2={:?}/cs3={:?}, but ROM {} has cs1={:?}/cs2={:?}/cs3={:?}",
