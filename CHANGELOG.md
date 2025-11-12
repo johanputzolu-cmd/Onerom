@@ -4,7 +4,6 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.5 - 2025-??-??
 
-NOTE TO SELF: - when releasing one-rom-wasm v0.1.5, update one-rom-site/visualizer/index.html::loadWasm() to use v0.1.5 version, not the tip.
 
 ## v0.5.4 - 2025-11-12
 
