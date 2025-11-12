@@ -5826,8 +5826,8 @@ dependencies = [
  "deku 0.19.1",
  "esp-println",
  "log",
- "onerom-config 0.2.2",
- "onerom-gen 0.2.0",
+ "onerom-config 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "onerom-gen 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "static_assertions",
 ]
