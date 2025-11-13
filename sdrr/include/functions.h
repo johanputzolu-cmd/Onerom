@@ -56,6 +56,9 @@ extern void platform_logging(void);
 void dfu(void);
 #endif // STM32F4
 
+// piorom.c
+extern void piorom(void);
+
 // rom_impl.c
 #if !defined(TIMER_TEST) && !defined(TOGGLE_PA4)
 extern void main_loop(

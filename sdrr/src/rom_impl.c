@@ -388,6 +388,9 @@ void __attribute__((section(".main_loop"), used)) main_loop(
         status_led_on(info->pins->status);
     }
 
+    // If we are using PIO/DMA ROM serving, jump to that now
+    piorom();
+
 #if !defined(C_MAIN_LOOP)
     // Start the appropriate main loop.  Includes preloading registers.
     //
