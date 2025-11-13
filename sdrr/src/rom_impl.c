@@ -389,7 +389,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     }
 
     // If we are using PIO/DMA ROM serving, jump to that now
-    piorom();
+    piorom(rom_table_val);
 
 #if !defined(C_MAIN_LOOP)
     // Start the appropriate main loop.  Includes preloading registers.

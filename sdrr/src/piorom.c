@@ -15,39 +15,45 @@
 // PIO state machine programs
 #define ONEROM_CS_HANDLER_START         0
 #define ONEROM_CS_HANDLER_WRAP_BOTTOM   0
-#define ONEROM_CS_HANDLER_WRAP_TOP      6
-#define ONEROM_CS_HANDLER_LEN           7
+#define ONEROM_CS_HANDLER_WRAP_TOP      7
+#define ONEROM_CS_HANDLER_LEN           8
 static const uint16_t onerom_cs_handler[] = {
             //     .wrap_target
     0xa063, //  0: mov    pindirs, null
     0xa020, //  1: mov    x, pins
     0x0024, //  2: jmp    !x, 4
     0x0001, //  3: jmp    1
-    0xa06b, //  4: mov    pindirs, ~null
-    0xa020, //  5: mov    x, pins
-    0x0025, //  6: jmp    !x, 5
+    0xc000, //  4: irq    nowait 0
+    0xa06b, //  5: mov    pindirs, ~null
+    0xa020, //  6: mov    x, pins
+    0x0025, //  7: jmp    !x, 5
             //     .wrap
 };
 #define ONEROM_ADDR_READ_START          0
 #define ONEROM_ADDR_READ_WRAP_BOTTOM    2
-#define ONEROM_ADDR_READ_WRAP_TOP       3
-#define ONEROM_ADDR_READ_LEN            4
+#define ONEROM_ADDR_READ_WRAP_TOP       6
+#define ONEROM_ADDR_READ_LEN            7
 static const uint16_t onerom_addr_read[] = {
     0x80a0, //  0: pull   block
     0xa027, //  1: mov    x, osr
             //     .wrap_target
-    0x4030, //  2: in     x, 16
-    0x4110, //  3: in     pins, 16               [1]
+    0x20c0, //  2: wait   1 irq, 0
+    0xc040, //  3: irq    clear 0
+    0xa742, //  4: nop                           [7]
+    0x4030, //  5: in     x, 16
+    0x4110, //  6: in     pins, 16               [1]
             //     .wrap
 };
 #define ONEROM_DATA_BYTE_START          0
-#define ONEROM_DATA_BYTE_WRAP_BOTTOM    0
-#define ONEROM_DATA_BYTE_WRAP_TOP       1
-#define ONEROM_DATA_BYTE_LEN            2
+#define ONEROM_DATA_BYTE_WRAP_BOTTOM    1
+#define ONEROM_DATA_BYTE_WRAP_TOP       3
+#define ONEROM_DATA_BYTE_LEN            4
 static const uint16_t onerom_data_byte[] = {
     0xa003, //  0: mov    pins, null
             //     .wrap_target
-    0x6008, //  1: out    pins, 8
+    0x80a0, //  1: pull   block
+    0x6008, //  2: out    pins, 8
+    0x6078, //  3: out    null, 24
             //     .wrap
 };
 
@@ -64,6 +70,9 @@ void piorom_load_programs(
 ) {
     volatile pio_sm_reg_t *sm_reg;
     uint8_t offset = 0;
+
+    // Clear all PIO0 IRQs
+    PIO0_IRQ = 0x000000FF;
 
     // SM0 - CS handler
 
@@ -128,9 +137,9 @@ void piorom_load_programs(
         PIO_WRAP_BOTTOM(sm2_start + ONEROM_DATA_BYTE_WRAP_BOTTOM) |
         PIO_WRAP_TOP(sm2_start + ONEROM_DATA_BYTE_WRAP_TOP);
     sm_reg->shiftctrl =
-        PIO_AUTOPULL |
-        PIO_PULL_THRESH(NUM_DATA_LINES) |
-        PIO_OUT_SHIFTDIR_L;
+        //PIO_AUTOPULL |
+        //PIO_PULL_THRESH(NUM_DATA_LINES) |
+        PIO_OUT_SHIFTDIR_R;
     sm_reg->pinctrl =
         PIO_OUT_BASE(data_base_pin) |
         PIO_OUT_COUNT(NUM_DATA_LINES);
@@ -196,7 +205,7 @@ void piorom_setup_dma(
     dma_reg->transfer_count = 1;
     dma_reg->ctrl_trig =
         DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read)) |
-        DMA_CTRL_TRIG_CHAIN_TO(0) |
+        DMA_CTRL_TRIG_CHAIN_TO(1) |
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_32BIT;
 
@@ -208,13 +217,18 @@ void piorom_setup_dma(
     dma_reg->transfer_count = 0x1;
     dma_reg->ctrl_trig =
         DMA_CTRL_TRIG_TREQ_SEL(DMA_CTRL_TRIG_TREQ_PERM) |
-        DMA_CTRL_TRIG_CHAIN_TO(1) |
+        DMA_CTRL_TRIG_CHAIN_TO(0) |
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_8BIT;
 }
 
 // Configure the PIO ROM serving programs
-void piorom(void) {
+void piorom(uint32_t rom_table_addr) {
+    // Rewrite the ROM table contents
+    //for (int ii = 0; ii < 65536; ii++) {
+    //    ((volatile uint8_t *)rom_table_addr)[ii] = 0;
+    //}
+
     // Bring PIO0 and DMA out of reset
     RESET_RESET &= ~(RESET_PIO0 | RESET_DMA);
     while (!(RESET_DONE & (RESET_PIO0 | RESET_DMA)));
@@ -236,14 +250,14 @@ void piorom(void) {
         10,
         0,
         8,
-        0x20000000
+        rom_table_addr
     );
 
     // Start the PIOs
     piorom_start_pios();
 
     while (1) {
-        // Do nothing - PIO/DMA handles everything
-        ;
+        // Wink
+        blink_pattern(2500000, 2500000, 1);
     }
 }

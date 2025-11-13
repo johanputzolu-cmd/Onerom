@@ -123,6 +123,14 @@ out pins, 8             ; Output byte from OSR to data GPIOs
 
 .wrap
 
+
+.program onerom_data_byte_simple
+mov pins, null
+.wrap_target
+    pull
+    out pins, 8
+.wrap
+
 ; DMA Configuration (2 channels required):
 ;
 ; DMA_ADDR (e.g. channel 0):

@@ -57,7 +57,7 @@ void dfu(void);
 #endif // STM32F4
 
 // piorom.c
-extern void piorom(void);
+extern void piorom(uint32_t rom_table_addr);
 
 // rom_impl.c
 #if !defined(TIMER_TEST) && !defined(TOGGLE_PA4)

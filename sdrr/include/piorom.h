@@ -108,7 +108,7 @@ typedef struct pio_sm_reg {
 
 // Macros to construct DREQ values
 #define DREQ_PIO_X_SM_Y_TX(X, Y)      (0 + (X * 8) + Y)
-#define DREQ_PIO_X_SM_Y_RX(X, Y)      (4 + (X * 8) + Y + 4)
+#define DREQ_PIO_X_SM_Y_RX(X, Y)      (4 + (X * 8) + Y)
 
 // DMA
 
@@ -128,11 +128,11 @@ typedef struct dma_ch_reg {
 } dma_ch_reg_t;
 
 // Macro to access a DMA channel's registers
-#define DMA_CH_REG(X)    ((volatile dma_ch_reg_t *)(DMA_BASE + 0x100 + ((X) * 0x40)))
+#define DMA_CH_REG(X)    ((volatile dma_ch_reg_t *)(DMA_BASE + ((X) * 0x40)))
 
 #define DMA_CTRL_TRIG_EN                (1 << 0)
 #define DMA_CTRL_TRIG_DATA_SIZE_8BIT    (0 << 2)
-#define DMA_CTRL_TRIG_DATA_SIZE_16BIT    (0 << 2)
+#define DMA_CTRL_TRIG_DATA_SIZE_16BIT   (1 << 2)
 #define DMA_CTRL_TRIG_DATA_SIZE_32BIT   (2 << 2)
 #define DMA_CTRL_TRIG_CHAIN_TO(X)       (((X) & 0xF) << 13)
 #define DMA_CTRL_TRIG_TREQ_SEL(X)       (((X) & 0x3F) << 17)
