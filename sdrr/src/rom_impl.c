@@ -390,7 +390,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
 
 #if defined(RP235X)
     // If we are using PIO/DMA ROM serving, jump to that now
-    piorom(rom_table_val);
+    //piorom(info, set, rom_table_val);
 #endif // RP235X
 
 #if !defined(C_MAIN_LOOP)

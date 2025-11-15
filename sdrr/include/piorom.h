@@ -138,6 +138,9 @@ typedef struct dma_ch_reg {
 #define DMA_CTRL_TRIG_TREQ_SEL(X)       (((X) & 0x3F) << 17)
 #define DMA_CTRL_TRIG_TREQ_PERM         0x3f
 
+// Macro to access DMA channel X's READ_ADDR register
+#define DMA_CH_READ_ADDR(X)    (*(volatile uint32_t *)(DMA_BASE + ((X) * 0x40) + DMA_READ_ADDR_OFFSET))
+
 // Macro to access DMA channel X's READ_ADDR_TRIG register
 #define DMA_CH_READ_ADDR_TRIG(X)    (*(volatile uint32_t *)(DMA_BASE + ((X) * 0x40) + DMA_READ_ADDR_TRIG_OFFSET))
 

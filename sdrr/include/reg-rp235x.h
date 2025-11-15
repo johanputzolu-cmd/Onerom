@@ -34,6 +34,7 @@
 #define XOSC_BASE           0x40048000  
 #define PLL_SYS_BASE        0x40050000
 #define PLL_USB_BASE        0x40058000
+#define BUSCTRL_BASE        0x40068000
 #define ADC_BASE            0x400a0000
 #define XIP_CTRL_BASE       0x400c8000
 #define XIP_QMI_BASE        0x400d0000
@@ -188,6 +189,12 @@
 #define PLL_USB_FBDIV_INT   (*((volatile uint32_t *)(PLL_USB_BASE + 0x08)))
 #define PLL_USB_PRIM        (*((volatile uint32_t *)(PLL_USB_BASE + 0x0C)))
 
+// BUSCTRL Registers
+#define BUSCTRL_BUS_PRIORITY    (*((volatile uint32_t *)(BUSCTRL_BASE + 0x00)))
+
+// DMA Read and Write Priority Bits
+#define BUSCTRL_BUS_PRIORITY_DMA_R_BIT   (1 << 8)
+#define BUSCTRL_BUS_PRIORITY_DMA_W_BIT   (1 << 12)
 
 // ADC Registers
 #define ADC_CS              (*((volatile uint32_t *)(ADC_BASE + 0x00)))
