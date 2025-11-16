@@ -41,7 +41,7 @@ ram_log_fn ROM_IMPL_LOG = do_log;
 #else // !MAIN_LOOP_LOGGING
 #define ROM_IMPL_LOG(X, ...)
 #endif
-#if defined(DEBUG_LOGGING)
+#if defined(DEBUG_LOGGING) && defined(MAIN_LOOP_LOGGING)
 ram_log_fn ROM_IMPL_DEBUG = do_log;
 #else // !DEBUG_LOGGING
 #define ROM_IMPL_DEBUG(X, ...)
@@ -274,6 +274,10 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     const sdrr_info_t *info,
     const sdrr_rom_set_t *set
 ) {
+#if defined(DEBUG_LOGGING) || defined(MAIN_LOOP_LOGGING)
+    ROM_IMPL_LOG("%s", log_divider);
+#endif
+
     ROM_IMPL_LOG("%s", log_divider);
     ROM_IMPL_LOG("Entered main_loop");
 
@@ -349,6 +353,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     uint32_t access_count = 0;  // Used to initialise the count register itself
 #endif // defined(COUNT_ROM_ACCESS) && !defined(C_MAIN_LOOP)
 
+#if !defined(RP_PIO)
     // Now log current state, and items we're going to load to registers.
     ROM_IMPL_DEBUG("%s", log_divider);
     ROM_IMPL_DEBUG("Register locations and values:");
@@ -373,7 +378,8 @@ void __attribute__((section(".main_loop"), used)) main_loop(
 #if defined(COUNT_ROM_ACCESS)
     ROM_IMPL_DEBUG("Access count addr: 0x%08X", access_count_addr);
     ROM_IMPL_DEBUG("Access count: 0x%08X", access_count);
-#endif
+#endif // COUNT_ROM_ACCESS
+#endif // RP_PIO
     ROM_IMPL_DEBUG("%s", log_divider);
 
 #if defined(MAIN_LOOP_ONE_SHOT)
@@ -388,10 +394,12 @@ void __attribute__((section(".main_loop"), used)) main_loop(
         status_led_on(info->pins->status);
     }
 
-#if defined(RP235X)
+#if defined(RP235X) && defined(RP_PIO)
     // If we are using PIO/DMA ROM serving, jump to that now
     piorom(info, set, rom_table_val);
-#endif // RP235X
+#elif defined(RP_PIO)
+#pragma error "RP_PIO defined without RP235X - unsupported"
+#endif // RP235X && RP_PIO
 
 #if !defined(C_MAIN_LOOP)
     // Start the appropriate main loop.  Includes preloading registers.

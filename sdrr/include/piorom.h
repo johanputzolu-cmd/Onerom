@@ -80,7 +80,7 @@ typedef struct pio_sm_reg {
 // Macros to build PIO SM registers
 
 // CLKDIV
-#define PIO_CLKDIV_INT(X, Y)    (((X) & 0xFFFF) << 16 | ((Y) & 0xFFFF) << 0)
+#define PIO_CLKDIV_INT(X, Y)    (((X) & 0xFFFF) << 16 | ((Y) & 0xFF) << 8)
 
 // EXECCTRL
 #define PIO_WRAP_BOTTOM(X)      (((X) & 0x1F) << 7)
@@ -110,9 +110,6 @@ typedef struct pio_sm_reg {
 #define PIO0_SM_X_RXF_Y(X, Y)   (*(volatile uint32_t *)(PIO0_BASE + PIO_SM_RXF_OFFSET + ((X) * 0x10) + ((Y) * 4)))
 #define PIO1_SM_X_RXF_Y(X, Y)   (*(volatile uint32_t *)(PIO1_BASE + PIO_SM_RXF_OFFSET + ((X) * 0x10) + ((Y) * 4)))
 #define PIO2_SM_X_RXF_Y(X, Y)   (*(volatile uint32_t *)(PIO2_BASE + PIO_SM_RXF_OFFSET + ((X) * 0x10) + ((Y) * 4)))
-
-// PIO instruction macros
-#define PIO_INST_JMP_UNCOND(X)        (0x0000 | ((X) & 0x1F))
 
 // Macros to construct DREQ values
 #define DREQ_PIO_X_SM_Y_TX(X, Y)      (0 + (X * 8) + Y)

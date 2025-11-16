@@ -128,6 +128,7 @@ void setup_gpio(void) {
         if (pin < MAX_USED_GPIOS) {
             GPIO_PAD(sdrr_info.pins->data[ii]) &= ~PAD_OUTPUT_DISABLE;
             GPIO_PAD(sdrr_info.pins->data[ii]) |= PAD_DRIVE(PAD_DRIVE_8MA) | PAD_SLEW_FAST;
+            GPIO_CTRL(pin) = GPIO_CTRL_FUNC_SIO;
         } else {
             LOG("!!! Data pin %d out of range", pin);
         }
