@@ -19,6 +19,7 @@
 #define PIO_TXF_OFFSET          (0x10)
 #define PIO_RXF_OFFSET          (0x20)
 #define PIO_IRQ_OFFSET          (0x30)
+#define PIO_INPUT_SYNC_BYPASS_OFFSET (0x38)
 #define PIO_INSTR_MEM_OFFSET    (0x48)
 #define PIO_SM_REG_OFFSET       (0xC8)
 #define PIO_SM_RXF_OFFSET       (0x128)
@@ -43,12 +44,19 @@
 #define PIO0_IRQ        (*(volatile uint32_t *)(PIO0_BASE + PIO_IRQ_OFFSET))
 #define PIO1_IRQ        (*(volatile uint32_t *)(PIO1_BASE + PIO_IRQ_OFFSET))
 #define PIO2_IRQ        (*(volatile uint32_t *)(PIO2_BASE + PIO_IRQ_OFFSET))
+#define PIO0_INPUT_SYNC_BYPASS  (*(volatile uint32_t *)(PIO0_BASE + PIO_INPUT_SYNC_BYPASS_OFFSET))
+#define PIO1_INPUT_SYNC_BYPASS  (*(volatile uint32_t *)(PIO1_BASE + PIO_INPUT_SYNC_BYPASS_OFFSET))
+#define PIO2_INPUT_SYNC_BYPASS  (*(volatile uint32_t *)(PIO2_BASE + PIO_INPUT_SYNC_BYPASS_OFFSET))
 
 // Macros for PIO control registers
 #define PIO_CTRL_SM_ENABLE(X)      ((X & 0xf) << 0)
 #define PIO0_CTRL_SM_ENABLE(X)     PIO0_CTRL = PIO_CTRL_SM_ENABLE(X)
 #define PIO1_CTRL_SM_ENABLE(X)     PIO1_CTRL = PIO_CTRL_SM_ENABLE(X)
 #define PIO2_CTRL_SM_ENABLE(X)     PIO2_CTRL = PIO_CTRL_SM_ENABLE(X)
+
+// Macros for PIO FSTAT registers
+#define PIO_FSTAT_SMX_RX_EMPTY_BIT(X)       (1 << (X + 8))
+#define PIO0_FSTAT_SMX_RX_EMPTY(X)          (PIO_FSTAT_SMX_RX_EMPTY_BIT(X) & PIO0_FSTAT)
 
 // Macros for filling PIO instruction memory
 #define PIO0_INSTR_MEM(X)       (*(volatile uint32_t *)(PIO0_BASE + PIO_INSTR_MEM_OFFSET + ((X) * 4)))

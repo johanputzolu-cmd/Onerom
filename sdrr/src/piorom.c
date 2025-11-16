@@ -20,21 +20,20 @@
 // - DMA1    - Data Byte Fetcher
 // - PIO SM2 - Data Byte Writer 
 //
-//         CS active                              Data to Outputs  CS Inactive
-//             |                                               ^        |
-//             v                                               |        v
-// SM0 ----------+---------------------------------------------+--------->+
-//     ^         |                                           ^            |
-//     |         | IRQ0 Set                       IRQ0 Clear |            |
-//     |         v                                           |            |
-//     |        SM1 -------> DMA0 ---------> DMA1 --------> SM2 +         |
-//     |         |            |               |                 v         |
-//     |     Read Addr   Forward Addr   Get Data Byte      Write Data     |
-//     |                                                                  v
-//     +<---------------------------------------------------------------+-+
-//                                                                      |
-//                                                                      v
-// (Not to scale)                                               Data to Inputs
+//  CS active   Data to Outputs                    CS Inactive  Data to Inputs
+//          |   |                                            |  |
+//          v   v                                            v  v
+// SM0 -------+--------------------------------------------------->
+//     ^      |                                                   |
+//     |      | IRQ0 Set                                          |
+//     |      v                                                   |
+//     |     SM1 ------> DMA0 --------> DMA1 -------> SM2         |
+//     |      |            |             |             |          |
+//     |      v            v             v             v          |
+//     |  Read Addr  Forward Addr  Get Data Byte  Write Data      |
+//     |                                                          v
+//     <-----------------------------------------------------------
+//                                                   (Not to scale)
 //
 // The detailed operation is as follows:
 //
@@ -43,9 +42,8 @@
 //  - Monitors the chip select lines.
 //  - When all CS lines are active, triggers an IRQ to signal the address
 //    read SM to read the address lines.
-//  - Waits until the IRQ is cleared by the data byte SM before continuing.
-//  - Sets the data pins to outputs.  This is coincident with the data byte
-//    output SM serving the data byte.
+//  - Immediately sets the data pins to outputs.  The data lines will not be
+//    serving the correct byte.
 //  - Tight loops, checking for CS going inactive.
 //  - When CS goes inactive again, sets data pins back to inputs and starts
 //    over.
@@ -77,9 +75,7 @@
 // PIO0 SM2 - Data Byte Output
 //  - (One time - sets data pins to low.)
 //  - Waits for data byte to be available in its TX FIFO.
-//  - When data byte available, clears the CS active IRQ to signal the CS
-//    (causing SM0 CS Handler to set data lines as outputs).
-//  - Outputs the data byte on the data pins.
+//  - When data byte available, outputs the data byte on the data pins.
 //  - Loops back to waiting for next data byte.
 //
 // There are a number of hardware pre-requisites for this to work correctly:
@@ -119,18 +115,30 @@
 // CS Handler - SM0
 #define ONEROM_CS_HANDLER_START         0
 #define ONEROM_CS_HANDLER_WRAP_BOTTOM   0
-#define ONEROM_CS_HANDLER_WRAP_TOP      6
-#define ONEROM_CS_HANDLER_LEN           7
+#define ONEROM_CS_HANDLER_WRAP_TOP      5
+#define ONEROM_CS_HANDLER_LEN           6
 static const uint16_t onerom_cs_handler[] = {
-            //     .wrap_target
-    0xa063, //  0: mov    pindirs, null  - set data pins to inputs
-    0xa020, //  1: mov    x, pins        - read CS lines
-    0x0041, //  2: jmp    x--, 1         - CS inactive, loop back to re-read CS
-    0xc020, //  3: irq    wait 0         - signal CS active, wait for data byte
-    0xa06b, //  4: mov    pindirs, ~null - set data pins to output
-    0xa020, //  5: mov    x, pins        - read CS lines again
-    0x0025, //  6: jmp    !x, 5         - CS still active?
-            //     .wrap
+    //     .wrap_target
+
+    // CS Inactive - set data pins to inputs
+    0xa063, //  0: mov    pindirs, null  ; set data pins to inputs
+
+    // CS Inactive - loop waiting for CS to go active
+    0xa020, //  1: mov    x, pins        ; read CS lines
+    0x0041, //  2: jmp    x--, 1         ; CS inactive, loop back to re-read CS
+            //                           ; Note the decrement of x is unused -
+            //                           ; but there is no jmp x instruction
+
+    // CS Active - signal address read SM and set data lines to outputs
+    // immediately
+    //0xc000, //  3: irq    set 0          ; signal CS active to address read SM
+    0xa06b, //  3: mov    pindirs, ~null ; set data pins to output
+
+    // CS Active - loop waiting for CS to go inactive again
+    0xa020, //  4: mov    x, pins        ; read CS lines again
+    0x0024, //  5: jmp    !x, 4          ; CS still active?
+
+    //     .wrap
 };
 
 // Address Read - SM1
@@ -139,27 +147,47 @@ static const uint16_t onerom_cs_handler[] = {
 #define ONEROM_ADDR_READ_WRAP_TOP       4
 #define ONEROM_ADDR_READ_LEN            5
 static const uint16_t onerom_addr_read[] = {
-    0x80a0, //  0: pull   block          - get high word of ROM table address
-    0xa027, //  1: mov    x, osr         - store high word in X
-            //     .wrap_target
-    0x4030, //  2: in     x, 16          - read high address bits from X
-    0x20c0, //  3: wait   1 irq, 0       - wait for CS to go active
-    0x4010, //  4: in     pins, 16       - read address lines (autopush)
-            //     .wrap
+    // One time setup - get high word of ROM table address from TX FIFO.  This
+    // is 0x2001 as of v0.5.5.
+    0x80a0, //  0: pull   block     ; get high word of ROM table address
+    0xa027, //  1: mov    x, osr    ; store high word in X
+
+    //     .wrap_target
+
+    // Preload high word of ROM table address into OSR, ready for CS going
+    // active
+    0x4030, //  2: in     x, 16     ; read high address bits from X
+
+    // Read address lines, construct entire ROM table lookup address and push
+    // to RX FIFO so DMA channel 0 can read it
+    //0x20c0, //  3: wait   1 irq, 0  ; wait for CS to go active (and clears IRQ)
+    0xa842, //  3: nop              ; Wait for 9 cycles, to give the DMA chain
+            //                      ; time to complete.  The value of 9 has
+            //                      ; been experimentally determined.
+    0x4010, //  4: in     pins, 16  ; read address lines (autopush)
+
+    //     .wrap
 };
 
 // Data Byte Output - SM2
 #define ONEROM_DATA_BYTE_START          0
 #define ONEROM_DATA_BYTE_WRAP_BOTTOM    1
-#define ONEROM_DATA_BYTE_WRAP_TOP       3
-#define ONEROM_DATA_BYTE_LEN            4
+#define ONEROM_DATA_BYTE_WRAP_TOP       2
+#define ONEROM_DATA_BYTE_LEN            3
 static const uint16_t onerom_data_byte[] = {
-    0xa003, //  0: mov    pins, null     - set data pins to low
-            //     .wrap_target
-    0x80a0, //  1: pull   block          - get data byte from TX FIFO (waits)
-    0xc040, //  2: irq    clear 0        - clear CS active IRQ - triggers data pins to outputs
-    0x6008, //  3: out    pins, 8        - signal data byte on data pins
-            //     .wrap
+    // One time setup - set data pins to low (strictly unnecessary)
+    0xa003, //  0: mov    pins, null    - set data pins to low
+
+    //     .wrap_target
+
+    // Wait for data byte to be available and output it
+    0x80a0, //  1: pull   block         - get data byte from TX FIFO (waits)
+    0x6008, //  2: out    pins, 8       - signal data byte on data pins
+
+    // Clear the IRQ so the address read SM can be re-triggered
+    //0xc040, //  3: irq    clear 0       - resets IRQ
+
+    //     .wrap
 };
 
 //
@@ -197,11 +225,13 @@ void piorom_load_programs(
     sm_reg->execctrl =
         PIO_WRAP_BOTTOM(sm0_start + ONEROM_CS_HANDLER_WRAP_BOTTOM) |
         PIO_WRAP_TOP(sm0_start + ONEROM_CS_HANDLER_WRAP_TOP);
-    sm_reg->shiftctrl = PIO_IN_COUNT(num_cs_pins);
+    sm_reg->shiftctrl =
+        PIO_IN_COUNT(num_cs_pins) | // Reading the CS pins
+        PIO_IN_SHIFTDIR_L;          // Direction doesn't matter
     sm_reg->pinctrl =
-        PIO_OUT_COUNT(NUM_DATA_LINES) | 
-        PIO_OUT_BASE(data_base_pin) |
-        PIO_IN_BASE(cs_base_pin);
+        PIO_OUT_COUNT(NUM_DATA_LINES) | // "Output" data pins (just direction)
+        PIO_OUT_BASE(data_base_pin) |   // Data pins
+        PIO_IN_BASE(cs_base_pin);       // CS pins are input
     sm_reg->instr = PIO_INST_JMP_UNCOND(sm0_start + ONEROM_CS_HANDLER_START);
 
     // SM1 - Address read
@@ -270,17 +300,10 @@ void piorom_set_gpio_func(
     uint8_t data_base_pin,
     uint8_t addr_base_pin
 ) {
-    // CS pins
-    for (int ii = 0; ii < num_cs_pins; ii++) {
-        uint8_t pin = cs_base_pin + ii;
-        uint8_t invert = cs_pin_invert[ii];
-        if (!invert) {
-            GPIO_CTRL(pin) = GPIO_CTRL_FUNC_PIO0;
-        } else {
-            // Turn CS line into active low
-            GPIO_CTRL(pin) = GPIO_CTRL_FUNC_PIO0 | GPIO_CTRL_INOVER_INVERT;
-        }
-    }
+    DEBUG("Setting GPIO functions for PIO ROM serving");
+    DEBUG("  Data pins: %d-%d", data_base_pin, data_base_pin + NUM_DATA_LINES - 1);
+    DEBUG("  Address pins: %d-%d", addr_base_pin, addr_base_pin + NUM_ADDR_LINES - 1);
+    DEBUG("  CS pins: %d-%d", cs_base_pin, cs_base_pin + num_cs_pins - 1);
 
     // Data pins
     for (int ii = data_base_pin;
@@ -294,6 +317,25 @@ void piorom_set_gpio_func(
         ii < (addr_base_pin + NUM_ADDR_LINES);
         ii++) {
         GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO0;
+    }
+
+    // CS pins
+    //
+    // We MUST set these after the address pins, as the CS pins may be part of
+    // the address pin range (they are on a 24 pin ROM).
+    for (int ii = 0; ii < num_cs_pins; ii++) {
+        uint8_t pin = cs_base_pin + ii;
+        uint8_t invert = cs_pin_invert[ii];
+        // Set to PIO function - this clears everything else.
+        GPIO_CTRL(pin) = GPIO_CTRL_FUNC_PIO0;
+        if (!invert) {
+            DEBUG("  CS pin %d active low", pin);
+        } else {
+            // Turn CS line into active low
+            DEBUG("  CS pin %d active high (inverted)", pin);
+            GPIO_CTRL(pin) |= GPIO_CTRL_INOVER_INVERT;
+        }
+        DEBUG("  GPIO %d CTRL=0x%08X CTRL address=0x%08X", pin, GPIO_CTRL(pin), &GPIO_CTRL(pin));
     }
 }
 
@@ -325,7 +367,6 @@ void piorom_setup_dma(
     dma_reg->transfer_count = 0x1;
     dma_reg->ctrl_trig =
         DMA_CTRL_TRIG_TREQ_SEL(DMA_CTRL_TRIG_TREQ_PERM) |
-        DMA_CTRL_TRIG_CHAIN_TO(0) |
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_8BIT;
 
@@ -386,7 +427,8 @@ void piorom(
     piorom_setup_dma(0, 1, 2);
 
     // Hard code CS handling for for now
-    uint8_t cs_pin_invert[2] = {0, 1}; // CS0 active low, CS1 active high
+    //uint8_t cs_pin_invert[2] = {1, 0};
+    uint8_t cs_pin_invert[1] = {0};
 
     // Configure GPIOs for PIO function
     // - 2 CS pins
@@ -396,7 +438,7 @@ void piorom(
     // - Address pins start at GPIO 8
     piorom_set_gpio_func(
         1,
-        info->pins->cs1,
+        13,
         cs_pin_invert,
         get_lowest_data_gpio_val,
         get_lowest_addr_gpio_val
@@ -409,7 +451,7 @@ void piorom(
     // - Address pins start at GPIO 8
     piorom_load_programs(
         1,
-        info->pins->cs1,
+        13,
         get_lowest_data_gpio_val,
         get_lowest_addr_gpio_val,
         rom_table_addr

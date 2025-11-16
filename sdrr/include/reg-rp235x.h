@@ -102,7 +102,13 @@
 #define GPIO_CTRL_FUNC_PIO0     0x06
 #define GPIO_CTRL_FUNC_PIO1     0x07
 #define GPIO_CTRL_FUNC_PIO2     0x08
+#define GPIO_CTRL_FUNC_MASK     0x1F
 #define GPIO_CTRL_INOVER_INVERT (0b01 << 16)
+#define GPIO_CTRL_INOVER_MASK   (0b11 << 16)
+#define GPIO_CTRL_OEOVER_INVERT (0b01 << 14)
+#define GPIO_CTRL_OEOVER_MASK   (0b11 << 14)
+#define GPIO_CTRL_OUTOVER_INVERT  (0b01 << 12)
+#define GPIO_CTRL_OUTOVER_MASK    (0b11 << 12)
 #define GPIO_CTRL_RESET         GPIO_CTRL_FUNC_SIO
 
 
@@ -273,6 +279,8 @@
 #define SIO_GPIO_OE         (*((volatile uint32_t *)(SIO_BASE + 0x30)))
 #define SIO_GPIO_OE_SET     (*((volatile uint32_t *)(SIO_BASE + 0x38)))
 #define SIO_GPIO_OE_CLR     (*((volatile uint32_t *)(SIO_BASE + 0x40)))
+
+#define SIO_GPIO_READ(pin)  (((*(volatile uint32_t*)(SIO_BASE + 0x004)) >> pin) & 1)
 
 // PPB Registers
 #define NVIC_ISER0          (*((volatile uint32_t *)(PBB_BASE + 0x0E100)))
