@@ -4,6 +4,15 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.5 - 2025-??-??
 
+This release adds support for the RP2350 One ROM serving ROMs using the RP2350's PIO/DIO peripheral, allowing fully autonomous ROM serving without any CPU involvement.  A VIC-20 kernal can be served successfully with the RP2350 clocked at just 22MHz, the C64 kernal at 41MHz and the both systems' character ROMs at 51MHz.
+
+### Added
+
+- RP2350 autonomous PIO/DIO ROM serving support.
+
+### Fixed
+
+- Enabled FP extensions on both Ice and Fire to avoid hard fault if floating point instructions are used by the compiler.
 
 ## v0.5.4 - 2025-11-12
 

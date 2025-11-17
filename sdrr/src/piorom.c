@@ -930,9 +930,7 @@ void piorom(
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 ) {
-#if defined(DEBUG_LOGGING)
     DEBUG("%s", log_divider);
-#endif 
 
     piorom_config_t *config = &piorom_config;
 
