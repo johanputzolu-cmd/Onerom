@@ -55,7 +55,6 @@ ram_log_fn ROM_IMPL_DEBUG = do_log;
 extern uint32_t _ram_rom_image_start[];
 extern uint32_t _ram_rom_image_end[];
 
-
 // Do the fairly complex job of setting up the CS masks for use in the main
 // loop algorithm.
 //
