@@ -67,18 +67,19 @@
 // DMA Channel 0 - Address Forwarder
 //  - Triggered by PIO0 SM1 RX FIFO using DREQ_PIO0_RX1 (SM1 RX FIFO).
 //  - Reads the 32 bit ROM table lookup address from PIO0 SM1 RX FIFO.
-//  - Writes the address into DMA Channel 1 READ_ADDR register.
-//  - Chains to DMA Channel 1.
+//  - Writes the address into DMA Channel 1 READ_ADDR or READ_ADDR_TRIG
+//    register.
 //
 // DMA Channel 1 - Data Byte Fetcher
-//  - Triggered by being chained to by DMA1.
+//  - Triggered either DMA Channel 0 writing to this channels READ_ADDR_TRIG
+//    or using DREQ_PIO0_RX1 (SM1 RX FIFO) - in which case this DMA is paced
+//    identically to DMA Channel 0.
 //  - Reads the ROM byte from the address specified in its READ_ADDR register.
 //  - Writes the byte into PIO0 SM2 TX FIFO.
-//  - Stops and waits to be re-triggered by DMA Channel 0.
+//  - Waits to be re-triggered by DMA Channel 0 writing to READ_ADDR_TRIG or
+//    DREQ_PIO_RX1 (SM1 RX FIFO).
 //
 // PIO0 SM2 - Data Byte Output
-//  - (One time - sets data pins to low.  Strictly unnecessary as they are
-//    inputs, but this is done to ensure a known start state.)
 //  - Waits for a data byte to become available in its TX FIFO.
 //  - When data byte available, outputs the data byte on the data pins.
 //  - Loops back to waiting for next data byte.
@@ -115,28 +116,54 @@
 //
 // Supported PIO configuration options
 //
-// There are two main tested combinations.
+// Note where min/max clock speeds are given below they tended to vary by
+// 1-2Mhz, based on the day.  Likely due to temperature variations affecting
+// the host's timing.  (It is unlikely the RP2350's timing varies, given it
+// has a modern, extremely accurate, clock source.)
 //
-// Combo 1:
+// # PIO_CONFIG_DEFAULT
+//
 // - READ_IRQ = 1
 // - ADDR_READ_DELAY = 0
+//
 // Here the IRQ from CS handler SM is used to trigger the address read SM.
 // This works well serving a C64 charaxcter ROM at higher clock speeds
-// (roughly 110-150MHz).
+// (roughly 115-150MHz).
 //
-// Combo 2:
+// Min/Max speeds:
+// - PAL C64 Char ROM: 115-150MHz
+// - PAL C64 Kernal ROM: 45-150MHz
+//
+// # PIO_CONFIG_SLOW_CLOCK_KERNAL
+//
 // - READ_IRQ = 0
-// - ADDR_READ_DELAY = 9
-// Here 9 cycles is sufficient time to allow DMA chain to avoid backing up.
-// This works well serving a C64 character ROM at slow clock speeds
-// (roughly 70-110MHz).
+// - ADDR_READ_DELAY = 1
+//
+// Here 1 cycles is sufficient time to allow DMA chain to avoid backing up.
+// However, the VIC-II requires a 2 cycle delay from the character ROM - see
+// PIO_CONFIG_SLOW_CLOCK_CHAR.
+//
+// Min/Max speeds:
+// - PAL C64 Kernal ROM: 41-150MHz
+//
+// # PIO_CONFIG_SLOW_CLOCK_CHAR
+//
+// - READ_IRQ = 0
+// - ADDR_READ_DELAY = 2
+//
+// Add an additional cycle of delay before reading address lines to allow the
+// byte to remain on the bus slightly later, as seems to be required by a
+// VIC-II chip of a character ROM
+//
+// Min/Max speeds:
+// - PAL C64 Char ROM: 51-150MHz
 
 // Fallback default configuration
 #if !defined(PIO_CONFIG_ADDR_READ_IRQ) && !defined(PIO_CONFIG_ADDR_READ_DELAY) && !defined(PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY) && !defined(PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY)
-#if !defined(PIO_CONFIG_DEFAULT) && !defined(PIO_CONFIG_CHAR_SLOW_CLOCK)
+#if !defined(PIO_CONFIG_DEFAULT) && !defined(PIO_CONFIG_SLOW_CLOCK_KERNAL) && !defined(PIO_CONFIG_SLOW_CLOCK_CHAR)
 #pragma message("No PIO config specified - using PIO_CONFIG_DEFAULT")
 #define PIO_CONFIG_DEFAULT
-#endif // !PIO_CONFIG_DEFAULT && !PIO_CONFIG_CHAR_SLOW_CLOCK
+#endif // !PIO_CONFIG_DEFAULT && !PIO_CONFIG_SLOW_CLOCK && !PIO_CONFIG_SLOW_CLOCK_CHAR
 #endif // Fallback default
 
 // Pre-defined PIO configuration options
@@ -145,9 +172,14 @@
 #define PIO_CONFIG_ADDR_READ_DELAY              0
 #define PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY      0
 #define PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY  0
-#elif defined(PIO_CONFIG_CHAR_SLOW_CLOCK)
+#elif defined(PIO_CONFIG_SLOW_CLOCK_KERNAL)
 #define PIO_CONFIG_ADDR_READ_IRQ                0
-#define PIO_CONFIG_ADDR_READ_DELAY              9
+#define PIO_CONFIG_ADDR_READ_DELAY              1
+#define PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY      0
+#define PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY  0
+#elif defined(PIO_CONFIG_SLOW_CLOCK_CHAR)
+#define PIO_CONFIG_ADDR_READ_IRQ                0
+#define PIO_CONFIG_ADDR_READ_DELAY              2
 #define PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY      0
 #define PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY  0
 #endif // PIO_CONFIG_DEFAULT
@@ -158,13 +190,30 @@
 #endif // PIO_CONFIG_ADDR_READ_IRQ
 
 // Whether to delay setting data pins to outputs at the start of the address
-// read SM, after the optional IRQ, and, if so, by how many PIO cycles.
+// read SM, after any optional IRQ, and, if so, by how many PIO cycles.
+//
+// Counter intuitively, this is useful to ensure the data remains valid longer,
+// by delaying when it is actually read.  It is hard to add delays later in the
+// chain, as the DMA transfers are tightly coupled to the PIO state machines.
+//
+// If PIO_CONFIG_ADDR_READ_IRQ=0 then this delay is essential to allow time for
+// the DMA chain to process the address read before the next one.  So, set this
+// to _at least_ 1 in that case.
+//
+// It may be that DMA Channel 0 requires only 2 cycles most of the time, but
+// occassionally requires 3 (e.g. due to bus contention from the other DMA
+// channel), because a C64 kernal _almost_ fully boots with both IRQ and this
+// set to 0.  But not quite!
 #if !defined(PIO_CONFIG_ADDR_READ_DELAY)
 #define PIO_CONFIG_ADDR_READ_DELAY  0
 #endif // PIO_CONFIG_ADDR_READ_DELAY
 
 // Whether to delay setting data pins to outputs after CS goes active, and,
 // if so, by how many PIO cycles.
+//
+// This may not be useful in practice, as ROM specifications tend to require
+// that data become valid within a certain time after CS goes active - not
+// that it _doesn't_ go active for a certain time.
 #if !defined(PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY)
 #define PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY  0
 #endif // PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY
@@ -172,6 +221,10 @@
 // Whether to hold data lines as outputs for a number of cycles after CS goes
 // inactive, before setting them back to inputs, and, if so, by how many PIO
 // cycles.
+//
+// This may not be useful in practice, as ROM specifications tend not to
+// require a hold time after CS goes inactive.  (They do specify a hold time
+// after address changes - see PIO_CONFIG_ADDR_READ_DELAY.)
 #if !defined(PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY)
 #define PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY  0
 #endif // PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY
@@ -402,9 +455,11 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // Load the address read program
     uint8_t sm1_start = offset;
-    instr_scratch[offset++] = PULL_BLOCK;
-    instr_scratch[offset++] = MOV_X_OSR;
     uint8_t sm1_wrap_bottom = offset;
+    // The ADDR_READ_DELAY gets added either to the IRQ (if it exists) or the
+    // IN instruction (if no IRQ).  In the no IRQ case it is not important on
+    // which instruction we add the delay, as it doesn't affect how "old" the
+    // address will be went sent to the DMA, just how _frequently_ it is read.
     if (!addr_read_irq && addr_read_delay) {
         instr_scratch[offset++] = ADD_DELAY(IN_X(16), addr_read_delay);
     } else {
@@ -436,10 +491,14 @@ static void piorom_load_programs(piorom_config_t *config) {
         PIO_OUT_SHIFTDIR_L;     // Direction doesn't matter, as we push 32 bits
     sm_reg->pinctrl =
         PIO_IN_BASE(addr_base_pin); // Address pin base as start of input
-    sm_reg->instr = JMP(sm1_start); // Jump to start of program
 
-    // Preload the ROM table address into the TX FIFO
-    PIO0_SM_TXF(1) = (rom_table_addr >> 16) & 0xFFFF;
+    // Preload the ROM table address into the X register
+    PIO0_SM_TXF(1) = (rom_table_addr >> 16) & 0xFFFF;   // Write high word to TX FIFO
+    sm_reg->instr = PULL_BLOCK;     // Pull it into OSR
+    sm_reg->instr = MOV_X_OSR;      // Store it in X
+
+    // Jump to start of program
+    sm_reg->instr = JMP(sm1_start); // Jump to start of program
 
     // 
     // SM2 - Data byte output
@@ -552,6 +611,7 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
 
 // Setup the DMA channels for ROM serving
 static void piorom_setup_dma(
+    piorom_config_t *config,
     uint8_t pio_block,
     uint8_t sm_addr_read,
     uint8_t sm_data_byte
@@ -559,27 +619,47 @@ static void piorom_setup_dma(
     volatile dma_ch_reg_t *dma_reg;
 
     // DMA Channel 0 - Receives ROM table lookup address from PIO0 SM1 and
-    // sends it onto DMA Channel 1.  Triggered by PIO0 SM1 RX FIFO DREQ.
+    // sends it onto DMA Channel 1.  Paced by PIO0 SM1 RX FIFO DREQ.
     dma_reg = DMA_CH_REG(0);
     dma_reg->read_addr = (uint32_t)&PIO0_SM_RXF(sm_addr_read);
-    dma_reg->write_addr = (uint32_t)&DMA_CH_READ_ADDR(1);
-    dma_reg->transfer_count = 1;
+    if (config->addr_read_irq) {
+        // When address read is triggerd by IRQ, we only want a single
+        // transfer per IRQ.  We need to trigger channel 1 manually.
+        dma_reg->write_addr = (uint32_t)&DMA_CH_READ_ADDR_TRIG(1);
+        dma_reg->transfer_count = 1;
+    } else {
+        // When address read is not triggered by IRQ, we want continuous
+        // transfers to channel 1.  No triggering is necessary, as channel 1
+        // will be paced by the PIO0 SM1 RX FIFO DREQ, like this channel.
+        dma_reg->write_addr = (uint32_t)&DMA_CH_READ_ADDR(1);
+        dma_reg->transfer_count = 0xffffffff;
+    }
     dma_reg->ctrl_trig =
         DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read)) |
-        DMA_CTRL_TRIG_CHAIN_TO(1) |
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_32BIT;
 
     // DMA Channel 1 - Reads ROM data from memory and sends to PIO0 SM2.
-    // Triggered by being chained to by DMA Channel 0.
+    // Also paced by PIO0 SM1 RX FIF DREQ, so runs in lock-step with channel
+    // 0.
     dma_reg = DMA_CH_REG(1);
     dma_reg->read_addr = 0; // To be set by DMA Channel 0
     dma_reg->write_addr = (uint32_t)&PIO0_SM_TXF(sm_data_byte);
-    dma_reg->transfer_count = 0x1;
-    dma_reg->ctrl_trig =
-        DMA_CTRL_TRIG_TREQ_SEL(DMA_CTRL_TRIG_TREQ_PERM) |
+    uint32_t ctrl_trig = 
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_8BIT;
+    if (config->addr_read_irq) {
+        // When address read is triggerd by IRQ, we only want a single
+        // transfer per IRQ.  We need to re-trigger channel 1 manually.
+        dma_reg->transfer_count = 1;
+        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(DMA_CTRL_TRIG_TREQ_PERM);
+    } else {
+        // When address read is not triggered by IRQ, we want continuous
+        // transfers.
+        dma_reg->transfer_count = 0xffffffff;
+        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read));
+    }
+    dma_reg->ctrl_trig = ctrl_trig;
 
     // Set DMA Read as high priority on the AHB5 bus for both:
     // - Reads (from RAM and PIO RX FIFO)
@@ -784,7 +864,7 @@ void piorom(
     // - PIO block 0
     // - SM1 is the address read SM
     // - SM2 is the data byte output SM
-    piorom_setup_dma(0, 1, 2);
+    piorom_setup_dma(config, 0, 1, 2);
 
     // Configure GPIOs for PIO function
     // - 2 CS pins
