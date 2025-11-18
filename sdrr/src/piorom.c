@@ -184,9 +184,10 @@
 // Possible enhancements:
 // - May want to check CS is still active before setting data pins to outputs
 //   in SM2.
-// - May need to add delays, e.g. before reading address lines to allow them
-//   stabilise.  Ideally, we would make side-set delays configurable at
-//   various points in the algorithm, and include as configuration options.
+//
+// Note that a combined PIO/CPU implementation has also been explored (see
+// PIO_CONFIG_NO_DMA).  This is discussed further below, but in summary, it
+// matches DMA performance, while consuming a CPU core.
 //
 // # Supported PIO configuration options
 //
@@ -240,9 +241,21 @@
 // - PAL C64 Char ROM: 51-150MHz
 // - PAL VIC-20 Char ROM: 51-150MHz
 
+// Whether to use DMA (or instead, use the CPU to read bytes).  If set,
+// ADDR_READ_IRQ is ignored.
+//
+// This option is not maintained any may be broken.  It was implemented to test
+// which was faster - DMA or CPU.  It turns out to be identical performance -
+// both serve a C64 character from down to 51MHz but no further without
+// glitches.  Similarly, both serve a kernal down to 41MHz.
+//
+// Therefore the DMA approach has been selected as superior as it frees up the
+// CPU for other applications.
+// #define PIO_CONFIG_NO_DMA  1
+
 // Fallback default configuration
 #if !defined(PIO_CONFIG_ADDR_READ_IRQ) && !defined(PIO_CONFIG_ADDR_READ_DELAY) && !defined(PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY) && !defined(PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY)
-#if !defined(PIO_CONFIG_DEFAULT) && !defined(PIO_CONFIG_SLOW_CLOCK_KERNAL) && !defined(PIO_CONFIG_SLOW_CLOCK_CHAR)
+#if !defined(PIO_CONFIG_DEFAULT) && !defined(PIO_CONFIG_SLOW_CLOCK_KERNAL) && !defined(PIO_CONFIG_SLOW_CLOCK_CHAR) && !defined(PIO_CONFIG_NO_DMA)
 #pragma message("No PIO config specified - using PIO_CONFIG_DEFAULT")
 #define PIO_CONFIG_DEFAULT
 #endif // !PIO_CONFIG_DEFAULT && !PIO_CONFIG_SLOW_CLOCK && !PIO_CONFIG_SLOW_CLOCK_CHAR
@@ -262,6 +275,11 @@
 #elif defined(PIO_CONFIG_SLOW_CLOCK_CHAR)
 #define PIO_CONFIG_ADDR_READ_IRQ                0
 #define PIO_CONFIG_ADDR_READ_DELAY              2
+#define PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY      0
+#define PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY  0
+#elif defined(PIO_CONFIG_NO_DMA)
+#define PIO_CONFIG_ADDR_READ_IRQ                0
+#define PIO_CONFIG_ADDR_READ_DELAY              1
 #define PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY      0
 #define PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY  0
 #endif // PIO_CONFIG_DEFAULT
@@ -331,7 +349,8 @@ typedef struct piorom_config {
     uint8_t cs_active_delay;
 
     uint8_t cs_inactive_delay;
-    uint8_t pad[3];
+    uint8_t no_dma;
+    uint8_t pad[2];
 
     uint32_t rom_table_addr;
 
@@ -474,6 +493,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t addr_read_irq = config->addr_read_irq;
     uint8_t addr_read_delay = config->addr_read_delay;
     uint8_t cs_active_delay = config->cs_active_delay;
+    uint8_t no_dma = config->no_dma;
     uint32_t instr_scratch[32];
 
     // Clear all PIO0 IRQs
@@ -547,7 +567,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     } else {
         instr_scratch[offset++] = IN_X(16);
     }
-    if (addr_read_irq) {
+    if (addr_read_irq || no_dma) {
         if (!addr_read_delay) {
             instr_scratch[offset++] = WAIT_IRQ_HIGH(0);
         } else {
@@ -911,7 +931,12 @@ static piorom_config_t piorom_config = {
     .addr_read_delay = PIO_CONFIG_ADDR_READ_DELAY,
     .cs_active_delay = PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY,
     .cs_inactive_delay = PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY,
-    .pad = {0, 0, 0},
+#if defined(PIO_CONFIG_NO_DMA) && !PIO_CONFIG_NO_DMA
+    .no_dma = 1,
+#else // !PIO_CONFIG_NO_DMA
+    .no_dma = 0,
+#endif // PIO_CONFIG_NO_DMA
+    .pad = {0, 0},
     .rom_table_addr = 0,
     .sm0_clkdiv_int = 1,
     .sm0_clkdiv_frac = 0,
@@ -944,7 +969,9 @@ void piorom(
     // - PIO block 0
     // - SM1 is the address read SM
     // - SM2 is the data byte output SM
-    piorom_setup_dma(config, 0, 1, 2);
+    if (!config->no_dma) {
+        piorom_setup_dma(config, 0, 1, 2);
+    }
 
     // Configure GPIOs for PIO function
     // - 2 CS pins
@@ -961,14 +988,38 @@ void piorom(
     // - Address pins start at GPIO 8
     piorom_load_programs(config);
 
-    // Start the PIOs.  This kicks off the autonomous ROM serving.
-    piorom_start_pios();
+    if (!config->no_dma) {
+        // Start the PIOs.  This kicks off the autonomous ROM serving.
+        piorom_start_pios();
 
-    while (1) {
-        // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
-        // peripheral access that might introduce jitter on the PIO/DMA
-        // serving.
-        __asm volatile("wfi");
+        while (1) {
+            // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
+            // peripheral access that might introduce jitter on the PIO/DMA
+            // serving.
+            __asm volatile("wfi");
+        }
+    } else {
+        register volatile uint32_t *ctrl asm("r0") = &PIO0_CTRL;
+        register volatile uint32_t *rxf1 asm("r2") = &PIO0_SM_RXF(1);
+        register volatile uint32_t *txf2 asm("r3") = &PIO0_SM_TXF(2);
+        register volatile uint32_t *irq  asm("r4") = &PIO0_IRQ_FORCE;
+        register uint32_t irq_set asm("r5") = 0x1;  // Set IRQ 0
+
+        asm volatile (
+            // Enable SM0/1/2
+            "movs r1, #0x7\n"
+            "str  r1, [r0]\n"
+
+            "1:\n"
+            "ldr  r0, [r2]\n"       // Read address from SM1 RX (1 cycle + 1 stall)
+            "ldrb r1, [r0]\n"       // Read byte from that address (1 cycle)
+            "str  r5, [r4]\n"       // Clear IRQ (1 cycle)
+            "str  r1, [r3]\n"       // Write byte to SM2 TX (1 cycle)
+            "b    1b\n"             // Loop (1 cycle)
+            :
+            : "r"(ctrl), "r"(rxf1), "r"(txf2), "r"(irq), "r"(irq_set)
+            : "r1", "memory"
+        );
     }
 }
 
