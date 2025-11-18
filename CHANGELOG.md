@@ -4,11 +4,16 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.5 - 2025-??-??
 
-This release adds support for the RP2350 One ROM serving ROMs using the RP2350's PIO/DIO peripheral, allowing fully autonomous ROM serving without any CPU involvement.  A VIC-20 kernal can be served successfully with the RP2350 clocked at just 22MHz, the C64 kernal at 41MHz and the both systems' character ROMs at 51MHz.
+This release adds support for the RP2350 One ROM serving ROMs using the RP2350's PIO/DIO peripheral, allowing fully autonomous ROM serving without any CPU involvement.  A VIC-20 kernal can be served successfully with the RP2350 clocked at just 22MHz, the C64 kernal at 41MHz and the both systems' character ROMs at 51MHz.  There are some limitations, meaning this is not yet the default Fire algorithm:
+- Dynamically bank switched ROMs _are_ supported.
+- Only CS lines which are contiguous are supported - hence the 2316 is _not_ supported on either rev A or USB rev B.
+- Multi-ROM sets, via X1/X2, are _not_ supported, as they are not contiguous with the CS lines in current hardware.
 
-### Added
+For full support a hardware revision must order the CS lines contiguously either:
+- X2/X1/CS1/A12/A11 or
+- A11/A12/CS1/X1/X2
 
-- RP2350 autonomous PIO/DIO ROM serving support.
+To build use `EXTRA_C_FLAGS=-DRP_PIO` when running `make`.  See `sdrr/src/piorom.c` for further details of the PIO/DMA algorithm, and configuration options.
 
 ### Fixed
 
