@@ -850,7 +850,7 @@ static void piorom_finish_config(
     // Find any CS lines which need to be inverted.  Make sure to make CS
     // lines against the pin numbers - the lower pin number is first, whether
     // that is CS1 or CS2 (or CS3).
-    for (int ii = 0; ii < config->num_cs_pins; ii++) {
+    for (int ii = 0; (ii < config->num_cs_pins) && (ii < 3); ii++) {
         if (info->pins->cs1 == (config->cs_base_pin + ii)) {
             if (rom->cs1_state == CS_ACTIVE_HIGH) {
                 config->invert_cs[ii] = 1;
