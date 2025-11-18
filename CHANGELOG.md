@@ -2,7 +2,7 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.5.5 - 2025-??-??
+## v0.5.5 - 2025-11-18
 
 This release adds support for the RP2350 One ROM serving ROMs using the RP2350's PIO/DIO peripheral, allowing fully autonomous ROM serving without any CPU involvement.  A VIC-20 kernal can be served successfully with the RP2350 clocked at just 22MHz, the C64 kernal at 41MHz and the both systems' character ROMs at 51MHz.  There are some limitations, meaning this is not yet the default Fire algorithm:
 - Dynamically bank switched ROMs _are_ supported.
