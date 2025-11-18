@@ -251,6 +251,12 @@
 //
 // Therefore the DMA approach has been selected as superior as it frees up the
 // CPU for other applications.
+//
+// (Actually it is possible to implement an even more pathological assembly
+// CPU loop which shaves the char ROM down to 50MHz, but it's likely fragile,
+// breaking if the CPU loop ever takes an extra cycle, such as when a debug
+// probe is connected.)
+//
 // #define PIO_CONFIG_NO_DMA  1
 
 // Fallback default configuration
@@ -1010,12 +1016,23 @@ void piorom(
             "movs r1, #0x7\n"
             "str  r1, [r0]\n"
 
+            // 6 cycle version with IRQ triggering SM1 to read address -
+            // essentially pacing SM1, avoiding addr reads backing up
             "1:\n"
             "ldr  r0, [r2]\n"       // Read address from SM1 RX (1 cycle + 1 stall)
             "ldrb r1, [r0]\n"       // Read byte from that address (1 cycle)
-            "str  r5, [r4]\n"       // Clear IRQ (1 cycle)
+            "str  r5, [r4]\n"       // Set IRQ triggering SM1 to re-read (1 cycle)
             "str  r1, [r3]\n"       // Write byte to SM2 TX (1 cycle)
             "b    1b\n"             // Loop (1 cycle)
+
+            // Pathological 5 cycle version, requires no IRQ detection in SM1.
+            // Shaves char ROM ser ing down to 50MHz.
+            //"1:\n"
+            //"str  r1, [r3]\n"       // Write byte to SM2 TX (1 cycle)
+            //"ldr  r0, [r2]\n"       // Read address from SM1 RX (1 cycle + 1 stall)
+            //"ldrb r1, [r0]\n"       // Read byte from that address (1 cycle)
+            //"b    1b\n"             // Loop (1 cycle)
+
             :
             : "r"(ctrl), "r"(rxf1), "r"(txf2), "r"(irq), "r"(irq_set)
             : "r1", "memory"
