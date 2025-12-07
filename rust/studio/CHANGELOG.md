@@ -2,6 +2,10 @@
 
 ## v0.1.4 - ????-??-??
 
+### Added
+
+- Support for local files to onerom-fw and onerom-studio.
+
 ### Fixed
 
 - Set Windows PE file and product versions to match Cargo version.
