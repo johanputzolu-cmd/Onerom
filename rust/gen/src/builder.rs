@@ -261,52 +261,83 @@ impl Builder {
                 }
 
                 // Check that the correct CS lines are specified for the ROM
-                // type (for single ROM sets)
-                if set.roms.len() == 1 {
-                    let required_cs_lines: BTreeSet<&str> = rom
-                        .rom_type
-                        .control_lines()
-                        .iter()
-                        .filter(|line| line.name != "ce" && line.name != "oe")
-                        .map(|line| line.name)
-                        .collect();
+                // type
+                let required_cs_lines: BTreeSet<&str> = rom
+                    .rom_type
+                    .control_lines()
+                    .iter()
+                    .filter(|line| line.name != "ce" && line.name != "oe")
+                    .map(|line| line.name)
+                    .collect();
 
-                    let specified_cs_lines: BTreeSet<&str> = {
-                        let mut lines = BTreeSet::new();
-                        if rom.cs1.is_some() {
-                            lines.insert("cs1");
-                        }
-                        if rom.cs2.is_some() {
-                            lines.insert("cs2");
-                        }
-                        if rom.cs3.is_some() {
-                            lines.insert("cs3");
-                        }
-                        lines
-                    };
+                let specified_cs_lines: BTreeSet<&str> = {
+                    let mut lines = BTreeSet::new();
+                    if rom.cs1.is_some() {
+                        lines.insert("cs1");
+                    }
+                    if rom.cs2.is_some() {
+                        lines.insert("cs2");
+                    }
+                    if rom.cs3.is_some() {
+                        lines.insert("cs3");
+                    }
+                    lines
+                };
 
-                    if required_cs_lines != specified_cs_lines {
+                if required_cs_lines != specified_cs_lines {
+                    return Err(Error::InvalidConfig {
+                        error: format!(
+                            "ROM type {} requires CS lines {:?}, but specified CS lines are {:?}",
+                            rom.rom_type.name(),
+                            required_cs_lines,
+                            specified_cs_lines
+                        ),
+                    });
+                }
+
+                // Check no extra CS lines specified
+                for line in &["cs1", "cs2", "cs3"] {
+                    if !required_cs_lines.contains(line) && specified_cs_lines.contains(line) {
                         return Err(Error::InvalidConfig {
                             error: format!(
-                                "ROM type {} requires CS lines {:?}, but specified CS lines are {:?}",
+                                "ROM type {} does not use {}, but it is specified",
                                 rom.rom_type.name(),
-                                required_cs_lines,
-                                specified_cs_lines
+                                line
                             ),
                         });
                     }
+                }
 
-                    // Check no extra CS lines specified
+                if set.roms.len() == 1 {
+                    // Check none are ignore
                     for line in &["cs1", "cs2", "cs3"] {
-                        if !required_cs_lines.contains(line) && specified_cs_lines.contains(line) {
-                            return Err(Error::InvalidConfig {
-                                error: format!(
-                                    "ROM type {} does not use {}, but it is specified",
-                                    rom.rom_type.name(),
-                                    line
-                                ),
-                            });
+                        let cs = match *line {
+                            "cs1" => &rom.cs1,
+                            "cs2" => &rom.cs2,
+                            "cs3" => &rom.cs3,
+                            _ => unreachable!(),
+                        };
+                        if let Some(cs_logic) = cs {
+                            if *cs_logic == CsLogic::Ignore {
+                                return Err(Error::InvalidConfig {
+                                    error: format!(
+                                        "{} cannot be ignore for single-ROM sets (ROM {})",
+                                        line.to_uppercase(),
+                                        rom_num
+                                    ),
+                                });
+                            }
                         }
+                    }
+                } else {
+                    // For multi ROM sets, not all CS lines can be ignore
+                    if !cs1_active {
+                        return Err(Error::InvalidConfig {
+                            error: format!(
+                                "CS1 cannot be ignore for multi-ROM sets (ROM {})",
+                                rom_num
+                            ),
+                        });
                     }
                 }
 
