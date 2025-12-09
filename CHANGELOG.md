@@ -4,6 +4,10 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.6 - 2025-??-??
 
+### Added
+
+- Support for 2716/2732 ROMs.
+
 ### Fixed
 
 - Comment in Makefile - B is now default serving algorithm.
