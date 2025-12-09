@@ -166,3 +166,5 @@ ice-2716:HW_REV=ice-24-usb-h,MCU=f411re,ROM_CONFIGS="file=http://www.zimmers.net
 ice-2732:HW_REV=ice-24-usb-h,MCU=f411re,ROM_CONFIGS="file=http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/kernal-4.901465-22.bin,type=2732"
 fire-2716:HW_REV=fire-24-a,MCU=rp2350,ROM_CONFIGS="file=http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/characters-2.901447-10.bin,type=2716"
 fire-2732:HW_REV=fire-24-a,MCU=rp2350,ROM_CONFIGS="file=http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/kernal-4.901465-22.bin,type=2732"
+fire-2716-pio:HW_REV=fire-24-a,MCU=rp2350,EXTRA_C_FLAGS="-DRP_PIO",ROM_CONFIGS="file=http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/characters-2.901447-10.bin,type=2716"
+fire-2732-pio:HW_REV=fire-24-a,MCU=rp2350,EXTRA_C_FLAGS="-DRP_PIO",ROM_CONFIGS="file=http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/kernal-4.901465-22.bin,type=2732"
