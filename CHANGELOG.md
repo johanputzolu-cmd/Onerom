@@ -2,6 +2,9 @@
 
 All notables changes between versions are documented in this file.
 
+## v0.5.8 - 2025-??-??
+
+
 ## v0.5.7 - 2025-12-09
 
 ### Fixed
