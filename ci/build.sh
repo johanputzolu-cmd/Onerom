@@ -423,12 +423,16 @@ execute_test() {
 
     while [[ $attempt -le $max_attempts ]]; do
         echo "    - Attempt $attempt: Executing test '$test_name'"
-        if eval "$make_cmd" > /dev/null; then
+
+        local output
+        if output=$(eval "$make_cmd" 2>&1); then
             success=1
             break
         else
             echo "Test '$test_name' failed on attempt $attempt"
+            echo "$output"
         fi
+
         attempt=$((attempt + 1))
     done
 
