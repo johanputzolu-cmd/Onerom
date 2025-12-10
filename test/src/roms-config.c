@@ -66,6 +66,7 @@ int parse_rom_configs(const char *configs, rom_config_t **roms) {
                     (*roms)[rom_idx].extract_name = strdup(value);
                 } else if (strcmp(key, "type") == 0) {
                     (*roms)[rom_idx].type = strdup(value);
+                    (*roms)[rom_idx].type_int = rom_type_from_string(value);
                 } else if (strcmp(key, "cs1") == 0) {
                     (*roms)[rom_idx].cs1 = atoi(value);
                 } else if (strcmp(key, "cs2") == 0) {
