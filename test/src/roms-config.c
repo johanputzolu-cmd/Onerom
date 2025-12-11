@@ -335,10 +335,8 @@ int load_all_roms(rom_config_t *configs, int count, loaded_rom_t **loaded_roms) 
             return -1;
         }
 
-        size_t expected_size;
-        if (strcmp(configs[i].type, "2316") == 0) expected_size = 2048;
-        else if (strcmp(configs[i].type, "2332") == 0) expected_size = 4096;
-        else if (strcmp(configs[i].type, "2364") == 0) expected_size = 8192;
+        int rom_type = rom_type_from_string(configs[i].type);
+        size_t expected_size = get_expected_rom_size(rom_type);
 
         if ((*loaded_roms)[i].size < expected_size) {
             if (configs[i].dup) {
@@ -444,10 +442,8 @@ void print_loaded_rom_analysis(loaded_rom_t *loaded_roms, rom_config_t *configs,
         printf("\n");
         
         // Check expected ROM size for type
-        size_t expected_size = 0;
-        if (strcmp(configs[i].type, "2316") == 0) expected_size = 2048;
-        else if (strcmp(configs[i].type, "2332") == 0) expected_size = 4096;
-        else if (strcmp(configs[i].type, "2364") == 0) expected_size = 8192;
+        int rom_type = rom_type_from_string(configs[i].type);
+        size_t expected_size = get_expected_rom_size(rom_type);
         
         if (expected_size > 0) {
             if (loaded_roms[i].size == expected_size) {
