@@ -2,7 +2,9 @@
 
 **Unverified**: Similar to ice-24-c.
 
-There is a single set of gerbers, one CPL/POS file and one BOM file for the STM32F411RET6 MCU.
+There is a single set of gerbers, and two sets of POS/BOM files:
+- One for the STM32F411RET6 MCU.
+- One for the STM32F446RCT6 MCU.
 
 To create the BOM for an alternate MCU, replace the microcontroller part number.  For the STM32F405RET6, you must also replace RC4/RC5/C9 - see the schematic for details.
 
