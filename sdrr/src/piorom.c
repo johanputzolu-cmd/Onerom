@@ -935,6 +935,12 @@ static void piorom_finish_config(
                 } else {
                     config->invert_cs[ii] = 0;
                 }
+            } else if (info->pins->cs3 == (config->cs_base_pin + ii)) {
+                if (rom->cs3_state == CS_ACTIVE_HIGH) {
+                    config->invert_cs[ii] = 1;
+                } else {
+                    config->invert_cs[ii] = 0;
+                }
             }
         }
     }
