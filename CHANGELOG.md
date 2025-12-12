@@ -2,7 +2,7 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.5.8 - 2025-??-??
+## v0.5.8 - 2025-12-12
 
 This release adds 28 pin ROM support for the new One ROM Fire 28-pin version, fire-28-a.
 
