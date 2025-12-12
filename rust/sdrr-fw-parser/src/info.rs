@@ -130,6 +130,10 @@ impl SdrrInfo {
             .pins
             .as_ref()
             .ok_or("Pin configuration not available")?;
+        
+        // Remap the pins to start from 0, so they can be used as bit indeces
+        let mut pins = pins.clone();
+        pins.base_zero();
 
         if self.rom_sets.is_empty() {
             return Err("No ROM sets available".into());
@@ -492,5 +496,70 @@ impl SdrrPins {
         // Cannot assert this against SdrrPins size, as contains Vecs, which
         // increase its size.
         Self::SDRR_PINS_SIZE
+    }
+
+    /// Rebases all address lines and, for 24 pin roms, ce/oe, cs and x lines
+    /// to start from zero.  Modifies in place.
+    pub fn base_zero(&mut self) {
+        let mut min_pin = 255u8;
+        for &pin in self.addr.iter() {
+            if pin < min_pin {
+                min_pin = pin;
+            }
+        }
+
+        if self.rom_pins == 24 {
+            if self.cs1 < min_pin {
+                min_pin = self.cs1;
+            }
+            if self.cs2 < min_pin {
+                min_pin = self.cs2;
+            }
+            if self.cs3 < min_pin {
+                min_pin = self.cs3;
+            }
+            if self.x1 < min_pin {
+                min_pin = self.x1;
+            }
+            if self.x2 < min_pin {
+                min_pin = self.x2;
+            }
+            if self.ce < min_pin {
+                min_pin = self.ce;
+            }
+            if self.oe < min_pin {
+                min_pin = self.oe;
+            }
+        }
+
+        for pin in self.addr.iter_mut() {
+            if *pin != 255 {
+                *pin -= min_pin;
+            }
+        }
+
+        if self.rom_pins == 24 {
+            if self.cs1 != 255 {
+                self.cs1 -= min_pin;
+            }
+            if self.cs2 != 255 {
+                self.cs2 -= min_pin;
+            }
+            if self.cs3 != 255 {
+                self.cs3 -= min_pin;
+            }
+            if self.x1 != 255 {
+                self.x1 -= min_pin;
+            }
+            if self.x2 != 255 {
+                self.x2 -= min_pin;
+            }
+            if self.ce != 255 {
+                self.ce -= min_pin;
+            }
+            if self.oe != 255 {
+                self.oe -= min_pin;
+            }
+        }
     }
 }
