@@ -509,7 +509,7 @@ void enter_bootloader(void) {
     // However, we do want to explicitly disable mass storage mode, so we set
     // bit 0 of p0 (not p1!).  If you want mass storage mode, jump BOOTSEL to
     // GND when plugging in.
-    p0 |= 0x01;     // Disable mass storage mode
+    // p0 |= 0x01;     // Disable mass storage mode
     reboot(flags, ms_delay, p0, p1);
 }
 
