@@ -72,7 +72,7 @@ fn sub_main() -> Result<(), Error> {
         let config = read_rom_config(&rom_config_filename)?;
 
         // Create builder
-        let mut builder = Builder::from_json(&config).map_err(Error::parse)?;
+        let mut builder = Builder::from_json(version, mcu.family(), &config).map_err(Error::parse)?;
 
         // Accept any licenses
         let licenses = builder.licenses();

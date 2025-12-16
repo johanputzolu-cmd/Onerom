@@ -18,7 +18,8 @@ pub use image::{PAD_BLANK_BYTE, PAD_NO_ROM_BYTE};
 pub use meta::{MAX_METADATA_LEN, Metadata, PAD_METADATA_BYTE};
 
 use alloc::string::String;
-use onerom_config::fw::ServeAlg;
+use onerom_config::fw::{FirmwareVersion, ServeAlg};
+use onerom_config::mcu::Family;
 use onerom_config::rom::RomType;
 
 /// Version of metadata produced by this version of the crate
@@ -102,7 +103,18 @@ pub enum Error {
     BadLocation {
         id: usize,
         reason: String,
-    }
+    },
+    UnsupportedFrequency {
+        frequency_mhz: u32,
+    },
+    FirmwareTooOld {
+        version: FirmwareVersion,
+        minimum: FirmwareVersion,
+    },
+    WrongMcuFamily {
+        actual: Family,
+        required: Family,
+    },
 }
 type Result<T> = core::result::Result<T, Error>;
 

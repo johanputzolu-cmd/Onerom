@@ -597,7 +597,34 @@ impl Studio {
         };
 
         // Create image builder from config
-        let mut builder = match Builder::from_json(&config_str) {
+        let fw_ver = if let Some(release) = runtime_info.selected_firmware() {
+            if let Ok(fw) = release.firmware_version() {
+                fw
+            } else {
+                warn!("Cannot get firmware version from selected release, cannot build image");
+                return CreateMessage::BuildImageResult(Err(
+                    "Cannot get firmware version from selected release".to_string()
+                ))
+                .into();
+            } 
+        } else {
+            warn!("Cannot get firmware version from hardware info, cannot build image");
+            return CreateMessage::BuildImageResult(Err("Cannot get firmware version from hardware info".to_string()))
+                .into();
+        };
+        let mcu_fam = if let Some(mcu) = hw_info.mcu_variant {
+            mcu.family()
+        } else {
+            warn!("Cannot get MCU family from hardware info, cannot build image");
+            return CreateMessage::BuildImageResult(Err("Cannot get MCU family from hardware info".to_string()))
+                .into();
+        };
+
+        let mut builder = match Builder::from_json(
+            fw_ver,
+            mcu_fam,
+            &config_str
+        ) {
             Ok(b) => b,
             Err(e) => {
                 warn!("Failed to create image builder from config: {e:?}");

@@ -332,6 +332,17 @@ fn generate_roms_implementation_file(
             .map_err(|e| anyhow::anyhow!("In ROM set {}: {e:?}", rom_set.id))?;
         let set_cs_state = multi_cs_logic.c_value();
         writeln!(file, "        .multi_rom_cs1_state = {},", set_cs_state)?;
+        writeln!(file, "        .extra_info = 1,")?;
+
+        // Post 0.6.0 firmware additions
+        writeln!(file, "        .serve_config = (void *)0,")?;
+        writeln!(file, "        .firmware_overrides = (void *)0,")?;
+        writeln!(file, "        .pad2 = {{")?;
+        for _ in 0..5 {
+            writeln!(file, "            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,")?;
+        }
+        writeln!(file, "        }}")?;
+
         writeln!(file, "    }},")?;
     }
 

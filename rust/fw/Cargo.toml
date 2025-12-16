@@ -20,8 +20,8 @@ name = "onerom-fw"
 path = "src/main.rs"
 
 [dependencies]
-onerom-config = { version = "0.2.4" }
-onerom-gen = { version = "0.2.2" }
+onerom-config = { path="../config", version = "0.2.5" }
+onerom-gen = { path="../gen", version = "0.3.0" }
 
 bytes = "1.10"
 clap = { version = "4.5", features = ["derive"] }

@@ -311,6 +311,9 @@ typedef enum {
     // select lines are active.  This is the default algorithm for sets with
     // multiple ROM images on hardware revision F.
     SERVE_ADDR_ON_ANY_CS,
+
+    // PIO-based serving algorithm - RP2350 only.
+    SERVE_PIO,
 } sdrr_serve_t;
 #define SERVE_DEFAULT_1_ROM  SERVE_ADDR_ON_CS
 
@@ -323,6 +326,48 @@ typedef struct {
     const char* filename;               // Source filename (May be NULL)
 } sdrr_rom_info_t;
 
+// Firmware Overrides
+//
+// This is linked to via the ROM set structure, and allows per-ROM-set
+// overrides of firmware configuration options.
+//
+// Where each ROM set requires the same overrides, only once instance of this
+// structure need be created, and all ROM sets can point to it.
+typedef struct {
+    // Optional MCU clock frequency override in MHz.  0xffff means no override.
+    const uint16_t freq_mhz;
+
+    // Optional overclocking enable/disable override.  0 = disable, 1 = enable,
+    // 255 = no override.
+    const uint8_t overclock_enable;
+
+    // Optional status LED enable/disable override.  0 = disable, 1 = enable,
+    // 255 = no override.
+    const uint8_t status_led_enable;
+
+    // Padding to 8 bytes
+    const uint8_t pad1[4];
+
+    // Padding to 64 bytes
+    const uint8_t pad2[56];
+} onerom_firmware_overrides_t;
+
+// Serving algorithm configuration structure
+//
+// Reserves 64 bytes for configuration data for the serving algorithm.
+typedef struct {
+    uint8_t reserved[64];
+} onerom_serve_config_t;
+
+// Serving algorithm configuration structure for PIO serving
+typedef struct {
+    uint8_t read_addr_irq;
+    uint8_t read_addr_delay_cycles;
+    uint8_t cs_to_data_out_delay_cycles;
+    uint8_t cs_inactive_data_hold_delay_cycles;
+    uint8_t reserved[60];
+} onerom_pio_serve_config_t;
+
 // ROM set information structure
 //
 // SDRR can serve sets of ROM images, which are addressed using the entirety
@@ -330,7 +375,7 @@ typedef struct {
 // simultaneously, with  the additional ROM select lines attached to SDRR via
 // X1 and X2.
 //
-// If the multiple ROM image support is not used, there is be a 1:1 mapping
+// If the multiple ROM image support is not used, there is a 1:1 mapping
 // between set and image - i.e. `rom_count` is be 1.
 typedef struct sdrr_rom_set_t {
     // Pointer to the data for the ROM image(s) in this set.  Copied to RAM at
@@ -358,6 +403,21 @@ typedef struct sdrr_rom_set_t {
 
     // CS1 state (active high/low) when using multiple ROM images in this set
     const sdrr_cs_state_t multi_rom_cs1_state;  // CS1 state
+
+    // Whether 0.6.0 onwards firmware extra info (the subsequent fields) are
+    // present in this structure. If so, this is set to 1.
+    const uint8_t extra_info;
+
+    // Beyond here 0.6.0 firmware onwards
+
+    // Pointer to configuration data for the serving algorithm.
+    const onerom_serve_config_t *serve_config;
+
+    // Pointer to firmware configuration overrides when serving this ROM set.
+    const onerom_firmware_overrides_t *firmware_overrides;
+
+    // Padding to 64 bytes
+    const uint8_t pad2[40];
 } sdrr_rom_set_t;
 
 // SDRR Runtime Information Structure

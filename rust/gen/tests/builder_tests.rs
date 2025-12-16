@@ -154,9 +154,12 @@
 mod tests {
     use onerom_config::fw::{FirmwareProperties, FirmwareVersion, ServeAlg};
     use onerom_config::hw::Board;
-    use onerom_config::mcu::Variant as McuVariant;
+    use onerom_config::mcu::{Family as McuFamily, Variant as McuVariant};
     use onerom_gen::builder::{Builder, FileData};
     use onerom_gen::image::CsLogic;
+
+    const FW_VER: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
+    const MCU_FAM: McuFamily = McuFamily::Stm32f4;
 
     // ========================================================================
     // Constants from C headers
@@ -462,7 +465,7 @@ mod tests {
         }"#;
 
         // Parse the JSON
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Get the file specs - should be exactly 1
         let file_specs = builder.file_specs();
@@ -533,7 +536,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let rom_data = create_test_rom_data(8192, 0xAA);
         builder
             .add_file(FileData {
@@ -645,7 +648,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let rom_data = create_test_rom_data(8192, 0xAA);
         builder
             .add_file(FileData {
@@ -768,7 +771,7 @@ mod tests {
             ]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add ROM data for both sets
         builder
@@ -931,7 +934,7 @@ mod tests {
             ]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add ROM data for all three sets
         builder
@@ -1075,7 +1078,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let rom_data = create_test_rom_data(8192, 0xAA);
         builder
             .add_file(FileData {
@@ -1174,7 +1177,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let rom_data = create_test_rom_data(8192, 0xAA);
         builder
             .add_file(FileData {
@@ -1277,7 +1280,7 @@ mod tests {
             ]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -1401,7 +1404,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -1484,7 +1487,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -1569,7 +1572,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create exactly 8KB for 2364
         builder
@@ -1613,7 +1616,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 16KB image with pattern: first 4KB=0x11, next 8KB=0x22, last 4KB=0x33
         let mut data = Vec::new();
@@ -1664,7 +1667,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 8KB image with pattern: 1KB=0x11, 2KB=0x22, 5KB=0x33
         let mut data = Vec::new();
@@ -1712,7 +1715,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 16KB image with pattern: 2KB=0x11, 6KB=0x22, 8KB=0x33
         let mut data = Vec::new();
@@ -1765,7 +1768,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 4KB file for 8KB ROM (exact divisor)
         builder
@@ -1809,7 +1812,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 3KB file for 8KB ROM (not an exact divisor, must pad)
         builder
@@ -1851,7 +1854,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 10KB file for 8KB ROM - too large
         builder
@@ -1890,7 +1893,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 3KB file for 8KB ROM with duplicate - 3KB is not exact divisor of 8KB
         builder
@@ -1932,7 +1935,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create exactly 8KB file but specified pad - unnecessary
         builder
@@ -1984,7 +1987,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -2068,7 +2071,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -2149,7 +2152,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add file once
         builder
@@ -2201,7 +2204,7 @@ mod tests {
             ]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add only first file, skip second
         builder
@@ -2261,7 +2264,7 @@ mod tests {
             ]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add files out of order: 2, 0, 1
         builder
@@ -2320,7 +2323,7 @@ mod tests {
         }"#;
 
         // Should fail at JSON parsing/validation
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Missing CS2 for 2332 should fail");
 
@@ -2348,7 +2351,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -2406,7 +2409,7 @@ mod tests {
         }"#,
         );
 
-        let mut builder = Builder::from_json(&json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, &json).expect("Failed to parse JSON");
 
         // Add all 32 files
         for i in 0..32 {
@@ -2538,7 +2541,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create test data with predictable pattern: data[addr] = addr as u8
         let rom_size = 8192; // 2364 = 8KB
@@ -2661,7 +2664,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create random test data using a simple PRNG for reproducibility
         let rom_size = 8192; // 2364 = 8KB
@@ -2761,7 +2764,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create distinct test data for each ROM
         let rom_size = 8192;
@@ -2907,7 +2910,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create distinct test data for each ROM (each 8KB)
         let rom_size = 8192;
@@ -3027,7 +3030,7 @@ mod tests {
             }]
         "#; // Intentionally missing closing brace
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Malformed JSON should fail to parse");
 
@@ -3045,7 +3048,7 @@ mod tests {
             "description": "Missing rom_sets field"
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "JSON missing rom_sets should fail");
 
@@ -3070,7 +3073,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "JSON missing set type should fail");
 
@@ -3095,7 +3098,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "JSON missing file field should fail");
 
@@ -3121,7 +3124,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Invalid ROM type should fail");
 
@@ -3147,7 +3150,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Invalid CS logic should fail");
 
@@ -3173,7 +3176,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Invalid set type should fail");
 
@@ -3200,7 +3203,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         // This test documents behavior - either should error or succeed
         // but we're asserting it should error for now
@@ -3230,7 +3233,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         // This test documents behavior - either should error or succeed
         assert!(result.is_err(), "CS3 specified for 2332 should fail");
@@ -3256,7 +3259,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Missing CS1 should fail");
 
@@ -3283,7 +3286,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Invalid size_handling should fail");
 
@@ -3320,7 +3323,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         // This documents expected behavior - mixed types might be allowed or not
         // For now, assuming it should fail
@@ -3356,7 +3359,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Mixed ROM types in banked set should fail");
 
@@ -3382,7 +3385,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Negative version should fail");
 
@@ -3408,7 +3411,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Zero version should fail");
 
@@ -3434,7 +3437,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Version 999 should fail");
 
@@ -3453,7 +3456,7 @@ mod tests {
             "rom_sets": []
         }"#;
 
-        let builder = Builder::from_json(json).expect("Empty rom_sets should be allowed");
+        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Empty rom_sets should be allowed");
 
         let props = default_fw_props();
         let (metadata_buf, rom_images_buf) = builder.build(props).expect("Build should succeed");
@@ -3487,7 +3490,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Empty roms array should fail");
 
@@ -3517,7 +3520,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "Empty filename should fail");
 
@@ -3543,7 +3546,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Filename with spaces should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with spaces should be allowed");
 
         builder
             .add_file(FileData {
@@ -3604,7 +3607,7 @@ mod tests {
         }"#;
 
         let mut builder =
-            Builder::from_json(json).expect("Filename with special chars should be allowed");
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with special chars should be allowed");
 
         builder
             .add_file(FileData {
@@ -3665,7 +3668,7 @@ mod tests {
         }"#;
 
         let mut builder =
-            Builder::from_json(json).expect("Filename with unicode should be allowed");
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with unicode should be allowed");
 
         builder
             .add_file(FileData {
@@ -3731,7 +3734,7 @@ mod tests {
             long_filename
         );
 
-        let mut builder = Builder::from_json(&json).expect("Max length filename should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, &json).expect("Max length filename should be allowed");
 
         builder
             .add_file(FileData {
@@ -3795,7 +3798,7 @@ mod tests {
             very_long_filename
         );
 
-        let result = Builder::from_json(&json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, &json);
 
         // This might succeed or fail depending on implementation
         // If it succeeds, verify the filename is stored correctly
@@ -3891,7 +3894,7 @@ mod tests {
             ]
         }"#;
 
-        let mut builder = Builder::from_json(json)
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json)
             .expect("Duplicate filenames should be allowed across different sets");
 
         // Verify only 1 unique file needed
@@ -3980,7 +3983,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Filename with path should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with path should be allowed");
 
         builder
             .add_file(FileData {
@@ -4040,7 +4043,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Filename with quotes should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with quotes should be allowed");
 
         builder
             .add_file(FileData {
@@ -4101,7 +4104,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         // This should either:
         // 1. Reject at parse time (preferred), OR
@@ -4186,7 +4189,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -4250,7 +4253,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -4321,7 +4324,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -4402,7 +4405,7 @@ mod tests {
             ]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         builder
             .add_file(FileData {
@@ -4488,7 +4491,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add zero-byte file
         builder
@@ -4528,7 +4531,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add single-byte file (should be padded to 2KB)
         builder
@@ -4575,7 +4578,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add 2047-byte file (1 byte short of 2KB)
         builder
@@ -4618,7 +4621,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add 2049-byte file (1 byte over 2KB, needs padding to 4KB)
         builder
@@ -4662,7 +4665,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add exactly 1KB file (should duplicate to 2KB)
         builder
@@ -4705,7 +4708,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add exactly 2KB file (should duplicate 4 times to 8KB)
         builder
@@ -4748,7 +4751,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add 1-byte file (should pad to 8KB)
         builder
@@ -4801,7 +4804,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add 3KB file without size_handling (should error)
         builder
@@ -4841,7 +4844,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add exactly 8KB (maximum for 2364)
         builder
@@ -4883,7 +4886,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Add exactly 2KB (minimum/exact size for 2316)
         builder
@@ -4928,7 +4931,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "2316 missing CS3 should fail");
 
@@ -4961,7 +4964,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "All CS as ignore should fail");
 
@@ -4988,7 +4991,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "CS1 as ignore with CS2 active should fail");
 
@@ -5021,7 +5024,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(
             result.is_err(),
@@ -5057,7 +5060,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(
             result.is_err(),
@@ -5087,7 +5090,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(result.is_err(), "2332 with both CS as ignore should fail");
 
@@ -5246,7 +5249,7 @@ mod tests {
         ];
         for config in invalid_configs {
             let json = invalid_config_json(config);
-            let result = Builder::from_json(&json);
+            let result = Builder::from_json(FW_VER, MCU_FAM, &json);
             assert!(result.is_err(), "Invalid CS config should fail");
         }
 
@@ -5274,7 +5277,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Valid CS config should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Valid CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5309,7 +5312,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Valid CS config should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Valid CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5355,7 +5358,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Same CS config should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Same CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5415,7 +5418,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Same CS config should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Same CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5468,7 +5471,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 4KB of test data with unique pattern
         let mut test_data = Vec::with_capacity(4096);
@@ -5545,7 +5548,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
         // Create 2KB of test data (will be padded to 8KB)
         let test_data = create_test_rom_data(2048, 0x42);
@@ -5607,7 +5610,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(
             result.is_err(),
@@ -5641,7 +5644,7 @@ mod tests {
             }]
         }"#;
 
-        let result = Builder::from_json(json);
+        let result = Builder::from_json(FW_VER, MCU_FAM, json);
 
         assert!(
             result.is_err(),
@@ -5686,7 +5689,7 @@ mod tests {
         ];
 
         for (board_type, mcu_variant) in boards_to_test.iter() {
-            let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+            let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
             // Create test data with unique pattern
             let mut test_data = Vec::with_capacity(8192);
@@ -5766,7 +5769,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         builder
             .add_file(FileData {
                 id: 0,
@@ -5805,7 +5808,7 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         builder
             .add_file(FileData {
                 id: 0,
@@ -5843,7 +5846,7 @@ mod tests {
             }]
         }"#;
 
-        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let desc = builder.description();
         assert_eq!(
             desc, "Test description\n\nImages:\n0: test.rom",
@@ -5867,7 +5870,7 @@ mod tests {
             }]
         }"#;
 
-        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let desc = builder.description();
         assert_eq!(
             desc, "Test description\n\nDetailed description\n\nImages:\n0: test.rom",
@@ -5891,7 +5894,7 @@ mod tests {
             }]
         }"#;
 
-        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let desc = builder.description();
         assert_eq!(
             desc, "Test description\n\nImages:\n0: an image",
@@ -5915,7 +5918,7 @@ mod tests {
             }]
         }"#;
 
-        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let desc = builder.description();
         assert_eq!(
             desc, "Name of config\n--------------\n\nTest description\n\nImages:\n0: test.rom",
@@ -5940,7 +5943,7 @@ mod tests {
             }]
         }"#;
 
-        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let desc = builder.description();
         assert_eq!(
             desc, "Test description\n\nImages:\n0: an image\n\nSome notes here",
@@ -5967,7 +5970,7 @@ mod tests {
             }]
         }"#;
 
-        let builder = Builder::from_json(json).expect("Failed to parse JSON");
+        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
         let desc = builder.description();
         assert_eq!(
             desc, "Test description\n\nSets:\n0: Banked\n  0: test0.rom\n  1: test1.rom",
