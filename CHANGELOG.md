@@ -4,7 +4,9 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.10 - 2026-??-??
 
+### Fixes
 
+- issue #76 - fire-24-c PIO algorithm fixes.
 
 ## v0.5.9 - 2026-01-01
 

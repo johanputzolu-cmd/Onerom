@@ -341,36 +341,117 @@
 
 // PIO ROM serving configuration structure
 typedef struct piorom_config {
+    // How many CS pins are used (1-3), and which ones to invert, as they are
+    // active high.  This inversion is done in hardware before the PIOs read
+    // the pins.
     uint8_t num_cs_pins;
     uint8_t invert_cs[3];
 
+    // 4 bytes to here
+
+    // Base CS pin.  Note that a single break in otherwise contiguous pins is
+    // allows - see contiguous_cs_pins and cs_pin_2nd_match below.
     uint8_t cs_base_pin;
+
+    // Base data pin.  Data pins must be contiguous.
     uint8_t data_base_pin;
+
+    // Number of data pins (typically 8, but will be 16 as/when 40 pin ROMs
+    // are supported).
     uint8_t num_data_pins;
+
+    // Lowest address pin.  For 24 pin ROMs, this includes all CS and X pins.
     uint8_t addr_base_pin;
+
+    // 8 bytes to here
     
+    // Number of address pins.  This is 16 for a Fire 24 board - as
+    // they include X and CS pins.  For a Fire 28 board is is also, normally,
+    // 16 (as 2^16 is 512Kbits = 64KB), as CS lines are _not_ part of the
+    // address space.  However, the 231024 is a 28 pin board and requires 17-18
+    // pins, depending on layout, to allow the full 128KB to be addressed.
     uint8_t num_addr_pins;
+
+    // Whether to use IRQ from CS handler to address read SM (0 = don't use)
     uint8_t addr_read_irq;
+
+    // Number of PIO cycles to delay between address reads (in addition to any
+    // delay from the instructions themselves)
     uint8_t addr_read_delay;
+
+    // Number of cycles to wait after detecting CS going active before setting
+    // data pins to outputs.
     uint8_t cs_active_delay;
 
+    // 12 bytes to here
+
+    // Number of cycles to wait after CS goes inactive before setting data
+    // pins back to inputs.
     uint8_t cs_inactive_delay;
+
+    // Whether to use DMA (0 = use)
     uint8_t no_dma;
     uint8_t pad[2];
 
+    // 16 bytes to here
+
+    // ROM table base address in RAM
     uint32_t rom_table_addr;
 
+    // 20 bytes to here
+
+    // PIO state machine 0 clock dividers
     uint16_t sm0_clkdiv_int;
     uint8_t sm0_clkdiv_frac;
     uint8_t pad0;
+    
+    // 24 bytes to here
 
+    // PIO state machine 1 clock dividers
     uint16_t sm1_clkdiv_int;
     uint8_t sm1_clkdiv_frac;
     uint8_t pad1;
 
+    // 28 bytes to here
+
+    // PIO state machine 2 clock dividers
     uint16_t sm2_clkdiv_int;
     uint8_t sm2_clkdiv_frac;
     uint8_t pad2;
+
+    // 32 bytes to here
+
+    // The PIO CS algorithm supports up to a single break between otherwise
+    // contiguous CS pins.  This is handled via a variant of the algorithm
+    // which tests for both zero and another value ("2nd match").
+    //
+    // Consider CS lines ac, being arranged abc.  Here, CS lines are all
+    // active if the read value is 000 or 010 - i.e. for both values of b.
+    // In this case the "2nd match" value is 2.
+    // 
+    // The algorithm will hence check for 0 or for 2, and consider CS to be
+    // active in either case.
+    //
+    // This algorithm is slightly less performant (one additional cycle in
+    // some cases = 6.67ns), but in reality, the CS algorithm is so quick, it
+    // is not likely to be the limiting factor, and hence is not expected to
+    // have any impacts.
+    //
+    // While it might appear to be a PCB layout issue to have CS pins arranged
+    // like this (and in some cases it might be), there are some differences in
+    // the cs pin arrangements between different ROM types meaning this can be
+    // useful.
+    //
+    // This approach only supports a single break in otherwise contiguous pins
+    // and only 1 pin being within the break.
+    uint8_t contiguous_cs_pins;
+    uint8_t pad3[3];
+
+    // 36 bytes to here
+
+    uint32_t cs_pin_2nd_match;
+
+    // 40 bytes to here
 } piorom_config_t;
 
 //
@@ -415,6 +496,15 @@ typedef struct piorom_config {
 // Jump to instruction unconditionally
 #define JMP(X)                  (0x0000 | ((X) & 0x1F))
 
+// Set X
+#define SET_X(VALUE)            (0xe020 | ((VALUE) & 0x1F))
+
+// Set Y
+#define SET_Y(VALUE)            (0xe040 | ((VALUE) & 0x1F))
+
+// Jump X != Y
+#define JMP_X_NOT_Y(DEST)       (0x00A0 | ((DEST) & 0x1F))
+
 // Forward declarations for debug logging functions
 #if defined(DEBUG_LOGGING)
 static void piorom_instruction_decoder(uint32_t instr, char out_str[64]);
@@ -452,8 +542,30 @@ static void piorom_log_pio_sm(
 //                                   ; instruction.
 // 0xaN42, //  nop    [N]            ; OPTIONAL: N cycle delay before setting
 //                                   ; data pins to inputs
-
 // .wrap                             ; End of CS loop 
+
+// There is an alternate version to handle non-contiguous CS pins:
+//
+// set Y, 2nd_match_value
+//
+// inactive:
+// mov pindirs, null
+//
+// test_if_active:
+// mov x, pins                  ; Load pins to X
+// jmp !x active                ; CS = 000 Go active, could add single cycle wait to take the same time as if CS = 010
+// jmp x!=y test_if_active      ; CS != 010 Check again
+// ; CS = 010, so drop into active
+//
+// active:
+// mov pindirs, ~null
+//
+// .wrap_target: 
+// test_if_inactive:
+// mov x, pins                  ; Load pins to X
+// jmp !x test_if_inactive      ; CS == 000 Stay active, test again
+// jmp x!=y inactive            ; CS != 010 So, go inactive
+// .wrap                        ; CS = 010, so test again 
 
 // SM1 - Address Read
 //
@@ -500,6 +612,8 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t addr_read_delay = config->addr_read_delay;
     uint8_t cs_active_delay = config->cs_active_delay;
     uint8_t no_dma = config->no_dma;
+    uint8_t contiguous_cs_pins = config->contiguous_cs_pins;
+    uint32_t cs_2nd_match = config->cs_pin_2nd_match;
     uint32_t instr_scratch[32];
 
     // Clear all PIO0 IRQs
@@ -511,30 +625,77 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // Load the CS handler program
     uint8_t sm0_start = offset;
-    uint8_t sm0_wrap_bottom = offset;
-    instr_scratch[offset++] = MOV_PINDIRS_NULL;
-    uint8_t load_cs_offset = offset;
-    instr_scratch[offset++] = MOV_X_PINS;
-    instr_scratch[offset++] = JMP_X_DEC(load_cs_offset);
-    if (addr_read_irq) {
-        if (!cs_active_delay) {
-            instr_scratch[offset++] = IRQ_SET(0);
+    uint8_t sm0_wrap_bottom = 0;
+    uint8_t sm0_wrap_top = 0;
+    if (contiguous_cs_pins) {
+        // "Normal" case - all CS pins contiguous
+        sm0_wrap_bottom = offset;
+        instr_scratch[offset++] = MOV_PINDIRS_NULL;
+        uint8_t load_cs_offset = offset;
+        instr_scratch[offset++] = MOV_X_PINS;
+        instr_scratch[offset++] = JMP_X_DEC(load_cs_offset);
+        if (addr_read_irq) {
+            if (!cs_active_delay) {
+                instr_scratch[offset++] = IRQ_SET(0);
+            } else {
+                instr_scratch[offset++] = ADD_DELAY(IRQ_SET(0), cs_active_delay);
+            }
         } else {
-            instr_scratch[offset++] = ADD_DELAY(IRQ_SET(0), cs_active_delay);
+            if (cs_active_delay) {
+                instr_scratch[offset++] = ADD_DELAY(NOP, (cs_active_delay - 1));
+            }
+        }
+        instr_scratch[offset++] = MOV_PINDIRS_NOT_NULL;
+        uint8_t check_cs_gone_inactive = offset;
+        instr_scratch[offset++] = MOV_X_PINS;
+        sm0_wrap_top = offset;
+        instr_scratch[offset++] = JMP_NOT_X(check_cs_gone_inactive);
+        if (config->cs_inactive_delay) {
+            instr_scratch[offset++] = ADD_DELAY(NOP, (config->cs_inactive_delay - 1));
+            sm0_wrap_top++;
         }
     } else {
-        if (cs_active_delay) {
-            instr_scratch[offset++] = ADD_DELAY(NOP, (cs_active_delay - 1));
+        // Non-contiguous CS pins - need to check for 2 different possible
+        // CS values
+        instr_scratch[offset++] = SET_Y(cs_2nd_match);
+        
+        // inactive:
+        uint8_t inactive_offset = offset;
+        instr_scratch[offset++] = MOV_PINDIRS_NULL;
+
+        // test_if_active:
+        uint8_t test_if_active_offset = offset;
+        instr_scratch[offset++] = MOV_X_PINS;
+        uint8_t active_offset = offset + 2;
+        instr_scratch[offset++] = JMP_NOT_X(active_offset);
+        instr_scratch[offset++] = JMP_X_NOT_Y(test_if_active_offset);
+
+        // active:
+        if (addr_read_irq) {
+            if (!cs_active_delay) {
+                instr_scratch[offset++] = IRQ_SET(0);
+            } else {
+                instr_scratch[offset++] = ADD_DELAY(IRQ_SET(0), cs_active_delay);
+            }
+        } else {
+            if (cs_active_delay) {
+                instr_scratch[offset++] = ADD_DELAY(NOP, (cs_active_delay - 1));
+            }
         }
-    }
-    instr_scratch[offset++] = MOV_PINDIRS_NOT_NULL;
-    uint8_t check_cs_gone_inactive = offset;
-    instr_scratch[offset++] = MOV_X_PINS;
-    uint8_t sm0_wrap_top = offset;
-    instr_scratch[offset++] = JMP_NOT_X(check_cs_gone_inactive);
-    if (config->cs_inactive_delay) {
-        instr_scratch[offset++] = ADD_DELAY(NOP, (config->cs_inactive_delay - 1));
-        sm0_wrap_top++;
+        instr_scratch[offset++] = MOV_PINDIRS_NOT_NULL;
+
+        // .wrap_target:
+        // test_if_inactive:
+        sm0_wrap_bottom = offset;
+        uint8_t test_if_inactive_offset = offset;
+        instr_scratch[offset++] = MOV_X_PINS;
+        instr_scratch[offset++] = JMP_NOT_X(test_if_inactive_offset);
+        sm0_wrap_top = offset;
+        instr_scratch[offset++] = JMP_X_NOT_Y(inactive_offset);
+        if (config->cs_inactive_delay) {
+            instr_scratch[offset++] = ADD_DELAY(NOP, (config->cs_inactive_delay - 1));
+            sm0_wrap_top++;
+        }
     }
 
     // Configure the CS handler SM
@@ -548,8 +709,8 @@ static void piorom_load_programs(piorom_config_t *config) {
         PIO_WRAP_TOP(sm0_wrap_top);
     sm_reg->shiftctrl =
         PIO_IN_COUNT(num_cs_pins) | // Reading the CS pins
-        PIO_IN_SHIFTDIR_L;          // Direction doesn't matter, as we're just
-                                    // testing for zero
+        PIO_IN_SHIFTDIR_L;          // Direction left important for non-
+                                    // contiguous CS pin handling
     sm_reg->pinctrl =
         PIO_OUT_COUNT(num_data_pins) |  // "Output" data pins (just direction
                                         // not value)
@@ -793,17 +954,62 @@ static uint8_t get_lowest_data_gpio(
     return lowest;
 }
 
-// Get lowest address GPIO from the pin info
+// Get lowest address GPIO from the pin info.
+//
+// For 24 pin ROMs this includes CS lines and X pins.
+// For 28 pin ROMs this doesn't.
 static uint8_t get_lowest_addr_gpio(
-    const sdrr_info_t *info
+    const sdrr_info_t *info,
+    const uint8_t cs_base_pin
 ) {
     uint8_t lowest = MAX_USED_GPIOS;
+
     for (int ii = 0; ii < 16; ii++) {
         if (info->pins->addr[ii] < lowest) {
             lowest = info->pins->addr[ii];
         }
     }
+
+    if (info->pins->rom_pins == 24) {
+        // Consider X pins
+        if (info->pins->x1 < lowest) {
+            lowest = info->pins->x1;
+        }
+        if (info->pins->x2 < lowest) {
+            lowest = info->pins->x2;
+        }
+
+        // Consider CS pins - only need to check the base as this will be the
+        // lowest
+        if (cs_base_pin < lowest) {
+            lowest = cs_base_pin;
+        }
+    }
     return lowest;
+}
+
+static void piorom_handle_non_contiguous_cs_pins(
+    piorom_config_t *config,
+    uint8_t num_cs_pins,
+    uint8_t low_cs,
+    uint8_t high_cs
+) {
+    if (config->contiguous_cs_pins) {
+        LOG("!!! Multiple non-contiguous CS pin ranges not supported");
+        limp_mode(LIMP_MODE_INVALID_CONFIG);
+        return;
+    }
+
+    // We have non-contiguous CS pins.  Only support a single pin break.
+    if ((high_cs - low_cs) != 2) {
+        LOG("!!! Non-contiguous CS pins with break of more than 1 pin not supported");
+        limp_mode(LIMP_MODE_INVALID_CONFIG);
+        return;
+    }
+
+    config->contiguous_cs_pins = 0;
+    config->num_cs_pins = num_cs_pins+1;
+    config->cs_pin_2nd_match = 1 << (low_cs+1);
 }
 
 // Construct the PIO ROM serving configuration from the SDRR and ROM set info
@@ -864,14 +1070,22 @@ static void piorom_finish_config(
             } else {
                 if (info->pins->cs1 < info->pins->cs2) {
                     if (info->pins->cs2 > (info->pins->cs1 + 1)) {
-                        LOG("!!! CS pins must be contiguous");
-                        limp_mode(LIMP_MODE_INVALID_CONFIG);
+                        piorom_handle_non_contiguous_cs_pins(
+                            config,
+                            config->num_cs_pins,
+                            info->pins->cs1,
+                            info->pins->cs2
+                        );
                     }
                     config->cs_base_pin = info->pins->cs1;
                 } else {
                     if (info->pins->cs1 > (info->pins->cs2 + 1)) {
-                        LOG("!!! CS pins must be contiguous");
-                        limp_mode(LIMP_MODE_INVALID_CONFIG);
+                        piorom_handle_non_contiguous_cs_pins(
+                            config,
+                            config->num_cs_pins,
+                            info->pins->cs2,
+                            info->pins->cs1
+                        );
                     }
                     config->cs_base_pin = info->pins->cs2;
                 }
@@ -881,9 +1095,23 @@ static void piorom_finish_config(
                         config->cs_base_pin = info->pins->cs3;
                     } else if (info->pins->cs3 == (config->cs_base_pin + 2)) {
                         // cs_base_pin is already correct
+                    } else if (info->pins->cs3 > (config->cs_base_pin + 2)) {
+                        piorom_handle_non_contiguous_cs_pins(
+                            config,
+                            config->num_cs_pins,
+                            config->cs_base_pin+1,
+                            info->pins->cs3
+                        );
+                        // cs_base_pin is already correct
                     } else {
-                        LOG("!!! CS pins must be contiguous");
-                        limp_mode(LIMP_MODE_INVALID_CONFIG);
+                        // cs3 is less than cs_base_pin - 1
+                        piorom_handle_non_contiguous_cs_pins(
+                            config,
+                            config->num_cs_pins,
+                            info->pins->cs3,
+                            config->cs_base_pin
+                        );
+                        config->cs_base_pin = info->pins->cs3;
                     }
                 }
             }
@@ -902,9 +1130,22 @@ static void piorom_finish_config(
                 // OK
             } else if (info->pins->ce == (config->cs_base_pin - 1)) {
                 config->cs_base_pin = info->pins->ce;
+            } else if (info->pins->ce > (config->cs_base_pin + 1)) {
+                piorom_handle_non_contiguous_cs_pins(
+                    config,
+                    config->num_cs_pins,
+                    config->cs_base_pin,
+                    info->pins->ce
+                );
             } else {
-                LOG("!!! CE and OE pins must be contiguous");
-                limp_mode(LIMP_MODE_INVALID_CONFIG);
+                // ce is less than oe
+                piorom_handle_non_contiguous_cs_pins(
+                    config,
+                    config->num_cs_pins,
+                    info->pins->ce,
+                    config->cs_base_pin
+                );
+                config->cs_base_pin = info->pins->ce;
             }
             break;
 
@@ -946,7 +1187,8 @@ static void piorom_finish_config(
     }
 
     // Figure out base address pin from SDRR info
-    config->addr_base_pin = get_lowest_addr_gpio(info);
+    config->addr_base_pin = get_lowest_addr_gpio(info, config->cs_base_pin);
+    config->addr_base_pin = 8;
 
     // Figure out base data pin from SDRR info
     config->data_base_pin = get_lowest_data_gpio(info);
@@ -1032,6 +1274,8 @@ static piorom_config_t piorom_config = {
     .sm2_clkdiv_int = 1,
     .sm2_clkdiv_frac = 0,
     .pad2 = 0,
+    .contiguous_cs_pins = 1,
+    .cs_pin_2nd_match = 255
 };
 
 // Configure and start the Autonomous PIO/DMA ROM serving implementation.
