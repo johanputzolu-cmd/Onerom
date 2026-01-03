@@ -988,13 +988,29 @@ static uint8_t get_lowest_addr_gpio(
     return lowest;
 }
 
+// Handle non-contiguous CS pins - changes configuration so that a different
+// CS PIO algorithm is used.
+//
+// Args:
+// - config: PIO ROM serving configuration
+// - num_cs_pins: Number of CS pins originally detected
+// - lowest_cs: Lowest CS pin number
+// - low_cs: Highest of the bottom set of contiguous CS pins
+// - high_cs: Lowest of the top set of contiguous CS pins
 static void piorom_handle_non_contiguous_cs_pins(
     piorom_config_t *config,
     uint8_t num_cs_pins,
+    uint8_t lowest_cs,
     uint8_t low_cs,
     uint8_t high_cs
 ) {
-    if (config->contiguous_cs_pins) {
+    DEBUG("Handle non-contig pins num_cs_pins=%d lowest_cs=%d low_cs=%d high_cs=%d",
+        num_cs_pins,
+        lowest_cs,
+        low_cs,
+        high_cs
+    );
+    if (!config->contiguous_cs_pins) {
         LOG("!!! Multiple non-contiguous CS pin ranges not supported");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
         return;
@@ -1009,7 +1025,7 @@ static void piorom_handle_non_contiguous_cs_pins(
 
     config->contiguous_cs_pins = 0;
     config->num_cs_pins = num_cs_pins+1;
-    config->cs_pin_2nd_match = 1 << (low_cs+1);
+    config->cs_pin_2nd_match = 1 << (low_cs - lowest_cs + 1);
 }
 
 // Construct the PIO ROM serving configuration from the SDRR and ROM set info
@@ -1065,14 +1081,19 @@ static void piorom_finish_config(
         case ROM_TYPE_23512:
             series_23 = 1;
             // Figure out base CS pin from SDRR info
-            if (config->num_cs_pins == 1) {
+
+            // Store off num_cs_pins as it gets modified by
+            // piorom_handle_non_contiguous_cs_pins()
+            uint8_t num_cs_pins = config->num_cs_pins;
+            if (num_cs_pins == 1) {
                 config->cs_base_pin = info->pins->cs1;
             } else {
                 if (info->pins->cs1 < info->pins->cs2) {
                     if (info->pins->cs2 > (info->pins->cs1 + 1)) {
                         piorom_handle_non_contiguous_cs_pins(
                             config,
-                            config->num_cs_pins,
+                            num_cs_pins,
+                            info->pins->cs1,
                             info->pins->cs1,
                             info->pins->cs2
                         );
@@ -1082,7 +1103,8 @@ static void piorom_finish_config(
                     if (info->pins->cs1 > (info->pins->cs2 + 1)) {
                         piorom_handle_non_contiguous_cs_pins(
                             config,
-                            config->num_cs_pins,
+                            num_cs_pins,
+                            info->pins->cs2,
                             info->pins->cs2,
                             info->pins->cs1
                         );
@@ -1090,7 +1112,9 @@ static void piorom_finish_config(
                     config->cs_base_pin = info->pins->cs2;
                 }
 
-                if (config->num_cs_pins == 3) {
+                if (num_cs_pins > 2) {
+                    // piorom_handle_non_contiguous_cs_pins() handles if there
+                    // are already too many breaks in contiguity
                     if (info->pins->cs3 == (config->cs_base_pin - 1)) {
                         config->cs_base_pin = info->pins->cs3;
                     } else if (info->pins->cs3 == (config->cs_base_pin + 2)) {
@@ -1098,7 +1122,8 @@ static void piorom_finish_config(
                     } else if (info->pins->cs3 > (config->cs_base_pin + 2)) {
                         piorom_handle_non_contiguous_cs_pins(
                             config,
-                            config->num_cs_pins,
+                            num_cs_pins,
+                            config->cs_base_pin,
                             config->cs_base_pin+1,
                             info->pins->cs3
                         );
@@ -1107,7 +1132,8 @@ static void piorom_finish_config(
                         // cs3 is less than cs_base_pin - 1
                         piorom_handle_non_contiguous_cs_pins(
                             config,
-                            config->num_cs_pins,
+                            num_cs_pins,
+                            info->pins->cs3,
                             info->pins->cs3,
                             config->cs_base_pin
                         );
@@ -1135,6 +1161,7 @@ static void piorom_finish_config(
                     config,
                     config->num_cs_pins,
                     config->cs_base_pin,
+                    config->cs_base_pin,
                     info->pins->ce
                 );
             } else {
@@ -1142,6 +1169,7 @@ static void piorom_finish_config(
                 piorom_handle_non_contiguous_cs_pins(
                     config,
                     config->num_cs_pins,
+                    info->pins->ce,
                     info->pins->ce,
                     config->cs_base_pin
                 );
@@ -1162,6 +1190,9 @@ static void piorom_finish_config(
     //
     // This isn't required for 27 series ROMs, as both OE and CE are active
     // low.
+    //
+    // Where non-contiguous CS pins are used, we may check non CS pins here.
+    // That's OK as they won't match an actual CS pin.
     if (series_23) {
         for (int ii = 0; (ii < config->num_cs_pins) && (ii < 3); ii++) {
             if (info->pins->cs1 == (config->cs_base_pin + ii)) {
@@ -1188,7 +1219,6 @@ static void piorom_finish_config(
 
     // Figure out base address pin from SDRR info
     config->addr_base_pin = get_lowest_addr_gpio(info, config->cs_base_pin);
-    config->addr_base_pin = 8;
 
     // Figure out base data pin from SDRR info
     config->data_base_pin = get_lowest_data_gpio(info);
