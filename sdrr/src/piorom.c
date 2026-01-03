@@ -579,7 +579,7 @@ static void piorom_log_pio_sm(
 // algorithm is as follows:
 //
 // ; One time setup - get high word of ROM table address from TX FIFO.  This
-// ; is 0x2001 as of v0.5.5.
+// ; is 0x2001 as of v0.5.5, changed to 0x2000 as of v0.5.10.
 // pull   block         ; get high word of ROM table address
 // mov    x, osr        ; store high word in X
 //

@@ -4,7 +4,15 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.10 - 2026-??-??
 
-Promote fire-24-c to verified, as issue #76 has been fixed.
+Promote fire-24-c to verified and recommended 24-pin Fire version.
+
+### Added
+
+- issue #77 - Support for serving multi-ROM sets using Fire PIO algorithm.
+
+### Changed
+
+- issue #78 - Move RAM ROM image to 0x2000_0000 to prepare for 40 pin versions.
 
 ### Fixes
 

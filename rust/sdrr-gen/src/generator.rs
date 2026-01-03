@@ -747,6 +747,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
 
     // Extra info structure, introduced in v0.4.0
     writeln!(file, "// Extra info")?;
+    writeln!(file, "extern struct sdrr_runtime_info_t _sdrr_runtime_info_start;")?;
     writeln!(file, "static const sdrr_extra_info_t sdrr_extra_info = {{")?;
     writeln!(file, "    .rtt = &_SEGGER_RTT,")?;
     if board.has_usb() {
@@ -759,13 +760,18 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         writeln!(file, "    .vbus_pin = 255,")?;
     }
     writeln!(file, "    .reserved1 = {{0}},")?;
+    writeln!(file, "    .runtime_info = &_sdrr_runtime_info_start,")?;
     writeln!(file, "    ._post = {{")?;
-    for _ in 0..31 {
+    for _ in 0..30 {
         writeln!(
             file,
             "        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,"
         )?;
     }
+    writeln!(
+        file,
+        "        0xff, 0xff, 0xff, 0xff,"
+    )?;
     writeln!(file, "    }},")?;
     writeln!(file, "}};")?;
 
@@ -944,12 +950,12 @@ fn generate_linker_script(filename: &Path, config: &Config) -> Result<()> {
 
     match config.mcu_variant.family() {
         McuFamily::Rp2350 => {
-            writeln!(file, "_Ram_Rom_Image_Start = ORIGIN(RAM) + 0x10000;")?;
+            writeln!(file, "_Ram_Rom_Image_Start = ORIGIN(RAM);")?;
         }
         McuFamily::Stm32f4 => {
             writeln!(
                 file,
-                "_Ram_Rom_Image_Start = ORIGIN(RAM) + _Sdrr_Runtime_Info_Size;"
+                "_Ram_Rom_Image_Start = ORIGIN(RAM);"
             )?;
         }
     }
