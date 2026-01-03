@@ -4,6 +4,8 @@ All notables changes between versions are documented in this file.
 
 ## v0.5.10 - 2026-??-??
 
+Promote fire-24-c to verified, as issue #76 has been fixed.
+
 ### Fixes
 
 - issue #76 - fire-24-c PIO algorithm fixes.

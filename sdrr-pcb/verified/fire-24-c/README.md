@@ -1,6 +1,6 @@
 # Fire 24 Rev C
 
-**Univerified** - This is a bugged design.  CS1 and CS2 (A12) are non-contiguous, meaning the 2332 ROM cannot be properly served by the PIO algorithm.
+**Verified**
 
 23xx Fire (RP2350 24 pin) combined USB+SWD One ROM PCB.  Includes 2 image select jumpers.  Supports PIO and CPU serving algorithms.
 
@@ -15,7 +15,7 @@
 
 ## Errata
 
-None
+This design incorrectly orders the CS pins, so that they are non-contiguous in the 2332 case.  This is OK, as the PIO algorithm has been updated to handle this case.  See issue #76 for details.
 
 ## Notes
 
