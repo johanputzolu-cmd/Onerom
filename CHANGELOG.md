@@ -2,7 +2,7 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.5.10 - 2026-??-??
+## v0.5.10 - 2026-01-03
 
 Promote fire-24-c to verified and recommended 24-pin Fire version.
 
