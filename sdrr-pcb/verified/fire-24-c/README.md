@@ -15,11 +15,9 @@
 
 ## Errata
 
-This design incorrectly orders the CS pins, so that they are non-contiguous in the 2332 case.  This is OK, as the PIO algorithm has been updated to handle this case.  See issue #76 for details.
-
 ## Notes
 
-None
+In the 2332 base, CS1 and CS2 are non-contiguous.  This is a side-effect of making the 27xx OE/CE pins contiguous.  There is no way to make them both contiguous, and also make the X pins contiguous with the CS pin in the 2364 case.  This design makes the trade-off to keep the pins contiguous for more ROM types.  The PIO algorithm also supports non-contiguous CS pins, as used for the 2332, so this is not a problem.
 
 ## Changelog
 
