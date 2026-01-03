@@ -445,10 +445,16 @@ typedef struct piorom_config {
     // This approach only supports a single break in otherwise contiguous pins
     // and only 1 pin being within the break.
     uint8_t contiguous_cs_pins;
-    uint8_t pad3[3];
+
+    // Whether multi-ROM mode is enabled (i.e. more than one ROM is being
+    // served via the X pins).
+    uint8_t multi_rom_mode;
+
+    uint8_t pad3[2];
 
     // 36 bytes to here
 
+    // See `contiguous_cs_pins` above.
     uint32_t cs_pin_2nd_match;
 
     // 40 bytes to here
@@ -613,6 +619,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t cs_active_delay = config->cs_active_delay;
     uint8_t no_dma = config->no_dma;
     uint8_t contiguous_cs_pins = config->contiguous_cs_pins;
+    uint8_t multi_rom_mode = config->multi_rom_mode;
     uint32_t cs_2nd_match = config->cs_pin_2nd_match;
     uint32_t instr_scratch[32];
 
@@ -633,7 +640,11 @@ static void piorom_load_programs(piorom_config_t *config) {
         instr_scratch[offset++] = MOV_PINDIRS_NULL;
         uint8_t load_cs_offset = offset;
         instr_scratch[offset++] = MOV_X_PINS;
-        instr_scratch[offset++] = JMP_X_DEC(load_cs_offset);
+        if (!multi_rom_mode) {
+            instr_scratch[offset++] = JMP_X_DEC(load_cs_offset);
+        } else {
+            instr_scratch[offset++] = JMP_NOT_X(load_cs_offset);
+        }
         if (addr_read_irq) {
             if (!cs_active_delay) {
                 instr_scratch[offset++] = IRQ_SET(0);
@@ -649,7 +660,11 @@ static void piorom_load_programs(piorom_config_t *config) {
         uint8_t check_cs_gone_inactive = offset;
         instr_scratch[offset++] = MOV_X_PINS;
         sm0_wrap_top = offset;
-        instr_scratch[offset++] = JMP_NOT_X(check_cs_gone_inactive);
+        if (!multi_rom_mode) {
+            instr_scratch[offset++] = JMP_NOT_X(check_cs_gone_inactive);
+        } else {
+            instr_scratch[offset++] = JMP_X_DEC(check_cs_gone_inactive);
+        }
         if (config->cs_inactive_delay) {
             instr_scratch[offset++] = ADD_DELAY(NOP, (config->cs_inactive_delay - 1));
             sm0_wrap_top++;
@@ -1039,7 +1054,19 @@ static void piorom_finish_config(
     const sdrr_rom_info_t *rom = set->roms[0];
     switch (rom->rom_type) {
         case ROM_TYPE_2364:
-            config->num_cs_pins = 1;
+            if (set->serve != SERVE_ADDR_ON_ANY_CS) {
+                config->num_cs_pins = 1;
+            } else {
+                if ((set->rom_count < 2) || (set->rom_count > 3)) {
+                    LOG("!!! PIO ROM serving invalid multi-ROM count %d for 2364",
+                        set->rom_count);
+                    limp_mode(LIMP_MODE_INVALID_CONFIG);
+                    config->num_cs_pins = 1;
+                } else {
+                    config->num_cs_pins = set->rom_count;
+                    config->multi_rom_mode = 1;
+                }
+            }
             break;
 
         case ROM_TYPE_2332:
@@ -1073,9 +1100,43 @@ static void piorom_finish_config(
     uint8_t series_23 = 0;
     switch (rom->rom_type) {
         // 23 series ROMs - use CS lines
+        case ROM_TYPE_2364:
+            // Special case for handling multi-ROM serving
+            if (config->multi_rom_mode) {
+                // For 2 ROMs, use CS and X1.  For 3 ROMs use CS, X1 and X2.
+                // The base pin is the lowest of these.
+                series_23 = 1;
+                uint8_t lowest = info->pins->cs1;
+                if (info->pins->x1 < lowest) {
+                    lowest = info->pins->x1;
+                }
+                if (config->num_cs_pins == 3) {
+                    if (info->pins->x2 < lowest) {
+                        lowest = info->pins->x2;
+                    }
+                }
+                config->cs_base_pin = lowest;
+
+                // For now, insist on contiguity (it may be possible to lift
+                // this restriction)
+                if ((info->pins->x1 > (info->pins->cs1 + 1)) ||
+                    (info->pins->x1 < (info->pins->cs1 - 1))) {
+                    LOG("!!! PIO ROM serving non-contiguous CS/X1 pins not supported");
+                    limp_mode(LIMP_MODE_INVALID_CONFIG);
+                }
+                if (config->num_cs_pins == 3) {
+                    if ((info->pins->x2 > (info->pins->x1 + 1)) ||
+                        (info->pins->x2 < (info->pins->x1 - 1))) {
+                        LOG("!!! PIO ROM serving non-contiguous CS/X1/X2 pins not supported");
+                        limp_mode(LIMP_MODE_INVALID_CONFIG);
+                    }
+                }
+                break;
+            }
+            // GCC notices the following comment and allows compilation
+            // fall through 
         case ROM_TYPE_2316:
         case ROM_TYPE_2332:
-        case ROM_TYPE_2364:
         case ROM_TYPE_23128:
         case ROM_TYPE_23256:
         case ROM_TYPE_23512:
@@ -1194,24 +1255,53 @@ static void piorom_finish_config(
     // Where non-contiguous CS pins are used, we may check non CS pins here.
     // That's OK as they won't match an actual CS pin.
     if (series_23) {
-        for (int ii = 0; (ii < config->num_cs_pins) && (ii < 3); ii++) {
-            if (info->pins->cs1 == (config->cs_base_pin + ii)) {
-                if (rom->cs1_state == CS_ACTIVE_HIGH) {
-                    config->invert_cs[ii] = 1;
-                } else {
-                    config->invert_cs[ii] = 0;
+        if (!config->multi_rom_mode) {
+            for (int ii = 0; (ii < config->num_cs_pins) && (ii < 3); ii++) {
+                if (info->pins->cs1 == (config->cs_base_pin + ii)) {
+                    if (rom->cs1_state == CS_ACTIVE_HIGH) {
+                        config->invert_cs[ii] = 1;
+                    } else {
+                        config->invert_cs[ii] = 0;
+                    }
+                } else if (info->pins->cs2 == (config->cs_base_pin + ii)) {
+                    if (rom->cs2_state == CS_ACTIVE_HIGH) {
+                        config->invert_cs[ii] = 1;
+                    } else {
+                        config->invert_cs[ii] = 0;
+                    }
+                } else if (info->pins->cs3 == (config->cs_base_pin + ii)) {
+                    if (rom->cs3_state == CS_ACTIVE_HIGH) {
+                        config->invert_cs[ii] = 1;
+                    } else {
+                        config->invert_cs[ii] = 0;
+                    }
                 }
-            } else if (info->pins->cs2 == (config->cs_base_pin + ii)) {
-                if (rom->cs2_state == CS_ACTIVE_HIGH) {
-                    config->invert_cs[ii] = 1;
-                } else {
-                    config->invert_cs[ii] = 0;
-                }
-            } else if (info->pins->cs3 == (config->cs_base_pin + ii)) {
-                if (rom->cs3_state == CS_ACTIVE_HIGH) {
-                    config->invert_cs[ii] = 1;
-                } else {
-                    config->invert_cs[ii] = 0;
+            }
+        } else {
+            // In multi-ROM mode, CS1, X1 and potentiall X2 are CS lines.
+            // Also, invert logic is reversed compared to the normal case, as
+            // _any_ CS line active is supported.
+            for (int ii = 0; (ii < config->num_cs_pins) && (ii < 3); ii++) {
+                if (info->pins->cs1 == (config->cs_base_pin + ii)) {
+                    if (rom->cs1_state == CS_ACTIVE_LOW) {
+                        config->invert_cs[ii] = 1;
+                    } else {
+                        config->invert_cs[ii] = 0;
+                    }
+                } else if (info->pins->x1 == (config->cs_base_pin + ii)) {
+                    // Inversion is per CS1
+                    if (rom->cs1_state == CS_ACTIVE_LOW) {
+                        config->invert_cs[ii] = 1;
+                    } else {
+                        config->invert_cs[ii] = 0;
+                    }
+                } else if (info->pins->x2 == (config->cs_base_pin + ii)) {
+                    // Inversion is per CS1
+                    if (rom->cs1_state == CS_ACTIVE_LOW) {
+                        config->invert_cs[ii] = 1;
+                    } else {
+                        config->invert_cs[ii] = 0;
+                    }
                 }
             }
         }
@@ -1262,6 +1352,7 @@ static void piorom_finish_config(
 
     // Log final configuration
     DEBUG("PIO ROM serving configuration:");
+    DEBUG("Multi-ROM mode: %d", config->multi_rom_mode);
     DEBUG("  CS GPIOs: %d-%d", config->cs_base_pin, config->cs_base_pin + config->num_cs_pins - 1);
     for (int ii = 0; ii < config->num_cs_pins; ii++) {
         DEBUG("  - CS GPIO %d invert: %d", config->cs_base_pin + ii, config->invert_cs[ii]);
@@ -1305,6 +1396,7 @@ static piorom_config_t piorom_config = {
     .sm2_clkdiv_frac = 0,
     .pad2 = 0,
     .contiguous_cs_pins = 1,
+    .multi_rom_mode = 0,
     .cs_pin_2nd_match = 255
 };
 

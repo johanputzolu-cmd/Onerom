@@ -378,6 +378,15 @@ fn generate_roms_implementation_file(
                 .join(" ")
         }
 
+        let flip_cs1_x = if config.board.mcu_pio() {
+            if rom_set.set_type == RomSetType::Multi {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
         for address in 0..image_size {
             if address % 256 == 0 {
                 // Comment address every 256 bytes
@@ -393,15 +402,6 @@ fn generate_roms_implementation_file(
                     address,
                     format_binary_spaced(address, 16)
                 )?;
-                if rom_set.roms.len() > 1 {
-                    writeln!(
-                        file,
-                        "    // CS1 = {}, X1 = {}, X2 = {}",
-                        if (address & (1 << 10)) != 0 { 1 } else { 0 },
-                        if (address & (1 << 14)) != 0 { 1 } else { 0 },
-                        if (address & (1 << 15)) != 0 { 1 } else { 0 }
-                    )?;
-                }
             } else if address % 16 == 0 {
                 // Otherwise, start a newline every 16 bytes
                 writeln!(file)?;
@@ -411,7 +411,7 @@ fn generate_roms_implementation_file(
                 write!(file, "    ")?;
             }
 
-            let byte = rom_set.get_byte(address, board);
+            let byte = rom_set.get_byte(address, board, flip_cs1_x);
             write!(file, "0x{:02x}, ", byte)?;
         }
 
