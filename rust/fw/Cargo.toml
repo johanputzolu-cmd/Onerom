@@ -21,7 +21,7 @@ path = "src/main.rs"
 
 [dependencies]
 onerom-config = { version = "0.2.6" }
-onerom-gen = { path="../gen", version = "0.2.5" }
+onerom-gen = { version = "0.2.5" }
 
 base64 = { version = "0.22" }
 bytes = "1.10"
