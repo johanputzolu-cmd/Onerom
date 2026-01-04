@@ -25,17 +25,6 @@
                 "null"
             ]
         },
-        "firmware_overrides": {
-            "description": "Optional runtime firmware overrides",
-            "anyOf": [
-                {
-                    "$ref": "#/$defs/FirmwareConfig"
-                },
-                {
-                    "type": "null"
-                }
-            ]
-        },
         "name": {
             "description": "Optional name for this configuration.  Is included in the description\noutput by the builder.",
             "type": [

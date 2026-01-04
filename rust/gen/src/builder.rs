@@ -154,19 +154,19 @@ impl Builder {
             });
         }
 
-        // FirmwareConfig only supported from 0.6.0 firmware onwards
-        const MIN_FIRMWARE_OVERRIDES_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
-        if config.firmware_overrides.is_some() {
-            if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
-                return Err(Error::FirmwareTooOld { version: *version, minimum: MIN_FIRMWARE_OVERRIDES_VERSION });
-            }
-        }
-
         // Validate each rom set has roms
         let mut rom_num = 0;
         for set in config.rom_sets.iter() {
             if set.roms.is_empty() {
                 return Err(Error::NoRoms);
+            }
+
+            // FirmwareConfig only supported from 0.6.0 firmware onwards
+            const MIN_FIRMWARE_OVERRIDES_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
+            if set.firmware_overrides.is_some() {
+                if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
+                    return Err(Error::FirmwareTooOld { version: *version, minimum: MIN_FIRMWARE_OVERRIDES_VERSION });
+                }
             }
 
             // PIO serve alg only supported from 0.6.0 firmware onwards
@@ -919,9 +919,6 @@ pub struct Config {
     /// Optional categories for this configuration, to aid in grouping,
     /// sorting, and searching of configurations.
     pub categories: Option<Vec<String>>,
-
-    /// Optional runtime firmware overrides
-    pub firmware_overrides: Option<FirmwareConfig>,
 }
 
 #[cfg(feature = "schemars")]
