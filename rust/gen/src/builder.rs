@@ -28,7 +28,7 @@ use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, Result};
 /// ```no_run
 /// use onerom_config::fw::{FirmwareProperties, FirmwareVersion, ServeAlg};
 /// use onerom_config::hw::Board;
-/// use onerom_config::mcu::Variant as McuVariant;
+/// use onerom_config::mcu::{Family, Variant as McuVariant};
 /// # use onerom_gen::Error;
 /// use onerom_gen::builder::{Builder, FileData, License};
 ///
@@ -56,7 +56,7 @@ use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, Result};
 /// }"#;
 ///
 /// // Create builder from JSON
-/// let mut builder = Builder::from_json(json)?;
+/// let mut builder = Builder::from_json(FirmwareVersion::new(0, 6, 0, 0), Family::Stm32f4, json)?;
 ///
 /// // Get list of licenses to be validated
 /// let licenses = builder.licenses();

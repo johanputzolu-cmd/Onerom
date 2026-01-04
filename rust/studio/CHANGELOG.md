@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.7 - 2026-01-03
+
+### Added
+
+- #77 - Support for serving multi-ROM sets using Fire PIO algorithm.
+
+## v0.1.6 - 2026-01-01
+
+### Added
+
+- 231024 ROM support in JSON config files.
+- fire-24-c
+- ice-24-i
+
 ## v0.1.5 - 2025-12-12
 
 ### Added

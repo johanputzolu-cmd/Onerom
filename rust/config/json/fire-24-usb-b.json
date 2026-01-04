@@ -83,7 +83,6 @@
                 "port": "0"
             }
         },
-        "cpu": true,
         "serve_mode": "cpu"
     }
 }

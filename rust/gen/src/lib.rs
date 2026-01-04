@@ -115,6 +115,8 @@ pub enum Error {
         actual: Family,
         required: Family,
     },
+    Base64,
+    Base16,
 }
 type Result<T> = core::result::Result<T, Error>;
 

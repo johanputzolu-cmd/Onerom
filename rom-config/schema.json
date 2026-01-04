@@ -25,6 +25,17 @@
                 "null"
             ]
         },
+        "firmware_overrides": {
+            "description": "Optional runtime firmware overrides",
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/FirmwareConfig"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "name": {
             "description": "Optional name for this configuration.  Is included in the description\noutput by the builder.",
             "type": [
@@ -77,6 +88,45 @@
                 }
             ]
         },
+        "FirmwareConfig": {
+            "description": "Top level configuration structure",
+            "type": "object",
+            "properties": {
+                "led": {
+                    "description": "Optional LED configuration",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/LedConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "mcu_clock": {
+                    "description": "Optional MCU clock configuration",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/McuClockConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "LedConfig": {
+            "description": "LED configuration structure",
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Whether the status LED is enabled",
+                    "type": "boolean",
+                    "default": true
+                }
+            }
+        },
         "Location": {
             "description": "Location within a larger ROM image that the specific image to use resides",
             "type": "object",
@@ -97,6 +147,26 @@
             "required": [
                 "start",
                 "length"
+            ]
+        },
+        "McuClockConfig": {
+            "description": "MCU Clock configuration structure",
+            "type": "object",
+            "properties": {
+                "cpu_mhz": {
+                    "description": "CPU frequency in MHz.  Only specific frequencies are supported",
+                    "type": "integer",
+                    "format": "uint32",
+                    "minimum": 0
+                },
+                "overclock": {
+                    "description": "Whether overclocking is enabled",
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": [
+                "cpu_mhz"
             ]
         },
         "RomConfig": {
@@ -205,12 +275,34 @@
                         "null"
                     ]
                 },
+                "firmware_overrides": {
+                    "description": "Optional firmware overrides when serving this ROM set.  Takes\nprecedence over any global configuration firmware overrides.",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/FirmwareConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
                 "roms": {
                     "description": "Array of ROM configurations in this set.  Contains 1 member for single\nROM sets, and multiple members for multi-ROM and banked ROM sets.",
                     "type": "array",
                     "items": {
                         "$ref": "#/$defs/RomConfig"
                     }
+                },
+                "serve_alg": {
+                    "description": "Optional serving algorithm override for this ROM set",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/ServeAlg"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "type": {
                     "description": "Type of ROM set",
@@ -314,6 +406,84 @@
                     "description": "64KB EPROM with fixed active-low CE/OE - 65536 bytes, 28-pin package",
                     "type": "string",
                     "const": "27512"
+                },
+                {
+                    "description": "128KB mask ROM with 1 configurable CS line - 131072 bytes, 28-pin package",
+                    "type": "string",
+                    "const": "231024"
+                }
+            ]
+        },
+        "ServeAlg": {
+            "description": "ROM serving algorithm",
+            "oneOf": [
+                {
+                    "description": "default",
+                    "type": "string",
+                    "const": "default"
+                },
+                {
+                    "description": "a",
+                    "type": "string",
+                    "const": "two_cs_one_addr"
+                },
+                {
+                    "description": "b",
+                    "type": "string",
+                    "const": "addr_on_cs"
+                },
+                {
+                    "description": "Multi-ROM set only",
+                    "type": "string",
+                    "const": "addr_on_any_cs"
+                },
+                {
+                    "description": "RP2350 only",
+                    "type": "object",
+                    "properties": {
+                        "pio": {
+                            "type": "object",
+                            "properties": {
+                                "addr_read_delay_cycles": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "format": "uint8",
+                                    "maximum": 255,
+                                    "minimum": 0
+                                },
+                                "addr_read_irq": {
+                                    "type": [
+                                        "boolean",
+                                        "null"
+                                    ]
+                                },
+                                "cs_inactive_data_hold_delay_cycles": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "format": "uint8",
+                                    "maximum": 255,
+                                    "minimum": 0
+                                },
+                                "cs_to_data_out_delay_cycles": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "format": "uint8",
+                                    "maximum": 255,
+                                    "minimum": 0
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "pio"
+                    ]
                 }
             ]
         },
