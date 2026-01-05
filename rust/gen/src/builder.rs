@@ -1198,5 +1198,5 @@ fn default_true() -> bool {
 pub struct DebugConfig {
     /// Whether SWD debug interface is enabled
     #[serde(default = "default_true")]
-    pub enabled: bool,
+    pub swd_enabled: bool,
 }
