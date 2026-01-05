@@ -30,11 +30,11 @@ sdrr_runtime_info_t sdrr_runtime_info __attribute__((section(".sdrr_runtime_info
 // etc.
 uint32_t check_sel_pins(uint32_t *sel_mask) {
     uint32_t num_sel_pins;
-    uint32_t orig_sel_mask, gpio_value, sel_value;
+    uint32_t orig_sel_mask, gpio_value, sel_value, sel_flip_bits;
 
     // Setup the pins first.  Do this first to allow any pull-ups to settle
     // before reading.
-    num_sel_pins = setup_sel_pins(&orig_sel_mask);
+    num_sel_pins = setup_sel_pins(&orig_sel_mask, &sel_flip_bits);
     if (num_sel_pins == 0) {
         LOG("No image select pins");
         disable_sel_pins();
@@ -43,7 +43,7 @@ uint32_t check_sel_pins(uint32_t *sel_mask) {
     }
 
     // Read the actual GPIO value, masked appropriately
-    gpio_value = get_sel_value(orig_sel_mask);
+    gpio_value = get_sel_value(orig_sel_mask, sel_flip_bits);
 
     (void)num_sel_pins;  // In case unused - no DEBUG logging 
     DEBUG("Read SIO_GPIO_IN: 0x%08X, %d Sel pins, mask 0x%08X", gpio_value, num_sel_pins, orig_sel_mask);

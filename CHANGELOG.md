@@ -2,6 +2,22 @@
 
 All notables changes between versions are documented in this file.
 
+## v0.6.0 - 2026-??-??
+
+This major release of the One ROM firmware adds support for low-level firmware configuration from the ROM config files, allowing per-ROM image configuration of processor clock speed, status LED behaviour, and other low-level capabilities.
+
+As a major firmware release, there are some non-backwards compatible changes in this release:
+- The ROM config JSON schema has changed - `sel_jumper_pull` is now a Vec<u8>, to allow per-pin SEL jumper pull direction.
+
+### Added
+
+- Support for per-ROM image low-level configuration, including processor clock speed, status LED behaviour, and other low-level capabilities.
+- Support for fire-24-d and ice-24-j hardware revisions.
+
+### Changed
+
+- ROM config JSON schema change - `sel_jumper_pull` is now a Vec<u8>, to allow per-pin SEL jumper pull direction.
+
 ## v0.5.10 - 2026-01-03
 
 Promote fire-24-c to verified and recommended 24-pin Fire version.

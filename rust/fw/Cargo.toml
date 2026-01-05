@@ -20,7 +20,7 @@ name = "onerom-fw"
 path = "src/main.rs"
 
 [dependencies]
-onerom-config = { path="../config", version = "0.2.7" }
+onerom-config = { path="../config", version = "0.3.0" }
 onerom-gen = { path="../gen", version = "0.3.0" }
 
 base64 = { version = "0.22" }

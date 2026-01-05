@@ -16,7 +16,7 @@ std = ["deku/std"]
 esp32 = []
 
 [dependencies]
-onerom-config = { path="../config", version = "0.2.7" }
+onerom-config = { path="../config", version = "0.3.0" }
 onerom-gen = { path="../gen", version = "0.3.0" }
 
 airfrog-rpc = { version = "0.1.0" }

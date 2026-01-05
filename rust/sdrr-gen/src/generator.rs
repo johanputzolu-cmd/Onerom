@@ -749,7 +749,14 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         board.pin_sel(5),
         board.pin_sel(6),
     )?;
-    writeln!(file, "    .sel_jumper_pull = {},", board.sel_jumper_pull())?;
+    // Turn the sel_jumper_pull &[u8] into a bit field, with LSB = sel 0
+    let sel_jumper_pull_bits: u8 = board
+        .sel_jumper_pulls()
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| if v > 0 { 1 << i } else { 0 })
+        .sum();
+    writeln!(file, "    .sel_jumper_pull = 0b{:08b},", sel_jumper_pull_bits)?;
     writeln!(file, "    .status = {},", board.pin_status())?;
     writeln!(file, "    .reserved5 = {{0, 0, 0}},")?;
 

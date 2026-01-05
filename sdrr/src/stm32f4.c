@@ -185,24 +185,20 @@ void setup_clock(void) {
 }
 
 // Set up the image select pins to be inputs with the appropriate pulls.
-uint32_t setup_sel_pins(uint32_t *sel_mask) {
+//
+// As of 0.6.0 sel_jumper_pulls is a bit field indicating whether each
+// individual sel pin's jumper pulls up (1) or down (0).
+uint32_t setup_sel_pins(uint32_t *sel_mask, uint32_t *flip_bits) {
     uint32_t num;
     uint8_t pull;
+
+    // Initialize outputs
+    *sel_mask = 0;
+    *flip_bits = 0;
 
     if (sdrr_info.pins->sel_port != PORT_B) {
         // sel_mask of 0 means invalid response
         LOG("!!! Sel port not B - not using");
-        return 0;
-    }
-
-    if (sdrr_info.pins->sel_jumper_pull == 0) {
-        // Jumper will pull down, so we pull up
-        pull = 0b01;
-    } else if (sdrr_info.pins->sel_jumper_pull == 1) {
-        // Jumper will pull up, so we pull down
-        pull = 0b10;
-    } else {
-        LOG("!!! Invalid sel pull %d", sdrr_info.pins->sel_jumper_pull);
         return 0;
     }
 
@@ -216,8 +212,21 @@ uint32_t setup_sel_pins(uint32_t *sel_mask) {
     uint32_t pulls = 0;          // Pull value
     for (int ii = 0; ii < MAX_IMG_SEL_PINS; ii++) {
         uint8_t pin = sdrr_info.pins->sel[ii];
-        // Pin is present, so set the mask
+
         if (pin < MAX_PORT_PINS) {
+            // Set up the pull
+            if (sdrr_info.pins->sel_jumper_pull & (1 << ii)) {
+                // This pin pulls up, so we pull down
+                pull = 0b10;
+            } else {
+                // This pin pulls down, so we pull up
+                pull = 0b01;
+
+                // Flip this bit when reading the SEL pins, as closing will
+                // pull the pin low, but that should read a 1
+                *flip_bits |= (1 << pin);
+            }
+
             sel_1bit_mask |= 1 << pin;
             sel_2bit_mask |= (0b11 << (pin * 2));
             pulls |= (pull << (pin * 2));
@@ -233,41 +242,32 @@ uint32_t setup_sel_pins(uint32_t *sel_mask) {
     GPIOB_PUPDR &= ~sel_2bit_mask;  // Clear pulls for appropriate lines
     GPIOB_PUPDR |= pulls;
 
-    // Short delay to allow the pull-downs to settle.
+    // Short delay to allow the puls to settle.
     for(volatile int ii = 0; ii < 10; ii++);
     
     return num;
 }
 
-// Get the value of the sel pins.  If, on this board, the MCU pulls are low
-// (i.e. closing the jumpers pulls them up) we return the value as is, as
-// closed should indicate 1.  In the other case, where MCU pulls are high
-// (closing jumpers) pulls the pins low, we invert - so closed still indicates
-// 1.
+// Get the value of the sel pins.
+// 
+// As of 0.6.0, we support sel_jumper_pulls as a bit field indicating whether
+// each individual sel pin's jumper pulls up (1) or down (0).
 //
-// We will probably make this behaviour configurable soon.
-//
-// On all STM32F4 boards to date, the SEL pins are pulled high by jumpers to
-// indicate a 1.
-uint32_t get_sel_value(uint32_t sel_mask) {
-    uint8_t invert;
+// If a pull is low (i.e. closing the jumpers pulls them up) we return the
+// value as is, as closed should indicate 1.  In the other case, where MCU
+// pulls are high (closing jumpers) pulls the pins low, we invert - so closed
+// still indicates 1.
+uint32_t get_sel_value(uint32_t sel_mask, uint32_t flip_bits) {
     uint32_t gpio_value;
 
-    if (sdrr_info.pins->sel_jumper_pull == 0) {
-        // Closing the jumper produces a 0, so invert
-        invert = 1;
-    } else {
-        // Closing the jumper produces a 1, so don't invert
-        invert = 0;
-    }
-
+    // Read GPIO input register
     gpio_value = GPIOB_IDR;
-    gpio_value = gpio_value & sel_mask;
 
-    if (invert) {
-        // If we are inverting, we need to flip the bits
-        gpio_value = ~gpio_value & sel_mask;
-    }
+    // Flip any flip bits as required
+    gpio_value ^= flip_bits;
+
+    // Mask to just the sel pins
+    gpio_value = gpio_value & sel_mask;
 
     return gpio_value;
 }

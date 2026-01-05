@@ -1,8 +1,7 @@
 {
-    "description": "One ROM Fire 24 (rev C)",
+    "description": "One ROM Fire 24 (rev D)",
     "alt": [
-        "p24-c",
-        "fire-24-usb-c"
+        "p24-d"
     ],
     "rom": {
         "pins": {
@@ -68,10 +67,12 @@
             },
             "x_jumper_pull": 0,
             "sel": [
+                25,
+                24,
                 26,
                 27
             ],
-            "sel_jumper_pull": [0, 0],
+            "sel_jumper_pull": [0, 0, 1, 1],
             "status": 29
         },
         "usb": {

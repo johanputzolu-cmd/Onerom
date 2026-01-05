@@ -376,27 +376,36 @@ void setup_mco(void) {
 }
 
 // Set up the image select pins to be inputs with the appropriate pulls.
-uint32_t setup_sel_pins(uint32_t *sel_mask) {
+//
+// As of 0.6.0 sel_jumper_pulls is a bit field indicating whether the
+// jumper pulls up (1) or down (0) each sel pin individually.
+uint32_t setup_sel_pins(uint32_t *sel_mask, uint32_t *flip_bits) {
     uint32_t num;
     uint32_t pad;
 
-    if (sdrr_info.pins->sel_jumper_pull == 0) {
-        // Jumper will pull down, so we pull up
-        pad = PAD_INPUT_PU;
-    } else if (sdrr_info.pins->sel_jumper_pull == 1) {
-        // Jumper will pull up, so we pull down
-        pad = PAD_INPUT_PD;
-    } else {
-        LOG("!!! Invalid sel pull %d", sdrr_info.pins->sel_jumper_pull);
-        return 0;
-    }
-
+    // Initialize outputs
     *sel_mask = 0;
+    *flip_bits = 0;
+
     num = 0;
     for (int ii = 0; (ii < MAX_IMG_SEL_PINS); ii++) {
         uint8_t pin = sdrr_info.pins->sel[ii];
+        
         if (pin < MAX_USED_GPIOS) {
-            // Enable pull-up
+            // Set the appropriate pad value based on the bit field
+            if (sdrr_info.pins->sel_jumper_pull & (1 << ii)) {
+                // This pin pulls up, so we pull down
+                pad = PAD_INPUT_PD;
+            } else {
+                // This pin pulls down, so we pull up
+                pad = PAD_INPUT_PU;
+
+                // Flip this bit when reading the SEL pins, as closing will
+                // pull the pin low, but that should read a 1
+                *flip_bits |= (1 << pin);
+            }
+
+            // Enable pull
             GPIO_PAD(pin) = pad;
 
             // Set the pin in our bit mask
@@ -414,33 +423,26 @@ uint32_t setup_sel_pins(uint32_t *sel_mask) {
     return num;
 }
 
-// Get the value of the sel pins.  If, on this board, the MCU pulls are low
-// (i.e. closing the jumpers pulls them up) we return the value as is, as
-// closed should indicate 1.  In the other case, where MCU pulls are high
-// (closing jumpers) pulls the pins low, we invert - so closed still indicates
-// 1.
+// Get the value of the sel pins.
+// 
+// As of 0.6.0, we support sel_jumper_pulls as a bit field indicating whether
+// each individual sel pin's jumper pulls up (1) or down (0).
 //
-// We will probably make this behaviour configurable soon.
-//
-// On all RP2350 boards, the SEL pins are pulled low by jumpers to indicate
-// a 1, so reverse to the default STM32F4 behavior.
-uint32_t get_sel_value(uint32_t sel_mask) {
-    uint8_t invert;
+// If a pull is low (i.e. closing the jumpers pulls them up) we return the
+// value as is, as closed should indicate 1.  In the other case, where MCU
+// pulls are high (closing jumpers) pulls the pins low, we invert - so closed
+// still indicates 1.
+uint32_t get_sel_value(uint32_t sel_mask, uint32_t flip_bits) {
     uint32_t gpio_value;
 
-    if (sdrr_info.pins->sel_jumper_pull == 0) {
-        // Closing the jumper produces a 0, so invert
-        invert = 1;
-    } else {
-        // Closing the jumper produces a 1, so don't invert
-        invert = 0;
-    }
+    // Read GPIO input register
+    gpio_value = SIO_GPIO_IN;
 
-    gpio_value = SIO_GPIO_IN & sel_mask;
-    if (invert) {
-        // If we are inverting, we need to flip the bits
-        gpio_value = ~gpio_value;
-    }
+    // Flip any flip bits as required
+    gpio_value ^= flip_bits;
+
+    // Mask to just the sel pins
+    gpio_value &= sel_mask;
 
     return gpio_value;
 }

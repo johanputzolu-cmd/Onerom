@@ -102,6 +102,9 @@ typedef struct {
     // This is used by One ROM to decide what type of its own pulls to apply
     // (the opposite).  Closing is always interpreted as a 1 by One ROM.
     //
+    // As of 0.6.0, sel_jumper_pin is a bit field, with one byte per pin, to
+    // allow for different pull directions per pin.  LSB = pin 0.
+    //
     // Unused image select pins are set to 255.
     //
     // The order of pins in this array is significant - [0] is bit 0 of the

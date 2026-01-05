@@ -61,7 +61,7 @@ assets = [
 ]
 
 [dependencies]
-onerom-config = { path="../config", version = "0.2.7" }
+onerom-config = { path="../config", version = "0.3.0" }
 onerom-fw = { path="../fw", version = "0.1.8" }
 onerom-gen = { path="../gen", version = "0.3.0" }
 sdrr-fw-parser = { path="../sdrr-fw-parser", version = "0.5.10" }

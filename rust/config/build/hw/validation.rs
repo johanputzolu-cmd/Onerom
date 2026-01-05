@@ -170,7 +170,7 @@ pub struct McuPins {
     pub oe: HashMap<String, u8>,
     pub x_jumper_pull: u8,
     pub sel: Vec<u8>,
-    pub sel_jumper_pull: u8,
+    pub sel_jumper_pull: Vec<u8>,
     pub status: u8,
 }
 
@@ -391,11 +391,21 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
     }
 
     // Validate sel_jumper_pull
-    if config.mcu.pins.sel_jumper_pull > 1 {
+    if config.mcu.pins.sel_jumper_pull.len() != config.mcu.pins.sel.len() {
         panic!(
-            "{}: sel_jumper_pull must be 0 (pull down) or 1 (pull up), found {}",
-            name, config.mcu.pins.sel_jumper_pull
+            "{}: sel_jumper_pull length {} does not match sel length {}",
+            name,
+            config.mcu.pins.sel_jumper_pull.len(),
+            config.mcu.pins.sel.len()
         );
+    }
+    for &pull in &config.mcu.pins.sel_jumper_pull {
+        if pull > 1 {
+            panic!(
+                "{}: sel_jumper_pull values must be 0 (pull down) or 1 (pull up), found {}",
+                name, pull
+            );
+        }
     }
 
     // Group pins by port for conflict checking

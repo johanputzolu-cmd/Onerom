@@ -991,13 +991,22 @@ fn generate_jumper_methods(configs: &[HwConfigData]) -> String {
     let mut code = String::new();
 
     code.push_str("    /// Get SEL jumper pull direction (0=down, 1=up)\n");
-    code.push_str("    pub const fn sel_jumper_pull(&self) -> u8 {\n");
+    code.push_str("    pub const fn sel_jumper_pulls(&self) -> &'static [u8] {\n");
     code.push_str("        match self {\n");
 
     for config in configs {
+        let sels_str = config
+            .config
+            .mcu
+            .pins
+            .sel_jumper_pull
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
         code.push_str(&format!(
-            "            Board::{} => {},\n",
-            config.variant_name, config.config.mcu.pins.sel_jumper_pull
+            "            Board::{} => &[{}],\n",
+            config.variant_name, sels_str
         ));
     }
 

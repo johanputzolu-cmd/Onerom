@@ -1,8 +1,7 @@
 {
-  "description": "One ROM Ice 24 USB (rev H/H2)",
+  "description": "One ROM Ice 24 (rev J)",
   "alt": [
-    "24-h",
-    "ice-24-h"
+    "24-j"
   ],
   "rom": {
     "pins": {
@@ -44,8 +43,8 @@
             "2732": 10
         },
         "x_jumper_pull": 0,
-        "sel": [7, 6, 2, 1, 0],
-        "sel_jumper_pull": [0, 0, 0, 0, 0],
+        "sel": [7, 6, 4, 5],
+        "sel_jumper_pull": [0, 0, 0, 1],
         "status": 15
     },
     "usb": {
