@@ -347,6 +347,7 @@ typedef struct {
 // structure need be created, and all ROM sets can point to it.
 typedef struct {
     // Optional MCU clock frequency override in MHz.  0xffff means no override.
+    // Top bit (0x8000) indicates overclocking enabled.
     const uint16_t freq_mhz;
 
     // Optional overclocking enable/disable override.  0 = disable, 1 = enable,
@@ -357,8 +358,12 @@ typedef struct {
     // 255 = no override.
     const uint8_t status_led_enable;
 
+    // Optional SWD enable/disable override.  0 = disable, 1 = enable,
+    // 255 = no override.
+    const uint8_t swd_enable;
+
     // Padding to 8 bytes
-    const uint8_t pad1[4];
+    const uint8_t pad1[3];
 
     // Padding to 64 bytes
     const uint8_t pad2[56];
