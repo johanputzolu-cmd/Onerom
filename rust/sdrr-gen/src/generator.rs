@@ -737,7 +737,9 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
     writeln!(file, "    .ce = {ce},")?;
     writeln!(file, "    .oe = {oe},")?;
     writeln!(file, "    .x_jumper_pull = {},", board.x_jumper_pull())?;
-    writeln!(file, "    .reserved3 = {{0, 0, 0, 0, 0}},")?;
+    writeln!(file, "    .reserved3 = {{0, 0, 0}},")?;
+    writeln!(file, "    .swclk_sel = {},", board.swclk_sel_pin())?;
+    writeln!(file, "    .swdio_sel = {},", board.swdio_sel_pin())?;
     writeln!(
         file,
         "    .sel = {{ {}, {}, {}, {}, {}, {}, {} }},",

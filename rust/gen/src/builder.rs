@@ -1041,6 +1041,9 @@ pub struct FirmwareConfig {
 
     /// Optional LED configuration
     pub led: Option<LedConfig>,
+
+    /// Optional Debug configuration
+    pub swd: Option<DebugConfig>,
 }
 
 /// MCU Clock configuration structure
@@ -1187,4 +1190,13 @@ pub struct LedConfig {
 
 fn default_true() -> bool {
     true
+}
+
+/// Debug configuration structure
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct DebugConfig {
+    /// Whether SWD debug interface is enabled
+    #[serde(default = "default_true")]
+    pub enabled: bool,
 }

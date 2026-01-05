@@ -93,7 +93,11 @@ typedef struct {
     uint8_t ce;
     uint8_t oe;
     uint8_t x_jumper_pull;
-    uint8_t reserved3[5];
+    uint8_t reserved3[3];
+
+    // As of 0.6.0
+    uint8_t swclk_sel;  // SWCLK connected to which sel pin (255 = none)
+    uint8_t swdio_sel;  // SWDIO connected to which sel pin (255 = none)
 
     // Image select lines
     //

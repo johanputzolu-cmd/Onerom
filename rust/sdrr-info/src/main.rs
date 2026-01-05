@@ -367,6 +367,12 @@ fn print_sdrr_info(fw_data: &FirmwareData, args: &Args) {
                 println!("  SEL6: P{}:{}", pins.sel_port, pins.sel6);
             }
             println!("  Pin jumper pull: 0b{:08b}", pins.sel_jumper_pull);
+            if pins.swclk_sel != 0xFF {
+                println!("  SWCLK Pin: P{}:{}", pins.sel_port, pins.swclk_sel);
+            }
+            if pins.swdio_sel != 0xFF {
+                println!("  SWDIO Pin: P{}:{}", pins.sel_port, pins.swdio_sel);
+            }
             println!();
             println!("Status LED pin:");
             if pins.status_port == SdrrMcuPort::None {

@@ -448,6 +448,9 @@ fn generate_hw_config_impl(configs: &[HwConfigData]) -> String {
     code.push_str(&generate_sel_pins_method(configs));
     code.push_str("\n\n");
 
+    code.push_str(&generate_swd_sel_pins_methods(configs));
+    code.push_str("\n\n");
+
     code.push_str(&generate_pin_status_method(configs));
     code.push_str("\n\n");
 
@@ -752,6 +755,40 @@ fn generate_sel_pins_method(configs: &[HwConfigData]) -> String {
         ));
     }
 
+    code.push_str("        }\n");
+    code.push_str("    }");
+    code
+}
+
+fn generate_swd_sel_pins_methods(configs: &[HwConfigData]) -> String {
+    let mut code = String::new();
+
+    code.push_str("    /// Get SWCLK SEL pin assignments\n");
+    code.push_str("    pub const fn swclk_sel_pin(&self) -> u8 {\n");
+    code.push_str("        match self {\n");
+
+    for config in configs {
+        code.push_str(&format!(
+            "            Board::{} => {},\n",
+            config.variant_name,
+            config.config.mcu.pins.swclk_sel
+        ));
+    }
+
+    code.push_str("        }\n");
+    code.push_str("    }");
+    code.push_str("\n\n");
+
+    code.push_str("    /// Get SWDIO SEL pin assignments\n");
+    code.push_str("    pub const fn swdio_sel_pin(&self) -> u8 {\n");
+    code.push_str("        match self {\n");
+    for config in configs {
+        code.push_str(&format!(
+            "            Board::{} => {},\n",
+            config.variant_name,
+            config.config.mcu.pins.swdio_sel
+        ));
+    }
     code.push_str("        }\n");
     code.push_str("    }");
     code

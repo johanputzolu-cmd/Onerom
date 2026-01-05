@@ -213,7 +213,11 @@ uint32_t setup_sel_pins(uint32_t *sel_mask, uint32_t *flip_bits) {
     for (int ii = 0; ii < MAX_IMG_SEL_PINS; ii++) {
         uint8_t pin = sdrr_info.pins->sel[ii];
 
-        if (pin < MAX_PORT_PINS) {
+        if ((sdrr_info.swd_enabled) &&
+            ((pin == sdrr_info.pins->swclk_sel) ||
+             (pin == sdrr_info.pins->swdio_sel))) {
+            LOG("!!! Sel pin %d used for SWD - not using", pin);
+        } else if (pin < MAX_PORT_PINS) {
             // Set up the pull
             if (sdrr_info.pins->sel_jumper_pull & (1 << ii)) {
                 // This pin pulls up, so we pull down
