@@ -77,6 +77,17 @@
                 }
             ]
         },
+        "DebugConfig": {
+            "description": "Debug configuration structure",
+            "type": "object",
+            "properties": {
+                "swd_enabled": {
+                    "description": "Whether SWD debug interface is enabled",
+                    "type": "boolean",
+                    "default": true
+                }
+            }
+        },
         "FirmwareConfig": {
             "description": "Top level configuration structure",
             "type": "object",
@@ -97,6 +108,17 @@
                     "anyOf": [
                         {
                             "$ref": "#/$defs/McuClockConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "swd": {
+                    "description": "Optional Debug configuration",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/DebugConfig"
                         },
                         {
                             "type": "null"
