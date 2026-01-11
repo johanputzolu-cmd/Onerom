@@ -4621,16 +4621,6 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "onerom-config"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2938a176fc65af9ae03ce32968eca36cd5641e6d5e49ed661f6be656b88f097"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "onerom-config"
 version = "0.3.0"
 dependencies = [
  "schemars",
@@ -4664,7 +4654,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-fw"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4672,8 +4662,8 @@ dependencies = [
  "env_logger",
  "hex",
  "log",
- "onerom-config 0.2.7",
- "onerom-gen 0.2.6",
+ "onerom-config",
+ "onerom-gen",
  "reqwest",
  "serde",
  "serde_json",
@@ -4682,20 +4672,9 @@ dependencies = [
 
 [[package]]
 name = "onerom-gen"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74fad14162d9aac361eb74e695cbfb4b41982f3ce241f95471b71eee5164601a"
-dependencies = [
- "onerom-config 0.2.7",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "onerom-gen"
 version = "0.3.0"
 dependencies = [
- "onerom-config 0.3.0",
+ "onerom-config",
  "schemars",
  "serde",
  "serde_json",
@@ -4768,9 +4747,9 @@ dependencies = [
  "hex",
  "iced",
  "log",
- "onerom-config 0.3.0",
+ "onerom-config",
  "onerom-fw",
- "onerom-gen 0.3.0",
+ "onerom-gen",
  "open",
  "picoboot",
  "probe-rs",
@@ -6020,7 +5999,7 @@ dependencies = [
 name = "schema-gen"
 version = "0.1.2"
 dependencies = [
- "onerom-gen 0.3.0",
+ "onerom-gen",
  "schemars",
  "serde",
  "serde_json",
@@ -6124,14 +6103,14 @@ dependencies = [
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "airfrog-rpc",
  "deku 0.19.1",
  "esp-println",
  "log",
- "onerom-config 0.2.7",
- "onerom-gen 0.2.6",
+ "onerom-config",
+ "onerom-gen",
  "serde",
  "static_assertions",
 ]
@@ -6143,8 +6122,8 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
- "onerom-config 0.3.0",
- "onerom-gen 0.3.0",
+ "onerom-config",
+ "onerom-gen",
  "reqwest",
  "strum",
  "thiserror 2.0.17",
