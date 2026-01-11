@@ -389,11 +389,7 @@ impl Metadata {
             // are all flipped in hardware.  Without this image flipping, the
             // wrong bytes would be served.
             let flip_cs1_x = if self.pio() {
-                if rom_set.set_type == RomSetType::Multi {
-                    true
-                } else {
-                    false
-                }
+                rom_set.set_type == RomSetType::Multi
             } else {
                 false
             };

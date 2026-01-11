@@ -121,6 +121,7 @@ impl SdrrInfo {
     /// ROM data stored in the firmware, and then use `demangle_byte()` to
     /// turn into a logical byte.
     #[allow(unused_variables)]
+    #[allow(clippy::collapsible_if)]
     pub fn mangle_address(&self, addr: &SdrrLogicalAddress) -> Result<u32, String> {
         let cs1 = addr.cs_set().cs1();
         let cs2 = addr.cs_set().cs2();

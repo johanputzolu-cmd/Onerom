@@ -495,7 +495,7 @@ impl<'a, R: Reader> Parser<'a, R> {
 
         // Try to decode board, model and MCU variant from hw_rev
         let board = hw_rev.as_ref().and_then(|s| Board::try_from_str(s));
-        let model = board.as_ref().and_then(|b| Some(b.model()));
+        let model = board.as_ref().map(|b| b.model());
         let mcu_lookup_str = format!(
             "{}{}",
             header.stm_line.chip_suffix(),

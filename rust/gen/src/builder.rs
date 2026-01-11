@@ -163,6 +163,7 @@ impl Builder {
 
             // FirmwareConfig only supported from 0.6.0 firmware onwards
             const MIN_FIRMWARE_OVERRIDES_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
+            #[allow(clippy::collapsible_if)]
             if set.firmware_overrides.is_some() {
                 if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
                     return Err(Error::FirmwareTooOld { version: *version, minimum: MIN_FIRMWARE_OVERRIDES_VERSION });
@@ -170,6 +171,8 @@ impl Builder {
             }
 
             // PIO serve alg only supported from 0.6.0 firmware onwards
+            #[allow(clippy::collapsible_match)]
+            #[allow(clippy::single_match)]
             if let Some(serve_alg) = set.serve_alg {
                 match serve_alg {
                     ServeAlg::Pio{ .. } => {
@@ -288,14 +291,14 @@ impl Builder {
                 // Check that CS1 cannot be ignore if other CS lines are active
                 if !cs1_active && (cs2_active || cs3_active) {
                     return Err(Error::InvalidConfig {
-                        error: format!("CS1 cannot be ignore when CS2 or CS3 are active"),
+                        error: "CS1 cannot be ignore when CS2 or CS3 are active".to_string(),
                     });
                 }
 
                 // Check that CS2 is not ignore if CS3 is active
                 if !cs2_active && cs3_active {
                     return Err(Error::InvalidConfig {
-                        error: format!("CS2 cannot be ignore when CS3 is active"),
+                        error: "CS2 cannot be ignore when CS3 is active".to_string(),
                     });
                 }
 
@@ -356,6 +359,7 @@ impl Builder {
                             "cs3" => &rom.cs3,
                             _ => unreachable!(),
                         };
+                        #[allow(clippy::collapsible_if)]
                         if let Some(cs_logic) = cs {
                             if *cs_logic == CsLogic::Ignore {
                                 return Err(Error::InvalidConfig {
@@ -401,6 +405,7 @@ impl Builder {
             }
 
             // After the loop: validate CS consistency for multi/banked sets
+            #[allow(clippy::collapsible_if)]
             if set.set_type == RomSetType::Multi || set.set_type == RomSetType::Banked {
                 if set.roms.len() > 1 {
                     // Get CS configuration from first ROM
@@ -475,14 +480,15 @@ impl Builder {
                 let key = (rom.file.clone(), rom.extract.clone());
                 let file_id = *self.file_id_map.get(&rom_id).unwrap();
                 
-                if !seen_files.contains_key(&key) {
+                
+                seen_files.entry(key).or_insert_with(|| {
                     specs.push(FileSpec {
                         id: file_id,
                         description: rom.description.clone(),
                         source: rom.file.clone(),
                         extract: rom.extract.clone(),
                         size_handling: rom.size_handling.clone(),
-                        rom_type: rom.rom_type.clone(),
+                        rom_type: rom.rom_type,
                         rom_size: rom.rom_type.size_bytes(),
                         cs1: rom.cs1,
                         cs2: rom.cs2,
@@ -491,8 +497,8 @@ impl Builder {
                         set_type: rom_set.set_type.clone(),
                         set_description: rom_set.description.clone(),
                     });
-                    seen_files.insert(key, file_id);
-                }
+                    file_id
+                });
                 
                 rom_id += 1;
             }
@@ -547,8 +553,8 @@ impl Builder {
     pub fn accept_license(&mut self, license: &License) -> Result<()> {
         // Check license id is valid
         let own_license = self.licenses.remove(&license.id);
-        if own_license.is_some() {
-            self.licenses.insert(license.id, own_license.unwrap());
+        if let Some(own_license) = own_license {
+            self.licenses.insert(license.id, own_license);
             Ok(())
         } else {
             Err(Error::InvalidLicense { id: license.id })
@@ -581,7 +587,7 @@ impl Builder {
             for rom in set.roms.iter() {
                 if !board.supports_rom_type(rom.rom_type) {
                     return Err(Error::UnsupportedRomType {
-                        rom_type: rom.rom_type.clone(),
+                        rom_type: rom.rom_type,
                     });
                 }
             }
@@ -718,7 +724,7 @@ impl Builder {
 
         if let Some(name) = self.config.name.as_ref() {
             desc.push_str(name);
-            desc.push_str("\n");
+            desc.push('\n');
             desc.push_str(&"-".repeat(name.len()));
             desc.push_str("\n\n");
         }
@@ -738,7 +744,7 @@ impl Builder {
             desc.push_str("Sets:");
             true
         };
-        desc.push_str("\n");
+        desc.push('\n');
 
         let mut none = true;
         for (ii, set) in self.config.rom_sets.iter().enumerate() {
@@ -749,9 +755,9 @@ impl Builder {
                 if let Some(ref set_desc) = set.description {
                     desc.push_str(&format!(", {set_desc}"));
                 }
-                desc.push_str("\n");
+                desc.push('\n');
             } else {
-                desc.push_str(" ");
+                desc.push(' ');
             }
 
             for (jj, rom) in set.roms.iter().enumerate() {
@@ -763,7 +769,7 @@ impl Builder {
                 } else {
                     desc.push_str(&rom.file);
                 }
-                desc.push_str("\n");
+                desc.push('\n');
             }
         }
 
@@ -772,7 +778,7 @@ impl Builder {
         }
 
         if let Some(notes) = &self.config.notes {
-            desc.push_str("\n");
+            desc.push('\n');
             desc.push_str(notes);
         } else {
             // Strip trailing \n

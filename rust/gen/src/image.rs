@@ -137,7 +137,7 @@ pub enum CsConfig {
 impl CsConfig {
     pub fn new(cs1: Option<CsLogic>, cs2: Option<CsLogic>, cs3: Option<CsLogic>) -> Self {
         if cs1.is_none() && cs2.is_none() && cs3.is_none() {
-            return Self::CeOe;
+            Self::CeOe
         } else {
             let cs1 = cs1.expect("CS1 must be specified if any CS lines are used");
             Self::ChipSelect { cs1, cs2, cs3 }
@@ -201,7 +201,7 @@ impl Rom {
             index,
             filename,
             label,
-            rom_type: rom_type.clone(),
+            rom_type: *rom_type,
             cs_config,
             data,
             location,
@@ -229,6 +229,7 @@ impl Rom {
     /// Takes a raw ROM image (binary data, loaded from file) and processes it
     /// according to the specified size handling (none, duplicate, pad) to
     /// ensure it matches the expected size for the given ROM type.
+    #[allow(clippy::too_many_arguments)]
     pub fn from_raw_rom_image(
         index: usize,
         filename: String,
@@ -299,7 +300,7 @@ impl Rom {
                         });
                     }
                     SizeHandling::Duplicate => {
-                        if expected_size % source.len() != 0 {
+                        if !expected_size.is_multiple_of(source.len()) {
                             return Err(Error::DuplicationNotExactDivisor {
                                 rom_size: source.len(),
                                 expected_size,
@@ -363,6 +364,7 @@ impl Rom {
         let mut result = 0;
 
         for (pin, item) in phys_pin_to_addr_map.iter().enumerate() {
+            #[allow(clippy::collapsible_if)]
             if let Some(addr_bit) = item {
                 // Only use this mapping if it's within the ROM's address lines
                 if *addr_bit < num_addr_lines {
@@ -608,6 +610,7 @@ impl RomSet {
 
             // For multi-ROM sets we also need to check CS2 and CS3 are ignored
             // for all ROMS
+            #[allow(clippy::collapsible_if)]
             if self.set_type == RomSetType::Multi {
                 for rom in &self.roms {
                     if let Some(cs2) = rom.cs_config.cs2_logic() {
@@ -660,6 +663,7 @@ impl RomSet {
     ) {
         // Clear any address lines beyond the number of address lines the ROM supports
         for item in phys_pin_to_addr_map.iter_mut() {
+            #[allow(clippy::collapsible_if)]
             if let Some(addr_bit) = item {
                 if *addr_bit >= num_addr_lines {
                     *item = None;
@@ -721,7 +725,7 @@ impl RomSet {
 
             let num_addr_lines = self.roms[rom_index].rom_type.num_addr_lines();
             let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
-            let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
+            let mut phys_pin_to_addr_map = *phys_pin_to_addr_map;
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
             return self.roms[rom_index].get_byte(&phys_pin_to_addr_map, masked_address, board);
@@ -738,7 +742,7 @@ impl RomSet {
             // a different type (size).
             let num_addr_lines = rom_in_set.rom_type.num_addr_lines();
             let phys_pin_to_addr_map = board.phys_pin_to_addr_map();
-            let mut phys_pin_to_addr_map = phys_pin_to_addr_map.clone();
+            let mut phys_pin_to_addr_map = *phys_pin_to_addr_map;
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
             // All of CS1/X1/X2 have to have the same active low/high status
@@ -907,6 +911,7 @@ impl RomSet {
             ROM_METADATA_LEN_NO_FILENAME
         } * num_roms;
 
+        #[allow(clippy::let_and_return)]
         rom_metadata_len
     }
 

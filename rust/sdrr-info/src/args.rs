@@ -350,6 +350,7 @@ pub fn parse_args() -> Result<Args, String> {
     }
 
     // Validate the address/range
+    #[allow(clippy::collapsible_if)]
     if let Some(addr) = addr {
         if addr > 0xFFFF {
             return Err("Address must be in the range 0x0000 to 0xFFFF".to_string());
