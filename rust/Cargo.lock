@@ -6139,7 +6139,11 @@ dependencies = [
  "chrono",
  "clap",
  "goblin",
+<<<<<<< HEAD
  "sdrr-fw-parser",
+=======
+ "sdrr-fw-parser 0.5.10 (registry+https://github.com/rust-lang/crates.io-index)",
+>>>>>>> main
  "smol",
 ]
 
