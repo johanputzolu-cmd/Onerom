@@ -16,16 +16,18 @@
 //! the metadata.
 
 use alloc::format;
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 
-use onerom_config::fw::ServeAlg;
+use onerom_config::fw::{ServeAlg, FirmwareVersion};
 use onerom_config::hw::Board;
 use onerom_config::mcu::Family as McuFamily;
 use onerom_config::rom::RomType;
 
-use crate::{Error, Result};
+use crate::MIN_FIRMWARE_OVERRIDES_VERSION;
+use crate::{Error, Result, builder::FirmwareConfig};
+use crate::meta::{ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, ROM_SET_METADATA_LEN};
 
 /// Value to use when told to pad a ROM image
 pub const PAD_BLANK_BYTE: u8 = 0xAA;
@@ -35,8 +37,6 @@ pub const PAD_NO_ROM_BYTE: u8 = 0xAA;
 
 const ROM_METADATA_LEN_NO_FILENAME: usize = 4;
 const ROM_METADATA_LEN_WITH_FILENAME: usize = 8;
-
-const ROM_SET_METADATA_LEN: usize = 16; // sdrr_rom_set_t
 
 /// How to handle ROM images that are too small for the ROM type
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
@@ -532,6 +532,9 @@ pub struct RomSet {
 
     /// ROMs in the set
     pub roms: Vec<Rom>,
+
+    /// Optional firmware configuration overrides for this ROM set
+    pub firmware_overrides: Option<FirmwareConfig>,
 }
 
 impl RomSet {
@@ -545,6 +548,7 @@ impl RomSet {
         set_type: RomSetType,
         serve_alg: ServeAlg,
         roms: Vec<Rom>,
+        firmware_overrides: Option<crate::builder::FirmwareConfig>,
     ) -> Result<Self> {
         // Check some ROMs were supplied
         if roms.is_empty() {
@@ -583,11 +587,35 @@ impl RomSet {
             RomSetType::Multi => ServeAlg::AddrOnAnyCs,
         };
 
+        // Validate firmware overrides if present
+        #[allow(clippy::collapsible_if)]
+        if let Some(ref overrides) = firmware_overrides {
+            if overrides.ice_clock.is_none()
+                && overrides.fire_clock.is_none()
+                && overrides.led.is_none() 
+                && overrides.swd.is_none() 
+                && overrides.serve_alg_params.is_none() {
+                return Err(Error::InvalidConfig {
+                    error: "firmware_overrides specified but all fields are None".to_string(),
+                });
+            }
+            
+            // Validate serve_alg_params if present within firmware_overrides
+            if let Some(ref params) = overrides.serve_alg_params {
+                if params.params.is_empty() {
+                    return Err(Error::InvalidConfig {
+                        error: "serve_alg_params specified but params vec is empty".to_string(),
+                    });
+                }
+            }
+        }
+
         Ok(Self {
             id,
             set_type,
             serve_alg,
             roms,
+            firmware_overrides,
         })
     }
 
@@ -1021,6 +1049,7 @@ impl RomSet {
     /// Writes the actual set metadata for this set.  This function must be
     /// called for each set one after the other, in order of set ID, as it
     /// must write an array of sets.
+    #[allow(clippy::too_many_arguments)]
     pub fn write_set_metadata(
         &self,
         buf: &mut [u8],
@@ -1028,9 +1057,12 @@ impl RomSet {
         rom_array_ptr: u32,
         family: &McuFamily,
         rom_pins: u8,
+        version: &FirmwareVersion,
+        serve_config_ptr: Option<u32>,
+        firmware_overrides_ptr: Option<u32>,
     ) -> Result<usize> {
         // Check enough buffer space
-        let expected_len = Self::rom_set_metadata_len();
+        let expected_len = Self::rom_set_metadata_len(version);
         if buf.len() < expected_len {
             return Err(Error::BufferTooSmall {
                 location: "write_set_metadata",
@@ -1069,20 +1101,48 @@ impl RomSet {
         buf[offset] = multi_cs_state;
         offset += 1;
 
-        // Write a pad byte
-        buf[offset] = 0;
+        if version >= &MIN_FIRMWARE_OVERRIDES_VERSION {
+            buf[offset] = 1; // extra_info = 1 for 0.6.0+
+        } else {
+            buf[offset] = PAD_BLANK_BYTE; // pad byte for pre-0.6.0
+        }
         offset += 1;
+
+        assert_eq!(offset, 16, "First 16 bytes should be written");
+
+        // Write extended fields for 0.6.0+
+        if version >= &MIN_FIRMWARE_OVERRIDES_VERSION {
+            // Write serve_config pointer
+            let serve_ptr = serve_config_ptr.unwrap_or(0xFFFFFFFF);
+            buf[offset..offset + 4].copy_from_slice(&serve_ptr.to_le_bytes());
+            offset += 4;
+
+            // Write firmware_overrides pointer
+            let fw_ptr = firmware_overrides_ptr.unwrap_or(0xFFFFFFFF);
+            buf[offset..offset + 4].copy_from_slice(&fw_ptr.to_le_bytes());
+            offset += 4;
+
+            // Write padding to reach 64 bytes
+            buf[offset..offset + 40].copy_from_slice(&[0u8; 40]);
+            offset += 40;
+
+            assert_eq!(offset, ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, "Total should be 64 bytes for 0.6.0+");
+        }
 
         assert_eq!(
             offset, expected_len,
             "Internal error: offset does not match expected length"
         );
-
+        
         Ok(offset)
     }
 
-    pub const fn rom_set_metadata_len() -> usize {
-        ROM_SET_METADATA_LEN
+    pub fn rom_set_metadata_len(version: &FirmwareVersion) -> usize {
+        if *version >= MIN_FIRMWARE_OVERRIDES_VERSION {
+            ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN
+        } else {
+            ROM_SET_METADATA_LEN
+        }
     }
 
     pub fn serve_alg(&self) -> ServeAlg {

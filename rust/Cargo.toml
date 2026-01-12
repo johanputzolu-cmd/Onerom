@@ -16,6 +16,8 @@ members = [
 ]
 default-members = [
     "config",
+    "fw",
+    "gen",
     "sdrr-fw-parser",
     "sdrr-gen",
     "sdrr-info"

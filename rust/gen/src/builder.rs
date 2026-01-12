@@ -16,7 +16,9 @@ use onerom_config::rom::RomType;
 
 use crate::image::{CsConfig, CsLogic, Location, Rom, RomSet, RomSetType, SizeHandling};
 use crate::meta::Metadata;
-use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, Result};
+use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, Result, MIN_FIRMWARE_OVERRIDES_VERSION};
+
+pub(crate) use crate::firmware::*;
 
 /// Main Builder object
 ///
@@ -162,7 +164,6 @@ impl Builder {
             }
 
             // FirmwareConfig only supported from 0.6.0 firmware onwards
-            const MIN_FIRMWARE_OVERRIDES_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
             #[allow(clippy::collapsible_if)]
             if set.firmware_overrides.is_some() {
                 if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
@@ -175,7 +176,7 @@ impl Builder {
             #[allow(clippy::single_match)]
             if let Some(serve_alg) = set.serve_alg {
                 match serve_alg {
-                    ServeAlg::Pio{ .. } => {
+                    ServeAlg::Pio => {
                         if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
                             return Err(Error::FirmwareTooOld { version: *version, minimum: MIN_FIRMWARE_OVERRIDES_VERSION });
                         }
@@ -636,12 +637,18 @@ impl Builder {
                 rom_set_config.set_type.clone(),
                 props.serve_alg(),
                 set_roms,
+                rom_set_config.firmware_overrides.clone(),
             )?;
             rom_sets.push(rom_set);
         }
 
         // Build Metadata
-        let metadata = Metadata::new(props.board(), rom_sets, props.boot_logging());
+        let metadata = Metadata::new(
+            props.board(),
+            rom_sets,
+            props.boot_logging(),
+            props.version(),
+        );
 
         // Get buffer sizes
         let metadata_size = metadata.metadata_len();
@@ -1038,171 +1045,3 @@ impl RomConfig {
     }
 }
 
-/// Top level configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct FirmwareConfig {
-    /// Optional MCU clock configuration
-    pub mcu_clock: Option<McuClockConfig>,
-
-    /// Optional LED configuration
-    pub led: Option<LedConfig>,
-
-    /// Optional Debug configuration
-    pub swd: Option<DebugConfig>,
-}
-
-/// MCU Clock configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct McuClockConfig {
-    /// Whether overclocking is enabled
-    #[serde(default)]
-    pub overclock: bool,
-
-    /// CPU frequency in MHz.  Only specific frequencies are supported
-    pub cpu_mhz: u32,
-}
-
-/// Validate an RP2350 MCU clock configuration frequency
-pub fn validate_mcu_clock_config_frequency_rp2350(value: &u32) -> Result<()> {
-    McuClockConfigFrequencyRp2350::try_from(*value)
-        .map(|_| ())
-}
-
-/// Supported CPU frequencies for RP2350 MCU.  From 20-540MHz inclusive, with
-/// 10 MHz steps.  290/310, 350/370, 410/430, 470/490 and 530 are not
-/// supported.
-pub enum McuClockConfigFrequencyRp2350 {
-    MHz20,
-    MHz30,
-    MHz40,
-    MHz50,
-    MHz60,
-    MHz70,
-    MHz80,
-    MHz90,
-    MHz100,
-    MHz110,
-    MHz120,
-    MHz130,
-    MHz140,
-    MHz150,
-    MHz160,
-    MHz170,
-    MHz180,
-    MHz190,
-    MHz200,
-    MHz210,
-    MHz220,
-    MHz230,
-    MHz240,
-    MHz250,
-    MHz260,
-    MHz270,
-    MHz280,
-    MHz300,
-    MHz320,
-    MHz330,
-    MHz340,
-    MHz360,
-    MHz380,
-    MHz390,
-    MHz400,
-    MHz420,
-    MHz440,
-    MHz450,
-    MHz460,
-    MHz480,
-    MHz500,
-    MHz510,
-    MHz520,
-    MHz540,
-}
-
-impl TryFrom<u32> for McuClockConfigFrequencyRp2350 {
-    type Error = Error;
-
-    fn try_from(value: u32) -> Result<Self> {
-        match value {
-            20 => Ok(McuClockConfigFrequencyRp2350::MHz20),
-            30 => Ok(McuClockConfigFrequencyRp2350::MHz30),
-            40 => Ok(McuClockConfigFrequencyRp2350::MHz40),
-            50 => Ok(McuClockConfigFrequencyRp2350::MHz50),
-            60 => Ok(McuClockConfigFrequencyRp2350::MHz60),
-            70 => Ok(McuClockConfigFrequencyRp2350::MHz70),
-            80 => Ok(McuClockConfigFrequencyRp2350::MHz80),
-            90 => Ok(McuClockConfigFrequencyRp2350::MHz90),
-            100 => Ok(McuClockConfigFrequencyRp2350::MHz100),
-            110 => Ok(McuClockConfigFrequencyRp2350::MHz110),
-            120 => Ok(McuClockConfigFrequencyRp2350::MHz120),
-            130 => Ok(McuClockConfigFrequencyRp2350::MHz130),
-            140 => Ok(McuClockConfigFrequencyRp2350::MHz140),
-            150 => Ok(McuClockConfigFrequencyRp2350::MHz150),
-            160 => Ok(McuClockConfigFrequencyRp2350::MHz160),
-            170 => Ok(McuClockConfigFrequencyRp2350::MHz170),
-            180 => Ok(McuClockConfigFrequencyRp2350::MHz180),
-            190 => Ok(McuClockConfigFrequencyRp2350::MHz190),
-            200 => Ok(McuClockConfigFrequencyRp2350::MHz200),
-            210 => Ok(McuClockConfigFrequencyRp2350::MHz210),
-            220 => Ok(McuClockConfigFrequencyRp2350::MHz220),
-            230 => Ok(McuClockConfigFrequencyRp2350::MHz230),
-            240 => Ok(McuClockConfigFrequencyRp2350::MHz240),
-            250 => Ok(McuClockConfigFrequencyRp2350::MHz250),
-            260 => Ok(McuClockConfigFrequencyRp2350::MHz260),
-            270 => Ok(McuClockConfigFrequencyRp2350::MHz270),
-            280 => Ok(McuClockConfigFrequencyRp2350::MHz280),
-            300 => Ok(McuClockConfigFrequencyRp2350::MHz300),
-            320 => Ok(McuClockConfigFrequencyRp2350::MHz320),
-            330 => Ok(McuClockConfigFrequencyRp2350::MHz330),
-            340 => Ok(McuClockConfigFrequencyRp2350::MHz340),
-            360 => Ok(McuClockConfigFrequencyRp2350::MHz360),
-            380 => Ok(McuClockConfigFrequencyRp2350::MHz380),
-            390 => Ok(McuClockConfigFrequencyRp2350::MHz390),
-            400 => Ok(McuClockConfigFrequencyRp2350::MHz400),
-            420 => Ok(McuClockConfigFrequencyRp2350::MHz420),
-            440 => Ok(McuClockConfigFrequencyRp2350::MHz440),
-            450 => Ok(McuClockConfigFrequencyRp2350::MHz450),
-            460 => Ok(McuClockConfigFrequencyRp2350::MHz460),
-            480 => Ok(McuClockConfigFrequencyRp2350::MHz480),
-            500 => Ok(McuClockConfigFrequencyRp2350::MHz500),
-            510 => Ok(McuClockConfigFrequencyRp2350::MHz510),
-            520 => Ok(McuClockConfigFrequencyRp2350::MHz520),
-            540 => Ok(McuClockConfigFrequencyRp2350::MHz540),
-            _ => Err(Error::UnsupportedFrequency {
-                frequency_mhz: value,
-            }),
-        }
-    }
-}
-
-impl Default for McuClockConfig {
-    fn default() -> Self {
-        Self {
-            overclock: false,
-            cpu_mhz: 150,
-        }
-    }
-}
-
-/// LED configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct LedConfig {
-    /// Whether the status LED is enabled
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-/// Debug configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct DebugConfig {
-    /// Whether SWD debug interface is enabled
-    #[serde(default = "default_true")]
-    pub swd_enabled: bool,
-}

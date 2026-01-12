@@ -108,12 +108,10 @@ pub enum ServeAlg {
     AddrOnAnyCs,
 
     /// RP2350 only
-    Pio {
-        addr_read_irq: Option<bool>,
-        addr_read_delay_cycles: Option<u8>,
-        cs_to_data_out_delay_cycles: Option<u8>,
-        cs_inactive_data_hold_delay_cycles: Option<u8>,
-    },
+    Pio,
+
+    /// RP2350 only
+    Cpu,
 }
 
 impl ServeAlg {
@@ -125,12 +123,7 @@ impl ServeAlg {
         } else if s.eq_ignore_ascii_case("b") {
             Some(ServeAlg::AddrOnCs)
         } else if s.eq_ignore_ascii_case("pio") {
-            Some(ServeAlg::Pio {
-                addr_read_irq: None,
-                addr_read_delay_cycles: None,
-                cs_to_data_out_delay_cycles: None,
-                cs_inactive_data_hold_delay_cycles: None,
-            })
+            Some(ServeAlg::Pio)
         } else {
             None
         }
@@ -142,7 +135,8 @@ impl ServeAlg {
             ServeAlg::Default => "SERVE_ADDR_ON_CS",
             ServeAlg::AddrOnCs => "SERVE_ADDR_ON_CS",
             ServeAlg::AddrOnAnyCs => "SERVE_ADDR_ON_ANY_CS",
-            ServeAlg::Pio{ .. } => "SERVE_PIO",
+            ServeAlg::Pio => "SERVE_PIO",
+            ServeAlg::Cpu => "SERVE_CPU",
         }
     }
 
@@ -155,7 +149,8 @@ impl ServeAlg {
             ServeAlg::TwoCsOneAddr => 0,
             ServeAlg::Default | ServeAlg::AddrOnCs => 1,
             ServeAlg::AddrOnAnyCs => 2,
-            ServeAlg::Pio{ .. } => 3,
+            ServeAlg::Pio => 3,
+            ServeAlg::Cpu => 4,
         }
     }
 }

@@ -19,6 +19,7 @@ typedef enum {
     RP2350_LINE = 0x0005,
     MCU_LINE_FORCE_UINT16 = 0xFFFF,
 } mcu_line_t;
+_Static_assert(sizeof(mcu_line_t) == 2, "mcu_line_t must be 2 bytes");
 
 typedef enum {
     STORAGE_8 = 0x00,
@@ -31,6 +32,7 @@ typedef enum {
     STORAGE_2MB = 0x07,
     MCU_STORAGE_FORFCE_UINT16 = 0xFFFF,
 } mcu_storage_t;
+_Static_assert(sizeof(mcu_storage_t) == 2, "mcu_storage_t must be 2 bytes");
 
 // Only ports A-D are exposed on the 64-pin STM32F4s.
 // RP2350 has port (bank) 0.
@@ -42,6 +44,280 @@ typedef enum {
     PORT_D    = 0x04,
     PORT_0    = 0x05,  // RP2350
 } sdrr_mcu_port_t;
+_Static_assert(sizeof(sdrr_mcu_port_t) == 1, "sdrr_mcu_port_t must be 1 byte");
+
+// Supported RP2350 clock frequencies
+typedef enum {
+    FIRE_RP2350_FREQ_20MHZ = 0x0001,
+    FIRE_RP2350_FREQ_30MHZ = 0x0002,
+    FIRE_RP2350_FREQ_40MHZ = 0x0003,
+    FIRE_RP2350_FREQ_50MHZ = 0x0004,
+    FIRE_RP2350_FREQ_60MHZ = 0x0005,
+    FIRE_RP2350_FREQ_70MHZ = 0x0006,
+    FIRE_RP2350_FREQ_80MHZ = 0x0007,
+    FIRE_RP2350_FREQ_90MHZ = 0x0008,
+    FIRE_RP2350_FREQ_100MHZ = 0x0009,
+    FIRE_RP2350_FREQ_110MHZ = 0x000A,
+    FIRE_RP2350_FREQ_120MHZ = 0x000B,
+    FIRE_RP2350_FREQ_130MHZ = 0x000C,
+    FIRE_RP2350_FREQ_140MHZ = 0x000D,
+    FIRE_RP2350_FREQ_150MHZ = 0x000E,
+    FIRE_RP2350_FREQ_160MHZ = 0x000F,
+    FIRE_RP2350_FREQ_170MHZ = 0x0010,
+    FIRE_RP2350_FREQ_180MHZ = 0x0011,
+    FIRE_RP2350_FREQ_190MHZ = 0x0012,
+    FIRE_RP2350_FREQ_200MHZ = 0x0013,
+    FIRE_RP2350_FREQ_210MHZ = 0x0014,
+    FIRE_RP2350_FREQ_220MHZ = 0x0015,
+    FIRE_RP2350_FREQ_230MHZ = 0x0016,
+    FIRE_RP2350_FREQ_240MHZ = 0x0017,
+    FIRE_RP2350_FREQ_250MHZ = 0x0018,
+    FIRE_RP2350_FREQ_260MHZ = 0x0019,
+    FIRE_RP2350_FREQ_270MHZ = 0x001A,
+    FIRE_RP2350_FREQ_280MHZ = 0x001B,
+    FIRE_RP2350_FREQ_300MHZ = 0x001C,
+    FIRE_RP2350_FREQ_320MHZ = 0x001D,
+    FIRE_RP2350_FREQ_330MHZ = 0x001E,
+    FIRE_RP2350_FREQ_340MHZ = 0x001F,
+    FIRE_RP2350_FREQ_360MHZ = 0x0020,
+    FIRE_RP2350_FREQ_380MHZ = 0x0021,
+    FIRE_RP2350_FREQ_390MHZ = 0x0022,
+    FIRE_RP2350_FREQ_400MHZ = 0x0023,
+    FIRE_RP2350_FREQ_420MHZ = 0x0024,
+    FIRE_RP2350_FREQ_440MHZ = 0x0025,
+    FIRE_RP2350_FREQ_450MHZ = 0x0026,
+    FIRE_RP2350_FREQ_460MHZ = 0x0027,
+    FIRE_RP2350_FREQ_480MHZ = 0x0028,
+    FIRE_RP2350_FREQ_500MHZ = 0x0029,
+    FIRE_RP2350_FREQ_510MHZ = 0x002A,
+    FIRE_RP2350_FREQ_520MHZ = 0x002B,
+    FIRE_RP2350_FREQ_540MHZ = 0x002C,
+    FIRE_RP2350_FREQ_STOCK = 0xFFFF,
+} fire_rp2350_freq_t;
+_Static_assert(sizeof(fire_rp2350_freq_t) == 2, "fire_rp2350_freq_t must be 2 byte");
+
+// Supported STM32F4 clock frequencies
+typedef enum {
+    ICE_STM32F4_FREQ_1MHZ = 0x0001,
+    ICE_STM32F4_FREQ_2MHZ = 0x0002,
+    ICE_STM32F4_FREQ_3MHZ = 0x0003,
+    ICE_STM32F4_FREQ_4MHZ = 0x0004,
+    ICE_STM32F4_FREQ_5MHZ = 0x0005,
+    ICE_STM32F4_FREQ_6MHZ = 0x0006,
+    ICE_STM32F4_FREQ_7MHZ = 0x0007,
+    ICE_STM32F4_FREQ_8MHZ = 0x0008,
+    ICE_STM32F4_FREQ_9MHZ = 0x0009,
+    ICE_STM32F4_FREQ_10MHZ = 0x000A,
+    ICE_STM32F4_FREQ_11MHZ = 0x000B,
+    ICE_STM32F4_FREQ_12MHZ = 0x000C,
+    ICE_STM32F4_FREQ_13MHZ = 0x000D,
+    ICE_STM32F4_FREQ_14MHZ = 0x000E,
+    ICE_STM32F4_FREQ_15MHZ = 0x000F,
+    ICE_STM32F4_FREQ_16MHZ = 0x0010,
+    ICE_STM32F4_FREQ_17MHZ = 0x0011,
+    ICE_STM32F4_FREQ_18MHZ = 0x0012,
+    ICE_STM32F4_FREQ_19MHZ = 0x0013,
+    ICE_STM32F4_FREQ_20MHZ = 0x0014,
+    ICE_STM32F4_FREQ_21MHZ = 0x0015,
+    ICE_STM32F4_FREQ_22MHZ = 0x0016,
+    ICE_STM32F4_FREQ_23MHZ = 0x0017,
+    ICE_STM32F4_FREQ_24MHZ = 0x0018,
+    ICE_STM32F4_FREQ_25MHZ = 0x0019,
+    ICE_STM32F4_FREQ_26MHZ = 0x001A,
+    ICE_STM32F4_FREQ_27MHZ = 0x001B,
+    ICE_STM32F4_FREQ_28MHZ = 0x001C,
+    ICE_STM32F4_FREQ_29MHZ = 0x001D,
+    ICE_STM32F4_FREQ_30MHZ = 0x001E,
+    ICE_STM32F4_FREQ_31MHZ = 0x001F,
+    ICE_STM32F4_FREQ_32MHZ = 0x0020,
+    ICE_STM32F4_FREQ_33MHZ = 0x0021,
+    ICE_STM32F4_FREQ_34MHZ = 0x0022,
+    ICE_STM32F4_FREQ_35MHZ = 0x0023,
+    ICE_STM32F4_FREQ_36MHZ = 0x0024,
+    ICE_STM32F4_FREQ_37MHZ = 0x0025,
+    ICE_STM32F4_FREQ_38MHZ = 0x0026,
+    ICE_STM32F4_FREQ_39MHZ = 0x0027,
+    ICE_STM32F4_FREQ_40MHZ = 0x0028,
+    ICE_STM32F4_FREQ_41MHZ = 0x0029,
+    ICE_STM32F4_FREQ_42MHZ = 0x002A,
+    ICE_STM32F4_FREQ_43MHZ = 0x002B,
+    ICE_STM32F4_FREQ_44MHZ = 0x002C,
+    ICE_STM32F4_FREQ_45MHZ = 0x002D,
+    ICE_STM32F4_FREQ_46MHZ = 0x002E,
+    ICE_STM32F4_FREQ_47MHZ = 0x002F,
+    ICE_STM32F4_FREQ_48MHZ = 0x0030,
+    ICE_STM32F4_FREQ_49MHZ = 0x0031,
+    ICE_STM32F4_FREQ_50MHZ = 0x0032,
+    ICE_STM32F4_FREQ_51MHZ = 0x0033,
+    ICE_STM32F4_FREQ_52MHZ = 0x0034,
+    ICE_STM32F4_FREQ_53MHZ = 0x0035,
+    ICE_STM32F4_FREQ_54MHZ = 0x0036,
+    ICE_STM32F4_FREQ_55MHZ = 0x0037,
+    ICE_STM32F4_FREQ_56MHZ = 0x0038,
+    ICE_STM32F4_FREQ_57MHZ = 0x0039,
+    ICE_STM32F4_FREQ_58MHZ = 0x003A,
+    ICE_STM32F4_FREQ_59MHZ = 0x003B,
+    ICE_STM32F4_FREQ_60MHZ = 0x003C,
+    ICE_STM32F4_FREQ_61MHZ = 0x003D,
+    ICE_STM32F4_FREQ_62MHZ = 0x003E,
+    ICE_STM32F4_FREQ_63MHZ = 0x003F,
+    ICE_STM32F4_FREQ_64MHZ = 0x0040,
+    ICE_STM32F4_FREQ_65MHZ = 0x0041,
+    ICE_STM32F4_FREQ_66MHZ = 0x0042,
+    ICE_STM32F4_FREQ_67MHZ = 0x0043,
+    ICE_STM32F4_FREQ_68MHZ = 0x0044,
+    ICE_STM32F4_FREQ_69MHZ = 0x0045,
+    ICE_STM32F4_FREQ_70MHZ = 0x0046,
+    ICE_STM32F4_FREQ_71MHZ = 0x0047,
+    ICE_STM32F4_FREQ_72MHZ = 0x0048,
+    ICE_STM32F4_FREQ_73MHZ = 0x0049,
+    ICE_STM32F4_FREQ_74MHZ = 0x004A,
+    ICE_STM32F4_FREQ_75MHZ = 0x004B,
+    ICE_STM32F4_FREQ_76MHZ = 0x004C,
+    ICE_STM32F4_FREQ_77MHZ = 0x004D,
+    ICE_STM32F4_FREQ_78MHZ = 0x004E,
+    ICE_STM32F4_FREQ_79MHZ = 0x004F,
+    ICE_STM32F4_FREQ_80MHZ = 0x0050,
+    ICE_STM32F4_FREQ_81MHZ = 0x0051,
+    ICE_STM32F4_FREQ_82MHZ = 0x0052,
+    ICE_STM32F4_FREQ_83MHZ = 0x0053,
+    ICE_STM32F4_FREQ_84MHZ = 0x0054,
+    ICE_STM32F4_FREQ_85MHZ = 0x0055,
+    ICE_STM32F4_FREQ_86MHZ = 0x0056,
+    ICE_STM32F4_FREQ_87MHZ = 0x0057,
+    ICE_STM32F4_FREQ_88MHZ = 0x0058,
+    ICE_STM32F4_FREQ_89MHZ = 0x0059,
+    ICE_STM32F4_FREQ_90MHZ = 0x005A,
+    ICE_STM32F4_FREQ_91MHZ = 0x005B,
+    ICE_STM32F4_FREQ_92MHZ = 0x005C,
+    ICE_STM32F4_FREQ_93MHZ = 0x005D,
+    ICE_STM32F4_FREQ_94MHZ = 0x005E,
+    ICE_STM32F4_FREQ_95MHZ = 0x005F,
+    ICE_STM32F4_FREQ_96MHZ = 0x0060,
+    ICE_STM32F4_FREQ_97MHZ = 0x0061,
+    ICE_STM32F4_FREQ_98MHZ = 0x0062,
+    ICE_STM32F4_FREQ_99MHZ = 0x0063,
+    ICE_STM32F4_FREQ_100MHZ = 0x0064,
+    ICE_STM32F4_FREQ_101MHZ = 0x0065,
+    ICE_STM32F4_FREQ_102MHZ = 0x0066,
+    ICE_STM32F4_FREQ_103MHZ = 0x0067,
+    ICE_STM32F4_FREQ_104MHZ = 0x0068,
+    ICE_STM32F4_FREQ_105MHZ = 0x0069,
+    ICE_STM32F4_FREQ_106MHZ = 0x006A,
+    ICE_STM32F4_FREQ_107MHZ = 0x006B,
+    ICE_STM32F4_FREQ_108MHZ = 0x006C,
+    ICE_STM32F4_FREQ_109MHZ = 0x006D,
+    ICE_STM32F4_FREQ_110MHZ = 0x006E,
+    ICE_STM32F4_FREQ_111MHZ = 0x006F,
+    ICE_STM32F4_FREQ_112MHZ = 0x0070,
+    ICE_STM32F4_FREQ_113MHZ = 0x0071,
+    ICE_STM32F4_FREQ_114MHZ = 0x0072,
+    ICE_STM32F4_FREQ_115MHZ = 0x0073,
+    ICE_STM32F4_FREQ_116MHZ = 0x0074,
+    ICE_STM32F4_FREQ_117MHZ = 0x0075,
+    ICE_STM32F4_FREQ_118MHZ = 0x0076,
+    ICE_STM32F4_FREQ_119MHZ = 0x0077,
+    ICE_STM32F4_FREQ_120MHZ = 0x0078,
+    ICE_STM32F4_FREQ_121MHZ = 0x0079,
+    ICE_STM32F4_FREQ_122MHZ = 0x007A,
+    ICE_STM32F4_FREQ_123MHZ = 0x007B,
+    ICE_STM32F4_FREQ_124MHZ = 0x007C,
+    ICE_STM32F4_FREQ_125MHZ = 0x007D,
+    ICE_STM32F4_FREQ_126MHZ = 0x007E,
+    ICE_STM32F4_FREQ_127MHZ = 0x007F,
+    ICE_STM32F4_FREQ_128MHZ = 0x0080,
+    ICE_STM32F4_FREQ_129MHZ = 0x0081,
+    ICE_STM32F4_FREQ_130MHZ = 0x0082,
+    ICE_STM32F4_FREQ_131MHZ = 0x0083,
+    ICE_STM32F4_FREQ_132MHZ = 0x0084,
+    ICE_STM32F4_FREQ_133MHZ = 0x0085,
+    ICE_STM32F4_FREQ_134MHZ = 0x0086,
+    ICE_STM32F4_FREQ_135MHZ = 0x0087,
+    ICE_STM32F4_FREQ_136MHZ = 0x0088,
+    ICE_STM32F4_FREQ_137MHZ = 0x0089,
+    ICE_STM32F4_FREQ_138MHZ = 0x008A,
+    ICE_STM32F4_FREQ_139MHZ = 0x008B,
+    ICE_STM32F4_FREQ_140MHZ = 0x008C,
+    ICE_STM32F4_FREQ_141MHZ = 0x008D,
+    ICE_STM32F4_FREQ_142MHZ = 0x008E,
+    ICE_STM32F4_FREQ_143MHZ = 0x008F,
+    ICE_STM32F4_FREQ_144MHZ = 0x0090,
+    ICE_STM32F4_FREQ_145MHZ = 0x0091,
+    ICE_STM32F4_FREQ_146MHZ = 0x0092,
+    ICE_STM32F4_FREQ_147MHZ = 0x0093,
+    ICE_STM32F4_FREQ_148MHZ = 0x0094,
+    ICE_STM32F4_FREQ_149MHZ = 0x0095,
+    ICE_STM32F4_FREQ_150MHZ = 0x0096,
+    ICE_STM32F4_FREQ_151MHZ = 0x0097,
+    ICE_STM32F4_FREQ_152MHZ = 0x0098,
+    ICE_STM32F4_FREQ_153MHZ = 0x0099,
+    ICE_STM32F4_FREQ_154MHZ = 0x009A,
+    ICE_STM32F4_FREQ_155MHZ = 0x009B,
+    ICE_STM32F4_FREQ_156MHZ = 0x009C,
+    ICE_STM32F4_FREQ_157MHZ = 0x009D,
+    ICE_STM32F4_FREQ_158MHZ = 0x009E,
+    ICE_STM32F4_FREQ_159MHZ = 0x009F,
+    ICE_STM32F4_FREQ_160MHZ = 0x00A0,
+    ICE_STM32F4_FREQ_161MHZ = 0x00A1,
+    ICE_STM32F4_FREQ_162MHZ = 0x00A2,
+    ICE_STM32F4_FREQ_163MHZ = 0x00A3,
+    ICE_STM32F4_FREQ_164MHZ = 0x00A4,
+    ICE_STM32F4_FREQ_165MHZ = 0x00A5,
+    ICE_STM32F4_FREQ_166MHZ = 0x00A6,
+    ICE_STM32F4_FREQ_167MHZ = 0x00A7,
+    ICE_STM32F4_FREQ_168MHZ = 0x00A8,
+    ICE_STM32F4_FREQ_169MHZ = 0x00A9,
+    ICE_STM32F4_FREQ_170MHZ = 0x00AA,
+    ICE_STM32F4_FREQ_171MHZ = 0x00AB,
+    ICE_STM32F4_FREQ_172MHZ = 0x00AC,
+    ICE_STM32F4_FREQ_173MHZ = 0x00AD,
+    ICE_STM32F4_FREQ_174MHZ = 0x00AE,
+    ICE_STM32F4_FREQ_175MHZ = 0x00AF,
+    ICE_STM32F4_FREQ_176MHZ = 0x00B0,
+    ICE_STM32F4_FREQ_177MHZ = 0x00B1,
+    ICE_STM32F4_FREQ_178MHZ = 0x00B2,
+    ICE_STM32F4_FREQ_179MHZ = 0x00B3,
+    ICE_STM32F4_FREQ_180MHZ = 0x00B4,
+    ICE_STM32F4_FREQ_STOCK = 0xFFFF,
+} ice_stm32f4_freq_t;
+_Static_assert(sizeof(ice_stm32f4_freq_t) == 2, "ice_stm32f4_freq_t must be 2 byte");
+
+typedef enum {
+    FIRE_VREG_0_55V = 0x00,
+    FIRE_VREG_0_60V = 0x01,
+    FIRE_VREG_0_65V = 0x02,
+    FIRE_VREG_0_70V = 0x03,
+    FIRE_VREG_0_75V = 0x04,
+    FIRE_VREG_0_80V = 0x05,
+    FIRE_VREG_0_85V = 0x06,
+    FIRE_VREG_0_90V = 0x07,
+    FIRE_VREG_0_95V = 0x08,
+    FIRE_VREG_1_00V = 0x09,
+    FIRE_VREG_1_05V = 0x0A,
+    FIRE_VREG_1_10V = 0x0B,
+    FIRE_VREG_1_15V = 0x0C,
+    FIRE_VREG_1_20V = 0x0D,
+    FIRE_VREG_1_25V = 0x0E,
+    FIRE_VREG_1_30V = 0x0F,
+    FIRE_VREG_1_35V = 0x10,
+    FIRE_VREG_1_40V = 0x11,
+    FIRE_VREG_1_50V = 0x12,
+    FIRE_VREG_1_60V = 0x13,
+    FIRE_VREG_1_65V = 0x14,
+    FIRE_VREG_1_70V = 0x15,
+    FIRE_VREG_1_80V = 0x16,
+    FIRE_VREG_1_90V = 0x17,
+    FIRE_VREG_2_00V = 0x18,
+    FIRE_VREG_2_35V = 0x19,
+    FIRE_VREG_2_50V = 0x1A,
+    FIRE_VREG_2_65V = 0x1B,
+    FIRE_VREG_2_80V = 0x1C,
+    FIRE_VREG_3_00V = 0x1D,
+    FIRE_VREG_3_15V = 0x1E,
+    FIRE_VREG_3_30V = 0x1F,
+    FIRE_VREG_STOCK = 0xFF,
+} fire_vreg_t;
+_Static_assert(sizeof(fire_vreg_t) == 1, "fire_vreg_t must be 1 byte");
 
 // Pin allocations
 //
@@ -331,8 +607,12 @@ typedef enum {
 
     // PIO-based serving algorithm - RP2350 only.
     SERVE_PIO,
+
+    // CPU-based serving algorithm - RP2350 only.
+    SERVE_CPU,
 } sdrr_serve_t;
 #define SERVE_DEFAULT_1_ROM  SERVE_ADDR_ON_CS
+_Static_assert(sizeof(sdrr_serve_t) == 1, "sdrr_serve_t must be 1 byte");
 
 // ROM information structure
 typedef struct {
@@ -351,44 +631,63 @@ typedef struct {
 // Where each ROM set requires the same overrides, only once instance of this
 // structure need be created, and all ROM sets can point to it.
 typedef struct {
-    // Optional MCU clock frequency override in MHz.  0xffff means no override.
-    // Top bit (0x8000) indicates overclocking enabled.
-    const uint16_t freq_mhz;
+    // Bitfield indicating which overrides are present.
+    //
+    // Table below shows byte | bit, where bit 0 = LSB.
+    // A set bit indicates that the corresponding override is configured.
+    //
+    // 0 | 0 = Ice MCU frequency
+    // 0 | 1 = Ice overclock overridden
+    // 0 | 2 = Fire MCU frequency
+    // 0 | 3 = Fire overclock overridden
+    // 0 | 4 = Fire VREQ overridden
+    // 0 | 5 = Status LED overridden
+    // 0 | 6 = SWD overridden
+    // 
+    // Unused (reserved) values MUST be set to 0.
+    const uint8_t override_present[8];
 
-    // Optional overclocking enable/disable override.  0 = disable, 1 = enable,
-    // 255 = no override.
-    const uint8_t overclock_enable;
+    // 8 bytes to here
 
-    // Optional status LED enable/disable override.  0 = disable, 1 = enable,
-    // 255 = no override.
-    const uint8_t status_led_enable;
+    // STM32F4 (Ice) MCU clock frequency override in MHz.  0 = max rated clock
+    // speed for the MCU.
+    const ice_stm32f4_freq_t ice_freq;
 
-    // Optional SWD enable/disable override.  0 = disable, 1 = enable,
-    // 255 = no override.
-    const uint8_t swd_enable;
+    // RP2350 (Fire) MCU clock frequency override in MHz.  Uses values from
+    // fire_rp2350_freq_t enum.
+    const fire_rp2350_freq_t fire_freq;
 
-    // Padding to 8 bytes
+    // RP2350 (Fire) VREQ voltage override.  Uses values for VREQ_CTRL
+    // register.
+    const fire_vreg_t fire_vreg;
+
     const uint8_t pad1[3];
 
+    // 16 bytes to here
+
+    // Bitfields indicating boolean values for specific overrides
+    //
+    // Byte | Bit : Description, bit 0 = LSB
+    // 0 | 0 : Ice overclocking enabled/disabled 1/0
+    // 0 | 1 : Fire overclocking enabled/disabled 1/0
+    // 0 | 2 : Status LED enabled/disabled 1/0
+    // 0 | 3 : SWD enabled/disabled 1/0
+    const uint8_t override_value[8];
+
+    // 24 bytes to here
+
     // Padding to 64 bytes
-    const uint8_t pad2[56];
+    const uint8_t pad3[40];
 } onerom_firmware_overrides_t;
 
 // Serving algorithm configuration structure
 //
 // Reserves 64 bytes for configuration data for the serving algorithm.
+//
+// Padded with 0xff for unused bytes.
 typedef struct {
     uint8_t reserved[64];
 } onerom_serve_config_t;
-
-// Serving algorithm configuration structure for PIO serving
-typedef struct {
-    uint8_t read_addr_irq;
-    uint8_t read_addr_delay_cycles;
-    uint8_t cs_to_data_out_delay_cycles;
-    uint8_t cs_inactive_data_hold_delay_cycles;
-    uint8_t reserved[60];
-} onerom_pio_serve_config_t;
 
 // ROM set information structure
 //

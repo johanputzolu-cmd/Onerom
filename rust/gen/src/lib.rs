@@ -9,6 +9,7 @@
 extern crate alloc;
 
 pub mod builder;
+pub mod firmware;
 pub mod image;
 pub mod meta;
 
@@ -28,6 +29,8 @@ const METADATA_VERSION_STR: &str = "1";
 
 /// Firmware size reserved at the start of flash, before metadata
 pub const FIRMWARE_SIZE: usize = 48 * 1024; // 48KB
+
+pub const MIN_FIRMWARE_OVERRIDES_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
 
 /// Error type
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

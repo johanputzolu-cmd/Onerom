@@ -9,9 +9,11 @@
 use alloc::vec;
 use alloc::vec::Vec;
 
+use onerom_config::fw::FirmwareVersion;
 use onerom_config::hw::Board;
 
-use crate::{Error, FIRMWARE_SIZE, METADATA_VERSION, Result};
+use crate::{Error, FIRMWARE_SIZE, METADATA_VERSION, MIN_FIRMWARE_OVERRIDES_VERSION, Result};
+use crate::builder::{FireCpuFreq, FireVreg, FirmwareConfig, IceCpuFreq};
 use crate::image::{RomSet, RomSetType};
 
 pub const PAD_METADATA_BYTE: u8 = 0xFF;
@@ -31,6 +33,10 @@ const METADATA_HEADER_LEN: usize = 256; // onerom_metadata_header_t
 
 const METADATA_ROM_SET_OFFSET: usize = 24; // Offset of rom_set pointer in header
 
+pub(crate) const ROM_SET_METADATA_LEN: usize = 16; // sdrr_rom_set_t
+pub(crate) const ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN: usize = 64; // 0.6.0 onwards
+pub(crate) const ROM_SET_SERVE_CONFIG_METADATA_LEN: usize = 64; // 0.6.0 onwards
+
 /// Metadata for One ROM firmware
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Metadata {
@@ -38,15 +44,17 @@ pub struct Metadata {
     rom_sets: Vec<RomSet>,
     filenames: bool,
     pio: bool,
+    firmware_version: FirmwareVersion,
 }
 
 impl Metadata {
-    pub fn new(board: Board, rom_sets: Vec<RomSet>, filenames: bool) -> Self {
+    pub fn new(board: Board, rom_sets: Vec<RomSet>, filenames: bool, firmware_version: FirmwareVersion) -> Self {
         Self {
             board,
             rom_sets,
             filenames,
             pio: false,
+            firmware_version,
         }
     }
 
@@ -75,10 +83,14 @@ impl Metadata {
         // Size needs to include:
         // - Header (256 bytes) - onerom_metadata_header_t
         // - All ROM filenames - char[]
+        // - Firmware overrides, if any
         // - All ROM set entries (16 bytes) - sdrr_rom_set_t
         // - Array of pointers to ROMs in each set (4 bytes per ROM)
         // - Each ROM entry (4-8 bytes) - sdrr_rom_info_t
-        let len = self.header_len() + self.filenames_metadata_len() + self.sets_len();
+        let len = self.header_len()
+            + self.filenames_metadata_len() 
+            + self.firmware_overrides_len()
+            + self.sets_len();
 
         if len > MAX_METADATA_LEN {
             panic!(
@@ -130,7 +142,7 @@ impl Metadata {
             total += set.roms().len() * 4;
         }
 
-        total += self.rom_sets.len() * RomSet::rom_set_metadata_len();
+        total += self.rom_sets.len() * RomSet::rom_set_metadata_len(&self.firmware_version);
 
         total
     }
@@ -194,6 +206,27 @@ impl Metadata {
             );
         }
 
+        let mut firmware_overrides_ptrs = vec![None; self.rom_sets.len()];
+        let mut serve_config_ptrs = vec![None; self.rom_sets.len()];
+
+        if self.firmware_version >= MIN_FIRMWARE_OVERRIDES_VERSION {
+            for (ii, rom_set) in self.rom_sets.iter().enumerate() {
+                // Serialize firmware overrides if present
+                if let Some(ref fw_config) = rom_set.firmware_overrides {
+                    firmware_overrides_ptrs[ii] = Some(offset as u32 + self.abs_metadata_start());
+                    let len = Self::serialize_firmware_overrides(fw_config, &mut buf[offset..])?;
+                    offset += len;
+
+                    // Serialize serve_alg_params if present within firmware_overrides
+                    if let Some(ref params) = fw_config.serve_alg_params {
+                        serve_config_ptrs[ii] = Some(offset as u32 + self.abs_metadata_start());
+                        let len = Self::serialize_serve_config(params, &mut buf[offset..])?;
+                        offset += len;
+                    }
+                }
+            }
+        }
+
         // Pre-compute where the ROM set image data will live for each rom set
         // now, so we can fill in the pointers in each set.  This is from
         // the start of flash + 64KB.  We also set up a vec to hold offsets
@@ -251,6 +284,9 @@ impl Metadata {
                 actual_rom_array_ptrs[ii],
                 &self.board.mcu_family(),
                 rom_pins,
+                &self.firmware_version,
+                serve_config_ptrs[ii],
+                firmware_overrides_ptrs[ii],
             )?;
         }
 
@@ -406,4 +442,171 @@ impl Metadata {
 
         Ok(())
     }
+
+    /// Serialize FirmwareConfig into the 64-byte onerom_firmware_overrides_t structure
+    #[allow(clippy::collapsible_if)]
+    fn serialize_firmware_overrides(
+        config: &FirmwareConfig,
+        buf: &mut [u8],
+    ) -> Result<usize> {
+        if buf.len() < ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN {
+            return Err(Error::BufferTooSmall {
+                location: "serialize_firmware_overrides",
+                expected: ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN,
+                actual: buf.len(),
+            });
+        }
+
+        let mut offset = 0;
+
+        // Initialize override_present bitfield (8 bytes)
+        let mut override_present = [0u8; 8];
+        
+        // Bit positions in override_present[0]:
+        // 0 = Ice MCU frequency
+        // 1 = Ice overclock overridden
+        // 2 = Fire MCU frequency  
+        // 3 = Ice overclock overridden
+        // 4 = Fire VREQ overridden
+        // 5 = Status LED overridden
+        // 6 = SWD overridden
+        if let Some(ref _ice_clock) = config.ice_clock {
+            override_present[0] |= 1 << 0; // Ice frequency
+            override_present[0] |= 1 << 1; // Ice overclock bit
+        }
+
+        if let Some(ref _fire_clock) = config.fire_clock {
+            override_present[0] |= 1 << 2; // Fire frequency
+            override_present[0] |= 1 << 3; // Fire overclock bit
+            override_present[0] |= 1 << 4; // Fire VREQ
+        }
+        
+        if config.led.is_some() {
+            override_present[0] |= 1 << 5; // Status LED
+        }
+        
+        if config.swd.is_some() {
+            override_present[0] |= 1 << 6; // SWD
+        }
+
+        // Write override_present
+        buf[offset..offset + 8].copy_from_slice(&override_present);
+        offset += 8;
+
+        // Write frequencies (2 bytes each as u16)
+        let ice_freq = config.ice_clock.as_ref().map_or(IceCpuFreq::Stock, |c| c.cpu_freq.clone()) as u16;
+        buf[offset..offset + 2].copy_from_slice(&ice_freq.to_le_bytes());
+        offset += 2;
+
+        let fire_freq = config.fire_clock.as_ref().map_or(FireCpuFreq::Stock, |c| c.cpu_freq.clone()) as u16;
+        buf[offset..offset + 2].copy_from_slice(&fire_freq.to_le_bytes());
+        offset += 2;
+
+        // Write fire_vreq (1 byte)
+        buf[offset] = config.fire_clock.as_ref().map_or(FireVreg::Stock, |c| c.vreg.clone()) as u8;
+        offset += 1;
+
+        // Write pad1 (3 bytes)
+        buf[offset..offset + 3].copy_from_slice(&[PAD_METADATA_BYTE; 3]);
+        offset += 3;
+
+        assert_eq!(offset, 16, "Should be at 16 bytes");
+
+        // Initialize override_value bitfield (8 bytes)
+        let mut override_value = [0u8; 8];
+        
+        // Bit positions in override_value[0]:
+        // 0 = Ice overclocking enabled
+        // 1 = Fire overclocking enabled
+        // 2 = Status LED enabled
+        // 3 = SWD enabled
+        if let Some(ref ice_clock) = config.ice_clock {
+            if ice_clock.overclock {
+                override_value[0] |= 1 << 0;
+            }
+        }
+
+        if let Some(ref fire_clock) = config.fire_clock {
+            if fire_clock.overclock {
+                override_value[0] |= 1 << 1;
+            }
+        }
+        
+        if let Some(ref led) = config.led {
+            if led.enabled {
+                override_value[0] |= 1 << 2;
+            }
+        }
+        
+        if let Some(ref swd) = config.swd {
+            if swd.swd_enabled {
+                override_value[0] |= 1 << 3;
+            }
+        }
+
+        // Write override_value
+        buf[offset..offset + 8].copy_from_slice(&override_value);
+        offset += 8;
+
+        assert_eq!(offset, 24, "Should be at 24 bytes");
+
+        // Write pad3 (40 bytes)
+        buf[offset..offset + 40].copy_from_slice(&[PAD_METADATA_BYTE; 40]);
+        offset += 40;
+
+        assert_eq!(offset, ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, "Should be at 64 bytes");
+
+        Ok(ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN)
+    }
+
+    /// Serialize ServeAlgParams into the 64-byte onerom_serve_config_t structure
+    fn serialize_serve_config(
+        params: &crate::builder::ServeAlgParams,
+        buf: &mut [u8],
+    ) -> Result<usize> {
+        if buf.len() < ROM_SET_SERVE_CONFIG_METADATA_LEN {
+            return Err(Error::BufferTooSmall {
+                location: "serialize_serve_config",
+                expected: ROM_SET_SERVE_CONFIG_METADATA_LEN,
+                actual: buf.len(),
+            });
+        }
+
+        buf[..64].fill(0xFF);
+
+        // Copy params data, up to 64 bytes
+        let len = params.params.len().min(ROM_SET_SERVE_CONFIG_METADATA_LEN);
+        buf[..len].copy_from_slice(&params.params[..len]);
+        
+        // Zero out any remaining bytes
+        if len < ROM_SET_SERVE_CONFIG_METADATA_LEN {
+            buf[len..ROM_SET_SERVE_CONFIG_METADATA_LEN].fill(PAD_METADATA_BYTE);
+        }
+
+        Ok(ROM_SET_SERVE_CONFIG_METADATA_LEN)
+    }
+
+    // Calculate total size needed for firmware overrides and serve config structures
+    fn firmware_overrides_len(&self) -> usize {
+        const MIN_EXTENDED_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
+        
+        if self.firmware_version < MIN_EXTENDED_VERSION {
+            return 0;
+        }
+
+        let mut total = 0;
+        for rom_set in &self.rom_sets {
+            if let Some(ref fw_config) = rom_set.firmware_overrides {
+                // firmware_overrides structure is 64 bytes
+                total += ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN;
+                
+                // serve_alg_params structure is also 64 bytes if present
+                if fw_config.serve_alg_params.is_some() {
+                    total += ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN;
+                }
+            }
+        }
+        total
+    }
+
 }

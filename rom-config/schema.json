@@ -88,10 +88,144 @@
                 }
             }
         },
+        "FireClockConfig": {
+            "description": "Ice Clock configuration structure",
+            "type": "object",
+            "properties": {
+                "cpu_freq": {
+                    "description": "CPU frequency.  Only specific frequencies are supported",
+                    "$ref": "#/$defs/FireCpuFreq"
+                },
+                "overclock": {
+                    "description": "Whether overclocking is enabled",
+                    "type": "boolean",
+                    "default": false
+                },
+                "vreg": {
+                    "description": "Optional Vreg output voltage setting for RP2350 MCUs.",
+                    "$ref": "#/$defs/FireVreg",
+                    "default": "Stock"
+                }
+            },
+            "required": [
+                "cpu_freq"
+            ]
+        },
+        "FireCpuFreq": {
+            "type": "string",
+            "enum": [
+                "20MHz",
+                "30MHz",
+                "40MHz",
+                "50MHz",
+                "60MHz",
+                "70MHz",
+                "80MHz",
+                "90MHz",
+                "100MHz",
+                "110MHz",
+                "120MHz",
+                "130MHz",
+                "140MHz",
+                "150MHz",
+                "160MHz",
+                "170MHz",
+                "180MHz",
+                "190MHz",
+                "200MHz",
+                "210MHz",
+                "220MHz",
+                "230MHz",
+                "240MHz",
+                "250MHz",
+                "260MHz",
+                "270MHz",
+                "280MHz",
+                "300MHz",
+                "320MHz",
+                "330MHz",
+                "340MHz",
+                "360MHz",
+                "380MHz",
+                "390MHz",
+                "400MHz",
+                "420MHz",
+                "440MHz",
+                "450MHz",
+                "460MHz",
+                "480MHz",
+                "500MHz",
+                "510MHz",
+                "520MHz",
+                "540MHz",
+                "Stock"
+            ]
+        },
+        "FireVreg": {
+            "description": "Voltage regulator setting for RP2350 MCUs",
+            "type": "string",
+            "enum": [
+                "0.55V",
+                "0.60V",
+                "0.65V",
+                "0.70V",
+                "0.75V",
+                "0.80V",
+                "0.85V",
+                "0.90V",
+                "0.95V",
+                "1.00V",
+                "1.05V",
+                "1.10V",
+                "1.15V",
+                "1.20V",
+                "1.25V",
+                "1.30V",
+                "1.35V",
+                "1.40V",
+                "1.50V",
+                "1.60V",
+                "1.65V",
+                "1.70V",
+                "1.80V",
+                "1.90V",
+                "2.00V",
+                "2.35V",
+                "2.50V",
+                "2.65V",
+                "2.80V",
+                "3.00V",
+                "3.15V",
+                "3.30V",
+                "Stock"
+            ]
+        },
         "FirmwareConfig": {
             "description": "Top level configuration structure",
             "type": "object",
             "properties": {
+                "fire_clock": {
+                    "description": "Optional MCU clock configuration for Fire boards",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/FireClockConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "ice_clock": {
+                    "description": "Optional MCU clock configuration",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/IceClockConfig"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
                 "led": {
                     "description": "Optional LED configuration",
                     "anyOf": [
@@ -103,11 +237,11 @@
                         }
                     ]
                 },
-                "mcu_clock": {
-                    "description": "Optional MCU clock configuration",
+                "serve_alg_params": {
+                    "description": "Optional serving algorithm parameters",
                     "anyOf": [
                         {
-                            "$ref": "#/$defs/McuClockConfig"
+                            "$ref": "#/$defs/ServeAlgParams"
                         },
                         {
                             "type": "null"
@@ -126,6 +260,210 @@
                     ]
                 }
             }
+        },
+        "IceClockConfig": {
+            "description": "Ice Clock configuration structure",
+            "type": "object",
+            "properties": {
+                "cpu_freq": {
+                    "description": "CPU frequency.  Only specific frequencies are supported",
+                    "$ref": "#/$defs/IceCpuFreq"
+                },
+                "overclock": {
+                    "description": "Whether overclocking is enabled",
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "required": [
+                "cpu_freq"
+            ]
+        },
+        "IceCpuFreq": {
+            "type": "string",
+            "enum": [
+                "1MHz",
+                "2MHz",
+                "3MHz",
+                "4MHz",
+                "5MHz",
+                "6MHz",
+                "7MHz",
+                "8MHz",
+                "9MHz",
+                "10MHz",
+                "11MHz",
+                "12MHz",
+                "13MHz",
+                "14MHz",
+                "15MHz",
+                "16MHz",
+                "17MHz",
+                "18MHz",
+                "19MHz",
+                "20MHz",
+                "21MHz",
+                "22MHz",
+                "23MHz",
+                "24MHz",
+                "25MHz",
+                "26MHz",
+                "27MHz",
+                "28MHz",
+                "29MHz",
+                "30MHz",
+                "31MHz",
+                "32MHz",
+                "33MHz",
+                "34MHz",
+                "35MHz",
+                "36MHz",
+                "37MHz",
+                "38MHz",
+                "39MHz",
+                "40MHz",
+                "41MHz",
+                "42MHz",
+                "43MHz",
+                "44MHz",
+                "45MHz",
+                "46MHz",
+                "47MHz",
+                "48MHz",
+                "49MHz",
+                "50MHz",
+                "51MHz",
+                "52MHz",
+                "53MHz",
+                "54MHz",
+                "55MHz",
+                "56MHz",
+                "57MHz",
+                "58MHz",
+                "59MHz",
+                "60MHz",
+                "61MHz",
+                "62MHz",
+                "63MHz",
+                "64MHz",
+                "65MHz",
+                "66MHz",
+                "67MHz",
+                "68MHz",
+                "69MHz",
+                "70MHz",
+                "71MHz",
+                "72MHz",
+                "73MHz",
+                "74MHz",
+                "75MHz",
+                "76MHz",
+                "77MHz",
+                "78MHz",
+                "79MHz",
+                "80MHz",
+                "81MHz",
+                "82MHz",
+                "83MHz",
+                "84MHz",
+                "85MHz",
+                "86MHz",
+                "87MHz",
+                "88MHz",
+                "89MHz",
+                "90MHz",
+                "91MHz",
+                "92MHz",
+                "93MHz",
+                "94MHz",
+                "95MHz",
+                "96MHz",
+                "97MHz",
+                "98MHz",
+                "99MHz",
+                "100MHz",
+                "101MHz",
+                "102MHz",
+                "103MHz",
+                "104MHz",
+                "105MHz",
+                "106MHz",
+                "107MHz",
+                "108MHz",
+                "109MHz",
+                "110MHz",
+                "111MHz",
+                "112MHz",
+                "113MHz",
+                "114MHz",
+                "115MHz",
+                "116MHz",
+                "117MHz",
+                "118MHz",
+                "119MHz",
+                "120MHz",
+                "121MHz",
+                "122MHz",
+                "123MHz",
+                "124MHz",
+                "125MHz",
+                "126MHz",
+                "127MHz",
+                "128MHz",
+                "129MHz",
+                "130MHz",
+                "131MHz",
+                "132MHz",
+                "133MHz",
+                "134MHz",
+                "135MHz",
+                "136MHz",
+                "137MHz",
+                "138MHz",
+                "139MHz",
+                "140MHz",
+                "141MHz",
+                "142MHz",
+                "143MHz",
+                "144MHz",
+                "145MHz",
+                "146MHz",
+                "147MHz",
+                "148MHz",
+                "149MHz",
+                "150MHz",
+                "151MHz",
+                "152MHz",
+                "153MHz",
+                "154MHz",
+                "155MHz",
+                "156MHz",
+                "157MHz",
+                "158MHz",
+                "159MHz",
+                "160MHz",
+                "161MHz",
+                "162MHz",
+                "163MHz",
+                "164MHz",
+                "165MHz",
+                "166MHz",
+                "167MHz",
+                "168MHz",
+                "169MHz",
+                "170MHz",
+                "171MHz",
+                "172MHz",
+                "173MHz",
+                "174MHz",
+                "175MHz",
+                "176MHz",
+                "177MHz",
+                "178MHz",
+                "179MHz",
+                "180MHz",
+                "Stock"
+            ]
         },
         "LedConfig": {
             "description": "LED configuration structure",
@@ -158,26 +496,6 @@
             "required": [
                 "start",
                 "length"
-            ]
-        },
-        "McuClockConfig": {
-            "description": "MCU Clock configuration structure",
-            "type": "object",
-            "properties": {
-                "cpu_mhz": {
-                    "description": "CPU frequency in MHz.  Only specific frequencies are supported",
-                    "type": "integer",
-                    "format": "uint32",
-                    "minimum": 0
-                },
-                "overclock": {
-                    "description": "Whether overclocking is enabled",
-                    "type": "boolean",
-                    "default": false
-                }
-            },
-            "required": [
-                "cpu_mhz"
             ]
         },
         "RomConfig": {
@@ -475,52 +793,32 @@
                 },
                 {
                     "description": "RP2350 only",
-                    "type": "object",
-                    "properties": {
-                        "pio": {
-                            "type": "object",
-                            "properties": {
-                                "addr_read_delay_cycles": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ],
-                                    "format": "uint8",
-                                    "maximum": 255,
-                                    "minimum": 0
-                                },
-                                "addr_read_irq": {
-                                    "type": [
-                                        "boolean",
-                                        "null"
-                                    ]
-                                },
-                                "cs_inactive_data_hold_delay_cycles": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ],
-                                    "format": "uint8",
-                                    "maximum": 255,
-                                    "minimum": 0
-                                },
-                                "cs_to_data_out_delay_cycles": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ],
-                                    "format": "uint8",
-                                    "maximum": 255,
-                                    "minimum": 0
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "pio"
-                    ]
+                    "type": "string",
+                    "const": "pio"
+                },
+                {
+                    "description": "RP2350 only",
+                    "type": "string",
+                    "const": "cpu"
                 }
+            ]
+        },
+        "ServeAlgParams": {
+            "description": "Custom serving algorithm parameters\n\nThis is stored as unstructured parameters to allow for easy future\nextension without breaking compatibility.",
+            "type": "object",
+            "properties": {
+                "params": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer",
+                        "format": "uint8",
+                        "maximum": 255,
+                        "minimum": 0
+                    }
+                }
+            },
+            "required": [
+                "params"
             ]
         },
         "SizeHandling": {

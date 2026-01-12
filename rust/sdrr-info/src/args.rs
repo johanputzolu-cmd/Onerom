@@ -356,6 +356,7 @@ pub fn parse_args() -> Result<Args, String> {
             return Err("Address must be in the range 0x0000 to 0xFFFF".to_string());
         }
     }
+    #[allow(clippy::collapsible_if)]
     if let Some(range) = range {
         if range.0 > 0xFFFF || range.1 > 0xFFFF {
             return Err(format!(

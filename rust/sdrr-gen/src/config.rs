@@ -289,7 +289,7 @@ impl Config {
             let rom_sets: Vec<RomSet> = roms
                 .into_iter()
                 .enumerate()
-                .map(|(ii, rom)| RomSet::new(ii, RomSetType::Single, serve_alg, vec![rom]))
+                .map(|(ii, rom)| RomSet::new(ii, RomSetType::Single, serve_alg, vec![rom], None))
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| format!("Error creating ROM sets: {:?}", e))?;
             return Ok(rom_sets);
@@ -334,6 +334,7 @@ impl Config {
                 },
                 serve_alg,
                 rom_vec,
+                None,
             )
             .map_err(|e| format!("Error creating ROM sets: {:?}", e))?;
 
