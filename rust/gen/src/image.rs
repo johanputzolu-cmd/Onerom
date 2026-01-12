@@ -27,7 +27,7 @@ use onerom_config::rom::RomType;
 
 use crate::MIN_FIRMWARE_OVERRIDES_VERSION;
 use crate::{Error, Result, builder::FirmwareConfig};
-use crate::meta::{ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, ROM_SET_METADATA_LEN};
+use crate::meta::{ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, ROM_SET_METADATA_LEN, ROM_SET_METADATA_LEN_EXTRA_INFO};
 
 /// Value to use when told to pad a ROM image
 pub const PAD_BLANK_BYTE: u8 = 0xAA;
@@ -1139,7 +1139,7 @@ impl RomSet {
 
     pub fn rom_set_metadata_len(version: &FirmwareVersion) -> usize {
         if *version >= MIN_FIRMWARE_OVERRIDES_VERSION {
-            ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN
+            ROM_SET_METADATA_LEN_EXTRA_INFO
         } else {
             ROM_SET_METADATA_LEN
         }

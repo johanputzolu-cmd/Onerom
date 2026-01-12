@@ -13,7 +13,7 @@ use onerom_config::fw::FirmwareVersion;
 use onerom_config::hw::Board;
 
 use crate::{Error, FIRMWARE_SIZE, METADATA_VERSION, MIN_FIRMWARE_OVERRIDES_VERSION, Result};
-use crate::builder::{FireCpuFreq, FireVreg, FirmwareConfig, IceCpuFreq};
+use crate::builder::{FireCpuFreq, FireVreg, FirmwareConfig, IceCpuFreq, ServeAlgParams};
 use crate::image::{RomSet, RomSetType};
 
 pub const PAD_METADATA_BYTE: u8 = 0xFF;
@@ -34,6 +34,7 @@ const METADATA_HEADER_LEN: usize = 256; // onerom_metadata_header_t
 const METADATA_ROM_SET_OFFSET: usize = 24; // Offset of rom_set pointer in header
 
 pub(crate) const ROM_SET_METADATA_LEN: usize = 16; // sdrr_rom_set_t
+pub(crate) const ROM_SET_METADATA_LEN_EXTRA_INFO: usize = 64; // sdrr_rom_set_t
 pub(crate) const ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN: usize = 64; // 0.6.0 onwards
 pub(crate) const ROM_SET_SERVE_CONFIG_METADATA_LEN: usize = 64; // 0.6.0 onwards
 
@@ -561,7 +562,7 @@ impl Metadata {
 
     /// Serialize ServeAlgParams into the 64-byte onerom_serve_config_t structure
     fn serialize_serve_config(
-        params: &crate::builder::ServeAlgParams,
+        params: &ServeAlgParams,
         buf: &mut [u8],
     ) -> Result<usize> {
         if buf.len() < ROM_SET_SERVE_CONFIG_METADATA_LEN {

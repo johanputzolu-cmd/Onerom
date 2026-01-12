@@ -429,6 +429,14 @@ pub enum SdrrServe {
     /// when _any_ ROM's CS line is active
     #[deku(id = "2")]
     AddrOnAnyCs,
+
+    /// RP2350 only - PIO-based serving
+    #[deku(id = "3")]
+    Pio,
+
+    /// RP2350 only - CPU-based serving
+    #[deku(id = "4")]
+    Cpu,
 }
 
 impl fmt::Display for SdrrServe {
@@ -437,6 +445,8 @@ impl fmt::Display for SdrrServe {
             SdrrServe::TwoCsOneAddr => write!(f, "A = Two CS checks for every address check"),
             SdrrServe::AddrOnCs => write!(f, "B = Check address only when CS active"),
             SdrrServe::AddrOnAnyCs => write!(f, "C = Check address on any CS active"),
+            SdrrServe::Pio => write!(f, "PIO-based serving (RP2350 only)"),
+            SdrrServe::Cpu => write!(f, "CPU-based serving (RP2350 only)"),
         }
     }
 }

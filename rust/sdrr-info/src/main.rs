@@ -119,6 +119,10 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("  {}", error);
         }
         eprintln!();
+        if args.strict {
+            eprintln!("Exiting due to --strict flag");
+            std::process::exit(1);
+        }
     } else if args.output_binary.unwrap_or(false) == false {
         println!("Firmware parsed successfully");
     }
@@ -416,6 +420,39 @@ fn print_sdrr_info(fw_data: &FirmwareData, args: &Args) {
             println!("  ROM Count:     {}", rom_set.rom_count);
             println!("  Algorithm:     {}", rom_set.serve);
             println!("  Multi-ROM CS1: {}", rom_set.multi_rom_cs1_state);
+
+            if let Some(ref fw_config) = rom_set.firmware_overrides {
+                println!("  FW Overrides:");
+                if let Some(ref ice) = fw_config.ice_clock {
+                    println!("    Ice:  {:?} MHz (overclock: {})", ice.cpu_freq, ice.overclock);
+                }
+                if let Some(ref fire) = fw_config.fire_clock {
+                    println!("    Fire: {:?} MHz (overclock: {}, vreg: {:?})", 
+                             fire.cpu_freq, fire.overclock, fire.vreg);
+                }
+                if let Some(ref led) = fw_config.led {
+                    println!("    LED:  enabled={}", led.enabled);
+                }
+                if let Some(ref swd) = fw_config.swd {
+                    println!("    SWD:  enabled={}", swd.swd_enabled);
+                }
+                if let Some(ref params) = fw_config.serve_alg_params {
+                    println!("    Serve Params: {} bytes", params.params.len());
+                    if let Some(ref serve_params) = fw_config.serve_alg_params {
+                        println!("  Serve Config:  {} bytes", serve_params.params.len());
+                        if serve_params.params.len() <= 64 {
+                            print!("    Data: ");
+                            for byte in &serve_params.params {
+                                print!("{:02X} ", byte);
+                            }
+                            println!();
+                        }
+                    }
+            
+                }
+            } else {
+                println!("  FW Overrides:  None");
+            }
 
             for (jj, rom) in rom_set.roms.iter().enumerate() {
                 println!("  ROM: {}", jj);

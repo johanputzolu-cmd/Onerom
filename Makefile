@@ -720,7 +720,7 @@ info: sdrr-info firmware
 	@echo "- Validate One ROM firmware"
 	@echo "- Extract key One ROM firmware properties"
 	@echo "-----"
-	@$(CARGO_TARGET_DIR)/sdrr-info info sdrr/build/$(BIN_PREFIX).bin
+	@$(CARGO_TARGET_DIR)/sdrr-info info --strict sdrr/build/$(BIN_PREFIX).bin
 	@echo "-----"
 	@echo "Use <SAME_ARGS> make info-detail to see more details about the firmware"
 
@@ -731,7 +731,7 @@ info-detail: sdrr-info firmware
 	@echo "- Extract key One ROM firmware properties"
 	@echo "- Show detailed One ROM firmware properties"
 	@echo "-----"
-	@$(CARGO_TARGET_DIR)/sdrr-info info -d sdrr/build/$(BIN_PREFIX).bin
+	@$(CARGO_TARGET_DIR)/sdrr-info info -d --strict sdrr/build/$(BIN_PREFIX).bin
 	@echo "=========================================="
 
 firmware: gen

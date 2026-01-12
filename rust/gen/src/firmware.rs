@@ -4,6 +4,8 @@
 
 //! Contains Firmware Config objects
 
+use alloc::format;
+use alloc::string::String;
 use alloc::vec::Vec;
 
 /// Top level configuration structure
@@ -24,6 +26,85 @@ pub struct FirmwareConfig {
 
     /// Optional serving algorithm parameters
     pub serve_alg_params: Option<ServeAlgParams>,
+}
+
+impl FirmwareConfig {
+    /// Deserialize 64-byte onerom_firmware_overrides_t structure into FirmwareConfig
+    pub fn from_bytes(buf: &[u8]) -> Result<Self, String> {
+        if buf.len() < 64 {
+            return Err(format!("Buffer too small: {} bytes", buf.len()));
+        }
+
+        let mut offset = 0;
+
+        // Read override_present (8 bytes)
+        let override_present = &buf[offset..offset + 8];
+        offset += 8;
+
+        // Read frequencies (2 bytes each as u16)
+        let ice_freq = u16::from_le_bytes([buf[offset], buf[offset + 1]]);
+        offset += 2;
+        let fire_freq = u16::from_le_bytes([buf[offset], buf[offset + 1]]);
+        offset += 2;
+
+        // Read fire_vreq (1 byte)
+        let fire_vreq = buf[offset];
+        offset += 1;
+
+        // Skip pad1 (3 bytes)
+        offset += 3;
+
+        // Read override_value (8 bytes)
+        let override_value = &buf[offset..offset + 8];
+        // offset += 8; // Rest is padding
+
+        // Reconstruct FirmwareConfig
+        let ice_clock = if (override_present[0] & (1 << 0)) != 0 {
+            Some(IceClockConfig {
+                cpu_freq: ice_freq.try_into()
+                    .map_err(|_| format!("Invalid ice_freq: {}", ice_freq))?,
+                overclock: (override_value[0] & (1 << 0)) != 0,
+            })
+        } else {
+            None
+        };
+
+        let fire_clock = if (override_present[0] & (1 << 2)) != 0 {
+            Some(FireClockConfig {
+                cpu_freq: fire_freq.try_into()
+                    .map_err(|_| format!("Invalid fire_freq: {}", fire_freq))?,
+                overclock: (override_value[0] & (1 << 1)) != 0,
+                vreg: fire_vreq.try_into()
+                    .map_err(|_| format!("Invalid fire_vreq: {}", fire_vreq))?,
+            })
+        } else {
+            None
+        };
+
+        let led = if (override_present[0] & (1 << 5)) != 0 {
+            Some(LedConfig {
+                enabled: (override_value[0] & (1 << 2)) != 0,
+            })
+        } else {
+            None
+        };
+
+        let swd = if (override_present[0] & (1 << 6)) != 0 {
+            Some(DebugConfig {
+                swd_enabled: (override_value[0] & (1 << 3)) != 0,
+            })
+        } else {
+            None
+        };
+
+        Ok(FirmwareConfig {
+            ice_clock,
+            fire_clock,
+            led,
+            swd,
+            serve_alg_params: None, // Stored separately
+        })
+    }
 }
 
 /// Ice Clock configuration structure
@@ -52,6 +133,38 @@ pub struct FireClockConfig {
     /// Optional Vreg output voltage setting for RP2350 MCUs.
     #[serde(default)]
     pub vreg: FireVreg,
+}
+
+/// LED configuration structure
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct LedConfig {
+    /// Whether the status LED is enabled
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// Debug configuration structure
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct DebugConfig {
+    /// Whether SWD debug interface is enabled
+    #[serde(default = "default_true")]
+    pub swd_enabled: bool,
+}
+
+/// Custom serving algorithm parameters
+/// 
+/// This is stored as unstructured parameters to allow for easy future
+/// extension without breaking compatibility.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct ServeAlgParams {
+    pub params: Vec<u8>,
 }
 
 #[repr(u16)]
@@ -422,6 +535,62 @@ pub enum IceCpuFreq {
     Stock = 0xFFFF,
 }
 
+// Macro for IceCpuFreq since it's just 1-180
+macro_rules! impl_ice_tryfrom {
+    ($($num:literal => $variant:ident),* $(,)?) => {
+        impl TryFrom<u16> for IceCpuFreq {
+            type Error = u16;
+            
+            fn try_from(value: u16) -> Result<Self, Self::Error> {
+                match value {
+                    $($num => Ok(Self::$variant),)*
+                    0xFFFF => Ok(Self::Stock),
+                    _ => Err(value),
+                }
+            }
+        }
+    };
+}
+
+impl_ice_tryfrom! {
+    1 => Mhz1, 2 => Mhz2, 3 => Mhz3, 4 => Mhz4, 5 => Mhz5,
+    6 => Mhz6, 7 => Mhz7, 8 => Mhz8, 9 => Mhz9, 10 => Mhz10,
+    11 => Mhz11, 12 => Mhz12, 13 => Mhz13, 14 => Mhz14, 15 => Mhz15,
+    16 => Mhz16, 17 => Mhz17, 18 => Mhz18, 19 => Mhz19, 20 => Mhz20,
+    21 => Mhz21, 22 => Mhz22, 23 => Mhz23, 24 => Mhz24, 25 => Mhz25,
+    26 => Mhz26, 27 => Mhz27, 28 => Mhz28, 29 => Mhz29, 30 => Mhz30,
+    31 => Mhz31, 32 => Mhz32, 33 => Mhz33, 34 => Mhz34, 35 => Mhz35,
+    36 => Mhz36, 37 => Mhz37, 38 => Mhz38, 39 => Mhz39, 40 => Mhz40,
+    41 => Mhz41, 42 => Mhz42, 43 => Mhz43, 44 => Mhz44, 45 => Mhz45,
+    46 => Mhz46, 47 => Mhz47, 48 => Mhz48, 49 => Mhz49, 50 => Mhz50,
+    51 => Mhz51, 52 => Mhz52, 53 => Mhz53, 54 => Mhz54, 55 => Mhz55,
+    56 => Mhz56, 57 => Mhz57, 58 => Mhz58, 59 => Mhz59, 60 => Mhz60,
+    61 => Mhz61, 62 => Mhz62, 63 => Mhz63, 64 => Mhz64, 65 => Mhz65,
+    66 => Mhz66, 67 => Mhz67, 68 => Mhz68, 69 => Mhz69, 70 => Mhz70,
+    71 => Mhz71, 72 => Mhz72, 73 => Mhz73, 74 => Mhz74, 75 => Mhz75,
+    76 => Mhz76, 77 => Mhz77, 78 => Mhz78, 79 => Mhz79, 80 => Mhz80,
+    81 => Mhz81, 82 => Mhz82, 83 => Mhz83, 84 => Mhz84, 85 => Mhz85,
+    86 => Mhz86, 87 => Mhz87, 88 => Mhz88, 89 => Mhz89, 90 => Mhz90,
+    91 => Mhz91, 92 => Mhz92, 93 => Mhz93, 94 => Mhz94, 95 => Mhz95,
+    96 => Mhz96, 97 => Mhz97, 98 => Mhz98, 99 => Mhz99, 100 => Mhz100,
+    101 => Mhz101, 102 => Mhz102, 103 => Mhz103, 104 => Mhz104, 105 => Mhz105,
+    106 => Mhz106, 107 => Mhz107, 108 => Mhz108, 109 => Mhz109, 110 => Mhz110,
+    111 => Mhz111, 112 => Mhz112, 113 => Mhz113, 114 => Mhz114, 115 => Mhz115,
+    116 => Mhz116, 117 => Mhz117, 118 => Mhz118, 119 => Mhz119, 120 => Mhz120,
+    121 => Mhz121, 122 => Mhz122, 123 => Mhz123, 124 => Mhz124, 125 => Mhz125,
+    126 => Mhz126, 127 => Mhz127, 128 => Mhz128, 129 => Mhz129, 130 => Mhz130,
+    131 => Mhz131, 132 => Mhz132, 133 => Mhz133, 134 => Mhz134, 135 => Mhz135,
+    136 => Mhz136, 137 => Mhz137, 138 => Mhz138, 139 => Mhz139, 140 => Mhz140,
+    141 => Mhz141, 142 => Mhz142, 143 => Mhz143, 144 => Mhz144, 145 => Mhz145,
+    146 => Mhz146, 147 => Mhz147, 148 => Mhz148, 149 => Mhz149, 150 => Mhz150,
+    151 => Mhz151, 152 => Mhz152, 153 => Mhz153, 154 => Mhz154, 155 => Mhz155,
+    156 => Mhz156, 157 => Mhz157, 158 => Mhz158, 159 => Mhz159, 160 => Mhz160,
+    161 => Mhz161, 162 => Mhz162, 163 => Mhz163, 164 => Mhz164, 165 => Mhz165,
+    166 => Mhz166, 167 => Mhz167, 168 => Mhz168, 169 => Mhz169, 170 => Mhz170,
+    171 => Mhz171, 172 => Mhz172, 173 => Mhz173, 174 => Mhz174, 175 => Mhz175,
+    176 => Mhz176, 177 => Mhz177, 178 => Mhz178, 179 => Mhz179, 180 => Mhz180,
+}
+
 #[repr(u16)]
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -518,6 +687,61 @@ pub enum FireCpuFreq {
     Stock = 0xFFFF,
 }
 
+impl TryFrom<u16> for FireCpuFreq {
+    type Error = u16;
+    
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(Self::MHz20),
+            2 => Ok(Self::MHz30),
+            3 => Ok(Self::MHz40),
+            4 => Ok(Self::MHz50),
+            5 => Ok(Self::MHz60),
+            6 => Ok(Self::MHz70),
+            7 => Ok(Self::MHz80),
+            8 => Ok(Self::MHz90),
+            9 => Ok(Self::MHz100),
+            10 => Ok(Self::MHz110),
+            11 => Ok(Self::MHz120),
+            12 => Ok(Self::MHz130),
+            13 => Ok(Self::MHz140),
+            14 => Ok(Self::MHz150),
+            15 => Ok(Self::MHz160),
+            16 => Ok(Self::MHz170),
+            17 => Ok(Self::MHz180),
+            18 => Ok(Self::MHz190),
+            19 => Ok(Self::MHz200),
+            20 => Ok(Self::MHz210),
+            21 => Ok(Self::MHz220),
+            22 => Ok(Self::MHz230),
+            23 => Ok(Self::MHz240),
+            24 => Ok(Self::MHz250),
+            25 => Ok(Self::MHz260),
+            26 => Ok(Self::MHz270),
+            27 => Ok(Self::MHz280),
+            28 => Ok(Self::MHz300),
+            29 => Ok(Self::MHz320),
+            30 => Ok(Self::MHz330),
+            31 => Ok(Self::MHz340),
+            32 => Ok(Self::MHz360),
+            33 => Ok(Self::MHz380),
+            34 => Ok(Self::MHz390),
+            35 => Ok(Self::MHz400),
+            36 => Ok(Self::MHz420),
+            37 => Ok(Self::MHz440),
+            38 => Ok(Self::MHz450),
+            39 => Ok(Self::MHz460),
+            40 => Ok(Self::MHz480),
+            41 => Ok(Self::MHz500),
+            42 => Ok(Self::MHz510),
+            43 => Ok(Self::MHz520),
+            44 => Ok(Self::MHz540),
+            0xFFFF => Ok(Self::Stock),
+            _ => Err(value),
+        }
+    }
+}
+
 /// Voltage regulator setting for RP2350 MCUs
 #[repr(u8)]
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
@@ -591,34 +815,45 @@ pub enum FireVreg {
     Stock = 0xFF,
 }
 
-/// LED configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct LedConfig {
-    /// Whether the status LED is enabled
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-/// Debug configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct DebugConfig {
-    /// Whether SWD debug interface is enabled
-    #[serde(default = "default_true")]
-    pub swd_enabled: bool,
-}
-
-/// Custom serving algorithm parameters
-/// 
-/// This is stored as unstructured parameters to allow for easy future
-/// extension without breaking compatibility.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct ServeAlgParams {
-    pub params: Vec<u8>,
+impl TryFrom<u8> for FireVreg {
+    type Error = u8;
+    
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x00 => Ok(Self::V0_55),
+            0x01 => Ok(Self::V0_60),
+            0x02 => Ok(Self::V0_65),
+            0x03 => Ok(Self::V0_70),
+            0x04 => Ok(Self::V0_75),
+            0x05 => Ok(Self::V0_80),
+            0x06 => Ok(Self::V0_85),
+            0x07 => Ok(Self::V0_90),
+            0x08 => Ok(Self::V0_95),
+            0x09 => Ok(Self::V1_00),
+            0x0A => Ok(Self::V1_05),
+            0x0B => Ok(Self::V1_10),
+            0x0C => Ok(Self::V1_15),
+            0x0D => Ok(Self::V1_20),
+            0x0E => Ok(Self::V1_25),
+            0x0F => Ok(Self::V1_30),
+            0x10 => Ok(Self::V1_35),
+            0x11 => Ok(Self::V1_40),
+            0x12 => Ok(Self::V1_50),
+            0x13 => Ok(Self::V1_60),
+            0x14 => Ok(Self::V1_65),
+            0x15 => Ok(Self::V1_70),
+            0x16 => Ok(Self::V1_80),
+            0x17 => Ok(Self::V1_90),
+            0x18 => Ok(Self::V2_00),
+            0x19 => Ok(Self::V2_35),
+            0x1A => Ok(Self::V2_50),
+            0x1B => Ok(Self::V2_65),
+            0x1C => Ok(Self::V2_80),
+            0x1D => Ok(Self::V3_00),
+            0x1E => Ok(Self::V3_15),
+            0x1F => Ok(Self::V3_30),
+            0xFF => Ok(Self::Stock),
+            _ => Err(value),
+        }
+    }
 }

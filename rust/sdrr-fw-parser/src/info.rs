@@ -11,6 +11,7 @@ use deku::prelude::*;
 use onerom_config::fw::FirmwareVersion;
 use onerom_config::hw::{Board, Model};
 use onerom_config::mcu::Variant as McuVariant;
+use onerom_gen::firmware::FirmwareConfig;
 
 use crate::{
     McuLine, McuStorage, SdrrAddress, SdrrCsState, SdrrLogicalAddress, SdrrMcuPort, SdrrRomType,
@@ -427,6 +428,9 @@ pub struct SdrrRomSet {
     /// The state of the CS1 line for all ROMs in this set (active low/high/
     /// unused).  Only used for multi-ROM and bank switched sets.
     pub multi_rom_cs1_state: SdrrCsState,
+
+    /// Firmware configuration overrides for this ROM set, if any.
+    pub firmware_overrides: Option<FirmwareConfig>,
 }
 
 /// Information about a single ROM in an SDRR firmware

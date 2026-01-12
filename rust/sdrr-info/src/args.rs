@@ -11,6 +11,7 @@ pub struct Args {
     pub command: Command,
     pub firmware: PathBuf,
     pub detail: bool,
+    pub strict: bool,
     pub set: Option<u8>,
     pub addr: Option<u32>,
     pub range: Option<(u32, u32)>,
@@ -55,6 +56,9 @@ enum Commands {
         /// Provide detailed information about the ROMs
         #[arg(short, long, default_value = "false")]
         detail: bool,
+        /// Error out on any parsing errors instead of continuing with warnings
+        #[arg(short, long, default_value = "false")]
+        strict: bool,
     },
     /// Lookup a byte associated with a raw STM32F4 address port line
     /// configuration.  Use this to detect what byte the STM32F4 will
@@ -206,6 +210,7 @@ pub fn parse_args() -> Result<Args, String> {
         command,
         firmware,
         detail,
+        strict,
         set,
         addr,
         range,
@@ -217,10 +222,11 @@ pub fn parse_args() -> Result<Args, String> {
         output_mangled,
         output_binary,
     ) = match cli.command {
-        Some(Commands::Info { firmware, detail }) => (
+        Some(Commands::Info { firmware, detail, strict }) => (
             Command::Info,
             firmware,
             detail,
+            strict,
             None,
             None,
             None,
@@ -245,6 +251,7 @@ pub fn parse_args() -> Result<Args, String> {
             Command::LookupRaw,
             firmware,
             detail,
+            false,
             Some(set),
             addr,
             range,
@@ -293,6 +300,7 @@ pub fn parse_args() -> Result<Args, String> {
                 Command::Lookup,
                 firmware,
                 detail,
+                false,
                 Some(set),
                 addr,
                 range,
@@ -311,6 +319,7 @@ pub fn parse_args() -> Result<Args, String> {
                 (
                     Command::Info,
                     firmware,
+                    false,
                     false,
                     None,
                     None,
@@ -370,6 +379,7 @@ pub fn parse_args() -> Result<Args, String> {
         command,
         firmware,
         detail,
+        strict,
         set,
         addr,
         range,

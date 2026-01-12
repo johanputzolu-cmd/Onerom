@@ -124,6 +124,8 @@ impl ServeAlg {
             Some(ServeAlg::AddrOnCs)
         } else if s.eq_ignore_ascii_case("pio") {
             Some(ServeAlg::Pio)
+        } else if s.eq_ignore_ascii_case("cpu") {
+            Some(ServeAlg::Cpu)
         } else {
             None
         }

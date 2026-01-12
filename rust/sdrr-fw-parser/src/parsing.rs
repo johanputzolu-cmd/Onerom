@@ -7,6 +7,7 @@
 //! Contains code and internal structures for parsing the SDRR firmware
 
 use deku::prelude::*;
+use onerom_gen::firmware::{FirmwareConfig, ServeAlgParams};
 use static_assertions::const_assert_eq;
 
 use crate::Reader;
@@ -118,7 +119,10 @@ impl SdrrInfoHeader {
     // Note however, even if included, they may be null pointers, or 0xFFFFFFFF
     // pointers
     pub(crate) fn filenames_enabled(&self) -> bool {
-        if (self.major_version > 0) || ((self.minor_version == 5) && (self.patch_version >= 1)) {
+        if self.major_version > 0 
+            || self.minor_version > 5 
+            || (self.minor_version == 5 && self.patch_version >= 1) 
+        {
             true
         } else {
             self.boot_logging_enabled != 0
@@ -198,21 +202,27 @@ pub(crate) struct SdrrRomSetHeader {
     pub roms_ptr: u32,
     pub rom_count: u8,
     pub serve: SdrrServe,
-    #[deku(pad_bytes_after = "1")]
     pub multi_rom_cs1_state: SdrrCsState,
+    pub extra_info: u8,
+    // These fields only exist when extra_info == 1, from 0.6.0 onwards
+    #[deku(cond = "*extra_info == 1", endian = "little")]
+    pub serve_config_ptr: Option<u32>,
+    #[deku(cond = "*extra_info == 1", endian = "little")]
+    pub firmware_overrides_ptr: Option<u32>,
+    #[deku(cond = "*extra_info == 1", endian = "little")]
+    pub pad2: Option<[u8; 40]>,
 }
 
 impl SdrrRomSetHeader {
-    // Cannot assert this against SdrrRomSetHeader size, as contains Vecs, which
-    // increase its size.
-    const ROM_SET_HEADER_SIZE: usize = 16;
+    const BASE_SIZE: usize = 16;  // size when extra_info == 0
+    const EXTRA_SIZE: usize = 48;  // extra size when extra_info == 1
+    
+    pub(crate) const fn base_size() -> usize {
+        Self::BASE_SIZE
+    }
 
-    pub(crate) const fn size() -> usize {
-        const_assert_eq!(
-            core::mem::size_of::<SdrrRomSetHeader>(),
-            SdrrRomSetHeader::ROM_SET_HEADER_SIZE
-        );
-        Self::ROM_SET_HEADER_SIZE
+    pub(crate) const fn extra_size() -> usize {
+        Self::EXTRA_SIZE
     }
 }
 
@@ -440,18 +450,60 @@ pub(crate) async fn read_rom_sets<R: Reader>(
 
     let mut rom_sets = Vec::with_capacity(count as usize);
 
+    let mut current_offset = 0u32;
+    const MAX_HEADER_SIZE: usize = SdrrRomSetHeader::base_size() + SdrrRomSetHeader::extra_size();
+
     for i in 0..count {
-        let header_addr = ptr + (i as u32 * SdrrRomSetHeader::size() as u32);
+        let header_addr = ptr + current_offset;
 
         // Read ROM set header
-        let mut header_buf = [0u8; SdrrRomSetHeader::size()];
+        let mut header_buf = [0u8; MAX_HEADER_SIZE];
         reader
             .read(header_addr, &mut header_buf)
             .await
             .map_err(|_| format!("Failed to read ROM set header {}", i))?;
 
-        let (_, header) = SdrrRomSetHeader::from_bytes((&header_buf, 0))
+        let input_len = header_buf.len();
+        let (rest, header) = SdrrRomSetHeader::from_bytes((&header_buf, 0))
             .map_err(|e| format!("Failed to parse ROM set header {}: {}", i, e))?;
+        let consumed = input_len - rest.0.len();
+        current_offset += consumed as u32;
+
+
+        // Read serve_config if present
+        let serve_config = if let Some(serve_config_ptr) = header.serve_config_ptr 
+            && serve_config_ptr != 0
+            && serve_config_ptr != 0xFFFF_FFFF
+            {
+            let mut buf = [0u8; 64];
+            reader
+                .read(serve_config_ptr, &mut buf)
+                .await
+                .map_err(|_| format!("Failed to read serve_config for ROM set {}", i))?;
+            Some(buf.to_vec())
+        } else {
+            None
+        };
+
+        // Read and deserialize firmware_overrides if present
+        let firmware_overrides = if let Some(fw_ptr) = header.firmware_overrides_ptr 
+            && fw_ptr != 0
+            && fw_ptr != 0xFFFF_FFFF
+            {
+            let mut buf = [0u8; 64];
+            reader
+                .read(fw_ptr, &mut buf)
+                .await
+                .map_err(|_| format!("Failed to read firmware_overrides for ROM set {}", i))?;
+            
+            let mut fw_config = FirmwareConfig::from_bytes(&buf)
+                .map_err(|e| format!("Failed to parse firmware_overrides for ROM set {}: {}", i, e))?;
+            fw_config.serve_alg_params = Some(ServeAlgParams { params: serve_config.clone().unwrap_or_default() });
+            Some(fw_config)
+        } else {
+            None
+        };
+
 
         // Read ROM infos
         let roms = read_rom_infos(reader, info_header, &header, base_addr).await?;
@@ -464,6 +516,7 @@ pub(crate) async fn read_rom_sets<R: Reader>(
             rom_count: header.rom_count,
             serve: header.serve,
             multi_rom_cs1_state: header.multi_rom_cs1_state,
+            firmware_overrides,
         });
     }
 
