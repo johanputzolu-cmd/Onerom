@@ -4,11 +4,15 @@
 //
 // MIT License
 
+#define STM32F4_INCLUDES
 #include "include.h"
 #include "roms.h"
 
 // Internal function prototypes
-static void setup_pll_mul(uint8_t m, uint16_t n, uint8_t p, uint8_t q);
+uint8_t calculate_pll_hsi(ice_mcu_clock_config_t *clock_config, 
+                            uint8_t overclock,
+                            pll_config_t *config);
+static void setup_pll_mul(pll_config_t *config);
 static void setup_pll_src(uint8_t src);
 static void enable_pll(void);
 #if defined(DEBUG_LOGGING)
@@ -35,7 +39,7 @@ void platform_specific_init(void) {
             setup_vbus_interrupt();
         }
 
-        if (sdrr_info.status_led_enabled) {
+        if (sdrr_runtime_info.status_led_enabled) {
             setup_status_led();
         }
         limp_mode(LIMP_MODE_INVALID_CONFIG);
@@ -98,11 +102,40 @@ void vbus_connect_handler(void) {
     enter_bootloader();
 }
 
+//To do - set_flash_ws
+//setup_clock
+
 void setup_clock(void) {
+    ice_mcu_clock_config_t clock_config;
+
+    // Get the max rated clock speed for this MCU
+    if (sdrr_info.mcu_line < NUM_ICE_MCU_CLOCK_CONFIGS) {
+        memcpy(&clock_config, &ice_mcu_clock_config[sdrr_info.mcu_line], sizeof(ice_mcu_clock_config_t));
+    } else {
+        LOG("!!! Unknown MCU line - default to F401DE");
+        memcpy(&clock_config, &ice_mcu_clock_config[F401DE], sizeof(ice_mcu_clock_config_t));
+    }
+
+    // Get the requested clock speed from compile time and any ROM set overrides
+    if (sdrr_runtime_info.ice_freq == ICE_FREQ_NONE) {
+        clock_config.freq_mhz = sdrr_info.freq;
+    } else if (sdrr_runtime_info.ice_freq != ICE_FREQ_STOCK) {
+        clock_config.freq_mhz = (uint16_t)sdrr_runtime_info.ice_freq;
+    }
+
+    // Only allow overclocking if enabled
+    if ((clock_config.freq_mhz > clock_config.max_freq_mhz) && (!sdrr_runtime_info.overclock_enabled)) {
+        LOG("!!! Requested clock %dMHz exceeds max for MCU line %d (%dMHz) - capping",
+            clock_config.freq_mhz,
+            sdrr_info.mcu_line,
+            clock_config.max_freq_mhz);
+        clock_config.freq_mhz = clock_config.max_freq_mhz;
+    }
+
     if ((sdrr_info.mcu_line == F405) ||
         (sdrr_info.mcu_line == F411) || 
         (sdrr_info.mcu_line == F446)) {
-        if (sdrr_info.freq > 84) {
+        if (clock_config.freq_mhz > 84) {
             // Set power scale 1 mode, as clock speed is 100MHz (> 84MHz, <= 100MHz)
             // Scale defaults to 1 on STM32F405, and not required on STM32F401
             // Must be done before enabling PLL
@@ -147,13 +180,28 @@ void setup_clock(void) {
 #endif // HSI_TRIM
     uint8_t pll_src = RCC_PLLCFGR_PLLSRC_HSI;
 
-   setup_pll_mul(PLL_M, PLL_N, PLL_P, PLL_Q);
+    pll_config_t config;
+    if (!calculate_pll_hsi(
+        &clock_config,
+        sdrr_runtime_info.overclock_enabled,
+        &config
+    )) {
+        config.pllm = PLL_M;
+        config.plln = PLL_N;
+        config.pllp = PLL_P;
+        config.pllq = PLL_Q;
+        sdrr_runtime_info.sysclk_mhz = TARGET_FREQ_MHZ;
+        LOG("!!! Could not calculate PLL settings - using compile time settings %dMHz", TARGET_FREQ_MHZ);
+    }
+    setup_pll_mul(&config);
 
     setup_pll_src(pll_src);
     enable_pll();
     DEBUG("PLL started");
 
-    if ((sdrr_info.mcu_line == F446) && (sdrr_info.freq > 168)) {
+    sdrr_runtime_info.sysclk_mhz = clock_config.freq_mhz;
+
+    if ((sdrr_info.mcu_line == F446) && (clock_config.freq_mhz > 168)) {
         // Need to set overdrive mode - wait for it to be ready
         for (int ii = 0; ii < 1000; ii++) {
             if (PWR_CR & PWR_CSR_ODRDY_MASK) {
@@ -362,7 +410,7 @@ void setup_status_led(void) {
         LOG("!!! Status pin %d > 15 - not using", sdrr_info.pins->status);
         return;
     }
-    if (sdrr_info.status_led_enabled) {
+    if (sdrr_runtime_info.status_led_enabled) {
         RCC_AHB1ENR |= RCC_AHB1ENR_GPIOBEN; // Enable GPIOB clock
         
         uint8_t pin = sdrr_info.pins->status;
@@ -378,7 +426,7 @@ void setup_status_led(void) {
 
 // Blink pattern: on_time, off_time, repeat_count
 void blink_pattern(uint32_t on_time, uint32_t off_time, uint8_t repeats) {
-    if (sdrr_info.status_led_enabled && sdrr_info.pins->status_port == PORT_B && sdrr_info.pins->status <= 15) {
+    if (sdrr_runtime_info.status_led_enabled && sdrr_info.pins->status_port == PORT_B && sdrr_info.pins->status <= 15) {
         uint8_t pin = sdrr_info.pins->status;
         for(uint8_t i = 0; i < repeats; i++) {
             status_led_on(pin);
@@ -691,8 +739,79 @@ void setup_mco(void) {
     }
 }
 
+void get_pll_vals(uint8_t *m, uint16_t *n, uint8_t *p, uint8_t *q) {
+    uint32_t pllcfgr = RCC_PLLCFGR;
+    *m = pllcfgr & 0x3F;
+    *n = (pllcfgr >> 6) & 0x1FF;  
+    *p = (pllcfgr >> 16) & 0x3;
+    *q = (pllcfgr >> 24) & 0xF;
+}
+
+/**
+ * Calculate PLL values for target frequency using HSI (16 MHz)
+ * Returns true if frequency achievable, false otherwise
+ * Results written to *config
+ */
+uint8_t calculate_pll_hsi(ice_mcu_clock_config_t *clock_config, 
+                            uint8_t overclock,
+                            pll_config_t *config)
+{
+    // Validate target frequency is within limits
+    if (clock_config->freq_mhz > clock_config->max_freq_mhz && !overclock) {
+        return 0;
+    }
+
+    uint16_t vco_max_mhz;
+    uint16_t vco_min_mhz;
+    if (overclock) {
+        vco_max_mhz = clock_config->vco_max_overclock_mhz;
+    } else {
+        vco_max_mhz = clock_config->vco_max_mhz;
+    }
+        vco_min_mhz = clock_config->vco_min_mhz;
+
+    // HSI = 16 MHz, target VCO input = 2 MHz for best jitter
+    const uint32_t HSI_MHZ = 16;
+    const uint8_t PLLM = 8;  // 16/8 = 2 MHz VCO input
+    const uint32_t VCO_IN_MHZ = HSI_MHZ / PLLM;
+
+    // Try PLLP values: 2, 4, 6, 8
+    const uint8_t pllp_values[] = {2, 4, 6, 8};
+    
+    for (int i = 0; i < 4; i++) {
+        uint8_t pllp = pllp_values[i];
+        uint32_t vco_mhz = clock_config->freq_mhz * pllp;
+
+        // Check VCO frequency is in valid range
+        if (vco_mhz >= vco_min_mhz && vco_mhz <= vco_max_mhz) {
+            uint32_t plln = vco_mhz / VCO_IN_MHZ;
+
+            // Check PLLN is in valid range (50-432)
+            if (plln >= 50 && plln <= 432) {
+                // Calculate PLLQ for USB (48 MHz target)
+                uint8_t pllq = (uint8_t)((vco_mhz + 24) / 48);  // Round to nearest
+                if (pllq < 2) pllq = 2;
+                if (pllq > 15) pllq = 15;
+
+                config->pllm = PLLM;
+                config->plln = (uint16_t)plln;
+                config->pllp = pllp;
+                config->pllq = pllq;
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 // Sets up the PLL dividers/multiplier to the values provided
-void setup_pll_mul(uint8_t m, uint16_t n, uint8_t p, uint8_t q) {
+void setup_pll_mul(pll_config_t *config) {
+    uint8_t m = config->pllm;
+    uint16_t n = config->plln;
+    uint8_t p = config->pllp;
+    uint8_t q = config->pllq;
+
     // Set PLL multiplier in RCC_PLLCFGR
     uint32_t rcc_pllcfgr = RCC_PLLCFGR;
     rcc_pllcfgr &= RCC_PLLCFGR_RSVD_RO_MASK;  // Clear PLLM bits
@@ -786,35 +905,36 @@ void set_flash_ws(void) {
 
     // Set data and instruction caches
     FLASH_ACR = FLASH_ACR_PRFTEN | FLASH_ACR_ICEN | FLASH_ACR_DCEN;
-    if (sdrr_info.freq > 30) {
+    uint16_t freq = sdrr_runtime_info.sysclk_mhz;
+    if (freq > 30) {
         if (sdrr_info.freq <= 60) {
             wait_states = 1;
-        } else if (sdrr_info.freq <= 90) {
+        } else if (freq <= 90) {
             wait_states = 2;
-        } else if (sdrr_info.freq <= 120) {
+        } else if (freq <= 120) {
             wait_states = 3;
-        } else if (sdrr_info.freq <= 150) {
+        } else if (freq <= 150) {
             wait_states = 4;
-        } else if (sdrr_info.freq <= 180) {
+        } else if (freq <= 180) {
             wait_states = 5;
-        } else if (sdrr_info.freq <= 210) {
+        } else if (freq <= 210) {
             wait_states = 6;
-        } else if ((sdrr_info.freq <= 240) || (sdrr_info.mcu_line == F405)) {
+        } else if ((freq <= 240) || (sdrr_info.mcu_line == F405)) {
             // F405 only has 3 bits for flash wait states so stop here
             wait_states = 7;
-        } else if (sdrr_info.freq <= 270) {
+        } else if (freq <= 270) {
             wait_states = 8;
-        } else if (sdrr_info.freq <= 300) {
+        } else if (freq <= 300) {
             wait_states = 9;
-        } else if (sdrr_info.freq <= 330) {
+        } else if (freq <= 330) {
             wait_states = 10;
-        } else if (sdrr_info.freq <= 360) {
+        } else if (freq <= 360) {
             wait_states = 11;
-        } else if (sdrr_info.freq <= 390) {
+        } else if (freq <= 390) {
             wait_states = 12;
-        } else if (sdrr_info.freq <= 420) {
+        } else if (freq <= 420) {
             wait_states = 13;
-        } else if (sdrr_info.freq <= 450) {
+        } else if (freq <= 450) {
             wait_states = 14;
         } else {
             wait_states = 15;

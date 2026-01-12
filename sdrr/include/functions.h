@@ -9,9 +9,13 @@
 
 // main.c
 extern uint32_t check_sel_pins(uint32_t *sel_mask);
-extern void check_enter_bootloader(void);
+extern void check_enter_bootloader(uint32_t sel_pins, uint32_t sel_mask);
 extern uint8_t metadata_present(const sdrr_info_t *info);
 extern void limp_mode(limp_mode_pattern_t pattern);
+extern void process_firmware_overrides(
+    sdrr_runtime_info_t *runtime_info,
+    const sdrr_rom_set_t *set
+);
 extern int main(void);
 
 // utils.c
@@ -67,9 +71,10 @@ extern void piorom(
 #if !defined(TIMER_TEST) && !defined(TOGGLE_PA4)
 extern void main_loop(
     const sdrr_info_t *info,
+    const sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 );
-extern uint8_t get_rom_set_index(void);
+extern uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask);
 extern void* preload_rom_image(const sdrr_rom_set_t *set);
 #endif // !TIMER_TEST && !TOGGLE_PA4
 

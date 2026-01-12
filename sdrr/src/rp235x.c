@@ -4,18 +4,20 @@
 //
 // MIT License
 
+#define RP235X_INCLUDES
 #include "include.h"
 #include "roms.h"
 
 // Internal function prototypes
+static void get_clock_config(rp235x_clock_config_t *config);
 static void setup_xosc(void);
-static void setup_pll(void);
+static void setup_pll(rp235x_clock_config_t *config);
 static void setup_usb_pll(void);
-static void setup_qmi(void);
-static void setup_vreg(void);
+static void setup_qmi(rp235x_clock_config_t *config);
+static void setup_vreg(rp235x_clock_config_t *config);
 static void setup_adc(void);
 static void setup_cp(void);
-static void final_checks(void);
+static void final_checks(rp235x_clock_config_t *config);
 uint16_t get_temp(void);
 
 // RP2350 firmware needs a special boot block so the bootloader will load it.
@@ -98,15 +100,72 @@ void vbus_connect_handler(void) {
     enter_bootloader();
 }
 
+// Figures out the PLL and VREG configuration based on the combination of
+// compile time info and any ROM set overrides.
+void get_clock_config(rp235x_clock_config_t *config) {
+    if (sdrr_runtime_info.fire_freq == FIRE_FREQ_NONE) {
+        config->sys_clock_freq_mhz = TARGET_FREQ_MHZ;
+        config->pll_refdiv = PLL_SYS_REFDIV;
+        config->pll_sys_fbdiv = PLL_SYS_FBDIV;
+        config->pll_sys_postdiv1 = PLL_SYS_POSTDIV1;
+        config->pll_sys_postdiv2 = PLL_SYS_POSTDIV2;
+
+        // Try to find vreg from the clock config table
+        config->vreg = FIRE_VREG_1_10V; // Default
+        for (int ii = 0; ii < RP235X_CLOCK_CONFIG_COUNT; ii++) {
+            if (rp235x_clock_config[ii].sys_clock_freq_mhz == TARGET_FREQ_MHZ) {
+                config->vreg = rp235x_clock_config[ii].vreg;
+                break;
+            }
+        }
+    } else {
+        if (sdrr_runtime_info.fire_freq == FIRE_FREQ_STOCK) {
+            memcpy(config, &rp235x_clock_config[0], sizeof(rp235x_clock_config_t));
+        } else if (sdrr_runtime_info.fire_freq < RP235X_CLOCK_CONFIG_COUNT) {
+            memcpy(config, &rp235x_clock_config[sdrr_runtime_info.fire_freq], sizeof(rp235x_clock_config_t));
+        } else {
+            LOG("!!! Invalid fire frequency setting 0x%04X - using stock", sdrr_runtime_info.fire_freq);
+            memcpy(config, &rp235x_clock_config[0], sizeof(rp235x_clock_config_t));
+        }
+
+        if ((sdrr_runtime_info.fire_vreg != FIRE_VREG_STOCK) && (sdrr_runtime_info.fire_vreg != FIRE_VREG_NONE)) {
+            config->vreg = sdrr_runtime_info.fire_vreg;
+        }
+    }
+
+    if (config->sys_clock_freq_mhz > RP235X_STOCK_CLOCK_SPEED_MHZ) {
+        if (sdrr_runtime_info.overclock_enabled) {
+            LOG("Overclocking enabled - allowing %dMHz", config->sys_clock_freq_mhz);
+        } else {
+            LOG("!!! Overclocking disabled - capping at stock %dMHz", RP235X_STOCK_CLOCK_SPEED_MHZ);
+            memcpy(config, &rp235x_clock_config[0], sizeof(rp235x_clock_config_t));
+        }
+    }
+
+    LOG("Setting clock to %dMHz: refdiv=%d, fbdiv=%d, postdiv1=%d, postdiv2=%d, vreg=%d",
+        config->sys_clock_freq_mhz,
+        config->pll_refdiv,
+        config->pll_sys_fbdiv,
+        config->pll_sys_postdiv1,
+        config->pll_sys_postdiv2,
+        config->vreg
+    );
+
+    sdrr_runtime_info.sysclk_mhz = config->sys_clock_freq_mhz;
+}
+
 void setup_clock(void) {
     LOG("Setting up clock");
 
+    rp235x_clock_config_t config;
+    get_clock_config(&config);
+
     setup_xosc();
-    setup_qmi();
-    setup_vreg();
-    setup_pll();
+    setup_qmi(&config);
+    setup_vreg(&config);
+    setup_pll(&config);
     setup_cp();
-    final_checks();
+    final_checks(&config);
 }
 
 void setup_gpio(void) {
@@ -151,16 +210,17 @@ void setup_gpio(void) {
 }
 
 // Reconfigure flash (QMI) speed if required
-void setup_qmi(void) {
+void setup_qmi(rp235x_clock_config_t *config) {
 #if TARGET_FREQ_MHZ > (MAX_FLASH_CLOCK_FREQ_MHZ * 256)
 #error "Flash divider > 256 not supported by the hardware"
 #endif
-    if (TARGET_FREQ_MHZ > MAX_FLASH_CLOCK_FREQ_MHZ) {
-        DEBUG("Target clock speed exceeds max flash speed %dMHz vs %dHz", TARGET_FREQ_MHZ, MAX_FLASH_CLOCK_FREQ_MHZ);
+    uint16_t target_flash_freq_mhz = config->sys_clock_freq_mhz;
+    if (target_flash_freq_mhz > MAX_FLASH_CLOCK_FREQ_MHZ) {
+        DEBUG("Target clock speed exceeds max flash speed %dMHz vs %dHz", target_flash_freq_mhz, MAX_FLASH_CLOCK_FREQ_MHZ);
 
         // Calculate the divider
-        uint8_t divider = TARGET_FREQ_MHZ / MAX_FLASH_CLOCK_FREQ_MHZ;
-        if (TARGET_FREQ_MHZ % MAX_FLASH_CLOCK_FREQ_MHZ) {
+        uint8_t divider = target_flash_freq_mhz / MAX_FLASH_CLOCK_FREQ_MHZ;
+        if (target_flash_freq_mhz % MAX_FLASH_CLOCK_FREQ_MHZ) {
             divider += 1;
         }
 
@@ -178,41 +238,25 @@ void setup_qmi(void) {
     }
 }
 
-void setup_vreg(void) {
+void setup_vreg(rp235x_clock_config_t *config) {
     uint32_t vreg_ctrl = POWMAN_VREG_CTRL;
     uint32_t vreg = POWMAN_VREG;
+    uint8_t voltage = config->vreg;
     DEBUG("Current VREG_CTRL: 0x%08X", vreg_ctrl);
     DEBUG("Current VREG_STATUS: 0x%08X", POWMAN_VREG_STATUS);
     DEBUG("Current VREG: 0x%08X", vreg);
+    DEBUG("Target VREG setting: %d", voltage);
 
-    if (TARGET_FREQ_MHZ > 300) {
-        uint8_t voltage;
+    if (voltage > 0b11111) {
+        LOG("!!! Invalid VREG setting %d - not changing", voltage);
+        return;
+    }
+
+    if (config->vreg != FIRE_VREG_1_10V) {
         uint8_t high_temp = HT_TH_100;
         uint8_t unlimited_voltage = 0;
-        if (TARGET_FREQ_MHZ <= 330) {
-            voltage = VREG_1_15V;
-        } else if (TARGET_FREQ_MHZ <= 360) {
-            voltage = VREG_1_20V;
-        } else if (TARGET_FREQ_MHZ <= 390) {
-            voltage = VREG_1_25V;
-        } else if (TARGET_FREQ_MHZ <= 420) {
-            voltage = VREG_1_30V;
-        } else {
+        if (config->vreg > FIRE_VREG_1_30V) {
             unlimited_voltage = 1;
-            if (TARGET_FREQ_MHZ <= 450) {
-                LOG("!!! Setting voltage to 1.40V !!!");
-                voltage = VREG_1_40V;
-            } else if (TARGET_FREQ_MHZ <= 480) {
-                LOG("!!! Setting voltage to 1.50V !!!");
-                voltage = VREG_1_50V;
-            } else {
-                // Seems good to around 540
-#if TARGET_FREQ_MHZ > 540
-#error "Current max is 540MHz with 1.6V"
-#endif
-                LOG("!!! Setting voltage to 1.60V !!!");
-                voltage = VREG_1_60V;
-            }
         }
 
         DEBUG("Unlocking VREG");
@@ -222,7 +266,7 @@ void setup_vreg(void) {
         while (!(POWMAN_VREG_CTRL & POWMAN_VREG_CTRL_UNLOCK));
 
         if (unlimited_voltage) {
-            LOG("!!! Disabling voltage limit for >420MHz operation !!!");
+            LOG("!!! Disabling voltage limit for > 1.30V operation !!!");
             vreg_ctrl |= POWMAN_VREG_CTRL_DISABLE_VOLTAGE_LIMIT;
             POWMAN_VREG_CTRL = vreg_ctrl;
             while (!(POWMAN_VREG_CTRL & POWMAN_VREG_CTRL_DISABLE_VOLTAGE_LIMIT));
@@ -253,7 +297,7 @@ void setup_vreg(void) {
 }
 
 // Set up the PLL with the generated values
-void setup_pll(void) {
+void setup_pll(rp235x_clock_config_t *config) {
     // Release PLL_SYS from reset
     RESET_RESET &= ~RESET_PLL_SYS;
     while (!(RESET_DONE & RESET_PLL_SYS));
@@ -262,8 +306,8 @@ void setup_pll(void) {
     PLL_SYS_PWR = PLL_PWR_PD | PLL_PWR_VCOPD;
 
     // Set feedback divider and reference divider
-    PLL_SYS_FBDIV_INT = PLL_SYS_FBDIV;
-    PLL_SYS_CS = PLL_CS_REFDIV(PLL_SYS_REFDIV);
+    PLL_SYS_FBDIV_INT = config->pll_sys_fbdiv;
+    PLL_SYS_CS = PLL_CS_REFDIV(config->pll_refdiv);
 
     // Power up VCO (keep post-dividers powered down)
     PLL_SYS_PWR = PLL_PWR_POSTDIVPD;
@@ -272,8 +316,8 @@ void setup_pll(void) {
     while (!(PLL_SYS_CS & PLL_CS_LOCK));
 
     // Set post dividers and power up everything
-    PLL_SYS_PRIM = PLL_PRIM_POSTDIV1(PLL_SYS_POSTDIV1) |
-                     PLL_PRIM_POSTDIV2(PLL_SYS_POSTDIV2);
+    PLL_SYS_PRIM = PLL_PRIM_POSTDIV1(config->pll_sys_postdiv1) |
+                     PLL_PRIM_POSTDIV2(config->pll_sys_postdiv2);
 
     // Power up post dividers
     PLL_SYS_PWR = 0;
@@ -342,8 +386,8 @@ uint16_t get_temp(void) {
     return (uint16_t)(ADC_RESULT & ADC_RESULT_MASK);
 }
 
-void final_checks(void) {
-    if (TARGET_FREQ_MHZ > 300) {
+void final_checks(rp235x_clock_config_t *config) {
+    if (config->sys_clock_freq_mhz > 300) {
         DEBUG("!!!Extreme overlocking - enabling and reading temp sensor");
 
         // USB clock required for ADC
@@ -467,7 +511,7 @@ void setup_status_led(void) {
 }
 
 void blink_pattern(uint32_t on_time, uint32_t off_time, uint8_t repeats) {
-    if (sdrr_info.status_led_enabled && sdrr_info.pins->status_port == PORT_0 && sdrr_info.pins->status <= 29) {
+    if (sdrr_runtime_info.status_led_enabled && sdrr_info.pins->status_port == PORT_0 && sdrr_info.pins->status <= 29) {
         uint8_t pin = sdrr_info.pins->status;
         for(uint8_t i = 0; i < repeats; i++) {
             status_led_on(pin);
