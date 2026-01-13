@@ -88,8 +88,8 @@
                 }
             }
         },
-        "FireClockConfig": {
-            "description": "Ice Clock configuration structure",
+        "FireConfig": {
+            "description": "Fire configuration structure",
             "type": "object",
             "properties": {
                 "cpu_freq": {
@@ -100,6 +100,17 @@
                     "description": "Whether overclocking is enabled",
                     "type": "boolean",
                     "default": false
+                },
+                "serve_mode": {
+                    "description": "Option PIO/CPU override",
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/FireServeMode"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "vreg": {
                     "description": "Optional Vreg output voltage setting for RP2350 MCUs.",
@@ -161,6 +172,21 @@
                 "Stock"
             ]
         },
+        "FireServeMode": {
+            "description": "Fire serve mode",
+            "oneOf": [
+                {
+                    "description": "PIO mode",
+                    "type": "string",
+                    "const": "Pio"
+                },
+                {
+                    "description": "CPU mode",
+                    "type": "string",
+                    "const": "Cpu"
+                }
+            ]
+        },
         "FireVreg": {
             "description": "Voltage regulator setting for RP2350 MCUs",
             "type": "string",
@@ -204,22 +230,22 @@
             "description": "Top level configuration structure",
             "type": "object",
             "properties": {
-                "fire_clock": {
-                    "description": "Optional MCU clock configuration for Fire boards",
+                "fire": {
+                    "description": "Optional Fire specific configuration",
                     "anyOf": [
                         {
-                            "$ref": "#/$defs/FireClockConfig"
+                            "$ref": "#/$defs/FireConfig"
                         },
                         {
                             "type": "null"
                         }
                     ]
                 },
-                "ice_clock": {
-                    "description": "Optional MCU clock configuration",
+                "ice": {
+                    "description": "Optional Ice specific configuration",
                     "anyOf": [
                         {
-                            "$ref": "#/$defs/IceClockConfig"
+                            "$ref": "#/$defs/IceConfig"
                         },
                         {
                             "type": "null"
@@ -261,8 +287,8 @@
                 }
             }
         },
-        "IceClockConfig": {
-            "description": "Ice Clock configuration structure",
+        "IceConfig": {
+            "description": "Ice configuration structure",
             "type": "object",
             "properties": {
                 "cpu_freq": {

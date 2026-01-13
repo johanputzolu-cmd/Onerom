@@ -423,12 +423,29 @@ fn print_sdrr_info(fw_data: &FirmwareData, args: &Args) {
 
             if let Some(ref fw_config) = rom_set.firmware_overrides {
                 println!("  FW Overrides:");
-                if let Some(ref ice) = fw_config.ice_clock {
-                    println!("    Ice:  {:?} MHz (overclock: {})", ice.cpu_freq, ice.overclock);
+                if let Some(ref ice) = fw_config.ice {
+                    println!("    Ice:");
+                    if let Some(ref freq) = ice.cpu_freq {
+                        println!("      Freq: {freq:?} MHz");
+                    }
+                    if let Some(overclock) = ice.overclock {
+                        println!("      Overclock: {overclock:?}");
+                    }
                 }
-                if let Some(ref fire) = fw_config.fire_clock {
-                    println!("    Fire: {:?} MHz (overclock: {}, vreg: {:?})", 
-                             fire.cpu_freq, fire.overclock, fire.vreg);
+                if let Some(ref fire) = fw_config.fire {
+                    println!("    Fire:");
+                    if let Some(ref freq) = fire.cpu_freq {
+                        println!("      Freq: {freq:?} MHz");
+                    }
+                    if let Some(overclock) = fire.overclock {
+                        println!("      Overclock: {overclock:?}");
+                    }
+                    if let Some(ref vreg) = fire.vreg {
+                        println!("      VREG: {vreg:?}");
+                    }
+                    if let Some(ref serve_mode) = fire.serve_mode {
+                        println!("      Serve mode: {serve_mode:?}");
+                    }
                 }
                 if let Some(ref led) = fw_config.led {
                     println!("    LED:  enabled={}", led.enabled);

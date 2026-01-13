@@ -31,6 +31,11 @@ sdrr_runtime_info_t sdrr_runtime_info __attribute__((section(".sdrr_runtime_info
 #endif // OVERCLOCK
     .status_led_enabled = 0,  // updated from sdrr_info in vector.c
     .swd_enabled = 0,  // updated from sdrr_info in vector.c
+#if defined(RP_PIO) && (RP_PIO == 1)
+    .fire_pio_mode = 1,
+#else // !RP_PIO
+    .fire_pio_mode = 0,
+#endif // RP_PIO
     
 };
 
@@ -185,7 +190,7 @@ void process_firmware_overrides(
                 LOG("ICE freq override: %d", runtime_info->ice_freq);
             }
             if (overrides->override_present[0] & (1 << 1)) {
-                runtime_info->overclock_enabled = overrides->override_value[0] & 0x01;
+                runtime_info->overclock_enabled = overrides->override_value[0] & (1 << 0) ? 1 : 0;
                 LOG("ICE voltage override: %d", runtime_info->overclock_enabled);
             }
 #endif
@@ -195,7 +200,7 @@ void process_firmware_overrides(
                 LOG("Fire freq override: %d", runtime_info->fire_freq);
             }
             if (overrides->override_present[0] & (1 << 3)) {
-                runtime_info->overclock_enabled = overrides->override_value[0] & 0x01;
+                runtime_info->overclock_enabled = overrides->override_value[0] & (1 << 1) ? 1 : 0;
                 LOG("Fire overclock override: %d", runtime_info->overclock_enabled);
             }
             if (overrides->override_present[0] & (1 << 4)) {
@@ -204,12 +209,16 @@ void process_firmware_overrides(
             }
 #endif
             if (overrides->override_present[0] & (1 << 5)) {
-                runtime_info->status_led_enabled = overrides->override_value[1] & 0x01;
+                runtime_info->status_led_enabled = overrides->override_value[1] & (1 << 2) ? 1 : 0;
                 LOG("Status LED override: %d", runtime_info->status_led_enabled);
             }
             if (overrides->override_present[0] & (1 << 6)) {
-                runtime_info->swd_enabled = overrides->override_value[1] & 0x01;
+                runtime_info->swd_enabled = overrides->override_value[1] & (1 << 3) ? 1 : 0;
                 LOG("SWD enabled override: %d", runtime_info->swd_enabled);
+            }
+            if (overrides->override_present[0] & (1 << 7)) {
+                runtime_info->fire_pio_mode = overrides->override_value[1] & (1 << 4) ? 1 : 0;
+                LOG("Fire PIO mode override: %d", runtime_info->fire_pio_mode);
             }
         }
     }
@@ -321,7 +330,7 @@ int main(void) {
     }
 
     // Do final checks before entering the main loop
-    check_config(&sdrr_info, set);
+    check_config(&sdrr_info, &sdrr_runtime_info, set);
 
     // Startup - from a stable 5V supply to here - takes:
     // - ~3ms    F411 100MHz BOOT_LOGGING=1

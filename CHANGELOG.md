@@ -7,16 +7,19 @@ All notables changes between versions are documented in this file.
 This major release of the One ROM firmware adds support for low-level firmware configuration from the ROM config files, allowing per-ROM image configuration of processor clock speed, status LED behaviour, and other low-level capabilities.
 
 As a major firmware release, there are some non-backwards compatible changes in this release:
+
 - The ROM config JSON schema has changed - `sel_jumper_pull` is now a Vec<u8>, to allow per-pin SEL jumper pull direction.
+- The default PIO configuration is SLOW_CHAR_CHAR, to improve ROM serving compatibility.  PIO configuration can be overriden on a per ROM set basis using `serve_alg_params` firmware overrides.
 
 ### Added
 
-- Support for per-ROM image low-level configuration, including processor clock speed, status LED behaviour, and other low-level capabilities.
+- Support for per-ROM image low-level configuration, including processor clock speed, status LED behaviour, and other low-level capabilities.  See the ROM Config [README](rom-config/README.md) for details.
 - Support for fire-24-d and ice-24-j hardware revisions.
 
 ### Changed
 
 - ROM config JSON schema change - `sel_jumper_pull` is now a Vec<u8>, to allow per-pin SEL jumper pull direction.
+- PIO support is now built into all RP2350 firmwares, and is enabled/disabled by default using RP_PIO build flag.
 
 ## v0.5.10 - 2026-01-03
 

@@ -12,11 +12,11 @@ use alloc::vec::Vec;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct FirmwareConfig {
-    /// Optional MCU clock configuration
-    pub ice_clock: Option<IceClockConfig>,
+    /// Optional Ice specific configuration
+    pub ice: Option<IceConfig>,
 
-    /// Optional MCU clock configuration for Fire boards
-    pub fire_clock: Option<FireClockConfig>,
+    /// Optional Fire specific configuration
+    pub fire: Option<FireConfig>,
 
     /// Optional LED configuration
     pub led: Option<LedConfig>,
@@ -59,24 +59,55 @@ impl FirmwareConfig {
         // offset += 8; // Rest is padding
 
         // Reconstruct FirmwareConfig
-        let ice_clock = if (override_present[0] & (1 << 0)) != 0 {
-            Some(IceClockConfig {
-                cpu_freq: ice_freq.try_into()
-                    .map_err(|_| format!("Invalid ice_freq: {}", ice_freq))?,
-                overclock: (override_value[0] & (1 << 0)) != 0,
-            })
-        } else {
-            None
-        };
+        let ice_config =
+            if ((override_present[0] & (1 << 0)) != 0) || ((override_present[0] & (1 << 1)) != 0) {
+                let mut ice_config = IceConfig::default();
+                if (override_present[0] & (1 << 0)) != 0 {
+                    ice_config.cpu_freq = Some(
+                        ice_freq
+                            .try_into()
+                            .map_err(|_| format!("Invalid ice_freq: {}", ice_freq))?,
+                    );
+                }
+                if (override_present[0] & (1 << 1)) != 0 {
+                    ice_config.overclock = Some((override_value[0] & (1 << 0)) != 0);
+                }
+                Some(ice_config)
+            } else {
+                None
+            };
 
-        let fire_clock = if (override_present[0] & (1 << 2)) != 0 {
-            Some(FireClockConfig {
-                cpu_freq: fire_freq.try_into()
-                    .map_err(|_| format!("Invalid fire_freq: {}", fire_freq))?,
-                overclock: (override_value[0] & (1 << 1)) != 0,
-                vreg: fire_vreq.try_into()
-                    .map_err(|_| format!("Invalid fire_vreq: {}", fire_vreq))?,
-            })
+        let fire_config = if ((override_present[0] & (1 << 2)) != 0)
+            || ((override_present[0] & (1 << 3)) != 0)
+            || ((override_present[0] & (1 << 4)) != 0)
+            || ((override_present[0] & (1 << 7)) != 0)
+        {
+            let mut fire_config = FireConfig::default();
+            if (override_present[0] & (1 << 2)) != 0 {
+                fire_config.cpu_freq = Some(
+                    fire_freq
+                        .try_into()
+                        .map_err(|_| format!("Invalid fire_freq: {}", fire_freq))?,
+                );
+            }
+            if (override_present[0] & (1 << 3)) != 0 {
+                fire_config.overclock = Some((override_value[0] & (1 << 1)) != 0);
+            }
+            if (override_present[0] & (1 << 4)) != 0 {
+                fire_config.vreg = Some(
+                    fire_vreq
+                        .try_into()
+                        .map_err(|_| format!("Invalid fire_vreq: {}", fire_vreq))?,
+                );
+            }
+            if (override_present[0] & (1 << 7)) != 0 {
+                fire_config.serve_mode = Some(if (override_value[0] & (1 << 4)) != 0 {
+                    FireServeMode::Pio
+                } else {
+                    FireServeMode::Cpu
+                });
+            }
+            Some(fire_config)
         } else {
             None
         };
@@ -98,8 +129,8 @@ impl FirmwareConfig {
         };
 
         Ok(FirmwareConfig {
-            ice_clock,
-            fire_clock,
+            ice: ice_config,
+            fire: fire_config,
             led,
             swd,
             serve_alg_params: None, // Stored separately
@@ -107,32 +138,44 @@ impl FirmwareConfig {
     }
 }
 
-/// Ice Clock configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+/// Ice configuration structure
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct IceClockConfig {
+pub struct IceConfig {
     /// CPU frequency.  Only specific frequencies are supported
-    pub cpu_freq: IceCpuFreq,
+    pub cpu_freq: Option<IceCpuFreq>,
 
     /// Whether overclocking is enabled
     #[serde(default)]
-    pub overclock: bool,
+    pub overclock: Option<bool>,
 }
 
-/// Ice Clock configuration structure
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+/// Fire configuration structure
+#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct FireClockConfig {
+pub struct FireConfig {
     /// CPU frequency.  Only specific frequencies are supported
-    pub cpu_freq: FireCpuFreq,
+    pub cpu_freq: Option<FireCpuFreq>,
 
     /// Whether overclocking is enabled
     #[serde(default)]
-    pub overclock: bool,
-
+    pub overclock: Option<bool>,
     /// Optional Vreg output voltage setting for RP2350 MCUs.
     #[serde(default)]
-    pub vreg: FireVreg,
+    pub vreg: Option<FireVreg>,
+
+    /// Option PIO/CPU override
+    pub serve_mode: Option<FireServeMode>,
+}
+
+/// Fire serve mode
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub enum FireServeMode {
+    /// PIO mode
+    Pio,
+    /// CPU mode
+    Cpu,
 }
 
 /// LED configuration structure
@@ -158,7 +201,7 @@ pub struct DebugConfig {
 }
 
 /// Custom serving algorithm parameters
-/// 
+///
 /// This is stored as unstructured parameters to allow for easy future
 /// extension without breaking compatibility.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
@@ -540,7 +583,7 @@ macro_rules! impl_ice_tryfrom {
     ($($num:literal => $variant:ident),* $(,)?) => {
         impl TryFrom<u16> for IceCpuFreq {
             type Error = u16;
-            
+
             fn try_from(value: u16) -> Result<Self, Self::Error> {
                 match value {
                     $($num => Ok(Self::$variant),)*
@@ -689,7 +732,7 @@ pub enum FireCpuFreq {
 
 impl TryFrom<u16> for FireCpuFreq {
     type Error = u16;
-    
+
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
             1 => Ok(Self::MHz20),
@@ -817,7 +860,7 @@ pub enum FireVreg {
 
 impl TryFrom<u8> for FireVreg {
     type Error = u8;
-    
+
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
             0x00 => Ok(Self::V0_55),

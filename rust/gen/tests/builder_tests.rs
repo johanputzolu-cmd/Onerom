@@ -149,7 +149,7 @@
 //! - [ ] Different board pin mappings produce correct transformations
 //!
 //! ## Phase 19: Descriptions
-//! 
+//!
 //! ## Phase 20: Firmware overrides
 
 #[cfg(test)]
@@ -3458,7 +3458,8 @@ mod tests {
             "rom_sets": []
         }"#;
 
-        let builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Empty rom_sets should be allowed");
+        let builder =
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Empty rom_sets should be allowed");
 
         let props = default_fw_props();
         let (metadata_buf, rom_images_buf) = builder.build(props).expect("Build should succeed");
@@ -3548,7 +3549,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with spaces should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json)
+            .expect("Filename with spaces should be allowed");
 
         builder
             .add_file(FileData {
@@ -3608,8 +3610,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder =
-            Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with special chars should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json)
+            .expect("Filename with special chars should be allowed");
 
         builder
             .add_file(FileData {
@@ -3669,8 +3671,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder =
-            Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with unicode should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json)
+            .expect("Filename with unicode should be allowed");
 
         builder
             .add_file(FileData {
@@ -3736,7 +3738,8 @@ mod tests {
             long_filename
         );
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, &json).expect("Max length filename should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, &json)
+            .expect("Max length filename should be allowed");
 
         builder
             .add_file(FileData {
@@ -3985,7 +3988,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with path should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json)
+            .expect("Filename with path should be allowed");
 
         builder
             .add_file(FileData {
@@ -4045,7 +4049,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Filename with quotes should be allowed");
+        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json)
+            .expect("Filename with quotes should be allowed");
 
         builder
             .add_file(FileData {
@@ -5279,7 +5284,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Valid CS config should be allowed");
+        let mut builder =
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Valid CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5314,7 +5320,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Valid CS config should be allowed");
+        let mut builder =
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Valid CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5360,7 +5367,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Same CS config should be allowed");
+        let mut builder =
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Same CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5420,7 +5428,8 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Same CS config should be allowed");
+        let mut builder =
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Same CS config should be allowed");
 
         builder
             .add_file(FileData {
@@ -5691,7 +5700,8 @@ mod tests {
         ];
 
         for (board_type, mcu_variant) in boards_to_test.iter() {
-            let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
+            let mut builder =
+                Builder::from_json(FW_VER, MCU_FAM, json).expect("Failed to parse JSON");
 
             // Create test data with unique pattern
             let mut test_data = Vec::with_capacity(8192);
@@ -6025,16 +6035,10 @@ mod tests {
             override_present.copy_from_slice(&buf[offset..offset + 8]);
 
             // ice_freq_mhz: 2 bytes (u16) at offset 8
-            let ice_freq = u16::from_le_bytes([
-                buf[offset + 8],
-                buf[offset + 9],
-            ]);
+            let ice_freq = u16::from_le_bytes([buf[offset + 8], buf[offset + 9]]);
 
             // fire_freq_mhz: 2 bytes (u16) at offset 10
-            let fire_freq = u16::from_le_bytes([
-                buf[offset + 10],
-                buf[offset + 11],
-            ]);
+            let fire_freq = u16::from_le_bytes([buf[offset + 10], buf[offset + 11]]);
 
             // fire_vreg: 1 byte at offset 12
             let fire_vreg = buf[offset + 12];
@@ -6127,7 +6131,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    fn test_phase20_ice_clock_override() {
+    fn test_phase20_ice_override() {
         let json = r#"{
             "version": 1,
             "description": "Ice clock override test",
@@ -6139,7 +6143,7 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "100MHz",
                         "overclock": false
                     }
@@ -6197,10 +6201,7 @@ mod tests {
         );
 
         // Verify Ice frequency value (100MHz = enum value 100)
-        assert_eq!(
-            fw_overrides.ice_freq, 100,
-            "Ice frequency should be 100MHz"
-        );
+        assert_eq!(fw_overrides.ice_freq, 100, "Ice frequency should be 100MHz");
 
         // Verify Ice overclock is disabled (bit 0 in override_value should be 0)
         assert!(
@@ -6217,7 +6218,7 @@ mod tests {
     // TEST 89: Basic Fire Clock Override
     // ========================================================================
     #[test]
-    fn test_phase20_fire_clock_override() {
+    fn test_phase20_fire_override() {
         let json = r#"{
             "version": 1,
             "description": "Fire clock override test",
@@ -6229,10 +6230,11 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "fire_clock": {
+                    "fire": {
                         "cpu_freq": "300MHz",
                         "overclock": true,
-                        "vreg": "1.10V"
+                        "vreg": "1.10V",
+                        "serve_mode": "Pio"
                     }
                 }
             }]
@@ -6259,12 +6261,16 @@ mod tests {
         let ext_rom_set = ExtendedRomSetStruct::parse(&metadata_buf, rom_set_offset);
 
         // Debug: Show the pointer and offset
-        println!("firmware_overrides_ptr: 0x{:08X}", ext_rom_set.firmware_overrides_ptr);
+        println!(
+            "firmware_overrides_ptr: 0x{:08X}",
+            ext_rom_set.firmware_overrides_ptr
+        );
         println!("metadata_flash_start: 0x{:08X}", metadata_flash_start);
-        
-        let fw_overrides_offset = (ext_rom_set.firmware_overrides_ptr - metadata_flash_start) as usize;
+
+        let fw_overrides_offset =
+            (ext_rom_set.firmware_overrides_ptr - metadata_flash_start) as usize;
         println!("fw_overrides_offset: {}", fw_overrides_offset);
-        
+
         // Debug: Show first 24 bytes of firmware_overrides structure
         println!("First 24 bytes of firmware_overrides structure:");
         for i in 0..24 {
@@ -6276,11 +6282,6 @@ mod tests {
         println!();
 
         let fw_overrides = FirmwareOverridesStruct::parse(&metadata_buf, fw_overrides_offset);
-        
-        println!("Parsed values:");
-        println!("  ice_freq (offset 8): {}", fw_overrides.ice_freq);
-        println!("  fire_freq (offset 9): {}", fw_overrides.fire_freq);
-        println!("  fire_vreg (offset 10): {}", fw_overrides.fire_vreg);
 
         // Verify Fire frequency override is present (bit 2)
         assert!(
@@ -6295,7 +6296,43 @@ mod tests {
             fw_overrides.fire_freq
         );
 
-        // ... rest of test
+        // Verify overclock override is present (bit 3)
+        assert!(
+            fw_overrides.is_override_present(3),
+            "Fire overclock override should be present"
+        );
+
+        // Verify Fire overclock is enabled (bit 1 in override_value should be 1)
+        assert!(
+            fw_overrides.is_override_value_set(1),
+            "Fire overclock should be enabled"
+        );
+
+        // Verify voltage regulator override is present (bit 4)
+        assert!(
+            fw_overrides.is_override_present(4),
+            "Fire voltage regulator override should be present"
+        );
+
+        // Verify Fire voltage regulator value (1.10V = enum value 2)
+        assert_eq!(
+            fw_overrides.fire_vreg, 11,
+            "Fire voltage regulator should be 1.10V (enum 2), got {}",
+            fw_overrides.fire_vreg
+        );
+
+        // Verify serve mode override is present (bit 7)
+        assert!(
+            fw_overrides.is_override_present(7),
+            "Serve mode override should be present"
+        );
+
+        // Verify serve mode is PIO (bit 3 in override_value should be 1)
+        assert!(
+            fw_overrides.is_override_value_set(4),
+            "Serve mode should be PIO"
+        );
+
     }
 
     // ========================================================================
@@ -6315,7 +6352,7 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "120MHz",
                         "overclock": true
                     },
@@ -6406,7 +6443,7 @@ mod tests {
                         "cs1": "active_low"
                     }],
                     "firmware_overrides": {
-                        "ice_clock": {
+                        "ice": {
                             "cpu_freq": "100MHz",
                             "overclock": false
                         }
@@ -6421,7 +6458,7 @@ mod tests {
                         "cs2": "active_high"
                     }],
                     "firmware_overrides": {
-                        "ice_clock": {
+                        "ice": {
                             "cpu_freq": "150MHz",
                             "overclock": true
                         },
@@ -6475,7 +6512,7 @@ mod tests {
         let header = MetadataHeader::parse(&metadata_buf);
         assert_eq!(header.rom_set_count, 3);
 
-        // Check Set 0 - has ice_clock override
+        // Check Set 0 - has ice override
         let rom_set0_offset = (header.rom_sets_ptr - metadata_flash_start) as usize;
         let ext_rom_set0 = ExtendedRomSetStruct::parse(&metadata_buf, rom_set0_offset);
         assert_ne!(
@@ -6492,7 +6529,7 @@ mod tests {
             "Set 0 Ice overclock should be disabled"
         );
 
-        // Check Set 1 - has ice_clock + led overrides
+        // Check Set 1 - has ice + led overrides
         let rom_set1_offset = rom_set0_offset + 64; // Extended structure is 64 bytes
         let ext_rom_set1 = ExtendedRomSetStruct::parse(&metadata_buf, rom_set1_offset);
         assert_ne!(
@@ -6544,7 +6581,7 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "96MHz",
                         "overclock": true
                     },
@@ -6748,7 +6785,7 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "100MHz",
                         "overclock": false
                     }
@@ -6885,8 +6922,9 @@ mod tests {
             }]
         }"#;
 
-        let mut builder = Builder::from_json(FW_VER, MCU_FAM, json).expect("Parsing should succeed");
-        
+        let mut builder =
+            Builder::from_json(FW_VER, MCU_FAM, json).expect("Parsing should succeed");
+
         builder
             .add_file(FileData {
                 id: 0,
@@ -6922,7 +6960,7 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "Stock",
                         "overclock": false
                     }
@@ -6967,7 +7005,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    fn test_phase20_fire_clock_stock_vreg() {
+    fn test_phase20_fire_stock_vreg() {
         let json = r#"{
             "version": 1,
             "description": "Fire clock with stock VREG",
@@ -6979,7 +7017,7 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "fire_clock": {
+                    "fire": {
                         "cpu_freq": "250MHz",
                         "overclock": false
                     }
@@ -7022,17 +7060,14 @@ mod tests {
             "Fire overclock override should be present"
         );
 
-        // Verify VREG IS present (bit 4) - because vreg has a default value
+        // Verify VREG IS NOT present (bit 4) - as not specified
         assert!(
-            fw_overrides.is_override_present(4),
-            "Fire VREG override should be present (defaulted)"
+            !fw_overrides.is_override_present(4),
+            "Fire VREG override should not be present"
         );
 
         // Verify VREG value is 0xFF (Stock)
-        assert_eq!(
-            fw_overrides.fire_vreg, 0xFF,
-            "VREG should be 0xFF (Stock)"
-        );
+        assert_eq!(fw_overrides.fire_vreg, 0xFF, "VREG should be 0xFF (Stock)");
 
         // Verify Fire overclock is disabled (bit 1 in override_value should be 0)
         assert!(
@@ -7051,7 +7086,7 @@ mod tests {
     // ========================================================================
 
     #[test]
-    fn test_phase20_ice_and_fire_clocks() {
+    fn test_phase20_ice_and_fires() {
         let json = r#"{
             "version": 1,
             "description": "Ice and Fire clocks together",
@@ -7063,11 +7098,11 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "168MHz",
                         "overclock": true
                     },
-                    "fire_clock": {
+                    "fire": {
                         "cpu_freq": "400MHz",
                         "overclock": false,
                         "vreg": "1.25V"
@@ -7129,10 +7164,7 @@ mod tests {
         );
 
         // Verify VREG value (1.25V = 0x0E)
-        assert_eq!(
-            fw_overrides.fire_vreg, 0x0E,
-            "VREG should be 1.25V (0x0E)"
-        );
+        assert_eq!(fw_overrides.fire_vreg, 0x0E, "VREG should be 1.25V (0x0E)");
 
         // Verify overclock values
         assert!(
@@ -7166,7 +7198,7 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "144MHz",
                         "overclock": false
                     },
@@ -7256,9 +7288,17 @@ mod tests {
     #[test]
     fn test_phase20_serve_params_64_bytes() {
         let params: Vec<u8> = (0..64).collect();
-        let params_json = format!("[{}]", params.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(","));
-        
-        let json = format!(r#"{{
+        let params_json = format!(
+            "[{}]",
+            params
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+
+        let json = format!(
+            r#"{{
             "version": 1,
             "description": "serve_alg_params exactly 64 bytes",
             "rom_sets": [{{
@@ -7274,7 +7314,9 @@ mod tests {
                     }}
                 }}
             }}]
-        }}"#, params_json);
+        }}"#,
+            params_json
+        );
 
         let mut builder = Builder::from_json(FW_VER, MCU_FAM, &json).expect("Failed to parse JSON");
 
@@ -7318,9 +7360,17 @@ mod tests {
     #[test]
     fn test_phase20_serve_params_truncate() {
         let params: Vec<u8> = (0..100).collect();
-        let params_json = format!("[{}]", params.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(","));
-        
-        let json = format!(r#"{{
+        let params_json = format!(
+            "[{}]",
+            params
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+
+        let json = format!(
+            r#"{{
             "version": 1,
             "description": "serve_alg_params more than 64 bytes",
             "rom_sets": [{{
@@ -7336,7 +7386,9 @@ mod tests {
                     }}
                 }}
             }}]
-        }}"#, params_json);
+        }}"#,
+            params_json
+        );
 
         let mut builder = Builder::from_json(FW_VER, MCU_FAM, &json).expect("Failed to parse JSON");
 
@@ -7391,11 +7443,11 @@ mod tests {
                     "cs1": "active_low"
                 }],
                 "firmware_overrides": {
-                    "ice_clock": {
+                    "ice": {
                         "cpu_freq": "100MHz",
                         "overclock": true
                     },
-                    "fire_clock": {
+                    "fire": {
                         "cpu_freq": "300MHz",
                         "overclock": false
                     },
@@ -7456,13 +7508,11 @@ mod tests {
     #[test]
     fn test_phase20_frequency_boundaries() {
         // Test minimum and maximum frequencies
-        let test_cases = vec![
-            ("1MHz", 1u16, "Ice min"),
-            ("180MHz", 180u16, "Ice max"),
-        ];
+        let test_cases = vec![("1MHz", 1u16, "Ice min"), ("180MHz", 180u16, "Ice max")];
 
         for (freq_str, expected_value, description) in test_cases {
-            let json = format!(r#"{{
+            let json = format!(
+                r#"{{
                 "version": 1,
                 "description": "Frequency boundary test: {}",
                 "rom_sets": [{{
@@ -7473,15 +7523,18 @@ mod tests {
                         "cs1": "active_low"
                     }}],
                     "firmware_overrides": {{
-                        "ice_clock": {{
+                        "ice": {{
                             "cpu_freq": "{}",
                             "overclock": false
                         }}
                     }}
                 }}]
-            }}"#, description, freq_str);
+            }}"#,
+                description, freq_str
+            );
 
-            let mut builder = Builder::from_json(FW_VER, MCU_FAM, &json).expect("Failed to parse JSON");
+            let mut builder =
+                Builder::from_json(FW_VER, MCU_FAM, &json).expect("Failed to parse JSON");
 
             builder
                 .add_file(FileData {
@@ -7532,7 +7585,7 @@ mod tests {
                         "cs1": "active_low"
                     }],
                     "firmware_overrides": {
-                        "ice_clock": {
+                        "ice": {
                             "cpu_freq": "96MHz",
                             "overclock": false
                         },
@@ -7550,7 +7603,7 @@ mod tests {
                         "cs2": "active_high"
                     }],
                     "firmware_overrides": {
-                        "fire_clock": {
+                        "fire": {
                             "cpu_freq": "300MHz",
                             "overclock": true,
                             "vreg": "1.15V"
@@ -7573,11 +7626,11 @@ mod tests {
                         "cs3": "active_low"
                     }],
                     "firmware_overrides": {
-                        "ice_clock": {
+                        "ice": {
                             "cpu_freq": "168MHz",
                             "overclock": true
                         },
-                        "fire_clock": {
+                        "fire": {
                             "cpu_freq": "250MHz",
                             "overclock": false
                         }
@@ -7630,15 +7683,36 @@ mod tests {
         let fw_overrides0_offset =
             (ext_rom_set0.firmware_overrides_ptr - metadata_flash_start) as usize;
         let fw_overrides0 = FirmwareOverridesStruct::parse(&metadata_buf, fw_overrides0_offset);
-        
-        assert!(fw_overrides0.is_override_present(0), "Set 0: Ice freq should be present");
-        assert!(fw_overrides0.is_override_present(1), "Set 0: Ice overclock should be present");
-        assert!(fw_overrides0.is_override_present(5), "Set 0: LED should be present");
-        assert!(!fw_overrides0.is_override_present(2), "Set 0: Fire freq should NOT be present");
-        
-        assert_eq!(fw_overrides0.ice_freq, 96, "Set 0: Ice freq should be 96MHz");
-        assert!(!fw_overrides0.is_override_value_set(0), "Set 0: Ice overclock should be disabled");
-        assert!(fw_overrides0.is_override_value_set(2), "Set 0: LED should be enabled");
+
+        assert!(
+            fw_overrides0.is_override_present(0),
+            "Set 0: Ice freq should be present"
+        );
+        assert!(
+            fw_overrides0.is_override_present(1),
+            "Set 0: Ice overclock should be present"
+        );
+        assert!(
+            fw_overrides0.is_override_present(5),
+            "Set 0: LED should be present"
+        );
+        assert!(
+            !fw_overrides0.is_override_present(2),
+            "Set 0: Fire freq should NOT be present"
+        );
+
+        assert_eq!(
+            fw_overrides0.ice_freq, 96,
+            "Set 0: Ice freq should be 96MHz"
+        );
+        assert!(
+            !fw_overrides0.is_override_value_set(0),
+            "Set 0: Ice overclock should be disabled"
+        );
+        assert!(
+            fw_overrides0.is_override_value_set(2),
+            "Set 0: LED should be enabled"
+        );
 
         // ===== SET 1: Fire + SWD + serve_alg_params =====
         let rom_set1_offset = rom_set0_offset + 64;
@@ -7655,24 +7729,66 @@ mod tests {
         let fw_overrides1_offset =
             (ext_rom_set1.firmware_overrides_ptr - metadata_flash_start) as usize;
         let fw_overrides1 = FirmwareOverridesStruct::parse(&metadata_buf, fw_overrides1_offset);
-        
-        assert!(!fw_overrides1.is_override_present(0), "Set 1: Ice freq should NOT be present");
-        assert!(fw_overrides1.is_override_present(2), "Set 1: Fire freq should be present");
-        assert!(fw_overrides1.is_override_present(3), "Set 1: Fire overclock should be present");
-        assert!(fw_overrides1.is_override_present(4), "Set 1: Fire VREG should be present");
-        assert!(fw_overrides1.is_override_present(6), "Set 1: SWD should be present");
-        
-        assert_eq!(fw_overrides1.fire_freq, 28, "Set 1: Fire freq should be 300MHz (28)");
-        assert_eq!(fw_overrides1.fire_vreg, 0x0C, "Set 1: VREG should be 1.15V (0x0C)");
-        assert!(fw_overrides1.is_override_value_set(1), "Set 1: Fire overclock should be enabled");
-        assert!(!fw_overrides1.is_override_value_set(3), "Set 1: SWD should be disabled");
+
+        assert!(
+            !fw_overrides1.is_override_present(0),
+            "Set 1: Ice freq should NOT be present"
+        );
+        assert!(
+            fw_overrides1.is_override_present(2),
+            "Set 1: Fire freq should be present"
+        );
+        assert!(
+            fw_overrides1.is_override_present(3),
+            "Set 1: Fire overclock should be present"
+        );
+        assert!(
+            fw_overrides1.is_override_present(4),
+            "Set 1: Fire VREG should be present"
+        );
+        assert!(
+            fw_overrides1.is_override_present(6),
+            "Set 1: SWD should be present"
+        );
+
+        assert_eq!(
+            fw_overrides1.fire_freq, 28,
+            "Set 1: Fire freq should be 300MHz (28)"
+        );
+        assert_eq!(
+            fw_overrides1.fire_vreg, 0x0C,
+            "Set 1: VREG should be 1.15V (0x0C)"
+        );
+        assert!(
+            fw_overrides1.is_override_value_set(1),
+            "Set 1: Fire overclock should be enabled"
+        );
+        assert!(
+            !fw_overrides1.is_override_value_set(3),
+            "Set 1: SWD should be disabled"
+        );
 
         // Check serve_config for Set 1
         let serve_config1_offset = (ext_rom_set1.serve_config_ptr - metadata_flash_start) as usize;
-        assert_eq!(metadata_buf[serve_config1_offset], 1, "Set 1: serve param[0] should be 1");
-        assert_eq!(metadata_buf[serve_config1_offset + 1], 2, "Set 1: serve param[1] should be 2");
-        assert_eq!(metadata_buf[serve_config1_offset + 2], 3, "Set 1: serve param[2] should be 3");
-        assert_eq!(metadata_buf[serve_config1_offset + 3], 0xFF, "Set 1: serve param[3] should be 0xFF (padding)");
+        assert_eq!(
+            metadata_buf[serve_config1_offset], 1,
+            "Set 1: serve param[0] should be 1"
+        );
+        assert_eq!(
+            metadata_buf[serve_config1_offset + 1],
+            2,
+            "Set 1: serve param[1] should be 2"
+        );
+        assert_eq!(
+            metadata_buf[serve_config1_offset + 2],
+            3,
+            "Set 1: serve param[2] should be 3"
+        );
+        assert_eq!(
+            metadata_buf[serve_config1_offset + 3],
+            0xFF,
+            "Set 1: serve param[3] should be 0xFF (padding)"
+        );
 
         // ===== SET 2: Ice + Fire =====
         let rom_set2_offset = rom_set1_offset + 64;
@@ -7689,18 +7805,48 @@ mod tests {
         let fw_overrides2_offset =
             (ext_rom_set2.firmware_overrides_ptr - metadata_flash_start) as usize;
         let fw_overrides2 = FirmwareOverridesStruct::parse(&metadata_buf, fw_overrides2_offset);
-        
-        assert!(fw_overrides2.is_override_present(0), "Set 2: Ice freq should be present");
-        assert!(fw_overrides2.is_override_present(1), "Set 2: Ice overclock should be present");
-        assert!(fw_overrides2.is_override_present(2), "Set 2: Fire freq should be present");
-        assert!(fw_overrides2.is_override_present(3), "Set 2: Fire overclock should be present");
-        assert!(fw_overrides2.is_override_present(4), "Set 2: Fire VREG should be present (defaulted)");
-        
-        assert_eq!(fw_overrides2.ice_freq, 168, "Set 2: Ice freq should be 168MHz");
-        assert_eq!(fw_overrides2.fire_freq, 24, "Set 2: Fire freq should be 250MHz (24)");
-        assert_eq!(fw_overrides2.fire_vreg, 0xFF, "Set 2: VREG should be Stock (0xFF)");
-        assert!(fw_overrides2.is_override_value_set(0), "Set 2: Ice overclock should be enabled");
-        assert!(!fw_overrides2.is_override_value_set(1), "Set 2: Fire overclock should be disabled");
+
+        assert!(
+            fw_overrides2.is_override_present(0),
+            "Set 2: Ice freq should be present"
+        );
+        assert!(
+            fw_overrides2.is_override_present(1),
+            "Set 2: Ice overclock should be present"
+        );
+        assert!(
+            fw_overrides2.is_override_present(2),
+            "Set 2: Fire freq should be present"
+        );
+        assert!(
+            fw_overrides2.is_override_present(3),
+            "Set 2: Fire overclock should be present"
+        );
+        assert!(
+            !fw_overrides2.is_override_present(4),
+            "Set 2: Fire VREG should not be present"
+        );
+
+        assert_eq!(
+            fw_overrides2.ice_freq, 168,
+            "Set 2: Ice freq should be 168MHz"
+        );
+        assert_eq!(
+            fw_overrides2.fire_freq, 24,
+            "Set 2: Fire freq should be 250MHz (24)"
+        );
+        assert_eq!(
+            fw_overrides2.fire_vreg, 0xFF,
+            "Set 2: VREG should be Stock (0xFF)"
+        );
+        assert!(
+            fw_overrides2.is_override_value_set(0),
+            "Set 2: Ice overclock should be enabled"
+        );
+        assert!(
+            !fw_overrides2.is_override_value_set(1),
+            "Set 2: Fire overclock should be disabled"
+        );
 
         // ===== SET 3: No overrides =====
         let rom_set3_offset = rom_set2_offset + 64;

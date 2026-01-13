@@ -12,9 +12,9 @@ use alloc::vec::Vec;
 use onerom_config::fw::FirmwareVersion;
 use onerom_config::hw::Board;
 
-use crate::{Error, FIRMWARE_SIZE, METADATA_VERSION, MIN_FIRMWARE_OVERRIDES_VERSION, Result};
-use crate::builder::{FireCpuFreq, FireVreg, FirmwareConfig, IceCpuFreq, ServeAlgParams};
+use crate::builder::{FireServeMode, FirmwareConfig, ServeAlgParams};
 use crate::image::{RomSet, RomSetType};
+use crate::{Error, FIRMWARE_SIZE, METADATA_VERSION, MIN_FIRMWARE_OVERRIDES_VERSION, Result};
 
 pub const PAD_METADATA_BYTE: u8 = 0xFF;
 
@@ -49,7 +49,12 @@ pub struct Metadata {
 }
 
 impl Metadata {
-    pub fn new(board: Board, rom_sets: Vec<RomSet>, filenames: bool, firmware_version: FirmwareVersion) -> Self {
+    pub fn new(
+        board: Board,
+        rom_sets: Vec<RomSet>,
+        filenames: bool,
+        firmware_version: FirmwareVersion,
+    ) -> Self {
         Self {
             board,
             rom_sets,
@@ -89,7 +94,7 @@ impl Metadata {
         // - Array of pointers to ROMs in each set (4 bytes per ROM)
         // - Each ROM entry (4-8 bytes) - sdrr_rom_info_t
         let len = self.header_len()
-            + self.filenames_metadata_len() 
+            + self.filenames_metadata_len()
             + self.firmware_overrides_len()
             + self.sets_len();
 
@@ -446,10 +451,7 @@ impl Metadata {
 
     /// Serialize FirmwareConfig into the 64-byte onerom_firmware_overrides_t structure
     #[allow(clippy::collapsible_if)]
-    fn serialize_firmware_overrides(
-        config: &FirmwareConfig,
-        buf: &mut [u8],
-    ) -> Result<usize> {
+    fn serialize_firmware_overrides(config: &FirmwareConfig, buf: &mut [u8]) -> Result<usize> {
         if buf.len() < ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN {
             return Err(Error::BufferTooSmall {
                 location: "serialize_firmware_overrides",
@@ -462,30 +464,44 @@ impl Metadata {
 
         // Initialize override_present bitfield (8 bytes)
         let mut override_present = [0u8; 8];
-        
+
         // Bit positions in override_present[0]:
         // 0 = Ice MCU frequency
         // 1 = Ice overclock overridden
-        // 2 = Fire MCU frequency  
+        // 2 = Fire MCU frequency
         // 3 = Ice overclock overridden
         // 4 = Fire VREQ overridden
         // 5 = Status LED overridden
         // 6 = SWD overridden
-        if let Some(ref _ice_clock) = config.ice_clock {
-            override_present[0] |= 1 << 0; // Ice frequency
-            override_present[0] |= 1 << 1; // Ice overclock bit
+        // 7 = Fire serve mode overridden
+        if let Some(ref ice_config) = config.ice {
+            if ice_config.cpu_freq.is_some() {
+                override_present[0] |= 1 << 0; // Ice frequency
+            }
+            if ice_config.overclock.is_some() {
+                override_present[0] |= 1 << 1; // Ice overclock bit
+            }
         }
 
-        if let Some(ref _fire_clock) = config.fire_clock {
-            override_present[0] |= 1 << 2; // Fire frequency
-            override_present[0] |= 1 << 3; // Fire overclock bit
-            override_present[0] |= 1 << 4; // Fire VREQ
+        if let Some(ref fire_config) = config.fire {
+            if fire_config.cpu_freq.is_some() {
+                override_present[0] |= 1 << 2; // Fire frequency
+            }
+            if fire_config.overclock.is_some() {
+                override_present[0] |= 1 << 3; // Fire overclock bit
+            }
+            if fire_config.vreg.is_some() {
+                override_present[0] |= 1 << 4; // Fire VREQ
+            }
+            if fire_config.serve_mode.is_some() {
+                override_present[0] |= 1 << 7; // Fire serve mode
+            }
         }
-        
+
         if config.led.is_some() {
             override_present[0] |= 1 << 5; // Status LED
         }
-        
+
         if config.swd.is_some() {
             override_present[0] |= 1 << 6; // SWD
         }
@@ -495,16 +511,31 @@ impl Metadata {
         offset += 8;
 
         // Write frequencies (2 bytes each as u16)
-        let ice_freq = config.ice_clock.as_ref().map_or(IceCpuFreq::Stock, |c| c.cpu_freq.clone()) as u16;
+        let ice_freq = config
+            .ice
+            .as_ref()
+            .and_then(|c| c.cpu_freq.as_ref())
+            .map(|f| f.clone() as u16)
+            .unwrap_or(0xFFFF);
         buf[offset..offset + 2].copy_from_slice(&ice_freq.to_le_bytes());
         offset += 2;
 
-        let fire_freq = config.fire_clock.as_ref().map_or(FireCpuFreq::Stock, |c| c.cpu_freq.clone()) as u16;
+        let fire_freq = config
+            .fire
+            .as_ref()
+            .and_then(|c| c.cpu_freq.as_ref())
+            .map(|f| f.clone() as u16)
+            .unwrap_or(0xFFFF);
         buf[offset..offset + 2].copy_from_slice(&fire_freq.to_le_bytes());
         offset += 2;
 
         // Write fire_vreq (1 byte)
-        buf[offset] = config.fire_clock.as_ref().map_or(FireVreg::Stock, |c| c.vreg.clone()) as u8;
+        buf[offset] = config
+            .fire
+            .as_ref()
+            .and_then(|c| c.vreg.as_ref())
+            .map(|v| v.clone() as u8)
+            .unwrap_or(0xFF);
         offset += 1;
 
         // Write pad1 (3 bytes)
@@ -515,30 +546,40 @@ impl Metadata {
 
         // Initialize override_value bitfield (8 bytes)
         let mut override_value = [0u8; 8];
-        
+
         // Bit positions in override_value[0]:
         // 0 = Ice overclocking enabled
         // 1 = Fire overclocking enabled
         // 2 = Status LED enabled
         // 3 = SWD enabled
-        if let Some(ref ice_clock) = config.ice_clock {
-            if ice_clock.overclock {
-                override_value[0] |= 1 << 0;
+        // 4 = Fire serve mode 1 = PIO, 0 = CPU
+        if let Some(ref ice_config) = config.ice {
+            if let Some(overclock) = ice_config.overclock {
+                if overclock {
+                    override_value[0] |= 1 << 0;
+                }
             }
         }
 
-        if let Some(ref fire_clock) = config.fire_clock {
-            if fire_clock.overclock {
-                override_value[0] |= 1 << 1;
+        if let Some(ref fire_config) = config.fire {
+            if let Some(overclock) = fire_config.overclock {
+                if overclock {
+                    override_value[0] |= 1 << 1;
+                }
+            }
+            if let Some(ref serve_mode) = fire_config.serve_mode {
+                if *serve_mode == FireServeMode::Pio {
+                    override_value[0] |= 1 << 4;
+                }
             }
         }
-        
+
         if let Some(ref led) = config.led {
             if led.enabled {
                 override_value[0] |= 1 << 2;
             }
         }
-        
+
         if let Some(ref swd) = config.swd {
             if swd.swd_enabled {
                 override_value[0] |= 1 << 3;
@@ -555,16 +596,16 @@ impl Metadata {
         buf[offset..offset + 40].copy_from_slice(&[PAD_METADATA_BYTE; 40]);
         offset += 40;
 
-        assert_eq!(offset, ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, "Should be at 64 bytes");
+        assert_eq!(
+            offset, ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN,
+            "Should be at 64 bytes"
+        );
 
         Ok(ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN)
     }
 
     /// Serialize ServeAlgParams into the 64-byte onerom_serve_config_t structure
-    fn serialize_serve_config(
-        params: &ServeAlgParams,
-        buf: &mut [u8],
-    ) -> Result<usize> {
+    fn serialize_serve_config(params: &ServeAlgParams, buf: &mut [u8]) -> Result<usize> {
         if buf.len() < ROM_SET_SERVE_CONFIG_METADATA_LEN {
             return Err(Error::BufferTooSmall {
                 location: "serialize_serve_config",
@@ -578,7 +619,7 @@ impl Metadata {
         // Copy params data, up to 64 bytes
         let len = params.params.len().min(ROM_SET_SERVE_CONFIG_METADATA_LEN);
         buf[..len].copy_from_slice(&params.params[..len]);
-        
+
         // Zero out any remaining bytes
         if len < ROM_SET_SERVE_CONFIG_METADATA_LEN {
             buf[len..ROM_SET_SERVE_CONFIG_METADATA_LEN].fill(PAD_METADATA_BYTE);
@@ -590,7 +631,7 @@ impl Metadata {
     // Calculate total size needed for firmware overrides and serve config structures
     fn firmware_overrides_len(&self) -> usize {
         const MIN_EXTENDED_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
-        
+
         if self.firmware_version < MIN_EXTENDED_VERSION {
             return 0;
         }
@@ -600,7 +641,7 @@ impl Metadata {
             if let Some(ref fw_config) = rom_set.firmware_overrides {
                 // firmware_overrides structure is 64 bytes
                 total += ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN;
-                
+
                 // serve_alg_params structure is also 64 bytes if present
                 if fw_config.serve_alg_params.is_some() {
                     total += ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN;
@@ -609,5 +650,4 @@ impl Metadata {
         }
         total
     }
-
 }

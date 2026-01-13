@@ -20,14 +20,16 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 
-use onerom_config::fw::{ServeAlg, FirmwareVersion};
+use onerom_config::fw::{FirmwareVersion, ServeAlg};
 use onerom_config::hw::Board;
 use onerom_config::mcu::Family as McuFamily;
 use onerom_config::rom::RomType;
 
 use crate::MIN_FIRMWARE_OVERRIDES_VERSION;
+use crate::meta::{
+    ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, ROM_SET_METADATA_LEN, ROM_SET_METADATA_LEN_EXTRA_INFO,
+};
 use crate::{Error, Result, builder::FirmwareConfig};
-use crate::meta::{ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, ROM_SET_METADATA_LEN, ROM_SET_METADATA_LEN_EXTRA_INFO};
 
 /// Value to use when told to pad a ROM image
 pub const PAD_BLANK_BYTE: u8 = 0xAA;
@@ -244,13 +246,17 @@ impl Rom {
         // Slice source if location specified
         let source = if let Some(loc) = location {
             // Bounds check
-            let end = loc.start
+            let end = loc
+                .start
                 .checked_add(loc.length)
                 .ok_or(Error::BadLocation {
                     id: index,
-                    reason: format!("Location overflow: start={:#X} length={:#X}", loc.start, loc.length),
+                    reason: format!(
+                        "Location overflow: start={:#X} length={:#X}",
+                        loc.start, loc.length
+                    ),
                 })?;
-            
+
             if end > source.len() {
                 return Err(Error::RomTooSmall {
                     index,
@@ -258,12 +264,12 @@ impl Rom {
                     actual: source.len(),
                 });
             }
-            
+
             &source[loc.start..end]
         } else {
             source
         };
-        
+
         let expected_size = rom_type.size_bytes();
         if dest.len() < expected_size {
             return Err(Error::BufferTooSmall {
@@ -347,20 +353,19 @@ impl Rom {
         }
 
         Ok(Self::new(
-            index,
-            filename,
-            label,
-            rom_type,
-            cs_config,
-            dest,
-            location,
+            index, filename, label, rom_type, cs_config, dest, location,
         ))
     }
 
     // Transforms from a physical address (based on the hardware pins) to
     // a logical ROM address, so we store the physical ROM mapping, rather
     // than the logical one.
-    fn address_to_logical(phys_pin_to_addr_map: &[Option<usize>], address: usize, _board: &Board, num_addr_lines: usize) -> usize {
+    fn address_to_logical(
+        phys_pin_to_addr_map: &[Option<usize>],
+        address: usize,
+        _board: &Board,
+        num_addr_lines: usize,
+    ) -> usize {
         let mut result = 0;
 
         for (pin, item) in phys_pin_to_addr_map.iter().enumerate() {
@@ -438,12 +443,18 @@ impl Rom {
     // This ensures that when the hardware reads from a certain address
     // through its GPIO pins, it gets the correct byte value with bits
     // arranged according to its data pin connections.
-    fn get_byte(&self, phys_pin_to_addr_map: &[Option<usize>], address: usize, board: &Board) -> u8 {
+    fn get_byte(
+        &self,
+        phys_pin_to_addr_map: &[Option<usize>],
+        address: usize,
+        board: &Board,
+    ) -> u8 {
         // We have been passed a physical address based on the hardware pins,
         // so we need to transform it to a logical address based on the ROM
         // image.
         let num_addr_lines = self.rom_type.num_addr_lines();
-        let transformed_address = Self::address_to_logical(phys_pin_to_addr_map, address, board, num_addr_lines);
+        let transformed_address =
+            Self::address_to_logical(phys_pin_to_addr_map, address, board, num_addr_lines);
 
         // Sanity check that we did get a logical address, which must by
         // definition fit within the actual ROM size.
@@ -590,16 +601,17 @@ impl RomSet {
         // Validate firmware overrides if present
         #[allow(clippy::collapsible_if)]
         if let Some(ref overrides) = firmware_overrides {
-            if overrides.ice_clock.is_none()
-                && overrides.fire_clock.is_none()
-                && overrides.led.is_none() 
-                && overrides.swd.is_none() 
-                && overrides.serve_alg_params.is_none() {
+            if overrides.ice.is_none()
+                && overrides.fire.is_none()
+                && overrides.led.is_none()
+                && overrides.swd.is_none()
+                && overrides.serve_alg_params.is_none()
+            {
                 return Err(Error::InvalidConfig {
                     error: "firmware_overrides specified but all fields are None".to_string(),
                 });
             }
-            
+
             // Validate serve_alg_params if present within firmware_overrides
             if let Some(ref params) = overrides.serve_alg_params {
                 if params.params.is_empty() {
@@ -674,11 +686,7 @@ impl RomSet {
                 RomSetType::Single => {
                     // STM32F4 uses 16KB images for single 24 pin ROMs, and
                     // 64KB images for 28 pin ROMs.
-                    if rom_pins == 24 {
-                        16384
-                    } else {
-                        65536
-                    }
+                    if rom_pins == 24 { 16384 } else { 65536 }
                 }
                 RomSetType::Banked | RomSetType::Multi => 65536,
             }
@@ -757,8 +765,7 @@ impl RomSet {
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
             return self.roms[rom_index].get_byte(&phys_pin_to_addr_map, masked_address, board);
-        } 
-
+        }
 
         // Multiple ROMs: check CS line states to select responding ROM.  This
         // code can handle any X1/X2 positions - but the above can't.
@@ -782,7 +789,12 @@ impl RomSet {
             let cs_pin = board.cs_bit_for_rom_in_set(rom_in_set.rom_type, index);
             assert!(cs_pin <= 15, "Internal error: CS pin is > 15");
 
-            fn is_pin_active(active_high: bool, invert_cs1_x: bool, address: usize, pin: u8) -> bool {
+            fn is_pin_active(
+                active_high: bool,
+                invert_cs1_x: bool,
+                address: usize,
+                pin: u8,
+            ) -> bool {
                 if !invert_cs1_x {
                     if active_high {
                         (address & (1 << pin)) != 0
@@ -1126,14 +1138,17 @@ impl RomSet {
             buf[offset..offset + 40].copy_from_slice(&[0u8; 40]);
             offset += 40;
 
-            assert_eq!(offset, ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN, "Total should be 64 bytes for 0.6.0+");
+            assert_eq!(
+                offset, ROM_SET_FIRMWARE_OVERRIDES_METADATA_LEN,
+                "Total should be 64 bytes for 0.6.0+"
+            );
         }
 
         assert_eq!(
             offset, expected_len,
             "Internal error: offset does not match expected length"
         );
-        
+
         Ok(offset)
     }
 

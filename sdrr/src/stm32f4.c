@@ -467,8 +467,11 @@ void dfu(void) {
 // Checks configuration before entering the main loop.
 void check_config(
     const sdrr_info_t *info,
+    const sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 ) {
+    (void)runtime; // Unused for now
+
     // Check ports (banks on RP235X) are as expected
     if (info->pins->data_port != PORT_A) {
         LOG("!!! Data pins not using port A");

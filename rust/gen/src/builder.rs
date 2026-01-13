@@ -16,7 +16,7 @@ use onerom_config::rom::RomType;
 
 use crate::image::{CsConfig, CsLogic, Location, Rom, RomSet, RomSetType, SizeHandling};
 use crate::meta::Metadata;
-use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, Result, MIN_FIRMWARE_OVERRIDES_VERSION};
+use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, MIN_FIRMWARE_OVERRIDES_VERSION, Result};
 
 pub(crate) use crate::firmware::*;
 
@@ -114,16 +114,12 @@ pub struct Builder {
 
 impl Builder {
     /// Create from JSON config
-    /// 
+    ///
     /// Arguments:
     /// - `version`: Firmware version this config is for
     /// - `mcu_family`: MCU family this config is for
     /// - `json`: JSON string
-    pub fn from_json(
-        version: FirmwareVersion,
-        mcu_family: Family,
-        json: &str
-    ) -> Result<Self> {
+    pub fn from_json(version: FirmwareVersion, mcu_family: Family, json: &str) -> Result<Self> {
         let config: Config = serde_json::from_str(json).map_err(|e| Error::InvalidConfig {
             error: e.to_string(),
         })?;
@@ -148,7 +144,11 @@ impl Builder {
         &self.config
     }
 
-    fn validate_config(version: &FirmwareVersion, mcu_family: &Family, config: &Config) -> Result<()> {
+    fn validate_config(
+        version: &FirmwareVersion,
+        mcu_family: &Family,
+        config: &Config,
+    ) -> Result<()> {
         // Validate version
         if config.version != 1 {
             return Err(Error::UnsupportedConfigVersion {
@@ -167,7 +167,10 @@ impl Builder {
             #[allow(clippy::collapsible_if)]
             if set.firmware_overrides.is_some() {
                 if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
-                    return Err(Error::FirmwareTooOld { version: *version, minimum: MIN_FIRMWARE_OVERRIDES_VERSION });
+                    return Err(Error::FirmwareTooOld {
+                        version: *version,
+                        minimum: MIN_FIRMWARE_OVERRIDES_VERSION,
+                    });
                 }
             }
 
@@ -178,7 +181,10 @@ impl Builder {
                 match serve_alg {
                     ServeAlg::Pio => {
                         if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
-                            return Err(Error::FirmwareTooOld { version: *version, minimum: MIN_FIRMWARE_OVERRIDES_VERSION });
+                            return Err(Error::FirmwareTooOld {
+                                version: *version,
+                                minimum: MIN_FIRMWARE_OVERRIDES_VERSION,
+                            });
                         }
 
                         if *mcu_family != Family::Rp2350 {
@@ -417,7 +423,10 @@ impl Builder {
                     // Check all other ROMs have the same CS configuration
                     for (idx, rom) in set.roms.iter().enumerate().skip(1) {
                         if rom.cs1 != first_cs1 || rom.cs2 != first_cs2 || rom.cs3 != first_cs3 {
-                            if (rom.cs2 != first_cs2) && let Some(cs) = rom.cs2 && (cs == CsLogic::Ignore) {
+                            if (rom.cs2 != first_cs2)
+                                && let Some(cs) = rom.cs2
+                                && (cs == CsLogic::Ignore)
+                            {
                                 // Ignore difference if cs2 is ignore
                                 // If there are 3 CS lines on ROM 1, cs2 must
                                 // be the same, but we don't support that yet
@@ -454,7 +463,7 @@ impl Builder {
         for rom_set in self.config.rom_sets.iter() {
             for rom in &rom_set.roms {
                 let key = (rom.file.clone(), rom.extract.clone());
-                
+
                 let assigned_file_id = if let Some(&existing_id) = seen_files.get(&key) {
                     existing_id
                 } else {
@@ -463,7 +472,7 @@ impl Builder {
                     file_id += 1;
                     id
                 };
-                
+
                 self.file_id_map.insert(rom_id, assigned_file_id);
                 rom_id += 1;
             }
@@ -480,8 +489,7 @@ impl Builder {
             for rom in &rom_set.roms {
                 let key = (rom.file.clone(), rom.extract.clone());
                 let file_id = *self.file_id_map.get(&rom_id).unwrap();
-                
-                
+
                 seen_files.entry(key).or_insert_with(|| {
                     specs.push(FileSpec {
                         id: file_id,
@@ -500,7 +508,7 @@ impl Builder {
                     });
                     file_id
                 });
-                
+
                 rom_id += 1;
             }
         }
@@ -703,7 +711,7 @@ impl Builder {
     /// ```text
     /// Name of config
     /// --------------
-    /// 
+    ///
     /// Description of config
     ///
     /// Detailed description
@@ -810,7 +818,7 @@ impl Builder {
 /// License details for validation by caller
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct License {
-    /// License ID provided for information only. 
+    /// License ID provided for information only.
     pub id: usize,
 
     /// File ID that this license applies to, provided for information only.
@@ -851,7 +859,7 @@ pub struct FileSpec {
     /// Optional extract path within an archive (zip/tar) if the file pointed
     /// to is an archive.  If extract is present, the file at that path within
     /// the archive should be extracted before returning the data to the
-    /// builder. 
+    /// builder.
     pub extract: Option<String>,
 
     /// Size handling configuration for this ROM.  Provided for information
@@ -1044,4 +1052,3 @@ impl RomConfig {
         }
     }
 }
-

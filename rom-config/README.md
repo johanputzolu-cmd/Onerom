@@ -103,7 +103,7 @@ The `firmware_overrides` fields are optional - only include the fields you wish 
 
 ```json
 "firmware_overrides": {
-    "ice_clock": {
+    "ice": {
         "cpu_freq": "72MHz",
         "overclock": false
     }
@@ -118,10 +118,11 @@ Set `overclock: true` for frequencies above the rated maximum for a specific STM
 
 ```json
 "firmware_overrides": {
-    "fire_clock": {
+    "fire": {
         "cpu_freq": "300MHz",
         "overclock": true,
-        "vreg": "1.20V"
+        "vreg": "1.20V",
+        "serve_mode": "Pio"
     }
 }
 ```
@@ -155,7 +156,7 @@ Fire boards support 20MHz to 540MHz in various increments (as defined in the sch
         {
             "description": "C64 Character ROM - requires high clock speed",
             "firmware_overrides": {
-                "ice_clock": {
+                "ice": {
                     "cpu_freq": "150MHz",
                     "overclock": true
                 }

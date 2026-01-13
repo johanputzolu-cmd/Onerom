@@ -53,6 +53,7 @@ extern void blink_pattern(uint32_t on_time, uint32_t off_time, uint8_t repeats);
 extern void enter_bootloader(void);
 extern void check_config(
     const sdrr_info_t *info,
+    const sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 );
 extern void platform_logging(void);

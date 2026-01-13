@@ -7,7 +7,7 @@
 #include "include.h"
 #include "piorom.h"
 
-#if defined(RP_PIO)
+#if defined(RP235X)
 
 // # Introduction
 
@@ -262,8 +262,7 @@
 // Fallback default configuration
 #if !defined(PIO_CONFIG_ADDR_READ_IRQ) && !defined(PIO_CONFIG_ADDR_READ_DELAY) && !defined(PIO_CONFIG_CS_TO_DATA_OUTPUT_DELAY) && !defined(PIO_CONFIG_CS_INACTIVE_DATA_HOLD_DELAY)
 #if !defined(PIO_CONFIG_DEFAULT) && !defined(PIO_CONFIG_SLOW_CLOCK_KERNAL) && !defined(PIO_CONFIG_SLOW_CLOCK_CHAR) && !defined(PIO_CONFIG_NO_DMA)
-#pragma message("No PIO config specified - using PIO_CONFIG_DEFAULT")
-#define PIO_CONFIG_DEFAULT
+#define PIO_CONFIG_SLOW_CLOCK_CHAR  1
 #endif // !PIO_CONFIG_DEFAULT && !PIO_CONFIG_SLOW_CLOCK && !PIO_CONFIG_SLOW_CLOCK_CHAR
 #endif // Fallback default
 
@@ -1924,4 +1923,4 @@ void piorom_log_pio_sm(
 }
 #endif // DEBUG_LOGGING
 
-#endif // RP_PIO
+#endif // RP235X

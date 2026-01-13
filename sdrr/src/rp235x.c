@@ -565,6 +565,7 @@ void enter_bootloader(void) {
 
 void check_config(
     const sdrr_info_t *info,
+    const sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 ) {
     uint8_t failed = 0;
@@ -573,10 +574,10 @@ void check_config(
         LOG("!!! Unsupported number of ROM pins: %d", rom_pins);
         failed = 1;
     } else if (rom_pins == 28) {
-#if !defined(RP_PIO)
-        LOG("!!! 28-bit ROM mode requires PIO support");
-        failed = 1;
-#endif // RP_PIO
+        if (runtime->fire_pio_mode == 0) {
+            LOG("!!! 28-bit ROM mode requires PIO support");
+            failed = 1;
+        }
     }
 
     // Check ports (banks on RP235X) are as expected
@@ -598,69 +599,69 @@ void check_config(
     }
 
     if (rom_pins == 24) {
-#if !defined(RP_PIO)
-        // Checks on valid for CPU serving mode
+        if (!runtime->fire_pio_mode) {
+            // Checks on valid for CPU serving mode
 
-        // We expect to use pins 0-15 or 8-23 for address lines
-        uint8_t seen_a_0_7 = 0;
-        uint8_t seen_a_16_23 = 0;
-        for (int ii = 0; ii < 13; ii++) {
-            uint8_t pin = info->pins->addr[ii];
-            if (pin < 8) {
-                seen_a_0_7 = 1;
-            } else if (pin > 15) {
-                seen_a_16_23 = 1;
+            // We expect to use pins 0-15 or 8-23 for address lines
+            uint8_t seen_a_0_7 = 0;
+            uint8_t seen_a_16_23 = 0;
+            for (int ii = 0; ii < 13; ii++) {
+                uint8_t pin = info->pins->addr[ii];
+                if (pin < 8) {
+                    seen_a_0_7 = 1;
+                } else if (pin > 15) {
+                    seen_a_16_23 = 1;
+                }
             }
-        }
-        if (seen_a_0_7 && seen_a_16_23) {
-            LOG("!!! ROM address lines using invalid mix of pins");
-            failed = 1;
-        }
+            if (seen_a_0_7 && seen_a_16_23) {
+                LOG("!!! ROM address lines using invalid mix of pins");
+                failed = 1;
+            }
 
-        // We expect to use pins 0-7 or 16-23 for data lines
-        uint8_t seen_d_0_7 = 0;
-        uint8_t seen_d_16_23 = 0;
-        for (int ii = 0; ii < 8; ii++) {
-            uint8_t pin = info->pins->data[ii];
-            if (pin < 8) {
-                seen_d_0_7 = 1;
-            } else if (pin > 15) {
-                seen_d_16_23 = 1;
+            // We expect to use pins 0-7 or 16-23 for data lines
+            uint8_t seen_d_0_7 = 0;
+            uint8_t seen_d_16_23 = 0;
+            for (int ii = 0; ii < 8; ii++) {
+                uint8_t pin = info->pins->data[ii];
+                if (pin < 8) {
+                    seen_d_0_7 = 1;
+                } else if (pin > 15) {
+                    seen_d_16_23 = 1;
+                }
             }
-        }
-        if (seen_d_0_7 && seen_d_16_23) {
-            LOG("!!! ROM data lines using invalid mix of pins");
-            failed = 1;
-        }
+            if (seen_d_0_7 && seen_d_16_23) {
+                LOG("!!! ROM data lines using invalid mix of pins");
+                failed = 1;
+            }
 
-        // Check X1/X2 pins
-        if (set->rom_count > 1) {
-            if (seen_a_0_7 && (info->pins->x1 > 16)) {
-                LOG("!!! Multi-ROM mode, but pin X1 invalid");
-                failed = 1;
-            }
-            if (seen_a_0_7 && (info->pins->x2 > 17)) {
-                LOG("!!! Multi-ROM mode, but pin X2 invalid");
-                failed = 1;
-            }
-            if (seen_a_16_23 && ((info->pins->x1 < 8) || (info->pins->x1 > 23))) {
-                LOG("!!! Multi-ROM mode, but pin X1 invalid");
-                failed = 1;
-            }
-            if (seen_a_16_23 && ((info->pins->x2 < 8) || (info->pins->x2 > 23))) {
-                LOG("!!! Multi-ROM mode, but pin X2 invalid");
-                failed = 1;
-            }
-            if (info->pins->x1 == info->pins->x2) {
-                LOG("!!! Multi-ROM mode, but pin X1==X2");
-                failed = 1;
-            }
-            if (info->pins->x_jumper_pull > 1) {
-                LOG("!!! X jumper pull value invalid");
-                failed = 1;
+            // Check X1/X2 pins
+            if (set->rom_count > 1) {
+                if (seen_a_0_7 && (info->pins->x1 > 16)) {
+                    LOG("!!! Multi-ROM mode, but pin X1 invalid");
+                    failed = 1;
+                }
+                if (seen_a_0_7 && (info->pins->x2 > 17)) {
+                    LOG("!!! Multi-ROM mode, but pin X2 invalid");
+                    failed = 1;
+                }
+                if (seen_a_16_23 && ((info->pins->x1 < 8) || (info->pins->x1 > 23))) {
+                    LOG("!!! Multi-ROM mode, but pin X1 invalid");
+                    failed = 1;
+                }
+                if (seen_a_16_23 && ((info->pins->x2 < 8) || (info->pins->x2 > 23))) {
+                    LOG("!!! Multi-ROM mode, but pin X2 invalid");
+                    failed = 1;
+                }
+                if (info->pins->x1 == info->pins->x2) {
+                    LOG("!!! Multi-ROM mode, but pin X1==X2");
+                    failed = 1;
+                }
+                if (info->pins->x_jumper_pull > 1) {
+                    LOG("!!! X jumper pull value invalid");
+                    failed = 1;
+                }
             }
         }
-#endif // RP_PIO
     }
 
     // Check sel jumper pull value
