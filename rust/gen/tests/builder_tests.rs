@@ -6289,10 +6289,10 @@ mod tests {
             "Fire frequency override should be present"
         );
 
-        // Verify Fire frequency value (300MHz = enum value 28)
+        // Verify Fire frequency value (300MHz)
         assert_eq!(
-            fw_overrides.fire_freq, 28,
-            "Fire frequency should be 300MHz (enum 28), got {}",
+            fw_overrides.fire_freq, 300,
+            "Fire frequency should be 300MHz, got {}",
             fw_overrides.fire_freq
         );
 
@@ -7159,8 +7159,8 @@ mod tests {
         // Verify frequency values
         assert_eq!(fw_overrides.ice_freq, 168, "Ice frequency should be 168MHz");
         assert_eq!(
-            fw_overrides.fire_freq, 35,
-            "Fire frequency should be 400MHz (enum 35)"
+            fw_overrides.fire_freq, 400,
+            "Fire frequency should be 400MHz"
         );
 
         // Verify VREG value (1.25V = 0x0E)
@@ -7752,8 +7752,8 @@ mod tests {
         );
 
         assert_eq!(
-            fw_overrides1.fire_freq, 28,
-            "Set 1: Fire freq should be 300MHz (28)"
+            fw_overrides1.fire_freq, 300,
+            "Set 1: Fire freq should be 300MHz"
         );
         assert_eq!(
             fw_overrides1.fire_vreg, 0x0C,
@@ -7832,8 +7832,8 @@ mod tests {
             "Set 2: Ice freq should be 168MHz"
         );
         assert_eq!(
-            fw_overrides2.fire_freq, 24,
-            "Set 2: Fire freq should be 250MHz (24)"
+            fw_overrides2.fire_freq, 250,
+            "Set 2: Fire freq should be 250MHz"
         );
         assert_eq!(
             fw_overrides2.fire_vreg, 0xFF,
