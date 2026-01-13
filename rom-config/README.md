@@ -210,7 +210,7 @@ As of 0.6.0 the following firmware defaults are used if no overrides are specifi
 - Fire Clock: 150MHz, overclocking enabled, VREG 1.10V.
 - LED: Enabled (if hardware support is present)
 - SWD: Enabled (if hardware support is present)
-- PIO Serve Algorithm Params: [254, 1, 0, 0, 0, 0, 254, 255]
+- PIO Serve Algorithm Params: [254, 0, 2, 0, 0, 0, 254, 255]
 
 ## Complex Configs
 
