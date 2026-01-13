@@ -123,7 +123,7 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("Exiting due to --strict flag");
             std::process::exit(1);
         }
-    } else if args.output_binary.unwrap_or(false) == false {
+    } else if !args.output_binary.unwrap_or(false) {
         println!("Firmware parsed successfully");
     }
 
@@ -644,7 +644,7 @@ async fn lookup_raw_range(fw_data: &mut FirmwareData, args: &Args) {
             let byte_pos = (addr - start_addr) as usize;
 
             // Print address at start of each line
-            if byte_pos % 16 == 0 {
+            if byte_pos.is_multiple_of(16) {
                 print!("{:04X}: ", addr);
             }
 
@@ -652,10 +652,10 @@ async fn lookup_raw_range(fw_data: &mut FirmwareData, args: &Args) {
             print!("{:02X}", output_byte);
 
             // Add spacing
-            if (byte_pos + 1) % 16 == 0 {
+            if (byte_pos + 1).is_multiple_of(16) {
                 // Newline every 16 bytes
                 println!();
-            } else if (byte_pos + 1) % 4 == 0 {
+            } else if (byte_pos + 1).is_multiple_of(4) {
                 // Bigger space every 4 bytes
                 print!("  ");
             } else {
@@ -666,7 +666,7 @@ async fn lookup_raw_range(fw_data: &mut FirmwareData, args: &Args) {
 
         // Ensure we end with a newline if we didn't just print one
         let total_bytes = (end_addr - start_addr + 1) as usize;
-        if total_bytes % 16 != 0 {
+        if !total_bytes.is_multiple_of(16) {
             println!();
         }
     }
@@ -759,7 +759,7 @@ async fn lookup_range(
             let byte_pos = (addr - start_addr) as usize;
 
             // Print address at start of each line
-            if byte_pos % 16 == 0 {
+            if byte_pos.is_multiple_of(16) {
                 print!("{:04X}: ", addr);
             }
 
@@ -767,10 +767,10 @@ async fn lookup_range(
             print!("{:02X}", output_byte);
 
             // Add spacing
-            if (byte_pos + 1) % 16 == 0 {
+            if (byte_pos + 1).is_multiple_of(16) {
                 // Newline every 16 bytes
                 println!();
-            } else if (byte_pos + 1) % 4 == 0 {
+            } else if (byte_pos + 1).is_multiple_of(4) {
                 // Bigger space every 4 bytes
                 print!("  ");
             } else {
@@ -781,7 +781,7 @@ async fn lookup_range(
 
         // Ensure we end with a newline if we didn't just print one
         let total_bytes = (end_addr - start_addr + 1) as usize;
-        if total_bytes % 16 != 0 {
+        if !total_bytes.is_multiple_of(16) {
             println!();
         }
     }

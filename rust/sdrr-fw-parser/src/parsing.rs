@@ -444,6 +444,7 @@ pub(crate) async fn read_rom_sets<R: Reader>(
     reader: &mut R,
     info_header: &SdrrInfoHeader,
     base_addr: u32,
+    version: &FirmwareVersion,
 ) -> Result<Vec<SdrrRomSet>, String> {
     let ptr = info_header.rom_sets_ptr;
     let count = info_header.rom_set_count;
@@ -471,14 +472,14 @@ pub(crate) async fn read_rom_sets<R: Reader>(
         reader
             .read(header_addr, &mut header_buf)
             .await
-            .map_err(|_| format!("Failed to read ROM set header {}", i))?;
+            .map_err(|_| format!("Failed to read ROM set header {i}"))?;
 
-        let input_len = header_buf.len();
-        let (rest, header) = SdrrRomSetHeader::from_bytes((&header_buf, 0))
-            .map_err(|e| format!("Failed to parse ROM set header {}: {}", i, e))?;
-        let consumed = input_len - rest.0.len();
-        current_offset += consumed as u32;
-
+        let (_, header) = SdrrRomSetHeader::from_bytes((&header_buf, 0))
+            .map_err(|e| format!("Failed to parse ROM set header {i}: {e}"))?;
+        current_offset += SdrrRomSetHeader::base_size() as u32;
+        if *version >= FirmwareVersion::new(0, 6, 0, 0) {
+            current_offset += SdrrRomSetHeader::extra_size() as u32;
+        }
 
         // Read serve_config if present
         let serve_config = if let Some(serve_config_ptr) = header.serve_config_ptr 

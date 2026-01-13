@@ -146,7 +146,7 @@ impl Builder {
 
     fn validate_config(
         version: &FirmwareVersion,
-        mcu_family: &Family,
+        _mcu_family: &Family,
         config: &Config,
     ) -> Result<()> {
         // Validate version
@@ -171,30 +171,6 @@ impl Builder {
                         version: *version,
                         minimum: MIN_FIRMWARE_OVERRIDES_VERSION,
                     });
-                }
-            }
-
-            // PIO serve alg only supported from 0.6.0 firmware onwards
-            #[allow(clippy::collapsible_match)]
-            #[allow(clippy::single_match)]
-            if let Some(serve_alg) = set.serve_alg {
-                match serve_alg {
-                    ServeAlg::Pio => {
-                        if version < &MIN_FIRMWARE_OVERRIDES_VERSION {
-                            return Err(Error::FirmwareTooOld {
-                                version: *version,
-                                minimum: MIN_FIRMWARE_OVERRIDES_VERSION,
-                            });
-                        }
-
-                        if *mcu_family != Family::Rp2350 {
-                            return Err(Error::WrongMcuFamily {
-                                actual: *mcu_family,
-                                required: Family::Rp2350,
-                            });
-                        }
-                    }
-                    _ => {}
                 }
             }
 

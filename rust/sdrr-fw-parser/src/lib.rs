@@ -472,7 +472,7 @@ impl<'a, R: Reader> Parser<'a, R> {
 
         // Parse ROM sets with error collection
         let rom_sets =
-            match parsing::read_rom_sets(self.reader, &header, self.base_flash_address).await {
+            match parsing::read_rom_sets(self.reader, &header, self.base_flash_address, &version).await {
                 Ok(sets) => {
                     if sets.len() != header.rom_set_count as usize {
                         parse_errors.push(ParseError::new(
