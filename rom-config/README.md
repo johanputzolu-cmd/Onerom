@@ -97,7 +97,7 @@ The `firmware_overrides` fields are optional - only include the fields you wish 
 2. __Hardware experimentation__ - Testing different configurations to determine optimal settings for specific host platforms and ROM types
 3. __Power/performance/preference__ - Disabling features like LEDs (power saving or user preference) or debug interfaces (performance)
 
-### Clock Configuration
+### Ice/Fire Specific Configuration
 
 #### Ice Boards (STM32F4-based)
 
@@ -110,7 +110,7 @@ The `firmware_overrides` fields are optional - only include the fields you wish 
 }
 ```
 
-Ice boards support frequencies from 1MHz to 180MHz.
+Ice boards support frequencies from 1MHz to 450MHz.
 
 Set `overclock: true` for frequencies above the rated maximum for a specific STM32F4 MCU.
 
@@ -127,10 +127,10 @@ Set `overclock: true` for frequencies above the rated maximum for a specific STM
 }
 ```
 
-Fire boards support 20MHz to 540MHz in various increments (as defined in the schema). Higher frequencies than 150MHz require:
+Fire boards support 16MHz to 800MHz in various increments (as defined in the schema). For higher frequencies than 150MHz:
 
-- Setting `overclock: true`.
-- Tuning `vreg` (internal voltage regulator) - different RP2350 silicon may need different core voltages for stability at high speeds. The One ROM firmware will use its own voltage regulator settings for higher clock speeds if this is not specified.
+- set `overclock: true`.
+- you may need to tune `vreg` (internal voltage regulator) - different RP2350 silicon may need different core voltages for stability at high speeds. One ROM firmware will use its own (conservative) voltage regulator settings for higher clock speeds if this is not specified.
 
 ### Other Hardware Settings
 
@@ -146,7 +146,7 @@ Fire boards support 20MHz to 540MHz in various increments (as defined in the sch
 ```
 
 - __LED__ - Disable to save power or if you don't want a status LED on your ROM.  Note, if present and the device enters "limp mode" (e.g. due to a fault or unrecoverable configuration error), the LED will still blink to indicate an error.
-- __SWD__ - Disable the debug interface to reduce bus contention and improve serving performance
+- __SWD__ - Disable the debug interface to reduce bus contention and improve serving performance.  Not yet supported, may be removed in a future release.
 
 ### Example: ROM-Specific Configuration
 
@@ -191,9 +191,9 @@ As of firmware 0.6.0, the parameter array format is 8 bytes long, as follows:
 
 - Byte 0: `0xFE` (signature)
 - Byte 1: `addr_read_irq` (0=disabled, 1=enabled) - whether to use IRQ to trigger address reads
-- Byte 2: `addr_read_delay` (0-32) - PIO cycles to delay between address reads
-- Byte 3: `cs_active_delay` (0-32) - PIO cycles to wait after CS active before setting data pins to outputs
-- Byte 4: `cs_inactive_delay` (0-32) - PIO cycles to hold data as outputs after CS goes inactive
+- Byte 2: `addr_read_delay` (0-31) - PIO cycles to delay between address reads
+- Byte 3: `cs_active_delay` (0-31) - PIO cycles to wait after CS active before setting data pins to outputs
+- Byte 4: `cs_inactive_delay` (0-31) - PIO cycles to hold data as outputs after CS goes inactive
 - Byte 5: `no_dma` (0=use DMA, 1=CPU) - whether to use DMA or CPU for byte serving
 - Byte 6: `0xFE` (end signature)
 - Byte 7: `0xFF` (padding)
@@ -211,6 +211,20 @@ As of 0.6.0 the following firmware defaults are used if no overrides are specifi
 - LED: Enabled (if hardware support is present)
 - SWD: Enabled (if hardware support is present)
 - PIO Serve Algorithm Params: [254, 0, 2, 0, 0, 0, 254, 255]
+
+### Error Handling
+
+Where possible, One ROM attempts to gracefully recover from incorrect or invalid configuration settings. 
+
+For example, if it cannot calculate PLL values for a specific requested clock speed, it will attempt to find a close match, and if not found fall back to the values built into the firmware (likely to be the stock maximum rated speed for the MCU).
+
+However, there are some situations where recover is not possible, or it is deemed better to enter "limp mode" (where the device hangs and flashes its status LED, irrespective of the LED enabled setting) to indicate a fault.
+
+If the device enters limp mode, you have two choices:
+- Try changing the settings and reflashing.
+- Connecting a debug probe and using a build with BOOT_LOGGING/DEBUG_LOGGING included, to diagnose the issue.
+
+The stock builds provided as part of One ROM releases _do not_ include debug or boot logging for performance reasons.
 
 ## Complex Configs
 
