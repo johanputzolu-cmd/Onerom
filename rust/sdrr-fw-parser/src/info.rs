@@ -392,6 +392,9 @@ pub struct SdrrExtraInfo {
     /// Pin number for VBUS detection
     pub vbus_pin: u8,
 
+    /// Whether PIO is the default mode on Fire
+    pub fire_pio_default: Option<bool>,
+
     /// Location of runtime info in RAM
     pub runtime_info_ptr: u32,
 }

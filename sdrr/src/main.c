@@ -22,8 +22,6 @@ sdrr_runtime_info_t sdrr_runtime_info __attribute__((section(".sdrr_runtime_info
     .rom_table = NULL,
     .rom_table_size = 0,
     .bootloader_entry = 0,
-    .ice_freq = ICE_FREQ_NONE,
-    .fire_freq = FIRE_FREQ_NONE,
 #if defined(OVERCLOCK) && (OVERCLOCK == 1)
     .overclock_enabled = 1,
 #else // !OVERCLOCK
@@ -31,11 +29,16 @@ sdrr_runtime_info_t sdrr_runtime_info __attribute__((section(".sdrr_runtime_info
 #endif // OVERCLOCK
     .status_led_enabled = 0,  // updated from sdrr_info in vector.c
     .swd_enabled = 0,  // updated from sdrr_info in vector.c
+    .fire_vreg = FIRE_VREG_STOCK,
+    .ice_freq = ICE_FREQ_NONE,
+    .fire_freq = FIRE_FREQ_NONE,
+    .sysclk_mhz = TARGET_FREQ_MHZ,
 #if defined(RP_PIO) && (RP_PIO == 1)
     .fire_pio_mode = 1,
 #else // !RP_PIO
     .fire_pio_mode = 0,
 #endif // RP_PIO
+    .pad = {0},
 };
 
 // This function checks the state of the image select pins, and returns an
@@ -190,7 +193,7 @@ void process_firmware_overrides(
             }
             if (overrides->override_present[0] & (1 << 1)) {
                 runtime_info->overclock_enabled = overrides->override_value[0] & (1 << 0) ? 1 : 0;
-                LOG("ICE voltage override: %d", runtime_info->overclock_enabled);
+                LOG("ICE overclock override: %d", runtime_info->overclock_enabled);
             }
 #endif
 #if defined(RP235X)
@@ -208,17 +211,19 @@ void process_firmware_overrides(
             }
 #endif
             if (overrides->override_present[0] & (1 << 5)) {
-                runtime_info->status_led_enabled = overrides->override_value[1] & (1 << 2) ? 1 : 0;
+                runtime_info->status_led_enabled = overrides->override_value[0] & (1 << 2) ? 1 : 0;
                 LOG("Status LED override: %d", runtime_info->status_led_enabled);
             }
             if (overrides->override_present[0] & (1 << 6)) {
-                runtime_info->swd_enabled = overrides->override_value[1] & (1 << 3) ? 1 : 0;
+                runtime_info->swd_enabled = overrides->override_value[0] & (1 << 3) ? 1 : 0;
                 LOG("SWD enabled override: %d", runtime_info->swd_enabled);
             }
+#if defined(RP235X)
             if (overrides->override_present[0] & (1 << 7)) {
-                runtime_info->fire_pio_mode = overrides->override_value[1] & (1 << 4) ? 1 : 0;
+                runtime_info->fire_pio_mode = overrides->override_value[0] & (1 << 4) ? 1 : 0;
                 LOG("Fire PIO mode override: %d", runtime_info->fire_pio_mode);
             }
+#endif
         }
     }
     else if (set->extra_info == 0) {

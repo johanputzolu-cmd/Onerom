@@ -781,7 +781,9 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         writeln!(file, "    .usb_port = PORT_NONE,")?;
         writeln!(file, "    .vbus_pin = 255,")?;
     }
-    writeln!(file, "    .reserved1 = {{0}},")?;
+
+    writeln!(file, "    .fire_pio_default = {},", if board.mcu_pio() { 1 } else { 0 })?;
+    
     writeln!(file, "    .runtime_info = &_sdrr_runtime_info_ram,")?;
     writeln!(file, "    ._post = {{")?;
     for _ in 0..30 {

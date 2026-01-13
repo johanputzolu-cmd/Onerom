@@ -564,7 +564,7 @@ void enter_bootloader(void) {
     // However, we do want to explicitly disable mass storage mode, so we set
     // bit 0 of p0 (not p1!).  If you want mass storage mode, jump BOOTSEL to
     // GND when plugging in.
-    // p0 |= 0x01;     // Disable mass storage mode
+    p0 |= 0x01;     // Disable mass storage mode
     reboot(flags, ms_delay, p0, p1);
 }
 
@@ -669,9 +669,17 @@ void check_config(
         }
     }
 
-    // Check sel jumper pull value
-    if (info->pins->sel_jumper_pull > 1) {
-        LOG("!!! Sel jumper pull value invalid");
+    // As of 0.6.0 sel_jumper_pulls is a bit field.  Check it isn't larger
+    // than it should be given the number of valid sel pins.
+    uint8_t sel_pins_used = 0;
+    for (int ii = 0; ii < MAX_IMG_SEL_PINS; ii++)
+    {
+        if (info->pins->sel[ii] < MAX_USED_GPIOS) {
+            sel_pins_used += 1;
+        }
+    }
+    if (info->pins->sel_jumper_pull >= (1 << sel_pins_used)) {
+        LOG("!!! Sel jumper pull value invalid for number of sel pins used");
         failed = 1;
     }
 

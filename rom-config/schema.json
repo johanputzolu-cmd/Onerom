@@ -94,12 +94,22 @@
             "properties": {
                 "cpu_freq": {
                     "description": "CPU frequency.  Only specific frequencies are supported",
-                    "$ref": "#/$defs/FireCpuFreq"
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/FireCpuFreq"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "overclock": {
                     "description": "Whether overclocking is enabled",
-                    "type": "boolean",
-                    "default": false
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "default": null
                 },
                 "serve_mode": {
                     "description": "Option PIO/CPU override",
@@ -114,13 +124,17 @@
                 },
                 "vreg": {
                     "description": "Optional Vreg output voltage setting for RP2350 MCUs.",
-                    "$ref": "#/$defs/FireVreg",
-                    "default": "Stock"
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/FireVreg"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null
                 }
-            },
-            "required": [
-                "cpu_freq"
-            ]
+            }
         },
         "FireCpuFreq": {
             "type": "string",
@@ -293,17 +307,24 @@
             "properties": {
                 "cpu_freq": {
                     "description": "CPU frequency.  Only specific frequencies are supported",
-                    "$ref": "#/$defs/IceCpuFreq"
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/IceCpuFreq"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
                 },
                 "overclock": {
                     "description": "Whether overclocking is enabled",
-                    "type": "boolean",
-                    "default": false
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "default": null
                 }
-            },
-            "required": [
-                "cpu_freq"
-            ]
+            }
         },
         "IceCpuFreq": {
             "type": "string",

@@ -128,6 +128,7 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Only output a header if output-binary argument not set
+    #[allow(clippy::collapsible_if)]
     if let Some(binary) = args.output_binary {
         if !binary {
             print_header();

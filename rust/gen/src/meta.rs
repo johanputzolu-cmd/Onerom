@@ -380,7 +380,7 @@ impl Metadata {
         offset += len;
 
         let len = 228;
-        buf[offset..offset + len].copy_from_slice(&[0u8; 228]);
+        buf[offset..offset + len].copy_from_slice(&[0xFFu8; 228]);
         offset += len;
 
         // Final sanity check

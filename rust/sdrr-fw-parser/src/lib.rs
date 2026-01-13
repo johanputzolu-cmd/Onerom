@@ -366,6 +366,14 @@ impl<'a, R: Reader> Parser<'a, R> {
         // Parse and validate header using the helper
         let mut header = self.retrieve_header().await?;
 
+        // Get firmware version
+        let version = FirmwareVersion::new(
+            header.major_version,
+            header.minor_version,
+            header.patch_version,
+            header.build_number,
+        );
+
         // Update our base address based on the header - before this we don't
         // need to have the correct base_flash_address set.  Base RAM is the
         // same.
@@ -395,7 +403,7 @@ impl<'a, R: Reader> Parser<'a, R> {
 
         // Parse extra info
         let (extra_info, runtime_info_ptr) =
-            match parsing::read_extra_info(self.reader, header.extra_ptr, self.base_flash_address)
+            match parsing::read_extra_info(self.reader, header.extra_ptr, self.base_flash_address, &version)
                 .await
             {
                 Ok(info) => {
@@ -412,6 +420,8 @@ impl<'a, R: Reader> Parser<'a, R> {
         let metadata_present = if header.major_version > 0 || header.minor_version > 4 {
             // OneRomMetadataHeader should be parsed for 0.5.0 and above.  Its
             // pointer is actually stored in rom_sets_ptr.
+            // However, it is valid to build a firmware file without metadata even
+            // beyond 0.5.0 - so we do not report that as an error.
             let metadata_ptr = header.rom_sets_ptr;
             header.rom_set_count = 0;
             header.rom_sets_ptr = 0;
@@ -450,9 +460,8 @@ impl<'a, R: Reader> Parser<'a, R> {
                         false
                     }
                 }
-                Err(e) => {
+                Err(_) => {
                     // Set ROM set info to 0
-                    parse_errors.push(ParseError::new("Metadata", e));
                     false
                 }
             }
@@ -547,12 +556,7 @@ impl<'a, R: Reader> Parser<'a, R> {
             parse_errors,
             extra_info,
             metadata_present,
-            version: FirmwareVersion::new(
-                header.major_version,
-                header.minor_version,
-                header.patch_version,
-                header.build_number,
-            ),
+            version,
             board,
             model,
             mcu_variant,

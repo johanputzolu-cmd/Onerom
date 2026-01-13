@@ -20,7 +20,7 @@ default-members = [
     "gen",
     "sdrr-fw-parser",
     "sdrr-gen",
-    "sdrr-info"
+    "sdrr-info",
 ]
 resolver = "2"
 

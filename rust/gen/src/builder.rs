@@ -560,14 +560,11 @@ impl Builder {
 
     /// Mark a license as validated
     pub fn accept_license(&mut self, license: &License) -> Result<()> {
-        // Check license id is valid
-        let own_license = self.licenses.remove(&license.id);
-        if let Some(own_license) = own_license {
-            self.licenses.insert(license.id, own_license);
-            Ok(())
-        } else {
-            Err(Error::InvalidLicense { id: license.id })
-        }
+        let own_license = self.licenses.get_mut(&license.id)
+            .ok_or(Error::InvalidLicense { id: license.id })?;
+        
+        own_license.validated = true;
+        Ok(())
     }
 
     fn total_file_count(&self) -> usize {

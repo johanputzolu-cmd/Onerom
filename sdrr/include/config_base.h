@@ -115,7 +115,9 @@ typedef struct {
     sdrr_mcu_port_t usb_port;
     // Pin number for VBUS detection
     uint8_t vbus_pin;
-    uint8_t reserved1[1];
+    // Whether PIO mode is set by default on Fire
+    // Modified from reserved in 0.6.0
+    uint8_t fire_pio_default;
 
     // Added in 0.5.10
     const struct sdrr_runtime_info_t* runtime_info;
@@ -559,7 +561,7 @@ typedef struct onerom_metadata_header_t {
     // Offset: 24
     const sdrr_rom_set_t *rom_sets;
 
-    // Reserved for future expansion.
+    // Reserved for future expansion, preferably set to 0xff.
     //
     // Offset: 28
     const uint8_t reserved[228];

@@ -4,6 +4,8 @@ All notables changes between versions are documented in this file.
 
 ## v0.6.0 - 2026-??-??
 
+EXPERIMENTAL RELEASE - may contains bugs, use with caution.
+
 This major release of the One ROM firmware adds support for low-level firmware configuration from the ROM config files, allowing per-ROM image configuration of processor clock speed, status LED behaviour, and other low-level capabilities.
 
 As a major firmware release, there are some non-backwards compatible changes in this release:
@@ -15,11 +17,18 @@ As a major firmware release, there are some non-backwards compatible changes in 
 
 - Support for per-ROM image low-level configuration, including processor clock speed, status LED behaviour, and other low-level capabilities.  See the ROM Config [README](rom-config/README.md) for details.
 - Support for fire-24-d and ice-24-j hardware revisions.
+- Enhanced onerom-fw CLI tool to receive a local firmware file.
 
 ### Changed
 
 - ROM config JSON schema change - `sel_jumper_pull` is now a Vec<u8>, to allow per-pin SEL jumper pull direction.
 - PIO support is now built into all RP2350 firmwares, and is enabled/disabled by default using RP_PIO build flag.
+
+### Known Limitations
+
+- The firmware does not support image select pins shared with SWD pins.  At present image select pins shared with SWD pins are ignored.
+  - This is expected to be added in a future release.
+  - It is relevant for `fire-24-d` and `ice-24-j` hardware revisions.
 
 ## v0.5.10 - 2026-01-03
 

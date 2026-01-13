@@ -542,11 +542,18 @@ void check_config(
         LOG("!!! Not yet checking CS pins for 28 pin ROMs");
     }
 
-    // Check sel jumper pull value
-    if (info->pins->sel_jumper_pull > 1) {
-        LOG("!!! Sel jumper pull value invalid");
+    // As of 0.6.0 sel_jumper_pulls is a bit field.  Check it isn't larger
+    // than it should be given the number of valid sel pins.
+    uint8_t sel_pins_used = 0;
+    for (int ii = 0; ii < MAX_IMG_SEL_PINS; ii++)
+    {
+        if (info->pins->sel[ii] < MAX_USED_GPIOS) {
+            sel_pins_used += 1;
+        }
     }
-
+    if (info->pins->sel_jumper_pull >= (1 << sel_pins_used)) {
+        LOG("!!! Sel jumper pull value invalid for number of sel pins used");
+    }
 
     // Warn if serve mode is incorrectly set for multiple ROM images
     if ((set->rom_count == 1) && (set->serve == SERVE_ADDR_ON_ANY_CS)) {
@@ -807,7 +814,7 @@ uint8_t calculate_pll_hsi(ice_mcu_clock_config_t *clock_config,
 
                 config->pllm = PLLM;
                 config->plln = (uint16_t)plln;
-                config->pllp = pllp;
+                config->pllp = i; // PLLP encoded value
                 config->pllq = pllq;
                 return 1;
             }

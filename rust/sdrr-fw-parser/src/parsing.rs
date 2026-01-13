@@ -7,6 +7,7 @@
 //! Contains code and internal structures for parsing the SDRR firmware
 
 use deku::prelude::*;
+use onerom_config::fw::FirmwareVersion;
 use onerom_gen::firmware::{FirmwareConfig, ServeAlgParams};
 use static_assertions::const_assert_eq;
 
@@ -141,7 +142,7 @@ pub(crate) struct SdrrExtraInfoHeader {
     pub usb_dfu: u8,
     pub usb_port: u8,
     pub vbus_pin: u8,
-    pub reserved1: [u8; 1],
+    pub fire_pio_default: u8, // Changed from reserved in 0.6.0
 
     pub runtime_info_ptr: u32,
 
@@ -379,6 +380,7 @@ pub(crate) async fn read_extra_info<R: Reader>(
     reader: &mut R,
     ptr: u32,
     base_addr: u32,
+    version: &FirmwareVersion,
 ) -> Result<SdrrExtraInfo, String> {
     if ptr < base_addr {
         return Err(format!("ROM Extra Info invalid pointer: {ptr:#010X}"));
@@ -396,11 +398,19 @@ pub(crate) async fn read_extra_info<R: Reader>(
     let usb_port = SdrrMcuPort::from(header.usb_port);
     let vbus_pin = header.vbus_pin;
 
+    const MIN_FIRE_PIO_DEFAULT_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 0, 0);
+    let fire_pio_default = if *version >= MIN_FIRE_PIO_DEFAULT_VERSION {
+        Some(header.fire_pio_default != 0)
+    } else {
+        None
+    };
+
     Ok(SdrrExtraInfo {
         rtt_ptr: header.rtt_ptr,
         usb_dfu: header.usb_dfu != 0,
         usb_port,
         vbus_pin,
+        fire_pio_default,
         runtime_info_ptr: header.runtime_info_ptr,
     })
 }
