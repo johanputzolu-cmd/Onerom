@@ -1362,6 +1362,8 @@ static void piorom_finish_config(
     DEBUG("  - Address Read IRQ:   %d", config->addr_read_irq);
     DEBUG("  - Address Read Delay: %d", config->addr_read_delay);
     DEBUG("  - CS Active Delay:    %d", config->cs_active_delay);
+    DEBUG("  - CS Inactive Delay:  %d", config->cs_inactive_delay);
+    DEBUG("  - No DMA:             %d", config->no_dma);
     DEBUG("  ROM Table Address:  0x%08X", config->rom_table_addr);
 }
 

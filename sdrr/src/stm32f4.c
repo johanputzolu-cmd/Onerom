@@ -119,8 +119,12 @@ void setup_clock(void) {
     // Get the requested clock speed from compile time and any ROM set overrides
     if (sdrr_runtime_info.ice_freq == ICE_FREQ_NONE) {
         clock_config.freq_mhz = sdrr_info.freq;
-    } else if (sdrr_runtime_info.ice_freq != ICE_FREQ_STOCK) {
+    } else if ((sdrr_runtime_info.ice_freq != ICE_FREQ_STOCK) 
+        && (sdrr_runtime_info.ice_freq < MAX_ICE_FREQ)) {
         clock_config.freq_mhz = (uint16_t)sdrr_runtime_info.ice_freq;
+    } else {
+        LOG("!!! Invalid ICE frequency requested - using compile time");
+        clock_config.freq_mhz = sdrr_info.freq;
     }
 
     // Only allow overclocking if enabled
@@ -261,6 +265,11 @@ uint32_t setup_sel_pins(uint32_t *sel_mask, uint32_t *flip_bits) {
     for (int ii = 0; ii < MAX_IMG_SEL_PINS; ii++) {
         uint8_t pin = sdrr_info.pins->sel[ii];
 
+        if (pin >= MAX_USED_GPIOS) {
+            // Ignore invalid pins
+            continue;
+        }
+        
         if ((sdrr_info.swd_enabled) &&
             ((pin == sdrr_info.pins->swclk_sel) ||
              (pin == sdrr_info.pins->swdio_sel))) {

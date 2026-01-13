@@ -36,7 +36,6 @@ sdrr_runtime_info_t sdrr_runtime_info __attribute__((section(".sdrr_runtime_info
 #else // !RP_PIO
     .fire_pio_mode = 0,
 #endif // RP_PIO
-    
 };
 
 // This function checks the state of the image select pins, and returns an

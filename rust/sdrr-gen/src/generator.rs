@@ -332,7 +332,9 @@ fn generate_roms_implementation_file(
             .map_err(|e| anyhow::anyhow!("In ROM set {}: {e:?}", rom_set.id))?;
         let set_cs_state = multi_cs_logic.c_value();
         writeln!(file, "        .multi_rom_cs1_state = {},", set_cs_state)?;
-        writeln!(file, "        .extra_info = 1,")?;
+
+        // sdrr-gen does NOT support extra ROM set (override) info
+        writeln!(file, "        .extra_info = 0,")?;
 
         // Post 0.6.0 firmware additions
         writeln!(file, "        .serve_config = (void *)0,")?;
@@ -767,7 +769,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
 
     // Extra info structure, introduced in v0.4.0
     writeln!(file, "// Extra info")?;
-    writeln!(file, "extern struct sdrr_runtime_info_t _sdrr_runtime_info_start;")?;
+    writeln!(file, "extern struct sdrr_runtime_info_t _sdrr_runtime_info_ram;")?;
     writeln!(file, "static const sdrr_extra_info_t sdrr_extra_info = {{")?;
     writeln!(file, "    .rtt = &_SEGGER_RTT,")?;
     if board.has_usb() {
@@ -780,7 +782,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         writeln!(file, "    .vbus_pin = 255,")?;
     }
     writeln!(file, "    .reserved1 = {{0}},")?;
-    writeln!(file, "    .runtime_info = &_sdrr_runtime_info_start,")?;
+    writeln!(file, "    .runtime_info = &_sdrr_runtime_info_ram,")?;
     writeln!(file, "    ._post = {{")?;
     for _ in 0..30 {
         writeln!(
