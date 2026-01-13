@@ -525,7 +525,7 @@ fn generate_sdrr_config_header(filename: &Path, config: &Config) -> Result<()> {
     // Oscillator config
     writeln!(file)?;
     writeln!(file, "// Oscillator configuration")?;
-    if config.hse {
+    if config.hse || config.board.has_usb() {
         writeln!(file, "// #define HSI 0")?;
         writeln!(file, "#define HSE 1     // External oscillator selected")?;
     } else {
@@ -537,7 +537,7 @@ fn generate_sdrr_config_header(filename: &Path, config: &Config) -> Result<()> {
     writeln!(file)?;
     writeln!(file, "// PLL configuration")?;
     let pll = PllConfig::new(config.mcu_variant.processor());
-    if let Some(pll_defines) = pll.generate_pll_defines(config.freq, config.overclock) {
+    if let Some(pll_defines) = pll.generate_pll_defines(config.freq, config.overclock, config.board.has_usb()) {
         writeln!(file, "{}", pll_defines)?;
         if config.overclock {
             writeln!(file, "#define OVERCLOCK 1  // Overclocking enabled")?;

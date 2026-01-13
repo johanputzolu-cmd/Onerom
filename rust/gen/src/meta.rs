@@ -515,7 +515,7 @@ impl Metadata {
             .ice
             .as_ref()
             .and_then(|c| c.cpu_freq.as_ref())
-            .map(|f| f.clone() as u16)
+            .map(|f| f.get())
             .unwrap_or(0xFFFF);
         buf[offset..offset + 2].copy_from_slice(&ice_freq.to_le_bytes());
         offset += 2;
@@ -524,7 +524,7 @@ impl Metadata {
             .fire
             .as_ref()
             .and_then(|c| c.cpu_freq.as_ref())
-            .map(|f| f.clone() as u16)
+            .map(|f| f.get())
             .unwrap_or(0xFFFF);
         buf[offset..offset + 2].copy_from_slice(&fire_freq.to_le_bytes());
         offset += 2;

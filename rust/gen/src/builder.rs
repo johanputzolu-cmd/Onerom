@@ -637,10 +637,15 @@ impl Builder {
                 rom_id += 1;
             }
 
+            let serve_alg = if let Some(alg) = rom_set_config.serve_alg {
+                alg
+            } else {
+                props.serve_alg()
+            };
             let rom_set = RomSet::new(
                 set_id,
                 rom_set_config.set_type.clone(),
-                props.serve_alg(),
+                serve_alg,
                 set_roms,
                 rom_set_config.firmware_overrides.clone(),
             )?;

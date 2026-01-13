@@ -89,7 +89,7 @@ impl Config {
         // Validate and set frequency
         #[allow(clippy::match_single_binding)]
         let pll = PllConfig::new(self.mcu_variant.processor());
-        if !pll.is_frequency_valid(self.freq, self.overclock) {
+        if !pll.is_frequency_valid(self.freq, self.overclock, self.board.has_usb()) {
             return Err(format!(
                 "Frequency {}MHz is not valid for variant {}. Valid range: 16-{}MHz.",
                 self.freq,

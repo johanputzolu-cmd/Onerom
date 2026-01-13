@@ -9,7 +9,12 @@
 #include "roms.h"
 
 // Internal function prototypes
+uint8_t calculate_pll_settings(
+    rp235x_clock_config_t *clock_config,
+    uint8_t overclock
+);
 static void get_clock_config(rp235x_clock_config_t *config);
+uint8_t get_vreg_from_target_mhz(uint16_t target_mhz);
 static void setup_xosc(void);
 static void setup_pll(rp235x_clock_config_t *config);
 static void setup_usb_pll(void);
@@ -100,46 +105,134 @@ void vbus_connect_handler(void) {
     enter_bootloader();
 }
 
+uint8_t calculate_pll_settings(
+    rp235x_clock_config_t *config,
+    uint8_t overclock
+) {
+    const uint32_t XOSC_MHZ = 12;
+    const uint8_t REFDIV = 1;
+
+    (void)overclock;
+    
+    uint32_t target_freq_mhz = config->sys_clock_freq_mhz;
+
+    if ((target_freq_mhz > RP235X_STOCK_CLOCK_SPEED_MHZ) && (!overclock)) {
+        LOG("!!! Requested frequency %dMHz exceeds max %dMHz - cannot calculate PLL",
+            target_freq_mhz, RP235X_STOCK_CLOCK_SPEED_MHZ);
+        return 0;
+    }
+    
+    uint32_t vco_min = 750;
+    uint32_t vco_max = 1600;
+    
+    // Try POSTDIV combinations (prefer higher PD1:PD2 ratios)
+    uint32_t best_error = UINT32_MAX;
+    uint8_t rc = 0;
+    for (uint8_t pd2 = 1; pd2 <= 7; pd2++) {
+        for (uint8_t pd1 = 1; pd1 <= 7; pd1++) {
+            uint32_t divisor = pd1 * pd2;
+            uint32_t vco_mhz = target_freq_mhz * divisor;
+            
+            uint32_t fbdiv = (vco_mhz + 6) / XOSC_MHZ;  // Round to nearest
+            
+            if (fbdiv >= 16 && fbdiv <= 320) {
+                uint32_t actual_vco = XOSC_MHZ * fbdiv;
+                if (actual_vco >= vco_min && actual_vco <= vco_max) {
+                    uint32_t target_vco = target_freq_mhz * divisor;
+                    uint32_t error = (actual_vco > target_vco) ? 
+                                    (actual_vco - target_vco) : 
+                                    (target_vco - actual_vco);
+                                    
+                    if (error < best_error) {
+                        best_error = error;
+                        config->pll_refdiv = REFDIV;
+                        config->pll_sys_fbdiv = (uint16_t)fbdiv;
+                        config->pll_sys_postdiv1 = pd1;
+                        config->pll_sys_postdiv2 = pd2;
+                        rc = 1;
+                    }
+                }
+            }
+        }
+    }
+    
+    return rc;
+}
+
+uint8_t get_vreg_from_target_mhz(uint16_t target_mhz) {
+    uint8_t vreg = FIRE_VREG_1_10V;
+    
+    // These are conservative values.  The RP235X accepts values up to 3.30V.
+    // Higher values may be required for very high overclocks, but may also
+    // damage the chip or reduce its lifespan.
+    //
+    // To use custom VREG settngs, use firmware overrides in the ROM config.
+    if (target_mhz >= 500) {
+        vreg = FIRE_VREG_1_60V;
+    } else if (target_mhz >= 450) {
+        vreg = FIRE_VREG_1_50V;
+    } else if (target_mhz >= 425) {
+        vreg = FIRE_VREG_1_40V;
+    } else if (target_mhz >= 400) {
+        vreg = FIRE_VREG_1_30V;
+    } else if (target_mhz >= 375) {
+        vreg = FIRE_VREG_1_25V;
+    } else if (target_mhz >= 340) {
+        vreg = FIRE_VREG_1_20V;
+    } else if (target_mhz > 300) {
+        vreg = FIRE_VREG_1_15V;
+    }
+
+    return vreg;
+}
+
 // Figures out the PLL and VREG configuration based on the combination of
 // compile time info and any ROM set overrides.
 void get_clock_config(rp235x_clock_config_t *config) {
     if (sdrr_runtime_info.fire_freq == FIRE_FREQ_NONE) {
+        // Use compile time setting if not overridden
         config->sys_clock_freq_mhz = TARGET_FREQ_MHZ;
-        config->pll_refdiv = PLL_SYS_REFDIV;
-        config->pll_sys_fbdiv = PLL_SYS_FBDIV;
-        config->pll_sys_postdiv1 = PLL_SYS_POSTDIV1;
-        config->pll_sys_postdiv2 = PLL_SYS_POSTDIV2;
-
-        // Try to find vreg from the clock config table
-        config->vreg = FIRE_VREG_1_10V; // Default
-        for (int ii = 0; ii < RP235X_CLOCK_CONFIG_COUNT; ii++) {
-            if (rp235x_clock_config[ii].sys_clock_freq_mhz == TARGET_FREQ_MHZ) {
-                config->vreg = rp235x_clock_config[ii].vreg;
-                break;
-            }
-        }
+    } else if (sdrr_runtime_info.fire_freq == FIRE_FREQ_STOCK) {
+        // Use stock speed (150MHz) if requested
+        config->sys_clock_freq_mhz = RP235X_STOCK_CLOCK_SPEED_MHZ;
+    } else if (sdrr_runtime_info.fire_freq < RP235X_MAX_CONFIGURABLE_MHZ) {
+        config->sys_clock_freq_mhz = sdrr_runtime_info.fire_freq;
     } else {
-        if (sdrr_runtime_info.fire_freq == FIRE_FREQ_STOCK) {
-            memcpy(config, &rp235x_clock_config[0], sizeof(rp235x_clock_config_t));
-        } else if (sdrr_runtime_info.fire_freq < RP235X_CLOCK_CONFIG_COUNT) {
-            memcpy(config, &rp235x_clock_config[sdrr_runtime_info.fire_freq], sizeof(rp235x_clock_config_t));
-        } else {
-            LOG("!!! Invalid fire frequency setting 0x%04X - using stock", sdrr_runtime_info.fire_freq);
-            memcpy(config, &rp235x_clock_config[0], sizeof(rp235x_clock_config_t));
-        }
-
-        if ((sdrr_runtime_info.fire_vreg != FIRE_VREG_STOCK) && (sdrr_runtime_info.fire_vreg != FIRE_VREG_NONE)) {
-            config->vreg = sdrr_runtime_info.fire_vreg;
-        }
+        LOG("!!! Fire frequency set to more than absolute maximum %0d/%0d - using stock", sdrr_runtime_info.fire_freq, RP235X_MAX_CONFIGURABLE_MHZ);
+        config->sys_clock_freq_mhz = RP235X_STOCK_CLOCK_SPEED_MHZ;
     }
 
+    // Check for overclocking enabled
     if (config->sys_clock_freq_mhz > RP235X_STOCK_CLOCK_SPEED_MHZ) {
         if (sdrr_runtime_info.overclock_enabled) {
             LOG("Overclocking enabled - allowing %dMHz", config->sys_clock_freq_mhz);
         } else {
             LOG("!!! Overclocking disabled - capping at stock %dMHz", RP235X_STOCK_CLOCK_SPEED_MHZ);
-            memcpy(config, &rp235x_clock_config[0], sizeof(rp235x_clock_config_t));
+            config->sys_clock_freq_mhz = RP235X_STOCK_CLOCK_SPEED_MHZ;
         }
+    }
+
+    // Calculate PLL settings, to get as close to target frequency as possible.
+    // This can fail for very low and very high frequencies.
+    if (!calculate_pll_settings(
+        config,
+        sdrr_runtime_info.overclock_enabled
+    )) {
+        LOG("!!! Could not calculate PLL settings - using compile time settings %dMHz", TARGET_FREQ_MHZ);
+        config->sys_clock_freq_mhz = TARGET_FREQ_MHZ;  
+        config->pll_refdiv = PLL_SYS_REFDIV;
+        config->pll_sys_fbdiv = PLL_SYS_FBDIV;
+        config->pll_sys_postdiv1 = PLL_SYS_POSTDIV1;
+        config->pll_sys_postdiv2 = PLL_SYS_POSTDIV2;
+    }
+
+    // Set VREG
+    if ((sdrr_runtime_info.fire_vreg != FIRE_VREG_STOCK) && (sdrr_runtime_info.fire_vreg != FIRE_VREG_NONE)) {
+        // Overriding VREG
+        config->vreg = sdrr_runtime_info.fire_vreg;
+    } else {
+        // Using calculated VREG
+        config->vreg = get_vreg_from_target_mhz(config->sys_clock_freq_mhz);
     }
 
     LOG("Setting clock to %dMHz: refdiv=%d, fbdiv=%d, postdiv1=%d, postdiv2=%d, vreg=%d",

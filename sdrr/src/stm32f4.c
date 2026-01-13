@@ -9,15 +9,18 @@
 #include "roms.h"
 
 // Internal function prototypes
-uint8_t calculate_pll_hsi(ice_mcu_clock_config_t *clock_config, 
-                            uint8_t overclock,
-                            pll_config_t *config);
+uint8_t calculate_pll_settings(
+    ice_mcu_clock_config_t *clock_config, 
+    uint8_t overclock,
+    uint8_t xtal_freq_mhz,
+    pll_config_t *config
+);
 static void setup_pll_mul(pll_config_t *config);
 static void setup_pll_src(uint8_t src);
 static void enable_pll(void);
-#if defined(DEBUG_LOGGING)
+#if defined(DEBUG_LOGGING) && defined(HSI) && (HSI == 1)
 static uint8_t get_hsi_cal(void);
-#endif // DEBUG_LOGGING
+#endif // DEBUG_LOGGING && HSI
 static void set_clock(uint8_t clock);
 #if defined(HSI_TRIM)
 static void trim_hsi(uint8_t trim);
@@ -108,7 +111,7 @@ void vbus_connect_handler(void) {
 void setup_clock(void) {
     ice_mcu_clock_config_t clock_config;
 
-    // Get the max rated clock speed for this MCU
+    // Get the max rated and other clock speed settings for this MCU
     if (sdrr_info.mcu_line < NUM_ICE_MCU_CLOCK_CONFIGS) {
         memcpy(&clock_config, &ice_mcu_clock_config[sdrr_info.mcu_line], sizeof(ice_mcu_clock_config_t));
     } else {
@@ -120,8 +123,10 @@ void setup_clock(void) {
     if (sdrr_runtime_info.ice_freq == ICE_FREQ_NONE) {
         clock_config.freq_mhz = sdrr_info.freq;
     } else if ((sdrr_runtime_info.ice_freq != ICE_FREQ_STOCK) 
-        && (sdrr_runtime_info.ice_freq < MAX_ICE_FREQ)) {
+        && (sdrr_runtime_info.ice_freq <= STM32F4_MAX_CONFIGURABLE_MHZ)) {
         clock_config.freq_mhz = (uint16_t)sdrr_runtime_info.ice_freq;
+    } else if (sdrr_runtime_info.ice_freq == ICE_FREQ_STOCK) {
+        // No-op - stock settings already loaded
     } else {
         LOG("!!! Invalid ICE frequency requested - using compile time");
         clock_config.freq_mhz = sdrr_info.freq;
@@ -173,32 +178,48 @@ void setup_clock(void) {
 
     // Always use PLL - note when using HSI, HSI/2 is fed to PLL.  When using
     // HSE, HSE itself is fed to PLL.
-#if defined(DEBUG_LOGGING)
+#if defined(DEBUG_LOGGING) && defined(HSI) && (HSI == 1)
     uint8_t hsi_cal = get_hsi_cal();
     DEBUG("HSI cal value: 0x%x", hsi_cal);
-#endif // DEBUG_LOGGING
+#endif // DEBUG_LOGGING && HSI
 #if defined(HSI_TRIM)
     trim_hsi(HSI_TRIM);
 #else
     DEBUG("Not trimming HSI");
 #endif // HSI_TRIM
+#if defined(HSE) && (HSE == 1)
+    DEBUG("Using HSE as PLL source");
+    // Enable HSE
+    RCC_CR |= RCC_CR_HSEON;
+    while (!(RCC_CR & RCC_CR_HSERDY));
+    LOG("HSE ready");
+    uint8_t pll_src = RCC_PLLCFGR_PLLSRC_HSE;
+#else // ! HSE
+    DEBUG("Using HSI as PLL source");
     uint8_t pll_src = RCC_PLLCFGR_PLLSRC_HSI;
+#endif // HSE
 
-    pll_config_t config;
-    if (!calculate_pll_hsi(
+    pll_config_t pll_config;
+    uint8_t xtal_freq_mhz;
+    if (sdrr_info.extra->usb_dfu) {
+        xtal_freq_mhz = 12;
+    } else {
+        xtal_freq_mhz = 16;
+    }
+    if (!calculate_pll_settings(
         &clock_config,
         sdrr_runtime_info.overclock_enabled,
-        &config
+        xtal_freq_mhz,
+        &pll_config
     )) {
-        config.pllm = PLL_M;
-        config.plln = PLL_N;
-        config.pllp = PLL_P;
-        config.pllq = PLL_Q;
+        pll_config.pllm = PLL_M;
+        pll_config.plln = PLL_N;
+        pll_config.pllp = PLL_P;
+        pll_config.pllq = PLL_Q;
         sdrr_runtime_info.sysclk_mhz = TARGET_FREQ_MHZ;
         LOG("!!! Could not calculate PLL settings - using compile time settings %dMHz", TARGET_FREQ_MHZ);
     }
-    setup_pll_mul(&config);
-
+    setup_pll_mul(&pll_config);
     setup_pll_src(pll_src);
     enable_pll();
     DEBUG("PLL started");
@@ -771,12 +792,17 @@ void get_pll_vals(uint8_t *m, uint16_t *n, uint8_t *p, uint8_t *q) {
  * Returns true if frequency achievable, false otherwise
  * Results written to *config
  */
-uint8_t calculate_pll_hsi(ice_mcu_clock_config_t *clock_config, 
-                            uint8_t overclock,
-                            pll_config_t *config)
-{
+uint8_t calculate_pll_settings(
+    ice_mcu_clock_config_t *clock_config, 
+    uint8_t overclock,
+    uint8_t xtal_freq_mhz,
+    pll_config_t *config
+) {
     // Validate target frequency is within limits
     if (clock_config->freq_mhz > clock_config->max_freq_mhz && !overclock) {
+        LOG("!!! Requested clock %dMHz exceeds max %dMHz - cannot calculate PLL",
+            clock_config->freq_mhz,
+            clock_config->max_freq_mhz);
         return 0;
     }
 
@@ -787,12 +813,21 @@ uint8_t calculate_pll_hsi(ice_mcu_clock_config_t *clock_config,
     } else {
         vco_max_mhz = clock_config->vco_max_mhz;
     }
-        vco_min_mhz = clock_config->vco_min_mhz;
+    vco_min_mhz = clock_config->vco_min_mhz;
 
-    // HSI = 16 MHz, target VCO input = 2 MHz for best jitter
-    const uint32_t HSI_MHZ = 16;
-    const uint8_t PLLM = 8;  // 16/8 = 2 MHz VCO input
-    const uint32_t VCO_IN_MHZ = HSI_MHZ / PLLM;
+    // HSI = 16 MHz, HSE=12MHz
+    // Target VCO input = 2 MHz for best jitter
+    uint8_t PLLM;
+    if (xtal_freq_mhz == 16) {
+        PLLM = 8;  // 16/8 = 2 MHz VCO input
+    } else if (xtal_freq_mhz == 12) {
+        PLLM = 6;  // 12/6 = 2 MHz VCO input
+    } else {
+        LOG("!!! Unsupported XTAL frequency %dMHz for PLL calculation", xtal_freq_mhz);
+        return 0;
+    }
+    
+    const uint32_t VCO_IN_MHZ = xtal_freq_mhz / PLLM;
 
     // Try PLLP values: 2, 4, 6, 8
     const uint8_t pllp_values[] = {2, 4, 6, 8};
@@ -871,11 +906,13 @@ void enable_pll(void) {
     while (!(RCC_CR & RCC_CR_PLLRDY));
 }
 
+#if defined(DEBUG_LOGGING) && defined(HSI) && (HSI == 1)
 // Get HSI calibration value
 uint8_t get_hsi_cal(void) {
     uint32_t rcc_cr = RCC_CR;
     return (rcc_cr & (0xff << 8)) >> 8;  // Return HSI trim value
 }
+#endif // DEBUG_LOGGING && HSI
 
 // Sets the system clock to the value provided.  By default the system clock
 // uses HSI.  This function cab be used to set it to HSE directly or to the

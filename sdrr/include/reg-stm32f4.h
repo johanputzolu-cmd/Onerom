@@ -259,8 +259,10 @@ typedef struct {
 
 } ice_mcu_clock_config_t;
 
-#if defined(STM32F4_INCLUDES)
+#define STM32F4_MAX_CONFIGURABLE_MHZ 450
 #define NUM_ICE_MCU_CLOCK_CONFIGS 5
+
+#if defined(STM32F4_INCLUDES)
 ice_mcu_clock_config_t ice_mcu_clock_config[NUM_ICE_MCU_CLOCK_CONFIGS] = {
     {
         .freq_mhz = 84,
