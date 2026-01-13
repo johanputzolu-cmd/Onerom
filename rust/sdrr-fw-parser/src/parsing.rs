@@ -14,7 +14,7 @@ use static_assertions::const_assert_eq;
 use crate::Reader;
 use crate::{MAX_VERSION_MAJOR, MAX_VERSION_MINOR, MAX_VERSION_PATCH};
 use crate::{McuLine, McuStorage, SdrrCsState, SdrrRomType, SdrrServe};
-use crate::{SdrrExtraInfo, SdrrPins, SdrrRomInfo, SdrrRomSet, SdrrMcuPort};
+use crate::{SdrrExtraInfo, SdrrMcuPort, SdrrPins, SdrrRomInfo, SdrrRomSet};
 
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String, vec, vec::Vec};
@@ -120,9 +120,9 @@ impl SdrrInfoHeader {
     // Note however, even if included, they may be null pointers, or 0xFFFFFFFF
     // pointers
     pub(crate) fn filenames_enabled(&self) -> bool {
-        if self.major_version > 0 
-            || self.minor_version > 5 
-            || (self.minor_version == 5 && self.patch_version >= 1) 
+        if self.major_version > 0
+            || self.minor_version > 5
+            || (self.minor_version == 5 && self.patch_version >= 1)
         {
             true
         } else {
@@ -215,9 +215,9 @@ pub(crate) struct SdrrRomSetHeader {
 }
 
 impl SdrrRomSetHeader {
-    const BASE_SIZE: usize = 16;  // size when extra_info == 0
-    const EXTRA_SIZE: usize = 48;  // extra size when extra_info == 1
-    
+    const BASE_SIZE: usize = 16; // size when extra_info == 0
+    const EXTRA_SIZE: usize = 48; // extra size when extra_info == 1
+
     pub(crate) const fn base_size() -> usize {
         Self::BASE_SIZE
     }
@@ -482,10 +482,10 @@ pub(crate) async fn read_rom_sets<R: Reader>(
         }
 
         // Read serve_config if present
-        let serve_config = if let Some(serve_config_ptr) = header.serve_config_ptr 
+        let serve_config = if let Some(serve_config_ptr) = header.serve_config_ptr
             && serve_config_ptr != 0
             && serve_config_ptr != 0xFFFF_FFFF
-            {
+        {
             let mut buf = [0u8; 64];
             reader
                 .read(serve_config_ptr, &mut buf)
@@ -497,24 +497,29 @@ pub(crate) async fn read_rom_sets<R: Reader>(
         };
 
         // Read and deserialize firmware_overrides if present
-        let firmware_overrides = if let Some(fw_ptr) = header.firmware_overrides_ptr 
+        let firmware_overrides = if let Some(fw_ptr) = header.firmware_overrides_ptr
             && fw_ptr != 0
             && fw_ptr != 0xFFFF_FFFF
-            {
+        {
             let mut buf = [0u8; 64];
             reader
                 .read(fw_ptr, &mut buf)
                 .await
                 .map_err(|_| format!("Failed to read firmware_overrides for ROM set {}", i))?;
-            
-            let mut fw_config = FirmwareConfig::from_bytes(&buf)
-                .map_err(|e| format!("Failed to parse firmware_overrides for ROM set {}: {}", i, e))?;
-            fw_config.serve_alg_params = Some(ServeAlgParams { params: serve_config.clone().unwrap_or_default() });
+
+            let mut fw_config = FirmwareConfig::from_bytes(&buf).map_err(|e| {
+                format!(
+                    "Failed to parse firmware_overrides for ROM set {}: {}",
+                    i, e
+                )
+            })?;
+            fw_config.serve_alg_params = Some(ServeAlgParams {
+                params: serve_config.clone().unwrap_or_default(),
+            });
             Some(fw_config)
         } else {
             None
         };
-
 
         // Read ROM infos
         let roms = read_rom_infos(reader, info_header, &header, base_addr).await?;

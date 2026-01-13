@@ -262,9 +262,7 @@ fn print_sdrr_info(fw_data: &FirmwareData, args: &Args) {
         "false"
     };
     let usb_dfu = info.extra_info.as_ref().map(|e| e.usb_dfu).unwrap_or(false);
-    println!(
-        "USB DFU:          {usb_dfu}",
-    );
+    println!("USB DFU:          {usb_dfu}",);
     if usb_dfu {
         let port = info.extra_info.as_ref().map(|e| e.usb_port).unwrap();
         let vbus_pin = info.extra_info.as_ref().map(|e| e.vbus_pin).unwrap();
@@ -466,7 +464,6 @@ fn print_sdrr_info(fw_data: &FirmwareData, args: &Args) {
                             println!();
                         }
                     }
-            
                 }
             } else {
                 println!("  FW Overrides:  None");

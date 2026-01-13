@@ -536,9 +536,11 @@ impl Builder {
 
     /// Mark a license as validated
     pub fn accept_license(&mut self, license: &License) -> Result<()> {
-        let own_license = self.licenses.get_mut(&license.id)
+        let own_license = self
+            .licenses
+            .get_mut(&license.id)
             .ok_or(Error::InvalidLicense { id: license.id })?;
-        
+
         own_license.validated = true;
         Ok(())
     }

@@ -6332,7 +6332,6 @@ mod tests {
             fw_overrides.is_override_value_set(4),
             "Serve mode should be PIO"
         );
-
     }
 
     // ========================================================================

@@ -172,10 +172,10 @@ pub struct McuPins {
     pub sel: Vec<u8>,
     pub sel_jumper_pull: Vec<u8>,
     /// If a sel pin is connected to SWCLK, specify it here
-    #[serde(default="invalid_pin")]
+    #[serde(default = "invalid_pin")]
     pub swclk_sel: u8,
     /// If a sel pin is connected to SWDIO, specify it here
-    #[serde(default="invalid_pin")]
+    #[serde(default = "invalid_pin")]
     pub swdio_sel: u8,
     pub status: u8,
 }
@@ -422,18 +422,8 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
     // - Must be a valid pin number
     // - Must match a sel pin
     if config.mcu.pins.swclk_sel != 255 {
-        validate_pin_number(
-            &config.mcu,
-            config.mcu.pins.swclk_sel,
-            "swclk_sel",
-            name,
-        );
-        if !config
-            .mcu
-            .pins
-            .sel
-            .contains(&config.mcu.pins.swclk_sel)
-        {
+        validate_pin_number(&config.mcu, config.mcu.pins.swclk_sel, "swclk_sel", name);
+        if !config.mcu.pins.sel.contains(&config.mcu.pins.swclk_sel) {
             panic!(
                 "{}: swclk_sel pin {} not found in sel pins {:?}",
                 name, config.mcu.pins.swclk_sel, config.mcu.pins.sel
@@ -441,18 +431,8 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
         }
     }
     if config.mcu.pins.swdio_sel != 255 {
-        validate_pin_number(
-            &config.mcu,
-            config.mcu.pins.swdio_sel,
-            "swdio_sel",
-            name,
-        );
-        if !config
-            .mcu
-            .pins
-            .sel
-            .contains(&config.mcu.pins.swdio_sel)
-        {
+        validate_pin_number(&config.mcu, config.mcu.pins.swdio_sel, "swdio_sel", name);
+        if !config.mcu.pins.sel.contains(&config.mcu.pins.swdio_sel) {
             panic!(
                 "{}: swdio_sel pin {} not found in sel pins {:?}",
                 name, config.mcu.pins.swdio_sel, config.mcu.pins.sel

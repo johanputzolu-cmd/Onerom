@@ -465,7 +465,7 @@ impl Args {
                         ));
                     }
                 }
-                "ce"|"oe" => {
+                "ce" | "oe" => {
                     // Not specified
                 }
                 other => {

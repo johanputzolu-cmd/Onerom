@@ -19,8 +19,8 @@ use crate::ManifestType;
 use crate::analyse::Analyse;
 use crate::app::AppMessage;
 use crate::config::{
-    Config, ConfigManifest, SelectedConfig, download_config_async, load_config_file,
-    generate_built_config,
+    Config, ConfigManifest, SelectedConfig, download_config_async, generate_built_config,
+    load_config_file,
 };
 use crate::create::{Create, Message as CreateMessage};
 use crate::hw::HardwareInfo;
@@ -604,28 +604,28 @@ impl Studio {
             } else {
                 warn!("Cannot get firmware version from selected release, cannot build image");
                 return CreateMessage::BuildImageResult(Err(
-                    "Cannot get firmware version from selected release".to_string()
+                    "Cannot get firmware version from selected release".to_string(),
                 ))
                 .into();
-            } 
+            }
         } else {
             warn!("Cannot get firmware version from hardware info, cannot build image");
-            return CreateMessage::BuildImageResult(Err("Cannot get firmware version from hardware info".to_string()))
-                .into();
+            return CreateMessage::BuildImageResult(Err(
+                "Cannot get firmware version from hardware info".to_string(),
+            ))
+            .into();
         };
         let mcu_fam = if let Some(mcu) = hw_info.mcu_variant {
             mcu.family()
         } else {
             warn!("Cannot get MCU family from hardware info, cannot build image");
-            return CreateMessage::BuildImageResult(Err("Cannot get MCU family from hardware info".to_string()))
-                .into();
+            return CreateMessage::BuildImageResult(Err(
+                "Cannot get MCU family from hardware info".to_string(),
+            ))
+            .into();
         };
 
-        let mut builder = match Builder::from_json(
-            fw_ver,
-            mcu_fam,
-            &config_str
-        ) {
+        let mut builder = match Builder::from_json(fw_ver, mcu_fam, &config_str) {
             Ok(b) => b,
             Err(e) => {
                 warn!("Failed to create image builder from config: {e:?}");
@@ -799,13 +799,13 @@ impl Studio {
             Ok(data) => Ok(data),
             Err(onerom_fw::Error::ReleaseNotFound) => {
                 trace!("Release {fw_ver:?} does not exist for {board} {mcu}");
-                return Message::ReleaseDoesntExist.into()
+                return Message::ReleaseDoesntExist.into();
             }
             Err(onerom_fw::Error::Http { status }) => {
                 info!(
                     "Failed to download release {fw_ver:?} for {board} {mcu}: HTTP error {status}"
                 );
-                return Message::ReleaseDoesntExist.into()
+                return Message::ReleaseDoesntExist.into();
             }
             Err(e) => {
                 let log =

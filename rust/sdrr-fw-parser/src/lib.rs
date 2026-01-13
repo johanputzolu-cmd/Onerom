@@ -244,9 +244,12 @@ impl<'a, R: Reader> Parser<'a, R> {
         parse_and_validate_runtime_info(&runtime_buf)
     }
 
-    async fn retrieve_runtime_header_from_info(&mut self, info: &SdrrInfo) -> Result<SdrrRuntimeInfoHeader, String> {
+    async fn retrieve_runtime_header_from_info(
+        &mut self,
+        info: &SdrrInfo,
+    ) -> Result<SdrrRuntimeInfoHeader, String> {
         let runtime_info_ptr = info.runtime_info_ptr;
-        if runtime_info_ptr < self.base_ram_address && runtime_info_ptr != 0xFFFF_FFFF_u32{
+        if runtime_info_ptr < self.base_ram_address && runtime_info_ptr != 0xFFFF_FFFF_u32 {
             return Err(format!(
                 "Invalid runtime info pointer: 0x{:08X}",
                 runtime_info_ptr
@@ -288,7 +291,7 @@ impl<'a, R: Reader> Parser<'a, R> {
         let ram = if let Some(flash) = &flash {
             self.parse_ram_from_info(flash).await
         } else {
-            self.parse_ram().await 
+            self.parse_ram().await
         };
 
         let ram = match ram {
@@ -402,19 +405,23 @@ impl<'a, R: Reader> Parser<'a, R> {
         };
 
         // Parse extra info
-        let (extra_info, runtime_info_ptr) =
-            match parsing::read_extra_info(self.reader, header.extra_ptr, self.base_flash_address, &version)
-                .await
-            {
-                Ok(info) => {
-                    let runtime_info_ptr = info.runtime_info_ptr;
-                    (Some(info), runtime_info_ptr)
-                }
-                Err(e) => {
-                    parse_errors.push(ParseError::new("Extra Info", e));
-                    (None, 0xFFFF_FFFF_u32)
-                }
-            };
+        let (extra_info, runtime_info_ptr) = match parsing::read_extra_info(
+            self.reader,
+            header.extra_ptr,
+            self.base_flash_address,
+            &version,
+        )
+        .await
+        {
+            Ok(info) => {
+                let runtime_info_ptr = info.runtime_info_ptr;
+                (Some(info), runtime_info_ptr)
+            }
+            Err(e) => {
+                parse_errors.push(ParseError::new("Extra Info", e));
+                (None, 0xFFFF_FFFF_u32)
+            }
+        };
 
         // If necessary, parse OneRomMetadataHeader
         let metadata_present = if header.major_version > 0 || header.minor_version > 4 {
@@ -472,7 +479,9 @@ impl<'a, R: Reader> Parser<'a, R> {
 
         // Parse ROM sets with error collection
         let rom_sets =
-            match parsing::read_rom_sets(self.reader, &header, self.base_flash_address, &version).await {
+            match parsing::read_rom_sets(self.reader, &header, self.base_flash_address, &version)
+                .await
+            {
                 Ok(sets) => {
                     if sets.len() != header.rom_set_count as usize {
                         parse_errors.push(ParseError::new(
@@ -564,7 +573,10 @@ impl<'a, R: Reader> Parser<'a, R> {
         })
     }
 
-    async fn parse_ram_from_runtime_info(&mut self, runtime_info: SdrrRuntimeInfoHeader) -> Result<SdrrRuntimeInfo, String> {
+    async fn parse_ram_from_runtime_info(
+        &mut self,
+        runtime_info: SdrrRuntimeInfoHeader,
+    ) -> Result<SdrrRuntimeInfo, String> {
         Ok(SdrrRuntimeInfo {
             image_sel: runtime_info.image_sel,
             rom_set_index: runtime_info.rom_set_index,

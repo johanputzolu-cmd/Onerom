@@ -97,7 +97,12 @@ impl PllConfig {
     }
 
     /// Generate PLL #defines for target frequency
-    fn generate_stm32_pll_defines(&self, target_freq_mhz: u32, overclock: bool, has_usb: bool) -> Option<String> {
+    fn generate_stm32_pll_defines(
+        &self,
+        target_freq_mhz: u32,
+        overclock: bool,
+        has_usb: bool,
+    ) -> Option<String> {
         let xtal_mhz = if has_usb { 12 } else { 16 };
         if let Some((m, n, p, q)) = self.calculate_stm32_pll(xtal_mhz, target_freq_mhz, overclock) {
             // Calculate intermediate values for comments
@@ -144,7 +149,12 @@ impl PllConfig {
         }
     }
 
-    pub fn generate_pll_defines(&self, target_freq_mhz: u32, overclock: bool, has_usb: bool) -> Option<String> {
+    pub fn generate_pll_defines(
+        &self,
+        target_freq_mhz: u32,
+        overclock: bool,
+        has_usb: bool,
+    ) -> Option<String> {
         match self.proc {
             Processor::RP2350 => self.generate_rp2350_pll_defines(target_freq_mhz, overclock),
             _ => self.generate_stm32_pll_defines(target_freq_mhz, overclock, has_usb),
@@ -160,11 +170,7 @@ impl PllConfig {
         match self.proc {
             Processor::RP2350 => self.calculate_rp2350_pll_12mhz(target_freq_mhz, overclock),
             _ => {
-                let xtal_mhz = if has_usb {
-                    12
-                } else {
-                    16
-                };
+                let xtal_mhz = if has_usb { 12 } else { 16 };
                 self.calculate_stm32_pll(xtal_mhz, target_freq_mhz, overclock)
             }
         }
@@ -175,7 +181,8 @@ impl PllConfig {
         match self {
             _ => {
                 // F4 family uses HSI PLL, check if target frequency is achievable
-                self.calculate_pll(target_freq_mhz, overclock, has_usb).is_some()
+                self.calculate_pll(target_freq_mhz, overclock, has_usb)
+                    .is_some()
             }
         }
     }

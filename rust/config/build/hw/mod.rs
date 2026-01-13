@@ -596,7 +596,8 @@ fn generate_mcu_cpu_pio_methods(configs: &[HwConfigData]) -> String {
     for config in configs {
         code.push_str(&format!(
             "            Board::{} => {},\n",
-            config.variant_name, config.config.mcu.serve_mode == ServeMode::Cpu
+            config.variant_name,
+            config.config.mcu.serve_mode == ServeMode::Cpu
         ));
     }
     code.push_str("        }\n");
@@ -609,7 +610,8 @@ fn generate_mcu_cpu_pio_methods(configs: &[HwConfigData]) -> String {
     for config in configs {
         code.push_str(&format!(
             "            Board::{} => {},\n",
-            config.variant_name, config.config.mcu.serve_mode == ServeMode::Pio
+            config.variant_name,
+            config.config.mcu.serve_mode == ServeMode::Pio
         ));
     }
     code.push_str("        }\n");
@@ -645,7 +647,13 @@ fn generate_port_methods(configs: &[HwConfigData]) -> String {
                 "cs_port" => &config.config.mcu.ports.cs_port,
                 "sel_port" => &config.config.mcu.ports.sel_port,
                 "status_port" => &config.config.mcu.ports.status_port,
-                "usb_port" => &config.config.mcu.usb.as_ref().and_then(|usb| usb.pins.as_ref().map(|pins| pins.port)).unwrap_or(Port::None),
+                "usb_port" => &config
+                    .config
+                    .mcu
+                    .usb
+                    .as_ref()
+                    .and_then(|usb| usb.pins.as_ref().map(|pins| pins.port))
+                    .unwrap_or(Port::None),
                 _ => unreachable!(),
             };
             let port_str = format_port(port);
@@ -770,8 +778,7 @@ fn generate_swd_sel_pins_methods(configs: &[HwConfigData]) -> String {
     for config in configs {
         code.push_str(&format!(
             "            Board::{} => {},\n",
-            config.variant_name,
-            config.config.mcu.pins.swclk_sel
+            config.variant_name, config.config.mcu.pins.swclk_sel
         ));
     }
 
@@ -785,8 +792,7 @@ fn generate_swd_sel_pins_methods(configs: &[HwConfigData]) -> String {
     for config in configs {
         code.push_str(&format!(
             "            Board::{} => {},\n",
-            config.variant_name,
-            config.config.mcu.pins.swdio_sel
+            config.variant_name, config.config.mcu.pins.swdio_sel
         ));
     }
     code.push_str("        }\n");
@@ -883,8 +889,8 @@ fn generate_rom_pin_methods(configs: &[HwConfigData]) -> String {
             // On the RP2350 we have a single GPIO port, and if data lines are
             // 0-7, then address lines need to be left shifted 8 bits as
             // they'll be 8-23.
-            let shift_left_8 = config.config.mcu.family == McuFamily::Rp2350 
-                && config.config.mcu.pins.data[0] < 8;
+            let shift_left_8 =
+                config.config.mcu.family == McuFamily::Rp2350 && config.config.mcu.pins.data[0] < 8;
             code.push_str("            #[allow(clippy::match_single_binding)]\n");
             code.push_str(&format!(
                 "            Board::{} => match rom_type {{\n",
@@ -943,8 +949,8 @@ fn generate_rom_pin_methods(configs: &[HwConfigData]) -> String {
     code.push_str("        match self {\n");
     for config in configs {
         let pin = config.config.mcu.pins.x1.unwrap_or(255);
-        let shift_left_8 = config.config.mcu.family == McuFamily::Rp2350 
-            && config.config.mcu.pins.data[0] < 8;
+        let shift_left_8 =
+            config.config.mcu.family == McuFamily::Rp2350 && config.config.mcu.pins.data[0] < 8;
         let bit_pos = if pin != 255 && shift_left_8 && pin >= 8 {
             pin - 8
         } else {
@@ -976,8 +982,8 @@ fn generate_rom_pin_methods(configs: &[HwConfigData]) -> String {
     code.push_str("        match self {\n");
     for config in configs {
         let pin = config.config.mcu.pins.x2.unwrap_or(255);
-        let shift_left_8 = config.config.mcu.family == McuFamily::Rp2350 
-            && config.config.mcu.pins.data[0] < 8;
+        let shift_left_8 =
+            config.config.mcu.family == McuFamily::Rp2350 && config.config.mcu.pins.data[0] < 8;
         let bit_pos = if pin != 255 && shift_left_8 && pin >= 8 {
             pin - 8
         } else {
@@ -1179,7 +1185,12 @@ fn generate_capability_methods(configs: &[HwConfigData]) -> String {
     code.push_str("        match self {\n");
 
     for config in configs {
-        let vbus_pin = config.config.mcu.usb.as_ref().and_then(|usb| usb.pins.as_ref().map(|pins| pins.vbus));
+        let vbus_pin = config
+            .config
+            .mcu
+            .usb
+            .as_ref()
+            .and_then(|usb| usb.pins.as_ref().map(|pins| pins.vbus));
         code.push_str(&format!(
             "            Board::{} => {:?},\n",
             config.variant_name, vbus_pin
@@ -1315,7 +1326,6 @@ fn generate_hw_models(configs: &[HwConfigData]) -> String {
     code.push_str("            Model::Ice => Family::Stm32f4,\n");
     code.push_str("        }\n");
     code.push_str("    }\n");
-
 
     code.push('}');
     code

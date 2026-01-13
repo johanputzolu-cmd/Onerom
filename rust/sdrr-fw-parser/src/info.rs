@@ -135,7 +135,7 @@ impl SdrrInfo {
             .pins
             .as_ref()
             .ok_or("Pin configuration not available")?;
-        
+
         // Remap the pins to start from 0, so they can be used as bit indeces
         let mut pins = pins.clone();
         pins.base_zero();
@@ -272,7 +272,7 @@ impl SdrrInfo {
                     }
                 }
                 _ => unreachable!(),
-            }            
+            }
         }
 
         // For multi-ROM setups, X1 and X2 are part of address space

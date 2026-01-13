@@ -222,7 +222,11 @@ pub fn parse_args() -> Result<Args, String> {
         output_mangled,
         output_binary,
     ) = match cli.command {
-        Some(Commands::Info { firmware, detail, strict }) => (
+        Some(Commands::Info {
+            firmware,
+            detail,
+            strict,
+        }) => (
             Command::Info,
             firmware,
             detail,

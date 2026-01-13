@@ -295,20 +295,27 @@ impl<'de> serde::Deserialize<'de> for IceCpuFreq {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        
+
         match s.as_str() {
             "None" => Ok(Self::none()),
             "Stock" => Ok(Self::stock()),
             _ => {
                 if let Some(freq_str) = s.strip_suffix("MHz") {
-                    let freq = freq_str.parse::<u16>()
-                        .map_err(|_| serde::de::Error::custom(format!("Invalid frequency: {}", s)))?;
-                    Self::mhz(freq)
-                        .map_err(|_| serde::de::Error::custom(
-                            format!("Frequency must be between {}MHz and {}MHz", Self::MIN_MHZ, Self::MAX_MHZ)
+                    let freq = freq_str.parse::<u16>().map_err(|_| {
+                        serde::de::Error::custom(format!("Invalid frequency: {}", s))
+                    })?;
+                    Self::mhz(freq).map_err(|_| {
+                        serde::de::Error::custom(format!(
+                            "Frequency must be between {}MHz and {}MHz",
+                            Self::MIN_MHZ,
+                            Self::MAX_MHZ
                         ))
+                    })
                 } else {
-                    Err(serde::de::Error::custom(format!("Invalid frequency format: {}", s)))
+                    Err(serde::de::Error::custom(format!(
+                        "Invalid frequency format: {}",
+                        s
+                    )))
                 }
             }
         }
@@ -379,8 +386,13 @@ pub struct InvalidFreq(u16);
 
 impl core::fmt::Display for InvalidFreq {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Invalid frequency: {}MHz (must be {}-{}MHz, 0 (None), or 0xFFFF (Stock))", 
-            self.0, FireCpuFreq::MIN_MHZ, FireCpuFreq::MAX_MHZ)
+        write!(
+            f,
+            "Invalid frequency: {}MHz (must be {}-{}MHz, 0 (None), or 0xFFFF (Stock))",
+            self.0,
+            FireCpuFreq::MIN_MHZ,
+            FireCpuFreq::MAX_MHZ
+        )
     }
 }
 
@@ -404,20 +416,27 @@ impl<'de> serde::Deserialize<'de> for FireCpuFreq {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        
+
         match s.as_str() {
             "None" => Ok(Self::none()),
             "Stock" => Ok(Self::stock()),
             _ => {
                 if let Some(freq_str) = s.strip_suffix("MHz") {
-                    let freq = freq_str.parse::<u16>()
-                        .map_err(|_| serde::de::Error::custom(format!("Invalid frequency: {}", s)))?;
-                    Self::mhz(freq)
-                        .map_err(|_| serde::de::Error::custom(
-                            format!("Frequency must be between {}MHz and {}MHz", Self::MIN_MHZ, Self::MAX_MHZ)
+                    let freq = freq_str.parse::<u16>().map_err(|_| {
+                        serde::de::Error::custom(format!("Invalid frequency: {}", s))
+                    })?;
+                    Self::mhz(freq).map_err(|_| {
+                        serde::de::Error::custom(format!(
+                            "Frequency must be between {}MHz and {}MHz",
+                            Self::MIN_MHZ,
+                            Self::MAX_MHZ
                         ))
+                    })
                 } else {
-                    Err(serde::de::Error::custom(format!("Invalid frequency format: {}", s)))
+                    Err(serde::de::Error::custom(format!(
+                        "Invalid frequency format: {}",
+                        s
+                    )))
                 }
             }
         }

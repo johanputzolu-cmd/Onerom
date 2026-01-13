@@ -10,12 +10,11 @@ use log::{debug, error, info, trace, warn};
 use std::io::Write;
 
 use onerom_config::fw::{FirmwareProperties, ServeAlg};
-use onerom_gen::{Builder, License};
 use onerom_fw::Error;
 use onerom_fw::args::Args;
 use onerom_fw::net::{Releases, fetch_license};
 use onerom_fw::{create_firmware, get_rom_files, read_rom_config, validate_sizes};
-
+use onerom_gen::{Builder, License};
 
 fn main() {
     if let Err(e) = smol::block_on(sub_main()) {
@@ -77,7 +76,8 @@ async fn sub_main() -> Result<(), Error> {
         let config = read_rom_config(&rom_config_filename)?;
 
         // Create builder
-        let mut builder = Builder::from_json(version, mcu.family(), &config).map_err(Error::parse)?;
+        let mut builder =
+            Builder::from_json(version, mcu.family(), &config).map_err(Error::parse)?;
 
         // Accept any licenses
         let licenses = builder.licenses();

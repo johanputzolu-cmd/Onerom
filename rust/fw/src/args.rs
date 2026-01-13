@@ -210,7 +210,8 @@ impl Args {
             } else {
                 let latest = releases.latest();
                 debug!("Firmware version not specified, using latest: {}", latest);
-                self.fw = Some(FirmwareVersion::try_from_str(latest).map_err(Error::firmware_version)?);
+                self.fw =
+                    Some(FirmwareVersion::try_from_str(latest).map_err(Error::firmware_version)?);
             }
         }
 
@@ -248,7 +249,6 @@ fn mcu_values() -> String {
         .into()
 }
 
-
 async fn load_firmware_metadata(path: &str) -> Result<(FirmwareVersion, Board, McuVariant), Error> {
     // Load the binary file
     let data = std::fs::read(path).map_err(Error::read)?;
@@ -259,18 +259,22 @@ async fn load_firmware_metadata(path: &str) -> Result<(FirmwareVersion, Board, M
     let mut parser = Parser::new(&mut reader);
 
     // Parse the firmware
-    let fw_info = parser.parse_flash().await
+    let fw_info = parser
+        .parse_flash()
+        .await
         .map_err(|e| Error::config(format!("Failed to parse firmware image: {}", e)))?;
 
     // Extract version
     let version = fw_info.version;
 
     // Extract MCU variant
-    let mcu = fw_info.mcu_variant
-        .ok_or_else(|| Error::config("Failed to determine MCU variant from firmware".to_string()))?;
+    let mcu = fw_info.mcu_variant.ok_or_else(|| {
+        Error::config("Failed to determine MCU variant from firmware".to_string())
+    })?;
 
     // Extract board
-    let board = fw_info.board
+    let board = fw_info
+        .board
         .ok_or_else(|| Error::config("Failed to determine board type from firmware".to_string()))?;
 
     Ok((version, board, mcu))
