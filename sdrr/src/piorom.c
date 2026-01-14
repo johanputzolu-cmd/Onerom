@@ -1437,7 +1437,7 @@ void piorom(
                 (serve_config[6] == 0xFE) &&
                 (serve_config[7] == 0xFF)) {
                 config.addr_read_irq = serve_config[1];
-                config.addr_base_pin = serve_config[2];
+                config.addr_read_delay = serve_config[2];
                 config.cs_active_delay = serve_config[3];
                 config.cs_inactive_delay = serve_config[4];
                 config.no_dma = serve_config[5];

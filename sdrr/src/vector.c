@@ -168,7 +168,7 @@ void Reset_Handler(void) {
 // Default handler for unhandled interrupts - fast continuous blink
 void Default_Handler(void) {
     // Use sdrr_info status_led_enabled in case runtime_info is
-    // corrupted/not initialized
+    // corrupted/not initialized.  Note this overrides any LED override
     if (sdrr_info.status_led_enabled) {
         setup_status_led();
         while (1) {

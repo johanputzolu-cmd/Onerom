@@ -456,7 +456,9 @@ void setup_status_led(void) {
 
 // Blink pattern: on_time, off_time, repeat_count
 void blink_pattern(uint32_t on_time, uint32_t off_time, uint8_t repeats) {
-    if (sdrr_runtime_info.status_led_enabled && sdrr_info.pins->status_port == PORT_B && sdrr_info.pins->status <= 15) {
+    // Use sdrr_info status_led_enabled in case runtime_info is
+    // corrupted/not initialized.  Note this overrides any LED override
+    if (sdrr_info.status_led_enabled && sdrr_info.pins->status_port == PORT_B && sdrr_info.pins->status <= 15) {
         uint8_t pin = sdrr_info.pins->status;
         for(uint8_t i = 0; i < repeats; i++) {
             status_led_on(pin);

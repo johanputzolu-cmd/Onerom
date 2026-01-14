@@ -609,7 +609,7 @@ void setup_status_led(void) {
 }
 
 void blink_pattern(uint32_t on_time, uint32_t off_time, uint8_t repeats) {
-    if (sdrr_runtime_info.status_led_enabled && sdrr_info.pins->status_port == PORT_0 && sdrr_info.pins->status <= 29) {
+    if (sdrr_info.status_led_enabled && sdrr_info.pins->status_port == PORT_0 && sdrr_info.pins->status <= 29) {
         uint8_t pin = sdrr_info.pins->status;
         for(uint8_t i = 0; i < repeats; i++) {
             status_led_on(pin);

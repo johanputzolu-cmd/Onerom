@@ -2,9 +2,9 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.6.0 - 2026-??-??
+## v0.6.0 - 2026-01-14
 
-**EXPERIMENTAL RELEASE** - may contain bugs, use with caution.  If you hit problems, report them as issues and revert to v0.5.10 or earlier.
+**EXPERIMENTAL RELEASE** - may contain bugs, use with caution.  If you hit problems, report them as issues and revert to v0.5.10 or earlier.  See [#87](https://github.com/piersfinlayson/one-rom/pull/87) for details of testing done.
 
 This major release of the One ROM firmware adds support for low-level One ROM firmware configuration from the ROM config files, allowing per-ROM image configuration of processor clock speed, status LED behaviour, and other low-level capabilities from One ROM Studio, and other tools.
 
@@ -25,6 +25,7 @@ As a major firmware release, there are some non-backwards compatible changes in 
 
 - ROM config JSON schema change - `sel_jumper_pull` is now a Vec<u8>, to allow per-pin SEL jumper pull direction.
 - PIO support is now built into all RP2350 firmwares, and is enabled/disabled by default using RP_PIO build flag.
+- RP2350 no longer enters filesystem mode when USB connected - only PICOBOOT protocol supported.
 
 ### Known Limitations
 

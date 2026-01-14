@@ -182,7 +182,7 @@ For Fire boards using the PIO serving algorithm, low-level timing can be tuned v
 ```json
 "firmware_overrides": {
     "serve_alg_params": {
-        "params": [254, 1, 2, 0, 0, 0, 254, 255]
+        "params": [254, 0, 2, 0, 0, 0, 254, 255]
     }
 }
 ```

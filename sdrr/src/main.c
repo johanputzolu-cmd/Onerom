@@ -149,6 +149,11 @@ void limp_mode(limp_mode_pattern_t pattern) {
 
     uint32_t on_time, off_time;
 
+    if (!sdrr_runtime_info.status_led_enabled && sdrr_info.status_led_enabled) {
+        LOG("Status LED disabled but present - enable for limp mode");
+        setup_status_led();
+    }
+
     switch (pattern) {
         case LIMP_MODE_NO_ROMS:
             // Slow blink - around 0.5s on, 2.5s off
