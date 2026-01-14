@@ -613,16 +613,6 @@
                     "description": "Multi-ROM set only",
                     "type": "string",
                     "const": "addr_on_any_cs"
-                },
-                {
-                    "description": "RP2350 only",
-                    "type": "string",
-                    "const": "pio"
-                },
-                {
-                    "description": "RP2350 only",
-                    "type": "string",
-                    "const": "cpu"
                 }
             ]
         },
