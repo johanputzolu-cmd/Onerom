@@ -2,6 +2,16 @@
 
 All notables changes between versions are documented in this file.
 
+## v0.6.1 - 2026-??-??
+
+### Added
+
+- Check in Studio/onerom-gen that firmware version is not too new (next major release) when building firmware images.
+
+### Fixed
+
+- Fixed #90 in v0.6.0 when older (pre v0.1.8) versions of One ROM Studio are used to build firmware images with more than one ROM set, One ROM will not boot on any ROM set other than ROM set 0.
+
 ## v0.6.0 - 2026-01-14
 
 **EXPERIMENTAL RELEASE** - may contain bugs, use with caution.  If you hit problems, report them as issues and revert to v0.5.10 or earlier.  See [#87](https://github.com/piersfinlayson/one-rom/pull/87) for details of testing done.
