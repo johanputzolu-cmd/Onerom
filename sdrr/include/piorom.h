@@ -89,6 +89,7 @@ typedef struct pio_sm_reg {
 // EXECCTRL
 #define PIO_WRAP_BOTTOM(X)      (((X) & 0x1F) << 7)
 #define PIO_WRAP_TOP(X)         (((X) & 0x1F) << 12)
+#define PIO_JMP_PIN(X)          (((X) & 0x1F) << 24)
 
 // SHIFTCTRL
 #define PIO_IN_COUNT(X)         (((X) & 0x1F) << 0)
@@ -126,6 +127,7 @@ typedef struct pio_sm_reg {
 #define DMA_WRITE_ADDR_OFFSET       (0x04)
 #define DMA_TRANS_COUNT_OFFSET      (0x08)
 #define DMA_CTRL_TRIG_OFFSET        (0x0C)
+#define DMA_WRITE_ADDR_TRIG_OFFSET  (0x2C)
 #define DMA_READ_ADDR_TRIG_OFFSET   (0x3C)
 
 // DMA channel register structure
@@ -152,5 +154,8 @@ typedef struct dma_ch_reg {
 
 // Macro to access DMA channel X's READ_ADDR_TRIG register
 #define DMA_CH_READ_ADDR_TRIG(X)    (*(volatile uint32_t *)(DMA_BASE + ((X) * 0x40) + DMA_READ_ADDR_TRIG_OFFSET))
+
+// Macro to access DMA channel X's WRITE_ADDR_TRIG register
+#define DMA_CH_WRITE_ADDR_TRIG(X)   (*(volatile uint32_t *)(DMA_BASE + ((X) * 0x40) + DMA_WRITE_ADDR_TRIG_OFFSET))
 
 #endif // PIOROM_H

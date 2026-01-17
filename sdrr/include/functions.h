@@ -67,6 +67,10 @@ extern void piorom(
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 );
+extern void pioram(
+    const sdrr_info_t *info,
+    uint32_t rom_table_addr
+);
 
 // rom_impl.c
 #if !defined(TIMER_TEST) && !defined(TOGGLE_PA4)

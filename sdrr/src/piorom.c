@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
 //
 // MIT License
 
@@ -624,7 +624,6 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // Clear all PIO0 IRQs
     PIO0_IRQ = 0x000000FF;
-
     //
     // SM0 - CS handler
     //
@@ -1148,44 +1147,52 @@ static void piorom_finish_config(
             if (num_cs_pins == 1) {
                 config->cs_base_pin = info->pins->cs1;
             } else {
-                if (info->pins->cs1 < info->pins->cs2) {
-                    if (info->pins->cs2 > (info->pins->cs1 + 1)) {
+                uint8_t next_pin;
+                if (num_cs_pins > 2) {
+                    next_pin = info->pins->cs3;
+                } else {
+                    next_pin = info->pins->cs2;
+                }
+                if (info->pins->cs1 < next_pin) {
+                    if (next_pin > (info->pins->cs1 + 1)) {
                         piorom_handle_non_contiguous_cs_pins(
                             config,
                             num_cs_pins,
                             info->pins->cs1,
                             info->pins->cs1,
-                            info->pins->cs2
+                            next_pin
                         );
                     }
                     config->cs_base_pin = info->pins->cs1;
                 } else {
-                    if (info->pins->cs1 > (info->pins->cs2 + 1)) {
+                    if (info->pins->cs1 > (next_pin + 1)) {
                         piorom_handle_non_contiguous_cs_pins(
                             config,
                             num_cs_pins,
-                            info->pins->cs2,
-                            info->pins->cs2,
+                            next_pin,
+                            next_pin,
                             info->pins->cs1
                         );
                     }
-                    config->cs_base_pin = info->pins->cs2;
+                    config->cs_base_pin = next_pin;
                 }
 
                 if (num_cs_pins > 2) {
+                    uint8_t final_pin = info->pins->cs2;
+
                     // piorom_handle_non_contiguous_cs_pins() handles if there
                     // are already too many breaks in contiguity
-                    if (info->pins->cs3 == (config->cs_base_pin - 1)) {
-                        config->cs_base_pin = info->pins->cs3;
-                    } else if (info->pins->cs3 == (config->cs_base_pin + 2)) {
+                    if (final_pin == (config->cs_base_pin - 1)) {
+                        config->cs_base_pin = final_pin;
+                    } else if (final_pin == (config->cs_base_pin + 2)) {
                         // cs_base_pin is already correct
-                    } else if (info->pins->cs3 > (config->cs_base_pin + 2)) {
+                    } else if (final_pin > (config->cs_base_pin + 2)) {
                         piorom_handle_non_contiguous_cs_pins(
                             config,
                             num_cs_pins,
                             config->cs_base_pin,
                             config->cs_base_pin+1,
-                            info->pins->cs3
+                            final_pin
                         );
                         // cs_base_pin is already correct
                     } else {
@@ -1193,11 +1200,11 @@ static void piorom_finish_config(
                         piorom_handle_non_contiguous_cs_pins(
                             config,
                             num_cs_pins,
-                            info->pins->cs3,
-                            info->pins->cs3,
+                            final_pin,
+                            final_pin,
                             config->cs_base_pin
                         );
-                        config->cs_base_pin = info->pins->cs3;
+                        config->cs_base_pin = final_pin;
                     }
                 }
             }
@@ -1540,6 +1547,821 @@ void piorom(
     }
 }
 
+
+// RP2350 PIO/DMA autonomous RAM serving support
+
+// RAM serving uses 6 state machines across 3 PIO blocks and 4 DMA channels:
+//
+// PIO0 - CS Handlers
+//  SM0: READ CS Handler (/CE=0, /OE=0, /W=1) → sets data pins to outputs
+//  SM1: WRITE CS Handler (/CE=0, /W=0, /OE=1) → keeps data pins as inputs
+//
+//  Notes:
+//    - Both CS handlers currently trigger the appropriate following chain
+//      using PIO IRQs.
+//      - READ chain - just address reader is triggered
+//      - WRITE chain - address reader and data readers are triggered
+//
+// PIO1 - Address Reader
+//  SM0: Address Reader (READ chain)
+//  SM1: Address Reader (WRITE chain)
+//
+//  Notes:
+//    - Address Reader is separate PIO block to enable GPIO_BASE to be set in
+//      in future, for 40-pin 16-bit ROM support, which will likely use
+//      similar code.
+//    - While both address readers are very similar, we need to have two, so 
+//      that each DMA channel drains from a separate PIO RX FIFO - as only a
+//      single drain can be done per FIFO.
+//
+// PIO0 - Data Handlers
+//  SM2: Data Output (READ chain)
+//  SM3: Data Input (WRITE chain)
+//
+// Notes:
+//    - Data handlers could be placed in PIO0 with the CS handlers, as they
+//      both need to access data pins, so need the same GPIO_BASE.  Currently
+//      placed in separate PIO block in case we need more than 2.  (Each PIO
+//      block only has 4 SMs.)
+//
+// READ Chain Flow:
+//  READ CS (PIO0 SM0) → Address Reader (PIO1 SM0) → DMA0 → DMA1 → Data Output (PIO0 SM2)
+//
+// WRITE Chain Flow:
+//  WRITE CS (PIO0 SM1) → Address Reader (PIO1 SM1) → DMA2 ──┐
+//                      └→ Data Input (PIO0 SM3) → DMA3 ←────┘
+// Improvements to consider:
+// - Move away from READ one-shot mode, or make configurable.
+
+typedef struct pioram_config {
+    // CS pin configuration for READ (/CE and /OE)
+    uint8_t read_cs_base_pin;
+    uint8_t num_read_cs_pins;  // Should be 2 for 6116
+    
+    // CS pin configuration for WRITE (/CE and /W)
+    uint8_t write_cs_base_pin;
+    uint8_t num_write_cs_pins;  // Should be 2 for 6116
+    
+    // Data pins (Q0-Q7)
+    uint8_t data_base_pin;
+    uint8_t num_data_pins;  // 8 for 6116
+    
+    // Address pins (A0-A10)
+    uint8_t addr_base_pin;
+    uint8_t num_addr_pins;  // 11 for 6116 (2KB)
+    
+    // RAM table base address in SRAM
+    uint32_t ram_table_addr;
+    
+    // Clock dividers for each SM
+    uint16_t read_cs_clkdiv_int;
+    uint8_t read_cs_clkdiv_frac;
+    uint8_t pad0;
+    
+    uint16_t write_cs_clkdiv_int;
+    uint8_t write_cs_clkdiv_frac;
+    uint8_t pad1;
+    
+    uint16_t addr_clkdiv_int;
+    uint8_t addr_clkdiv_frac;
+    uint8_t pad2;
+    
+    uint16_t data_out_clkdiv_int;
+    uint8_t data_out_clkdiv_frac;
+    uint8_t pad3;
+    
+    uint16_t data_in_clkdiv_int;
+    uint8_t data_in_clkdiv_frac;
+    uint8_t pad4;
+} pioram_config_t;
+
+// Base instructions for WRITE CS
+#define IRQ_SET_NEXT(X)         (0xC018 | ((X) & 0x07))
+#define IRQ_SET_PREV(X)         (0xC008 | ((X) & 0x07))
+#define WAIT_IRQ_HIGH_PREV(X)   (0x20C8 | ((X) & 0x07))
+#define WAIT_IRQ_HIGH_NEXT(X)   (0x20D8 | ((X) & 0x07))
+#define IN_Y(NUM)               (0x4040 | ((NUM) & 0x1F))
+#define WAIT_IRQ_LOW(X)         (0x2040 | ((X) & 0x07))
+#define WAIT_IRQ_LOW_PREV(X)    (0x2048 | ((X) & 0x07))
+#define WAIT_IRQ_LOW_NEXT(X)    (0x2058 | ((X) & 0x07))
+#define IRQ_CLEAR(X)            (0xC040 | ((X) & 0x07))
+#define IRQ_CLEAR_NEXT(X)       (0xC048 | ((X) & 0x07))
+#define IRQ_CLEAR_PREV(X)       (0xC058 | ((X) & 0x07))
+#define WAIT_PIN_HIGH(X)        (0x20A0 | ((X) & 0x1F))
+#define PUSH_BLOCK              (0x8020)
+#define JMP_PIN(X)              (0x00C0 | ((X) & 0x1F))
+#define MOV_ISR_PINS            (0xA0C0)
+
+// Function prototypes
+static void pioram_load_programs(pioram_config_t *config);
+static void pioram_setup_dma(pioram_config_t *config);
+static void pioram_set_gpio_func(pioram_config_t *config);
+static void pioram_start_pios(void);
+#if defined(DEBUG_LOGGING)
+static void pioram_log_pio_sm(
+    const char *sm_name,
+    uint8_t pio_block,
+    uint8_t pio_sm,
+    pioram_config_t *config,
+    uint32_t *instr_scratch,
+    uint8_t first_instr,
+    uint8_t start,
+    uint8_t wrap_bottom,
+    uint8_t wrap_top
+);
+#endif // DEBUG_LOGGING
+
+// Things I might be able to remove:
+// - Padding in RAM WRITE addr (P1/1) and data handlers (P2/S2) to sync with each other (commented out)
+// - Padding in RAM WRITE triggerer (P2/S3) to avoid detecting /W high before the other SMs can (commented out)
+// - Extra /CE/W check at start of RAM WRITE triggerer (P2/S3)
+
+// Load all PIO programs for RAM serving
+static void pioram_load_programs(pioram_config_t *config) {
+    uint32_t instr_scratch[32];
+    uint8_t offset;
+    volatile pio_sm_reg_t *sm_reg;
+    
+    // Clear all PIO IRQs
+    PIO0_IRQ = 0x000000FF;
+    PIO1_IRQ = 0x000000FF;
+    PIO2_IRQ = 0x000000FF;
+
+    uint32_t ram_table_high_bits = (config->ram_table_addr >> 16) & 0xFFFF;
+    DEBUG("RAM table high 16 bits: 0x%08X", ram_table_high_bits);
+
+#if 0
+    DEBUG("PIO pin config:");
+    DEBUG("  READ CS GPIOs: %d-%d", config->read_cs_base_pin,
+        config->read_cs_base_pin + config->num_read_cs_pins - 1);
+    DEBUG("  WRITE CS GPIOs: %d-%d", config->write_cs_base_pin,
+        config->write_cs_base_pin + config->num_write_cs_pins - 1);
+    DEBUG("  Data GPIOs: %d-%d", config->data_base_pin,
+        config->data_base_pin + config->num_data_pins - 1);
+    DEBUG("  Address GPIOs: %d-%d", config->addr_base_pin,
+        config->addr_base_pin + config->num_addr_pins - 1);
+#endif // 0
+
+#if 0
+// Just not needed
+
+    //
+    // PIO0 Programs
+    //
+    // /OE, /CE, /W and Data pin handling
+    //
+    offset = 0;
+
+    //
+    // SM0 - /CE Handler
+    //
+    uint8_t check_ce_start = offset;
+    uint8_t check_ce_offset = offset;
+    uint8_t check_ce_wrap_bottom = offset;
+    instr_scratch[offset++] = MOV_X_PINS;
+    instr_scratch[offset++] = JMP_X_DEC(check_ce_offset);
+    instr_scratch[offset++] = IRQ_CLEAR(7);  // Clear /CE IRQ
+    uint8_t check_ce_offset2 = offset;
+    instr_scratch[offset++] = MOV_X_PINS;
+    instr_scratch[offset++] = JMP_NOT_X(check_ce_offset2);
+    uint8_t check_ce_wrap_top = offset;
+    instr_scratch[offset++] = IRQ_SET(7);  // Set /CE IRQ
+    sm_reg = PIO0_SM_REG(0);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl = 
+        PIO_WRAP_BOTTOM(check_ce_wrap_bottom) |
+        PIO_WRAP_TOP(check_ce_wrap_top) |
+        PIO_JMP_PIN(12);  // /W pin§
+    sm_reg->shiftctrl = PIO_IN_COUNT(1) | PIO_IN_SHIFTDIR_L;
+    sm_reg->pinctrl = PIO_IN_BASE(11); // /CE
+    sm_reg->instr = IRQ_SET(7);  // Trigger /CE IRQ - disable all operations before startup
+    sm_reg->instr = JMP(check_ce_start);
+
+    //
+    // SM0 - /OE Handler - directly toggles data pins direction, based on both
+    //       /CE and /OE being low
+    //
+    uint8_t check_oe_ce_start = offset;
+    uint8_t check_oe_ce_wrap_bottom = offset;
+    uint8_t check_oe_ce_offset = offset;
+    instr_scratch[offset++] = MOV_X_PINS;
+    instr_scratch[offset++] = JMP_X_DEC(check_oe_ce_offset);
+    instr_scratch[offset++] = IRQ_SET_PREV(0);  // Trigger data pins to outputs
+    uint8_t check_oe_ce_offset2 = offset;
+    instr_scratch[offset++] = MOV_X_PINS;
+    instr_scratch[offset++] = JMP_NOT_X(check_oe_ce_offset2);
+    uint8_t check_oe_ce_wrap_top = offset;
+    instr_scratch[offset++] = IRQ_SET_PREV(1); // Trigger data pins to inputs
+    sm_reg = PIO0_SM_REG(1);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl = 
+        PIO_WRAP_BOTTOM(check_oe_ce_wrap_bottom) |
+        PIO_WRAP_TOP(check_oe_ce_wrap_top);
+    sm_reg->shiftctrl = PIO_IN_COUNT(2) | PIO_IN_SHIFTDIR_L;
+    sm_reg->pinctrl = PIO_IN_BASE(10);
+    sm_reg->instr = JMP(check_oe_ce_start);
+
+    // Copy instructions to PIO0
+    for (int ii = 0; ii < offset; ii++) {
+        PIO0_INSTR_MEM(ii) = instr_scratch[ii];
+    }
+
+#if defined(DEBUG_LOGGING)
+    DEBUG("PIO RAM serving programs:");
+
+    pioram_log_pio_sm(
+        "/CE Handler",
+        0, 0,
+        config,
+        (uint32_t *)instr_scratch,
+        check_ce_start,
+        check_ce_wrap_bottom,
+        check_ce_wrap_top
+    );
+    pioram_log_pio_sm(
+        "/OE /CE Handler",
+        0, 1,
+        config,
+        (uint32_t *)instr_scratch,
+        check_oe_ce_start,
+        check_oe_ce_wrap_bottom,
+        check_oe_ce_wrap_top
+    );
+    pioram_log_pio_sm(
+        "/CE /W Handler",
+        0, 2,
+        config,
+        (uint32_t *)instr_scratch,
+        data_read_start,
+        data_read_wrap_bottom,
+        data_read_wrap_top
+    );
+#endif // DEBUG_LOGGING
+#endif // 0
+
+    //
+    // PIO1 Programs
+    //
+    // Address Readers
+    //
+    offset = 0;
+
+    //
+    // PIO1 - Address Readers
+    // 
+    // SM0 - Address Reader (RAM READ)
+    //
+    // Constantly serves bytes to the READ DMA chain
+    //
+    
+    // Preload high 16 bits of RAM table address to X - done via TX FIFO
+    // before starting as SET(X) only supports 5 bits.
+
+    // Pull high 16 bits from X
+    uint8_t addr_wrap_start = offset;
+    uint8_t addr_wrap_1st_instr = offset;
+    uint8_t addr_wrap_bottom = offset;
+    instr_scratch[offset++] = IN_X(16);
+
+    // Read address lines and push to RX FIFO, so READ DMA chain serves the
+    // byte.
+    // We add a delay after this, to avoid overloading the DMA chain.
+    uint8_t addr_wrap_top = offset;
+    instr_scratch[offset++] = ADD_DELAY(IN_PINS(16), 2);  // Autopush
+
+    sm_reg = PIO1_SM_REG(0);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl = 
+        PIO_WRAP_BOTTOM(addr_wrap_bottom) |
+        PIO_WRAP_TOP(addr_wrap_top);
+    sm_reg->shiftctrl =
+        PIO_IN_COUNT(11) |
+        PIO_AUTOPUSH |
+        PIO_PUSH_THRESH(32) |
+        PIO_IN_SHIFTDIR_L |
+        PIO_OUT_SHIFTDIR_L;
+    sm_reg->pinctrl = PIO_IN_BASE(13);  // Address base pin
+    PIO1_SM_TXF(0) = ram_table_high_bits;
+    sm_reg->instr = PULL_BLOCK;
+    sm_reg->instr = MOV_X_OSR;
+    sm_reg->instr = JMP(addr_wrap_start);
+
+    //
+    // PIO1 - Address Readers
+    //
+    // SM1 - Address Reader (RAM WRITE)
+    //
+    // Wait for Data read handler to trigger via IRQ - this indicates /CE and
+    // /W went low.
+    //
+    // Loop reading the address until /W goes high.
+    //
+    // When /W goes high, push the last read address to the RX FIFO.  This
+    // triggers the WRITE DMA chain.
+    //
+    // The data reader SM is triggered at the same time (actually one cycle
+    // later), runs independently , and similarly waits for /W to go high.  As
+    // they are both started at around the same time, and take roughly the same
+    // time to loop, the data to write should be in the WRITE DMA chain by the
+    // time the DMA gets the address and writes the byte.
+    //
+
+    // Preload high 16 bits of RAM table address to X - done via TX FIFO
+    // before starting as SET(X) only supports 5 bits.
+
+    // (SM does not start here.). Push combined RAM table address and lower
+    // order address bits when /W goes high.
+    uint8_t addr_write_valid = offset;
+    uint8_t addr_write_1st_instr = offset;
+    instr_scratch[offset++] = PUSH_BLOCK;
+
+    // Wait for address reader IRQ from Data read handler
+    uint8_t addr_write_start = offset;
+    instr_scratch[offset++] = WAIT_IRQ_HIGH(0);
+    //instr_scratch[offset++] = NOP; // Syncronise with data reader
+
+    // Pull high 16 bits from X
+    uint8_t addr_write_wrap_bottom = offset;
+    instr_scratch[offset++] = IN_X(16);
+
+    // Read address lines.
+    instr_scratch[offset++] = IN_PINS(16);
+
+    uint8_t addr_write_wrap_top = offset;
+    instr_scratch[offset++] = JMP_PIN(addr_write_valid);  // Jump when /W goes high
+
+    // SM configuration
+    sm_reg = PIO1_SM_REG(1);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl =
+        PIO_WRAP_BOTTOM(addr_write_wrap_bottom) |
+        PIO_WRAP_TOP(addr_write_wrap_top) |
+        PIO_JMP_PIN(12);    // /W pin
+    sm_reg->shiftctrl =
+        PIO_IN_COUNT(11) |
+        //PIO_AUTOPUSH |         // No autopush
+        //PIO_PUSH_THRESH(32) |  // No autopush
+        PIO_IN_SHIFTDIR_L |
+        PIO_OUT_SHIFTDIR_L;
+    sm_reg->pinctrl = PIO_IN_BASE(13);  // Address base pin
+    PIO1_SM_TXF(1) = ram_table_high_bits;
+    sm_reg->instr = PULL_BLOCK;
+    sm_reg->instr = MOV_X_OSR;
+    sm_reg->instr = JMP(addr_write_start);
+
+    // Now copy all PIO1 instructions
+    for (int ii = 0; ii < offset; ii++) {
+        PIO1_INSTR_MEM(ii) = instr_scratch[ii];
+    }
+
+#if defined(DEBUG_LOGGING)
+    pioram_log_pio_sm(
+        "Address Reader (RAM READ)",
+        1, 0,
+        config,
+        (uint32_t *)instr_scratch,
+        addr_wrap_1st_instr,
+        addr_wrap_start,
+        addr_wrap_bottom,
+        addr_wrap_top
+    );
+    pioram_log_pio_sm(
+        "Address Reader (RAM WRITE)",
+        1, 1,
+        config,
+        (uint32_t *)instr_scratch,
+        addr_write_1st_instr,
+        addr_write_start,
+        addr_write_wrap_bottom,
+        addr_write_wrap_top
+    );
+#endif // DEBUG_LOGGING
+
+    //
+    // PIO2 Programs
+    //
+    // Data Handlers
+    //
+    offset = 0;
+
+    //
+    // PIO2 - Data Handlers
+    //
+    // SM0 - Data Input/Output handler
+    //
+    // Start by setting data pins to inputs
+    uint8_t data_io_1st_instr = offset;
+    uint8_t data_io_write_enabled = offset;
+    uint8_t data_io_start = offset;
+    instr_scratch[offset++] = MOV_PINDIRS_NULL; // Set data pins to inputs
+    // Test for /CE and /OE active
+    uint8_t data_io_wrap_bottom = offset;
+    instr_scratch[offset++] = MOV_X_PINS;
+    instr_scratch[offset++] = JMP_X_DEC(data_io_start);     // /CE or /OE inactive.  Have to jump
+                                                            // to start and set pins to inputs cos
+                                                            // this part of the loop is also used
+                                                            // when pins may already be outputs.
+
+    // /CE and /OE low - both active.  Check /W state next
+    uint8_t data_io_set_outputs = offset + 2;               // Point to set data pins as outputs
+    instr_scratch[offset++] = JMP_PIN(data_io_set_outputs); // /W disabled, do enable
+    instr_scratch[offset++] = JMP(data_io_write_enabled);           // /W enabled, don't enable
+    uint8_t data_io_wrap_top = offset;
+    instr_scratch[offset++] = MOV_PINDIRS_NOT_NULL;         // Set data pins to outputs
+
+    // Configure SM
+    sm_reg = PIO2_SM_REG(0);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl = 
+        PIO_WRAP_BOTTOM(data_io_wrap_bottom) |
+        PIO_WRAP_TOP(data_io_wrap_top) |
+        PIO_JMP_PIN(12);    // /W pin
+    sm_reg->shiftctrl = 
+        PIO_IN_COUNT(2) |   // /OE amd /CE
+        PIO_IN_SHIFTDIR_L;  // Direction doesn't matter
+    sm_reg->pinctrl = 
+        PIO_IN_BASE(10) |   // /OE and /CE
+        PIO_OUT_COUNT(8) |  // Data pins 
+        PIO_OUT_BASE(0);    // Data base pin
+    sm_reg->instr = JMP(data_io_start);
+
+    //
+    // PIO2 - Data Handlers
+    //
+    // SM1 - Data output (RAM READ)
+    //
+    // Just waits until 8 bits are made available by the READ DMA chain, then
+    // writes them to the data pin outputs (whether they are set to outputs
+    // or not).
+    uint8_t data_out_1st_instr = offset;
+    uint8_t data_out_start = offset;
+    uint8_t data_out_wrap_top = offset;
+    uint8_t data_out_wrap_bottom = offset;
+    instr_scratch[offset++] = OUT_PINS(8);  // Autopull, blocks until 8 bits available
+    sm_reg = PIO2_SM_REG(1);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl = 
+        PIO_WRAP_BOTTOM(data_out_wrap_bottom) |
+        PIO_WRAP_TOP(data_out_wrap_top);
+    sm_reg->shiftctrl = 
+        PIO_OUT_SHIFTDIR_R |    // Writes LSB of OSR
+        PIO_AUTOPULL |          // Auto pull when we hit threshold
+        PIO_PULL_THRESH(8);     // Pull when we have 8 bits
+    sm_reg->pinctrl =
+        PIO_OUT_COUNT(8) |      // Number of data lines
+        PIO_OUT_BASE(0);        // Data base pin
+    sm_reg->instr = JMP(data_out_start);
+
+    //
+    // PIO2 - Data Handlers
+    //
+    // SM2 - Data input (RAM WRITE)
+    //
+    uint8_t data_in_1st_instr = offset; 
+    uint8_t data_in_valid = offset;
+    instr_scratch[offset++] = PUSH_BLOCK;           // Push data to RX FIFO for DMA
+    uint8_t data_in_start = offset;
+    instr_scratch[offset++] = WAIT_IRQ_HIGH(2);     // Wait for data input IRQ
+    uint8_t data_in_wrap_bottom = offset;
+    //instr_scratch[offset++] = NOP; // Synchronise with address reader
+    instr_scratch[offset++] = MOV_ISR_PINS;
+    uint8_t data_in_wrap_top = offset;
+    instr_scratch[offset++] = JMP_PIN(data_in_valid); // Jump when /W goes high 
+
+    sm_reg = PIO2_SM_REG(2);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl = 
+        PIO_WRAP_BOTTOM(data_in_wrap_bottom) |
+        PIO_WRAP_TOP(data_in_wrap_top) |
+        PIO_JMP_PIN(12);    // /W pin
+    sm_reg->shiftctrl =
+        PIO_IN_COUNT(8) |       // Number of data lines
+        // PIO_AUTOPUSH |  // No autopush
+        // PIO_PUSH_THRESH(8) |    // Number of bits to push (number of data lines)
+        PIO_IN_SHIFTDIR_L;
+    sm_reg->pinctrl =
+        PIO_IN_BASE(0);         // Data base pin
+    sm_reg->instr = JMP(data_in_start);
+
+    //
+    // SM3 - Data read handler - triggers data read chain on /CE and /W low
+    //
+    //
+    // Reads both /CE and /W together.  When both are low, triggers first the
+    // WRITE address reader, then the data input reader.
+    //
+    // Re-arms once either /CE or /W goes high.
+    uint8_t data_read_1st_instr = offset;
+    uint8_t data_read_start = offset;
+    uint8_t data_read_wrap_bottom = offset;
+    uint8_t data_read_check_offset = offset;
+    instr_scratch[offset++] = MOV_X_PINS;           // Wait for both /CE and /W to go low
+    instr_scratch[offset++] = JMP_X_DEC(data_read_check_offset);
+    instr_scratch[offset++] = MOV_X_PINS;           // Wait for both /CE and /W to go low
+    instr_scratch[offset++] = JMP_X_DEC(data_read_check_offset);
+    instr_scratch[offset++] = IRQ_SET_PREV(0);      // Trigger address reader to read address
+    instr_scratch[offset++] = IRQ_SET(2);           // Trigger data input
+
+    // Add some NOPs to avoid this SM detecting /W going high before the other SMs
+    // can.
+    instr_scratch[offset++] = NOP;  // Destination SM IN_X(16)
+    instr_scratch[offset++] = NOP;  // Destination SM IN_PINS(16)
+    //instr_scratch[offset++] = NOP;  // Destination SM JMP_PIN(destination if /W gone high)
+    // instr_scratch[offset++] = NOP;  // Destination SM PUSH_BLOCK
+    // instr_scratch[offset++] = NOP;  // Destination SM WAIT_IRQ(whichever IRQ)
+
+
+    uint8_t data_read_check_offset2 = offset;
+    instr_scratch[offset++] = MOV_X_PINS;           // Wait for either /CE or /W to go high
+    uint8_t data_read_wrap_top = offset;
+    instr_scratch[offset++] = JMP_NOT_X(data_read_check_offset2);
+
+    sm_reg = PIO2_SM_REG(3);
+    sm_reg->clkdiv = PIO_CLKDIV_INT(1, 0);
+    sm_reg->execctrl =
+        PIO_WRAP_BOTTOM(data_read_wrap_bottom) |
+        PIO_WRAP_TOP(data_read_wrap_top);
+    sm_reg->shiftctrl = PIO_IN_COUNT(2) | PIO_IN_SHIFTDIR_L;
+    sm_reg->pinctrl = PIO_IN_BASE(11);  // /CE and /W
+    sm_reg->instr = JMP(data_read_start);
+
+    // Now copy all PIO2 instructions
+    for (int ii = 0; ii < offset; ii++) {
+        PIO2_INSTR_MEM(ii) = instr_scratch[ii];
+    }
+
+#if defined(DEBUG_LOGGING)
+    pioram_log_pio_sm(
+        "Data IO Handler",
+        2, 0,
+        config,
+        (uint32_t *)instr_scratch,
+        data_io_1st_instr,
+        data_io_start,
+        data_io_wrap_bottom,
+        data_io_wrap_top
+    );
+    pioram_log_pio_sm(
+        "Data Reader (RAM READ)",
+        2, 1,
+        config,
+        (uint32_t *)instr_scratch,
+        data_out_1st_instr,
+        data_out_start,
+        data_out_wrap_bottom,
+        data_out_wrap_top
+    );
+    pioram_log_pio_sm(
+        "Data Reader (RAM WRITE)",
+        2, 2,
+        config,
+        (uint32_t *)instr_scratch,
+        data_in_1st_instr,
+        data_in_start,
+        data_in_wrap_bottom,
+        data_in_wrap_top
+    );
+    pioram_log_pio_sm(
+        "Trigger Data and Address Reader (RAM WRITE)",
+        2, 3,
+        config,
+        (uint32_t *)instr_scratch,
+        data_read_1st_instr,
+        data_read_start,
+        data_read_wrap_bottom,
+        data_read_wrap_top
+    );
+#endif // DEBUG_LOGGING
+}
+
+// Setup DMA channels for RAM serving
+static void pioram_setup_dma(pioram_config_t *config) {
+    volatile dma_ch_reg_t *dma_reg;
+    
+    //
+    // READ Chain DMAs
+    //
+    
+    // DMA0 - Address Forwarder (READ)
+    dma_reg = DMA_CH_REG(0);
+    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(0);  // READ address reader RX FIFO
+    dma_reg->write_addr = (uint32_t)&DMA_CH_READ_ADDR_TRIG(1);
+    dma_reg->transfer_count = 0xffffffff;
+    dma_reg->ctrl_trig =
+        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 0)) |
+        DMA_CTRL_TRIG_EN |
+        DMA_CTRL_TRIG_DATA_SIZE_32BIT |
+        DMA_CTRL_TRIG_CHAIN_TO(0);
+    
+    // DMA1 - Data Fetcher (READ)
+    //
+    // We have to change the CHAIN_TO to avoid chaining to DMA1.  Use 11 as an 
+    dma_reg = DMA_CH_REG(1);
+    dma_reg->read_addr = config->ram_table_addr;  // Placeholder, gets overwritten by DMA0
+    dma_reg->write_addr = (uint32_t)&PIO2_SM_TXF(1);
+    dma_reg->transfer_count = 1;
+    dma_reg->ctrl_trig =
+        DMA_CTRL_TRIG_TREQ_SEL(DMA_CTRL_TRIG_TREQ_PERM) |
+        DMA_CTRL_TRIG_EN |
+        DMA_CTRL_TRIG_DATA_SIZE_8BIT |
+        DMA_CTRL_TRIG_CHAIN_TO(0);
+    
+    //
+    // WRITE Chain DMAs
+    //
+    
+    // DMA2 - Address Forwarder (WRITE)
+    dma_reg = DMA_CH_REG(2);
+    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(1);  // WRITE address reader RX FIFO
+    dma_reg->write_addr = (uint32_t)&DMA_CH_WRITE_ADDR_TRIG(3);  // Trigger DMA3
+    dma_reg->transfer_count = 0xffffffff;
+    dma_reg->ctrl_trig =
+        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 1)) |
+        DMA_CTRL_TRIG_EN |
+        DMA_CTRL_TRIG_DATA_SIZE_32BIT |
+        DMA_CTRL_TRIG_CHAIN_TO(2);
+    
+    // DMA3 - Data Writer (WRITE)
+    dma_reg = DMA_CH_REG(3);
+    dma_reg->read_addr = (uint32_t)&PIO2_SM_RXF(2);  // WRITE data reader RX FIFO
+    dma_reg->write_addr = 0x2000FFFF; // Placeholder, gets overwritten by DMA2
+    dma_reg->transfer_count = 1;
+    dma_reg->ctrl_trig =
+        DMA_CTRL_TRIG_TREQ_SEL(DMA_CTRL_TRIG_TREQ_PERM) |
+        DMA_CTRL_TRIG_EN |
+        DMA_CTRL_TRIG_DATA_SIZE_8BIT |
+        DMA_CTRL_TRIG_CHAIN_TO(3);
+    
+    // Set DMA high priority
+    BUSCTRL_BUS_PRIORITY |=
+        BUSCTRL_BUS_PRIORITY_DMA_R_BIT |
+        BUSCTRL_BUS_PRIORITY_DMA_W_BIT;
+    
+    DEBUG("RAM DMA channels configured");
+}
+
+// Set GPIOs to PIO function for RAM serving
+static void pioram_set_gpio_func(pioram_config_t *config) {
+    (void)config;
+
+    // CS pins - not required, as always inputs, and all PIOs can access inputs
+    // all the time
+    GPIO_CTRL(10) = GPIO_CTRL_FUNC_PIO2; // /OE
+    GPIO_CTRL(11) = GPIO_CTRL_FUNC_PIO2; // /CE
+    GPIO_CTRL(12) = GPIO_CTRL_FUNC_PIO2; // /W
+
+    // Address pins
+    for (int ii = 13; ii <= 23;ii++) {
+        GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO1;
+    }
+
+    // Data pins
+    for (int ii = 0; ii < 8; ii++) {
+        GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO2;
+    }
+}
+
+// Start all PIO state machines
+static void pioram_start_pios(void) {
+    PIO0_CTRL_SM_ENABLE(0x0);  // None
+    PIO1_CTRL_SM_ENABLE(0x3);  // Enable SM0 and SM1
+    PIO2_CTRL_SM_ENABLE(0xf);  // Enable SM0, SM1, SM2 and SM4
+    DEBUG("RAM PIOs started");
+}
+
+extern uint32_t _ram_rom_image_start[];
+
+// Top-level RAM serving function
+void pioram(
+    const sdrr_info_t *info,
+    uint32_t ram_table_addr
+) {
+    (void)info;
+
+    DEBUG("%s", log_divider);
+
+    ram_table_addr = (uint32_t)_ram_rom_image_start;
+
+    // Clear 64KB RAM table
+    uint8_t *ram_table_ptr = (uint8_t *)ram_table_addr;
+    for (int ii = 0; ii < 65536; ii++) {
+        ram_table_ptr[ii] = 0x03;
+    }
+
+    pioram_config_t config = {
+        .read_cs_base_pin = 10,  // /OE + /CE, fire-24-d
+        .num_read_cs_pins = 2,
+        .write_cs_base_pin = 11, // /CE + /W, fire-24-d
+        .num_write_cs_pins = 2,
+        .data_base_pin = 0,  // fire-24-d
+        .num_data_pins = 8,
+        .addr_base_pin = 13,  // fire-24-d
+        .num_addr_pins = 11,  // 6116 has A0-A10
+        .ram_table_addr = ram_table_addr,
+        .read_cs_clkdiv_int = 1,
+        .read_cs_clkdiv_frac = 0,
+        .write_cs_clkdiv_int = 1,
+        .write_cs_clkdiv_frac = 0,
+        .addr_clkdiv_int = 1,
+        .addr_clkdiv_frac = 0,
+        .data_out_clkdiv_int = 1,
+        .data_out_clkdiv_frac = 0,
+        .data_in_clkdiv_int = 1,
+        .data_in_clkdiv_frac = 0,
+    };
+    
+    // Validate configuration
+    if (ram_table_addr & 0xFFFF) {
+        LOG("!!! PIO RAM serving requires RAM table address to be 64KB aligned");
+        limp_mode(LIMP_MODE_INVALID_CONFIG);
+    }
+    
+    // Bring PIO0, PIO1, PIO2 and DMA out of reset
+    RESET_RESET &= ~(RESET_PIO0 | RESET_PIO1 | RESET_PIO2 | RESET_DMA);
+    while (!(RESET_DONE & (RESET_PIO0 | RESET_PIO1 | RESET_PIO2 | RESET_DMA)));
+    
+    // Setup DMA channels
+    pioram_setup_dma(&config);
+    
+    // Configure GPIOs (similar to piorom_set_gpio_func)
+    pioram_set_gpio_func(&config);
+
+    // Load PIO programs
+    pioram_load_programs(&config);
+    
+    // Start PIOs
+    pioram_start_pios();
+    DEBUG("PIO RAM serving started");
+    DEBUG("%s", log_divider);
+
+#define PIO_DEBUG_LOOP 1
+#if defined(PIO_DEBUG_LOOP)
+    // Output PIO and DMA debug information periodically
+    uint32_t last_read_addr = 0xFFFFFFFF;
+    uint32_t last_write_addr = 0xFFFFFFFF;
+    uint8_t read_addr_still_unchanged = 0;
+    uint8_t write_addr_still_unchanged = 0;
+    while (1) {
+        // See if any PIO FIFOs are full
+        uint32_t volatile pio_fstats[3] = {
+            PIO0_FSTAT,
+            PIO1_FSTAT,
+            PIO2_FSTAT
+        };
+        for (int ii = 0; ii < 3; ii++) {
+            uint32_t pio_fstat = pio_fstats[ii];
+            for (int jj = 0; jj < 4; jj++) {
+                uint8_t rxfull_bit = 0 + jj;
+                uint8_t txfull_bit = 16 + jj;
+                if (pio_fstat & (1 << rxfull_bit)) {
+                    DEBUG("!!! PIO%d SM%d RXFULL set", ii, jj);
+                }
+                if (pio_fstat & (1 << txfull_bit)) {
+                    DEBUG("!!! PIO%d SM%d TXFULL set", ii, jj);
+                }
+            }
+        }
+
+        // Check the DMA read/write RAM table addresses are changing.
+        // The odd log here is acceptable - but constant unchanging read or
+        // write addresses suggest a problem (for example, host has crashed).
+        // As such we only log if at least the last three checks have been
+        // the same.
+        volatile dma_ch_reg_t *dma1 = DMA_CH_REG(1);
+        volatile dma_ch_reg_t *dma3 = DMA_CH_REG(3);
+        uint32_t new_read_addr = dma1->read_addr;
+        uint32_t new_write_addr = dma3->write_addr;
+        if (new_read_addr == last_read_addr) {
+            if (read_addr_still_unchanged > 1) {
+                DEBUG("!!! RAM READ address unchanged: 0x%08X", new_read_addr);
+            }
+            read_addr_still_unchanged++;
+        } else {
+            read_addr_still_unchanged = 0;
+        }
+        if (new_write_addr == last_write_addr) {
+            if (write_addr_still_unchanged > 1) {
+                DEBUG("!!! RAM WRITE address unchanged: 0x%08X", new_write_addr);
+            }
+            write_addr_still_unchanged++;
+        } else {
+            write_addr_still_unchanged = 0;
+        }
+        last_read_addr = new_read_addr;
+        last_write_addr = new_write_addr;
+
+        // Delay before next check
+        #define PIO_DEBUG_LOOP_DELAY 1000000
+        for (volatile int i = 0; i < PIO_DEBUG_LOOP_DELAY; i++);
+    }
+#endif // PIO_DEBUG_LOOP
+
+    // Low power loop
+    while (1) {
+        __asm volatile("wfi");
+    }
+}
+
 #if defined(DEBUG_LOGGING)
 static const char* piorom_get_jmp_condition(uint8_t cond) {
     switch (cond) {
@@ -1696,8 +2518,10 @@ void piorom_instruction_decoder(uint32_t instr, char out_str[64]) {
             uint8_t address = instr & 0x1F;
             p = out_str;
             p = append_str(p, "jmp ");
-            p = append_str(p, piorom_get_jmp_condition(condition));
-            p = append_str(p, ", ");
+            if (condition != 0) {
+                p = append_str(p, piorom_get_jmp_condition(condition));
+                p = append_str(p, ", ");
+            }
             p = append_uint(p, address);
             p = append_delay(p, delay);
             *p = '\0';
@@ -1707,13 +2531,31 @@ void piorom_instruction_decoder(uint32_t instr, char out_str[64]) {
         case 0b001: { // WAIT
             uint8_t pol = (instr >> 7) & 0x1;
             uint8_t source = (instr >> 5) & 0x3;
-            uint8_t index = instr & 0x1F;
+            uint8_t idx_mode = (instr >> 3) & 0x3;
             p = out_str;
             p = append_str(p, "wait ");
             p = append_uint(p, pol);
             p = append_char(p, ' ');
             p = append_str(p, piorom_get_wait_source(source));
-            p = append_str(p, ", ");
+
+            uint8_t index;
+            if (source == 0b10) {
+                // IRQ
+                index = instr & 0x7;
+
+                // prev/next
+                if (idx_mode == 0b01) {
+                    p = append_str(p, " prev");
+                } else if (idx_mode == 0b11) {
+                    p = append_str(p, " next");
+                }
+            } else {
+                // Other
+                index = instr & 0x1F;
+            }
+
+
+            p = append_str(p, " ");
             p = append_uint(p, index);
             p = append_delay(p, delay);
             *p = '\0';
@@ -1918,6 +2760,79 @@ void piorom_log_pio_sm(
         }
         piorom_instruction_decoder(instr_scratch[ii], instr);
         DEBUG("        0x%02X: 0x%04X ; %s", ii - start, instr_scratch[ii], instr);
+        if (ii == wrap_top) {
+            DEBUG("      .wrap");
+        }
+    }
+}
+
+static void pioram_log_pio_sm(
+    const char *sm_name,
+    uint8_t pio_block,
+    uint8_t pio_sm,
+    pioram_config_t *config,
+    uint32_t *instr_scratch,
+    uint8_t first_instr,
+    uint8_t start,
+    uint8_t wrap_bottom,
+    uint8_t wrap_top
+) {
+    char instr[64];
+    volatile pio_sm_reg_t *sm_reg;
+    uint16_t clkdiv_int;
+    uint8_t clkdiv_frac;
+    
+    // Get the correct PIO block's SM register
+    if (pio_block == 0) {
+        sm_reg = PIO0_SM_REG(pio_sm);
+    } else if (pio_block == 1) {
+        sm_reg = PIO1_SM_REG(pio_sm);
+    } else {
+        sm_reg = PIO2_SM_REG(pio_sm);
+    }
+    
+    // Get clock divider for this specific (pio_block, pio_sm) pair
+    if (pio_block == 0 && pio_sm == 0) {
+        clkdiv_int = config->read_cs_clkdiv_int;
+        clkdiv_frac = config->read_cs_clkdiv_frac;
+    } else if (pio_block == 0 && pio_sm == 1) {
+        clkdiv_int = config->write_cs_clkdiv_int;
+        clkdiv_frac = config->write_cs_clkdiv_frac;
+    } else if (pio_block == 1) {
+        // Both address readers use same clock divider
+        clkdiv_int = config->addr_clkdiv_int;
+        clkdiv_frac = config->addr_clkdiv_frac;
+    } else if (pio_block == 2 && pio_sm == 0) {
+        clkdiv_int = config->data_out_clkdiv_int;
+        clkdiv_frac = config->data_out_clkdiv_frac;
+    } else if (pio_block == 2 && pio_sm == 1) {
+        clkdiv_int = config->data_in_clkdiv_int;
+        clkdiv_frac = config->data_in_clkdiv_frac;
+    } else {
+        // Should never happen
+        clkdiv_int = 1;
+        clkdiv_frac = 0;
+    }
+    
+    DEBUG("  PIO%d SM%d - %s:", pio_block, pio_sm, sm_name);
+    DEBUG(
+        "    CLKDIV: %d.%02d EXECCTRL: 0x%08X SHIFTCTRL: 0x%08X PINCTRL: 0x%08X",
+        clkdiv_int,
+        clkdiv_frac,
+        sm_reg->execctrl,
+        sm_reg->shiftctrl,
+        sm_reg->pinctrl
+    );
+    DEBUG("      .program pio%d_sm%d", pio_block, pio_sm);
+    for (int ii = first_instr; ii <= wrap_top; ii++) {
+        if (ii == start) {
+            DEBUG("      .start");
+        }
+        if (ii == wrap_bottom) {
+            DEBUG("      .wrap_target");
+        }
+        piorom_instruction_decoder(instr_scratch[ii], instr);
+        DEBUG("        0x%02X: 0x%04X ; %s", ii - first_instr, instr_scratch[ii], instr);
         if (ii == wrap_top) {
             DEBUG("      .wrap");
         }
