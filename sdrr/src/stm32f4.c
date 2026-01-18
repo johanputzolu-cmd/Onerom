@@ -4,6 +4,8 @@
 //
 // MIT License
 
+#if defined(STM32F4)
+
 #define STM32F4_INCLUDES
 #include "include.h"
 #include "roms.h"
@@ -1006,3 +1008,5 @@ void set_flash_ws(void) {
 
     LOG("Set flash config: %d ws", wait_states);
 }
+
+#endif // STM32F4
