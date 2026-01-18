@@ -97,12 +97,9 @@ static void pioram_load_programs(pioram_config_t *config) {
     // PIO0 Programs
     //
     // Combined data/address handlers
-    //
     PIO_SET_BLOCK(0);
 
-    //
     // SM0 - Data read handler - triggers data read chain on /CE and /W low
-    //
     //
     // Reads both /CE and /W together.  When both are low, triggers first the
     // WRITE address reader, then the data input reader.
@@ -140,7 +137,6 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_WRAP_TOP();
     PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(check_write_disabled)));
 
-
     // Set the various SM register values
     PIO_SM_CLKDIV_SET(1, 0);
     PIO_SM_EXECCTRL_SET(0);
@@ -159,24 +155,22 @@ static void pioram_load_programs(pioram_config_t *config) {
     // Log
     PIO_LOG_SM("Trigger Data and Address Reader (RAM WRITE)");
 
+    //
     // End of block
+    //
     PIO_WRITE_BLOCK();
 
-
-    //
     // PIO1 Programs
     //
     // Address Readers
-    //
+    PIO_SET_BLOCK(1);
     uint8_t offset = 0;
 
-    //
     // PIO1 - Address Readers
     // 
     // SM0 - Address Reader (RAM READ)
     //
     // Constantly serves bytes to the READ DMA chain
-    //
     
     // Preload high 16 bits of RAM table address to X - done via TX FIFO
     // before starting as SET(X) only supports 5 bits.
@@ -210,7 +204,6 @@ static void pioram_load_programs(pioram_config_t *config) {
     sm_reg->instr = MOV_X_OSR;
     sm_reg->instr = JMP(addr_wrap_start);
 
-    //
     // PIO1 - Address Readers
     //
     // SM1 - Address Reader (RAM WRITE)
@@ -228,7 +221,6 @@ static void pioram_load_programs(pioram_config_t *config) {
     // they are both started at around the same time, and take roughly the same
     // time to loop, the data to write should be in the WRITE DMA chain by the
     // time the DMA gets the address and writes the byte.
-    //
 
     // Preload high 16 bits of RAM table address to X - done via TX FIFO
     // before starting as SET(X) only supports 5 bits.
@@ -298,14 +290,12 @@ static void pioram_load_programs(pioram_config_t *config) {
     );
 #endif // DEBUG_LOGGING
 
-    //
     // PIO2 Programs
     //
     // Data Handlers
-    //
+    PIO_SET_BLOCK(2);
     offset = 0;
 
-    //
     // PIO2 - Data Handlers
     //
     // SM0 - Data Input/Output handler
@@ -373,11 +363,9 @@ static void pioram_load_programs(pioram_config_t *config) {
         PIO_OUT_BASE(0);        // Data base pin
     sm_reg->instr = JMP(data_out_start);
 
-    //
     // PIO2 - Data Handlers
     //
     // SM2 - Data input (RAM WRITE)
-    //
     uint8_t data_in_1st_instr = offset; 
     uint8_t data_in_valid = offset;
     instr_scratch[offset++] = PUSH_BLOCK;               // Push data to RX FIFO for DMA
