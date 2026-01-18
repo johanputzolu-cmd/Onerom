@@ -376,17 +376,15 @@ void pio_instruction_decoder(uint32_t instr, char out_str[64], uint8_t start_off
 // - instr_scratch: Pointer to the full array of instructions for this block
 // - first_instr: Index of the first instruction of this program in instr_scratch
 // - start: Index of the .start instruction (where the SM starts execution)
-// - wrap_bottom: Index of the .wrap_target instruction
-// - wrap_top: Index of the .wrap instruction
-// - clkdiv_int: Integer part of the clock divider
-// - clkdiv_frac: Fractional part of the clock divider
+// - end: Index of the last instruction of this program
 void pio_log_sm(
     const char *sm_name,
     uint8_t pio_block,
     uint8_t pio_sm,
     uint32_t *instr_scratch,
     uint8_t first_instr,
-    uint8_t start
+    uint8_t start,
+    uint8_t end
 ) {
     volatile pio_sm_reg_t *sm_reg;
     char instr[64];
@@ -400,7 +398,7 @@ void pio_log_sm(
         sm_reg = PIO2_SM_REG(pio_sm);
     }
     
-    DEBUG("PIO%d SM%d - %s:", pio_block, pio_sm, sm_name);
+    DEBUG("PIO%d:%d %s (%d instructions)", pio_block, pio_sm, sm_name, (end - first_instr + 1));
 
     uint16_t clkdiv_int = PIO_CLKDIV_INT_FROM_REG(sm_reg->clkdiv);
     uint8_t clkdiv_frac = PIO_CLKDIV_FRAC_FROM_REG(sm_reg->clkdiv);
@@ -415,7 +413,7 @@ void pio_log_sm(
         sm_reg->pinctrl
     );
     DEBUG("  .program pio%d_sm%d", pio_block, pio_sm);
-    for (int ii = first_instr; ii <= wrap_top; ii++) {
+    for (int ii = first_instr; ii <= end; ii++) {
         if (ii == start) {
             DEBUG("  .start");
         }
@@ -423,7 +421,7 @@ void pio_log_sm(
             DEBUG("  .wrap_target");
         }
         pio_instruction_decoder(instr_scratch[ii], instr, first_instr);
-        DEBUG("    0x%02X: 0x%04X ; %s", ii - first_instr, instr_scratch[ii], instr);
+        DEBUG("    %d: 0x%04X ; %s", ii - first_instr, instr_scratch[ii], instr);
         if (ii == wrap_top) {
             DEBUG("  .wrap");
         }

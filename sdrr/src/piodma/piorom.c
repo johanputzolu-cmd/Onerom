@@ -655,8 +655,8 @@ static void piorom_load_programs(piorom_config_t *config) {
         config->sm0_clkdiv_frac
     );
     sm_reg->execctrl =
-        PIO_WRAP_BOTTOM(sm0_wrap_bottom) |
-        PIO_WRAP_TOP(sm0_wrap_top);
+        PIO_WRAP_BOTTOM_AS_REG(sm0_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(sm0_wrap_top);
     sm_reg->shiftctrl =
         PIO_IN_COUNT(num_cs_pins) | // Reading the CS pins
         PIO_IN_SHIFTDIR_L;          // Direction left important for non-
@@ -698,8 +698,8 @@ static void piorom_load_programs(piorom_config_t *config) {
     sm_reg = PIO0_SM_REG(1);
     sm_reg->clkdiv = PIO_CLKDIV(config->sm1_clkdiv_int, config->sm1_clkdiv_frac);
     sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM(sm1_wrap_bottom) |
-        PIO_WRAP_TOP(sm1_wrap_top);
+        PIO_WRAP_BOTTOM_AS_REG(sm1_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(sm1_wrap_top);
     sm_reg->shiftctrl =
         PIO_IN_COUNT(num_addr_pins) |   // Reading the address pins (unused as
                                         // this is for mov instructions)
@@ -732,8 +732,8 @@ static void piorom_load_programs(piorom_config_t *config) {
     sm_reg = PIO0_SM_REG(2);
     sm_reg->clkdiv = PIO_CLKDIV(config->sm2_clkdiv_int, config->sm2_clkdiv_frac);
     sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM(sm2_wrap_bottom) |
-        PIO_WRAP_TOP(sm2_wrap_top);
+        PIO_WRAP_BOTTOM_AS_REG(sm2_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(sm2_wrap_top);
     sm_reg->shiftctrl = 
         PIO_OUT_SHIFTDIR_R |    // Writes LSB of OSR
         PIO_AUTOPULL |          // Auto pull when we hit threshold
@@ -757,7 +757,8 @@ static void piorom_load_programs(piorom_config_t *config) {
         0,
         instr_scratch,
         sm0_start,
-        sm0_start
+        sm0_start,
+        sm0_wrap_top
     );
     pio_log_sm(
         "Address Read",
@@ -765,7 +766,8 @@ static void piorom_load_programs(piorom_config_t *config) {
         1,
         instr_scratch,
         sm1_start,
-        sm1_start
+        sm1_start,
+        sm1_wrap_top
     );
     pio_log_sm(
         "Data Byte Output",
@@ -773,7 +775,8 @@ static void piorom_load_programs(piorom_config_t *config) {
         2,
         instr_scratch,
         sm2_start,
-        sm2_start
+        sm2_start,
+        sm2_wrap_top
     );
 #endif // DEBUG_LOGGING
 }

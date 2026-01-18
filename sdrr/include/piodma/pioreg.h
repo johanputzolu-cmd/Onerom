@@ -93,8 +93,8 @@ typedef struct pio_sm_reg {
 #define PIO_CLKDIV_FRAC_FROM_REG(REG)   (((REG) >> 8) & 0xFF)
 
 // EXECCTRL
-#define PIO_WRAP_BOTTOM(X)      (((X) & 0x1F) << 7)
-#define PIO_WRAP_TOP(X)         (((X) & 0x1F) << 12)
+#define PIO_WRAP_BOTTOM_AS_REG(X)   (((X) & 0x1F) << 7)
+#define PIO_WRAP_TOP_AS_REG(X)      (((X) & 0x1F) << 12)
 #define PIO_JMP_PIN(X)          (((X) & 0x1F) << 24)
 #define PIO_WRAP_TOP_FROM_REG(REG)    (((REG) >> 12) & 0x1F)
 #define PIO_WRAP_BOTTOM_FROM_REG(REG) (((REG) >> 7) & 0x1F)

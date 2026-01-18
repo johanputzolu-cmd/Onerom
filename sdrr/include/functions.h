@@ -79,7 +79,8 @@ void pio_log_sm(
     uint8_t pio_sm,
     uint32_t *instr_scratch,
     uint8_t first_instr,
-    uint8_t start
+    uint8_t start,
+    uint8_t end
 );
 
 #endif // RP235X

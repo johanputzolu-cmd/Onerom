@@ -85,7 +85,7 @@ static void pioram_start_pios(void);
 
 // Load all PIO programs for RAM serving
 static void pioram_load_programs(pioram_config_t *config) {
-    PIO_INSTR_SCRATCH;
+    PIO_BUILD_INIT();
     volatile pio_sm_reg_t *sm_reg;
     
     // Clear all PIO IRQs
@@ -98,7 +98,7 @@ static void pioram_load_programs(pioram_config_t *config) {
     //
     // Combined data/address handlers
     //
-    PIO_OFFSET(0);
+    PIO_SET_BLOCK(0);
 
     //
     // SM0 - Data read handler - triggers data read chain on /CE and /W low
@@ -108,9 +108,9 @@ static void pioram_load_programs(pioram_config_t *config) {
     // WRITE address reader, then the data input reader.
     //
     // Re-arms once either /CE or /W goes high.
-    PIO_SM_VARS(0, 0);
+    PIO_SET_SM(0);
 
-    PIO_SM_VAR_NEW(0, 0, start_write_enabled_check);
+    PIO_LABEL_NEW(start_write_enabled_check);
     // This algorithm will check /CE and /W this number of times when it goes
     // low, to make sure it's really low.
     uint8_t data_read_check_count = PIORAM_WE_ACTIVE_CHECK_COUNT;
@@ -123,45 +123,45 @@ static void pioram_load_programs(pioram_config_t *config) {
     }
     for (int ii = 0; ii < data_read_check_count; ii++) {
         // Read /CE and /W
-        PIO_ADD_INSTR(0, MOV_X_PINS);
+        PIO_ADD_INSTR(MOV_X_PINS);
         
         // If either /CE or /W is high, check again
-        PIO_ADD_INSTR(0, JMP_X_DEC(PIO_SM_VAR(0, 0, start_write_enabled_check)));
+        PIO_ADD_INSTR(JMP_X_DEC(PIO_LABEL(start_write_enabled_check)));
     }
 
     // Trigger RAM WRITE IRQ. Triggers both addr and data readers
-    PIO_ADD_INSTR(0, ADD_DELAY(
-        IRQ_SET(3),
-        PIORAM_WE_ACTIVE_IRQ_DELAY
-    )); 
+    PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(3), PIORAM_WE_ACTIVE_IRQ_DELAY)); 
 
     // Wait for either /CE or /W to go high
-    PIO_SM_VAR_NEW(0, 0, check_write_disabled);
-    PIO_ADD_INSTR(0, MOV_X_PINS);
+    PIO_LABEL_NEW(check_write_disabled);
+    PIO_ADD_INSTR(MOV_X_PINS);
 
     // If both /CE or /W still low, keep waiting, otherwise jump to start
-    PIO_SM_SET_WRAP_TOP(0, 0);
-    PIO_ADD_INSTR(0, JMP_NOT_X(PIO_SM_VAR(0, 0, check_write_disabled)));
+    PIO_WRAP_TOP();
+    PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(check_write_disabled)));
+
 
     // Set the various SM register values
-    PIO_SM_CLKDIV_SET(0, 0, 1, 0);
-    PIO_SM_EXECCTRL_SET(0, 0, 0);
-    PIO_SM_SHIFTCTRL_SET(0, 0,
+    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_EXECCTRL_SET(0);
+    PIO_SM_SHIFTCTRL_SET(
         PIO_IN_COUNT(2) |    // Reading /CE and /W
         PIO_IN_SHIFTDIR_L
     );
-    PIO_SM_PINCTRL_SET(0, 0, 
+    PIO_SM_PINCTRL_SET(
         PIO_IN_BASE(11)  // /CE and /W pins
     );
 
     // Commit them and jmp to start of this SM
-    PIO_SM_COMMIT_REGS(0, 0);
-    PIO_SM_JMP_TO_START(0, 0);
+    PIO_SM_COMMIT_REGS();
+    PIO_SM_JMP_TO_START();
+
+    // Log
+    PIO_LOG_SM("Trigger Data and Address Reader (RAM WRITE)");
 
     // End of block
-    PIO_WRITE_BLOCK(0);
-    // Log each SM
-    PIO_LOG_SM(0, 0, "Trigger Data and Address Reader (RAM WRITE)");
+    PIO_WRITE_BLOCK();
+
 
     //
     // PIO1 Programs
@@ -196,8 +196,8 @@ static void pioram_load_programs(pioram_config_t *config) {
     sm_reg = PIO1_SM_REG(0);
     sm_reg->clkdiv = PIO_CLKDIV(1, 0);
     sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM(addr_wrap_bottom) |
-        PIO_WRAP_TOP(addr_wrap_top);
+        PIO_WRAP_BOTTOM_AS_REG(addr_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(addr_wrap_top);
     sm_reg->shiftctrl =
         PIO_IN_COUNT(11) |
         PIO_AUTOPUSH |
@@ -257,8 +257,8 @@ static void pioram_load_programs(pioram_config_t *config) {
     sm_reg = PIO1_SM_REG(1);
     sm_reg->clkdiv = PIO_CLKDIV(1, 0);
     sm_reg->execctrl =
-        PIO_WRAP_BOTTOM(addr_write_wrap_bottom) |
-        PIO_WRAP_TOP(addr_write_wrap_top) |
+        PIO_WRAP_BOTTOM_AS_REG(addr_write_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(addr_write_wrap_top) |
         PIO_JMP_PIN(12);    // /W pin
     sm_reg->shiftctrl =
         PIO_IN_COUNT(11) |
@@ -284,7 +284,8 @@ static void pioram_load_programs(pioram_config_t *config) {
         0,
         (uint32_t *)instr_scratch,
         addr_wrap_1st_instr,
-        addr_wrap_start
+        addr_wrap_start,
+        addr_wrap_top
     );
     pio_log_sm(
         "Address Reader (RAM WRITE)",
@@ -292,7 +293,8 @@ static void pioram_load_programs(pioram_config_t *config) {
         1,
         (uint32_t *)instr_scratch,
         addr_write_1st_instr,
-        addr_write_start
+        addr_write_start,
+        addr_write_wrap_top
     );
 #endif // DEBUG_LOGGING
 
@@ -332,8 +334,8 @@ static void pioram_load_programs(pioram_config_t *config) {
     sm_reg = PIO2_SM_REG(0);
     sm_reg->clkdiv = PIO_CLKDIV(1, 0);
     sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM(data_io_wrap_bottom) |
-        PIO_WRAP_TOP(data_io_wrap_top) |
+        PIO_WRAP_BOTTOM_AS_REG(data_io_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(data_io_wrap_top) |
         PIO_JMP_PIN(12);    // /W pin
     sm_reg->shiftctrl = 
         PIO_IN_COUNT(2) |   // /OE amd /CE
@@ -360,8 +362,8 @@ static void pioram_load_programs(pioram_config_t *config) {
     sm_reg = PIO2_SM_REG(1);
     sm_reg->clkdiv = PIO_CLKDIV(1, 0);
     sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM(data_out_wrap_bottom) |
-        PIO_WRAP_TOP(data_out_wrap_top);
+        PIO_WRAP_BOTTOM_AS_REG(data_out_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(data_out_wrap_top);
     sm_reg->shiftctrl = 
         PIO_OUT_SHIFTDIR_R |    // Writes LSB of OSR
         PIO_AUTOPULL |          // Auto pull when we hit threshold
@@ -390,8 +392,8 @@ static void pioram_load_programs(pioram_config_t *config) {
     sm_reg = PIO2_SM_REG(2);
     sm_reg->clkdiv = PIO_CLKDIV(1, 0);
     sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM(data_in_wrap_bottom) |
-        PIO_WRAP_TOP(data_in_wrap_top) |
+        PIO_WRAP_BOTTOM_AS_REG(data_in_wrap_bottom) |
+        PIO_WRAP_TOP_AS_REG(data_in_wrap_top) |
         PIO_JMP_PIN(12);    // /W pin
     sm_reg->shiftctrl =
         PIO_IN_COUNT(8) |       // Number of data lines
@@ -414,7 +416,8 @@ static void pioram_load_programs(pioram_config_t *config) {
         0,
         (uint32_t *)instr_scratch,
         data_io_1st_instr,
-        data_io_start
+        data_io_start,
+        data_io_wrap_top
     );
     pio_log_sm(
         "Data Reader (RAM READ)",
@@ -422,7 +425,8 @@ static void pioram_load_programs(pioram_config_t *config) {
         1,
         (uint32_t *)instr_scratch,
         data_out_1st_instr,
-        data_out_start
+        data_out_start,
+        data_out_wrap_top
     );
     pio_log_sm(
         "Data Reader (RAM WRITE)",
@@ -430,7 +434,8 @@ static void pioram_load_programs(pioram_config_t *config) {
         2,
         (uint32_t *)instr_scratch,
         data_in_1st_instr,
-        data_in_start
+        data_in_start,
+        data_in_wrap_top
     );
 #endif // DEBUG_LOGGING
 }
@@ -627,9 +632,9 @@ static void pioram_set_gpio_func(pioram_config_t *config) {
 
 // Start all PIO state machines
 static void pioram_start_pios(void) {
-    PIO0_CTRL_SM_ENABLE(0x1);  // Enable SM0
-    PIO1_CTRL_SM_ENABLE(0x3);  // Enable SM0 and SM1
-    PIO2_CTRL_SM_ENABLE(0x7);  // Enable SM0, SM1, and SM2
+    PIO_ENABLE_SM(0, 0x1);  // Enable SM0
+    PIO_ENABLE_SM(1, 0x3);  // Enable SM0 and
+    PIO_ENABLE_SM(2, 0x7);  // Enable SM0, SM1, and SM2
     DEBUG("RAM PIOs started");
 }
 
