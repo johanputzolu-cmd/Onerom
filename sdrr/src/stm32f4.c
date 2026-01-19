@@ -4,10 +4,11 @@
 //
 // MIT License
 
-#if defined(STM32F4)
-
 #define STM32F4_INCLUDES
 #include "include.h"
+
+#if defined(STM32F4)
+
 #include "roms.h"
 
 // Internal function prototypes

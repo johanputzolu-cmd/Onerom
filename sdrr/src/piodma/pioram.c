@@ -116,7 +116,7 @@ static void pioram_load_programs(pioram_config_t *config) {
     uint32_t ram_table_high_bits = (config->ram_table_addr >> config->num_addr_pins) & high_bits_mask;
     DEBUG("RAM table high %d bits: 0x%08X", ram_table_num_addr_bits, ram_table_high_bits);
 
-#if defined(DEBUG_BUILD)
+#if defined(DEBUG_LOGGING)
     // Get other config values
     uint8_t read_cs_base_pin = config->read_cs_base_pin;
     uint8_t write_cs_base_pin = config->write_cs_base_pin;

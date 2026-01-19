@@ -43,14 +43,7 @@ OBJCOPY := $(TOOLCHAIN)/arm-none-eabi-objcopy
 SIZE := $(TOOLCHAIN)/arm-none-eabi-size
 
 # Source files
-SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c src/vector.c
-ifeq ($(findstring stm32f4,$(VARIANT)),stm32f4)
-SRCS += src/stm32f4.c
-else ifeq ($(findstring rp2350,$(VARIANT)),rp2350)
-SRCS += src/rp235x.c  src/piodma/pio.c src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c src/piodma/piodis.c
-else
-# Ignore
-endif
+SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c src/piodma/piodis.c
 OBJS := $(patsubst src/%,$(BUILD_DIR)/%,$(SRCS:.c=.o))
 SEGGER_SRCS := segger-rtt/RTT/SEGGER_RTT.c segger-rtt/RTT/SEGGER_RTT_printf.c
 SEGGER_OBJS := $(BUILD_DIR)/SEGGER_RTT.o $(BUILD_DIR)/SEGGER_RTT_printf.o
