@@ -619,25 +619,25 @@ static void piorom_load_programs(piorom_config_t *config) {
     // configured to do so.
     PIO_SET_SM(0);
 
-    if (contiguous_cs_pins) {
+    if (config->contiguous_cs_pins) {
         // "Normal" case - all CS pins contiguous
         PIO_ADD_INSTR(MOV_PINDIRS_NULL);
 
         PIO_LABEL_NEW(load_cs);
         PIO_ADD_INSTR(MOV_X_PINS);
-        if (!multi_rom_mode) {
+        if (!config->multi_rom_mode) {
             PIO_ADD_INSTR(JMP_X_DEC(PIO_LABEL(load_cs)));
         } else {
             PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(load_cs)));
         }
-        if (addr_read_irq) {
-            if (!cs_active_delay) {
+        if (config->addr_read_irq) {
+            if (!config->cs_active_delay) {
                 PIO_ADD_INSTR(IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ));
             } else {
                 PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ), config->cs_active_delay));
             }
         } else {
-            if (cs_active_delay) {
+            if (config->cs_active_delay) {
                 PIO_ADD_INSTR(ADD_DELAY(NOP, (config->cs_active_delay - 1)));
             }
         }
@@ -645,7 +645,7 @@ static void piorom_load_programs(piorom_config_t *config) {
         PIO_LABEL_NEW(check_cs_gone_inactive)
         PIO_ADD_INSTR(MOV_X_PINS);
         PIO_WRAP_TOP();
-        if (!multi_rom_mode) {
+        if (!config->multi_rom_mode) {
             PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(check_cs_gone_inactive)));
         } else {
             PIO_ADD_INSTR(JMP_X_DEC(PIO_LABEL(check_cs_gone_inactive)));
@@ -679,8 +679,8 @@ static void piorom_load_programs(piorom_config_t *config) {
                 PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ), config->cs_active_delay));
             }
         } else {
-            if (cs_active_delay) {
-                PIO_ADD_INSTR(ADD_DELAY(NOP, (cs_active_delay - 1)));
+            if (config->cs_active_delay) {
+                PIO_ADD_INSTR(ADD_DELAY(NOP, (config->cs_active_delay - 1)));
             }
         }
         PIO_ADD_INSTR(MOV_PINDIRS_NOT_NULL);
