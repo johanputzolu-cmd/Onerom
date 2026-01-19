@@ -91,11 +91,6 @@ static void pioram_setup_dma(pioram_config_t *config);
 static void pioram_set_gpio_func(pioram_config_t *config);
 static void pioram_start_pios(void);
 
-// Things I might be able to remove:
-// - Padding in RAM WRITE addr (P1/1) and data handlers (P2/S2) to sync with each other (commented out)
-// - Padding in RAM WRITE triggerer (P2/S3) to avoid detecting /W high before the other SMs can (commented out)
-// - Extra /CE/W check at start of RAM WRITE triggerer (P2/S3)
-
 // Build and load the PIO programs for RAM serving
 //
 // Uses the single-pass PIO assembler macros from pioasm.h
@@ -117,7 +112,7 @@ static void pioram_load_programs(pioram_config_t *config) {
     DEBUG("RAM table high %d bits: 0x%08X", ram_table_num_addr_bits, ram_table_high_bits);
 
 #if defined(DEBUG_LOGGING)
-    // Get other config values
+    // Log other config values
     uint8_t read_cs_base_pin = config->read_cs_base_pin;
     uint8_t write_cs_base_pin = config->write_cs_base_pin;
     uint8_t num_read_cs_pins = config->num_read_cs_pins;
@@ -151,7 +146,7 @@ static void pioram_load_programs(pioram_config_t *config) {
     DEBUG("- Data IO CLKDIV: %d.%02d", data_io_clkdiv_int, data_io_clkdiv_frac);
     DEBUG("- Data OUT CLKDIV: %d.%02d", data_out_clkdiv_int, data_out_clkdiv_frac);
     DEBUG("- Data IN CLKDIV: %d.%02d", data_in_clkdiv_int, data_in_clkdiv_frac);
-#endif // DEBUG_BUILD
+#endif // DEBUG_LOGGGING
 
     // Set up the PIO assembler
     PIO_ASM_INIT();
@@ -216,7 +211,7 @@ static void pioram_load_programs(pioram_config_t *config) {
         PIO_IN_BASE(config->write_cs_base_pin)      // /CE and /W pins
     );
 
-    // Jump to start of this SM and log
+    // Jump to start and log
     PIO_SM_JMP_TO_START();
     PIO_LOG_SM("Trigger Data and Address Reader (RAM WRITE)");
 

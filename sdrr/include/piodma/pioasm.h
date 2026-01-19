@@ -78,11 +78,15 @@
 //
 // 18. Repeat steps 3 to 17 for each additional PIO block.
 
+#define MAX_PIO_INSTRS      32
+#define MAX_SMS_PER_BLOCK   4
+#define MAX_PIO_BLOCKS      3
+
 // Internal macros - do not use directly
-#define STATIC_BLOCK_ASSERT(BLOCK)  _Static_assert((BLOCK) >= 0 && (BLOCK) <=2, "Invalid PIO block")
+#define STATIC_BLOCK_ASSERT(BLOCK)  _Static_assert((BLOCK) >= 0 && (BLOCK) < MAX_PIO_BLOCKS, "Invalid PIO block")
 
 // Internal macro - do not use directly
-#define STATIC_SM_ASSERT(SM)        _Static_assert((SM) >= 0 && (SM) <=3, "Invalid PIO state machine")
+#define STATIC_SM_ASSERT(SM)        _Static_assert((SM) >= 0 && (SM) < MAX_SMS_PER_BLOCK, "Invalid PIO state machine")
 
 // Internal macro - do not use directly
 #define OFFSET_ARRAY_INIT       {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}
@@ -105,15 +109,21 @@
 // Call before creating PIO programs
 //
 // Uses around 128 bytes of stack space.
-#define PIO_ASM_INIT()    uint16_t instr_scratch[32];                                                     \
-                            uint8_t __attribute__((unused)) __pio_first_instr[3][4] = OFFSET_ARRAY_INIT;    \
-                            uint8_t __pio_start[3][4] = OFFSET_ARRAY_INIT;                                  \
-                            uint8_t __pio_wrap_bottom[3][4] = OFFSET_ARRAY_INIT;                            \
-                            uint8_t __pio_wrap_top[3][4] = OFFSET_ARRAY_INIT;                               \
-                            uint8_t __attribute__((unused)) __pio_end[3][4] = OFFSET_ARRAY_INIT;            \
-                            uint8_t __pio_offset[3] = {0, 0, 0};                                            \
-                            uint8_t __block;                                                                \
-                            uint8_t __sm
+#define PIO_ASM_INIT()  \
+    uint16_t instr_scratch[MAX_PIO_INSTRS];                                             \
+    uint8_t __attribute__((unused)) __pio_first_instr[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;    \
+    uint8_t __pio_start[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;         \
+    uint8_t __pio_wrap_bottom[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;   \
+    uint8_t __pio_wrap_top[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;      \
+    uint8_t __attribute__((unused)) __pio_end[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;   \
+    uint8_t __pio_offset[MAX_PIO_BLOCKS] = {0, 0, 0};                                   \
+    uint8_t __block = 0;                                                                \
+    uint8_t __sm = 0
+
+// Assert these, as if they change, the above stack space calculation must be updated.
+_Static_assert((MAX_PIO_BLOCKS == 3), "MAX_PIO_BLOCKS must be 3");
+_Static_assert((MAX_SMS_PER_BLOCK == 4), "MAX_SMS_PER_BLOCK must be 4");
+_Static_assert((MAX_PIO_INSTRS == 32), "MAX_PIO_INSTRS must be 32");
 
 // Set the current PIO block
 #define PIO_SET_BLOCK(BLOCK)    STATIC_BLOCK_ASSERT(BLOCK); \
@@ -127,14 +137,14 @@
                                 __pio_wrap_top[__block][__sm] = __pio_offset[__block];      \
                                 __pio_end[__block][__sm] = __pio_offset[__block]
 
+// Use a label as a destination for JMPs
+#define PIO_LABEL(NAME)         __pio_label__##NAME
+
 // Create a label for JMPs
-#define PIO_LABEL_NEW(NAME)     uint8_t label__##NAME = __pio_offset[__block];
+#define PIO_LABEL_NEW(NAME)     uint8_t PIO_LABEL(NAME) = __pio_offset[__block];
 
 // Create a label for JMPs at a relative offset
-#define PIO_LABEL_NEW_OFFSET(NAME, OFFSET)  uint8_t label__##NAME = __pio_offset[__block] + (OFFSET);
-
-// Use a label as a destination for JMPs
-#define PIO_LABEL(NAME)         label__##NAME
+#define PIO_LABEL_NEW_OFFSET(NAME, OFFSET)  uint8_t PIO_LABEL(NAME) = __pio_offset[__block] + (OFFSET);
 
 // Set the start offset within a PIO program - call before `PIO_ADD_INSTR()`
 // for the start instruction.
@@ -159,11 +169,11 @@
 
 // Add an instruction to the current PIO program.
 #if defined(DEBUG_LOGGING) && (DEBUG_LOGGING == 1)
-#define PIO_ADD_INSTR(INST)     if (__pio_offset[__block] >= 32) {                          \
+#define PIO_ADD_INSTR(INST)     if (__pio_offset[__block] >= MAX_PIO_INSTRS) {      \
                                     LOG("!!! PIO program overflow in PIO block %d SM %d", __block, __sm);   \
-                                    limp_mode(LIMP_MODE_INVALID_CONFIG);                    \
-                                } else {                                                    \
-                                    instr_scratch[__pio_offset[__block]++] = INST;          \
+                                    limp_mode(LIMP_MODE_INVALID_CONFIG);            \
+                                } else {                                            \
+                                    instr_scratch[__pio_offset[__block]++] = INST;  \
                                 }
 #else // !DEBUG_LOGGING
 #define PIO_ADD_INSTR(INST)     instr_scratch[__pio_offset[__block]++] = INST
