@@ -404,6 +404,7 @@ void pio_log_sm(
     uint8_t clkdiv_frac = PIO_CLKDIV_FRAC_FROM_REG(sm_reg->clkdiv);
     uint8_t wrap_bottom = PIO_WRAP_BOTTOM_FROM_REG(sm_reg->execctrl);
     uint8_t wrap_top = PIO_WRAP_TOP_FROM_REG(sm_reg->execctrl);
+    DEBUG("wrap_top = %d, wrap_bottom = %d", wrap_top, wrap_bottom);
     DEBUG(
         "  CLKDIV: %d.%02d EXECCTRL: 0x%08X SHIFTCTRL: 0x%08X PINCTRL: 0x%08X",
         clkdiv_int,

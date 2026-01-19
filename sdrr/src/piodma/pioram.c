@@ -151,12 +151,10 @@ static void pioram_load_programs(pioram_config_t *config) {
     // Commit them and jmp to start of this SM
     PIO_SM_COMMIT_REGS();
     PIO_SM_JMP_TO_START();
-
-    // Log
     PIO_LOG_SM("Trigger Data and Address Reader (RAM WRITE)");
 
     //
-    // End of block
+    // PIO 0 - End of block
     //
     PIO_WRITE_BLOCK();
 
@@ -164,45 +162,48 @@ static void pioram_load_programs(pioram_config_t *config) {
     //
     // Address Readers
     PIO_SET_BLOCK(1);
-    uint8_t offset = 0;
 
     // PIO1 - Address Readers
     // 
     // SM0 - Address Reader (RAM READ)
     //
     // Constantly serves bytes to the READ DMA chain
-    
+    PIO_SET_SM(0);
+
     // Preload high 16 bits of RAM table address to X - done via TX FIFO
     // before starting as SET(X) only supports 5 bits.
 
     // Pull high 16 bits from X
-    uint8_t addr_wrap_start = offset;
-    uint8_t addr_wrap_1st_instr = offset;
-    uint8_t addr_wrap_bottom = offset;
-    instr_scratch[offset++] = IN_X(16);
+    PIO_ADD_INSTR(IN_X(16));
 
     // Read address lines and push to RX FIFO, so READ DMA chain serves the
-    // byte.
-    // We add a delay after this, to avoid overloading the DMA chain.
-    uint8_t addr_wrap_top = offset;
-    instr_scratch[offset++] = ADD_DELAY(IN_PINS(16), 2);  // Autopush
+    // byte.  We add a delay after this, to avoid overloading the DMA chain.
+    PIO_WRAP_TOP();
+    PIO_ADD_INSTR(ADD_DELAY(IN_PINS(16), 2));   // Autopush
 
-    sm_reg = PIO1_SM_REG(0);
-    sm_reg->clkdiv = PIO_CLKDIV(1, 0);
-    sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM_AS_REG(addr_wrap_bottom) |
-        PIO_WRAP_TOP_AS_REG(addr_wrap_top);
-    sm_reg->shiftctrl =
-        PIO_IN_COUNT(11) |
-        PIO_AUTOPUSH |
-        PIO_PUSH_THRESH(32) |
+    // SM configuration
+    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_EXECCTRL_SET(0);
+    PIO_SM_SHIFTCTRL_SET(
+        PIO_IN_COUNT(11) |      // # of address pins
+        PIO_AUTOPUSH |          // Auto push when we hit threshold
+        PIO_PUSH_THRESH(32) |   // Push when we have total of 32 bits
         PIO_IN_SHIFTDIR_L |
-        PIO_OUT_SHIFTDIR_L;
-    sm_reg->pinctrl = PIO_IN_BASE(13);  // Address base pin
-    PIO1_SM_TXF(0) = ram_table_high_bits;
-    sm_reg->instr = PULL_BLOCK;
-    sm_reg->instr = MOV_X_OSR;
-    sm_reg->instr = JMP(addr_wrap_start);
+        PIO_OUT_SHIFTDIR_L
+    );
+    PIO_SM_PINCTRL_SET(
+        PIO_IN_BASE(13)         // Address base pin
+    );
+    PIO_SM_COMMIT_REGS();
+
+    // Preload the X register to the 16 high bits of the RAM table address
+    PIO_TXF = ram_table_high_bits;
+    PIO_SM_EXEC_INSTR(PULL_BLOCK);
+    PIO_SM_EXEC_INSTR(MOV_X_OSR);
+
+    // Jump to start of program
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Address Reader (RAM READ)");
 
     // PIO1 - Address Readers
     //
@@ -221,80 +222,63 @@ static void pioram_load_programs(pioram_config_t *config) {
     // they are both started at around the same time, and take roughly the same
     // time to loop, the data to write should be in the WRITE DMA chain by the
     // time the DMA gets the address and writes the byte.
+    PIO_SET_SM(1);
 
     // Preload high 16 bits of RAM table address to X - done via TX FIFO
     // before starting as SET(X) only supports 5 bits.
 
     // (SM does not start here.). Push combined RAM table address and lower
     // order address bits when /W goes high.
-    uint8_t addr_write_valid = offset;
-    uint8_t addr_write_1st_instr = offset;
-    instr_scratch[offset++] = PUSH_BLOCK;
+    PIO_LABEL_NEW(addr_write_valid);
+    PIO_ADD_INSTR(PUSH_BLOCK);
 
     // Wait for address reader IRQ from Data read handler
-    uint8_t addr_write_start = offset;
-    instr_scratch[offset++] = WAIT_IRQ_HIGH_PREV(3);  // Wait for RAM WRITE IRQ
+    PIO_START();
+    PIO_ADD_INSTR(WAIT_IRQ_HIGH_PREV(3));
 
     // Pull high 16 bits from X
-    uint8_t addr_write_wrap_bottom = offset;
-    instr_scratch[offset++] = IN_X(16);
+    PIO_WRAP_BOTTOM();
+    PIO_ADD_INSTR(IN_X(16));
 
     // Read address lines.
-    instr_scratch[offset++] = IN_PINS(16);
+    PIO_ADD_INSTR(IN_PINS(16));
 
-    uint8_t addr_write_wrap_top = offset;
-    instr_scratch[offset++] = JMP_PIN(addr_write_valid);  // Jump when /W goes high
+    // Jump when /W goes high
+    PIO_WRAP_TOP();
+    PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(addr_write_valid)));
 
     // SM configuration
-    sm_reg = PIO1_SM_REG(1);
-    sm_reg->clkdiv = PIO_CLKDIV(1, 0);
-    sm_reg->execctrl =
-        PIO_WRAP_BOTTOM_AS_REG(addr_write_wrap_bottom) |
-        PIO_WRAP_TOP_AS_REG(addr_write_wrap_top) |
-        PIO_JMP_PIN(12);    // /W pin
-    sm_reg->shiftctrl =
-        PIO_IN_COUNT(11) |
-        //PIO_AUTOPUSH |         // No autopush
-        //PIO_PUSH_THRESH(32) |  // No autopush
+    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_EXECCTRL_SET(
+        PIO_JMP_PIN(12)         // /W pin
+    );
+    PIO_SM_SHIFTCTRL_SET(
+        PIO_IN_COUNT(11) |      // # of address pins
         PIO_IN_SHIFTDIR_L |
-        PIO_OUT_SHIFTDIR_L;
-    sm_reg->pinctrl = PIO_IN_BASE(13);  // Address base pin
-    PIO1_SM_TXF(1) = ram_table_high_bits;
-    sm_reg->instr = PULL_BLOCK;
-    sm_reg->instr = MOV_X_OSR;
-    sm_reg->instr = JMP(addr_write_start);
+        PIO_OUT_SHIFTDIR_L
+    );
+    PIO_SM_PINCTRL_SET(
+        PIO_IN_BASE(13)         // Address base pin
+    );
+    PIO_SM_COMMIT_REGS();
+
+    // Preload the X register to the 16 high bits of the RAM table address
+    PIO_TXF = ram_table_high_bits;
+    PIO_SM_EXEC_INSTR(PULL_BLOCK);
+    PIO_SM_EXEC_INSTR(MOV_X_OSR);
+
+    // Jump to start of program
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Address Reader (RAM WRITE)");
 
     // Now copy all PIO1 instructions
-    for (int ii = 0; ii < offset; ii++) {
-        PIO1_INSTR_MEM(ii) = instr_scratch[ii];
-    }
-
-#if defined(DEBUG_LOGGING)
-    pio_log_sm(
-        "Address Reader (RAM READ)",
-        1,
-        0,
-        (uint32_t *)instr_scratch,
-        addr_wrap_1st_instr,
-        addr_wrap_start,
-        addr_wrap_top
-    );
-    pio_log_sm(
-        "Address Reader (RAM WRITE)",
-        1,
-        1,
-        (uint32_t *)instr_scratch,
-        addr_write_1st_instr,
-        addr_write_start,
-        addr_write_wrap_top
-    );
-#endif // DEBUG_LOGGING
+    PIO_WRITE_BLOCK();
 
     // PIO2 Programs
     //
     // Data Handlers
     PIO_SET_BLOCK(2);
-    offset = 0;
+    uint8_t offset = 0;
 
     // PIO2 - Data Handlers
     //

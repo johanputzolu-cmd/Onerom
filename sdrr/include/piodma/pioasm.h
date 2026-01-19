@@ -135,8 +135,13 @@
 #define PIO_SET_BLOCK(BLOCK)    STATIC_BLOCK_ASSERT(BLOCK); \
                                 __block = BLOCK
 // Set the current PIO SM
-#define PIO_SET_SM(SM)          STATIC_SM_ASSERT(SM);       \
-                                __sm = SM
+#define PIO_SET_SM(SM)          STATIC_SM_ASSERT(SM);                                       \
+                                __sm = SM;                                                  \
+                                __pio_first_instr[__block][__sm] = __pio_offset[__block];   \
+                                __pio_start[__block][__sm] = __pio_offset[__block];         \
+                                __pio_wrap_bottom[__block][__sm] = __pio_offset[__block];   \
+                                __pio_wrap_top[__block][__sm] = __pio_offset[__block];      \
+                                __pio_end[__block][__sm] = __pio_offset[__block]
 
 // Create a label for JMPs
 #define PIO_LABEL_NEW(NAME)     uint8_t label__##NAME = __pio_offset[__block];
@@ -160,7 +165,7 @@
 // Set the wrap top offset within a PIO program - call before
 // `PIO_ADD_INSTR()` for the .wrap instruction.
 #define PIO_WRAP_TOP()          __pio_wrap_top[__block][__sm] = __pio_offset[__block];  \
-                                __pio_end[__block][__sm] = __pio_offset[__block]
+                                PIO_END()
 
 // Add an instruction to the current PIO program.
 #if defined(DEBUG_LOGGING) && (DEBUG_LOGGING == 1)
@@ -189,7 +194,25 @@
 
 // Immediately execute an instruction on the current PIO SM.  Can be called
 // before enabling the SM to set initial state.
-#define PIO_SM_INSTR_SET(INSTR)          __pio_sm_reg[__block][__sm]->instr = INSTR
+#define PIO_SM_EXEC_INSTR(INSTR)         __pio_sm_reg[__block][__sm]->instr = INSTR
+
+static inline volatile uint32_t* pio_txf_ptr(uint8_t block, uint8_t sm) {
+    if (block == 0) return (volatile uint32_t *)(PIO0_BASE + PIO_TXF_OFFSET + (sm * 0x04));
+    else if (block == 1) return (volatile uint32_t *)(PIO1_BASE + PIO_TXF_OFFSET + (sm * 0x04));
+    else return (volatile uint32_t *)(PIO2_BASE + PIO_TXF_OFFSET + (sm * 0x04));
+}
+
+static inline volatile uint32_t* pio_rxf_ptr(uint8_t block, uint8_t sm) {
+    if (block == 0) return (volatile uint32_t *)(PIO0_BASE + PIO_RXF_OFFSET + (sm * 0x04));
+    else if (block == 1) return (volatile uint32_t *)(PIO1_BASE + PIO_RXF_OFFSET + (sm * 0x04));
+    else return (volatile uint32_t *)(PIO2_BASE + PIO_RXF_OFFSET + (sm * 0x04));
+}
+
+// Access the current SM's TX FIFO
+#define PIO_TXF (*pio_txf_ptr(__block, __sm))
+
+// Access the current SM's RX FIFO
+#define PIO_RXF (*pio_rxf_ptr(__block, __sm))
 
 // Commit the current PIO SM's register values.  Call before enabling the SM 
 // and before logging it.
@@ -204,7 +227,7 @@
 // Set the current PIO SM to jump to its start instruction after
 // configuration.  The PIO SM will only be started by explicitly enabling.
 // This sets the point at which it will start.
-#define PIO_SM_JMP_TO_START()   PIO_SM_INSTR_SET(JMP(__pio_start[__block][__sm]))
+#define PIO_SM_JMP_TO_START()   PIO_SM_EXEC_INSTR(JMP(__pio_start[__block][__sm]))
 
 // Write the constructed PIO programs to the PIO instruction memory for the
 // current PIO block.  Call after all SMs for this block have been built,
