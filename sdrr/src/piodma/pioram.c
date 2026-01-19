@@ -83,16 +83,20 @@ static void pioram_start_pios(void);
 // - Padding in RAM WRITE triggerer (P2/S3) to avoid detecting /W high before the other SMs can (commented out)
 // - Extra /CE/W check at start of RAM WRITE triggerer (P2/S3)
 
-// Load all PIO programs for RAM serving
+// Build and load the PIO programs for RAM serving
+//
+// Uses the single-pass PIO assembler macros from pioasm.h
 static void pioram_load_programs(pioram_config_t *config) {
-    PIO_BUILD_INIT();
-    volatile pio_sm_reg_t *sm_reg;
+    // Get the high 16 bits of the RAM table address for preloading into the
+    // address reader SMs.
+    uint32_t ram_table_high_bits = (config->ram_table_addr >> 16) & 0xFFFF;
+    DEBUG("RAM table high 16 bits: 0x%08X", ram_table_high_bits);
+
+    // Set up the PIO assembler
+    PIO_ASM_INIT();
     
     // Clear all PIO IRQs
     PIO_CLEAR_ALL_IRQS();
-
-    uint32_t ram_table_high_bits = (config->ram_table_addr >> 16) & 0xFFFF;
-    DEBUG("RAM table high 16 bits: 0x%08X", ram_table_high_bits);
 
     // PIO0 Programs
     //
@@ -155,7 +159,7 @@ static void pioram_load_programs(pioram_config_t *config) {
     //
     // PIO 0 - End of block
     //
-    PIO_WRITE_BLOCK();
+    PIO_END_BLOCK();
 
     // PIO1 Programs
     //
@@ -268,54 +272,60 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_SM_JMP_TO_START();
     PIO_LOG_SM("Address Reader (RAM WRITE)");
 
-    // Now copy all PIO1 instructions
-    PIO_WRITE_BLOCK();
+    //
+    // PIO 0 - End of block
+    //
+    PIO_END_BLOCK();
 
     // PIO2 Programs
     //
     // Data Handlers
     PIO_SET_BLOCK(2);
-    uint8_t offset = 0;
 
     // PIO2 - Data Handlers
     //
     // SM0 - Data Input/Output handler
     //
     // Start by setting data pins to inputs
-    uint8_t data_io_1st_instr = offset;
-    uint8_t data_io_write_enabled = offset;
-    uint8_t data_io_start = offset;
-    instr_scratch[offset++] = MOV_PINDIRS_NULL; // Set data pins to inputs
+    PIO_SET_SM(0);
+    PIO_LABEL_NEW(data_io_write_enabled);
+
+    // Set data pins to inputs
+    PIO_ADD_INSTR(MOV_PINDIRS_NULL);
+
     // Test for /CE and /OE active
-    uint8_t data_io_wrap_bottom = offset;
-    instr_scratch[offset++] = MOV_X_PINS;
-    instr_scratch[offset++] = JMP_X_DEC(data_io_start);     // /CE or /OE inactive.  Have to jump
-                                                            // to start and set pins to inputs cos
-                                                            // this part of the loop is also used
-                                                            // when pins may already be outputs.
+    PIO_WRAP_BOTTOM();
+    PIO_ADD_INSTR(MOV_X_PINS);
+    PIO_ADD_INSTR(JMP_X_DEC(PIO_START_LABEL()));    // /CE or /OE inactive.  Have to jump
+                                                    // to start and set pins to inputs cos
+                                                    // this part of the loop is also used
+                                                    // when pins may already be outputs.
 
     // /CE and /OE low - both active.  Check /W state next
-    uint8_t data_io_set_outputs = offset + 2;               // Point to set data pins as outputs
-    instr_scratch[offset++] = JMP_PIN(data_io_set_outputs); // /W disabled, do enable
-    instr_scratch[offset++] = JMP(data_io_write_enabled);           // /W enabled, don't enable
-    uint8_t data_io_wrap_top = offset;
-    instr_scratch[offset++] = MOV_PINDIRS_NOT_NULL;         // Set data pins to outputs
+    PIO_LABEL_NEW_OFFSET(data_io_set_outputs, 2);           // Point to set data pins as outputs
+    PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(data_io_set_outputs))); // /W disabled, do enable
+    PIO_ADD_INSTR(JMP(PIO_LABEL(data_io_write_enabled)));   // /W enabled, don't enable
+    PIO_WRAP_TOP();
+    PIO_ADD_INSTR(MOV_PINDIRS_NOT_NULL);                    // Set data pins to outputs
 
     // Configure SM
-    sm_reg = PIO2_SM_REG(0);
-    sm_reg->clkdiv = PIO_CLKDIV(1, 0);
-    sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM_AS_REG(data_io_wrap_bottom) |
-        PIO_WRAP_TOP_AS_REG(data_io_wrap_top) |
-        PIO_JMP_PIN(12);    // /W pin
-    sm_reg->shiftctrl = 
+    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_EXECCTRL_SET(
+        PIO_JMP_PIN(12)    // /W pin
+    );
+    PIO_SM_SHIFTCTRL_SET(
         PIO_IN_COUNT(2) |   // /OE amd /CE
-        PIO_IN_SHIFTDIR_L;  // Direction doesn't matter
-    sm_reg->pinctrl = 
+        PIO_IN_SHIFTDIR_L    // Direction doesn't matter
+    );
+    PIO_SM_PINCTRL_SET(
         PIO_IN_BASE(10) |   // /OE and /CE
         PIO_OUT_COUNT(8) |  // Data pins 
-        PIO_OUT_BASE(0);    // Data base pin
-    sm_reg->instr = JMP(data_io_start);
+        PIO_OUT_BASE(0)     // Data base pin
+    );
+
+    // Jump to start and log
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Data IO Handler");
 
     //
     // PIO2 - Data Handlers
@@ -325,88 +335,59 @@ static void pioram_load_programs(pioram_config_t *config) {
     // Just waits until 8 bits are made available by the READ DMA chain, then
     // writes them to the data pin outputs (whether they are set to outputs
     // or not).
-    uint8_t data_out_1st_instr = offset;
-    uint8_t data_out_start = offset;
-    uint8_t data_out_wrap_top = offset;
-    uint8_t data_out_wrap_bottom = offset;
-    instr_scratch[offset++] = OUT_PINS(8);  // Autopull, blocks until 8 bits available
-    sm_reg = PIO2_SM_REG(1);
-    sm_reg->clkdiv = PIO_CLKDIV(1, 0);
-    sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM_AS_REG(data_out_wrap_bottom) |
-        PIO_WRAP_TOP_AS_REG(data_out_wrap_top);
-    sm_reg->shiftctrl = 
+    PIO_SET_SM(1);
+    PIO_ADD_INSTR(OUT_PINS(8));     // Autopull, blocks until 8 bits available
+
+    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_EXECCTRL_SET(0);
+    PIO_SM_SHIFTCTRL_SET(
         PIO_OUT_SHIFTDIR_R |    // Writes LSB of OSR
         PIO_AUTOPULL |          // Auto pull when we hit threshold
-        PIO_PULL_THRESH(8);     // Pull when we have 8 bits
-    sm_reg->pinctrl =
+        PIO_PULL_THRESH(8)      // Pull when we have 8 bits
+    );
+    PIO_SM_PINCTRL_SET(
         PIO_OUT_COUNT(8) |      // Number of data lines
-        PIO_OUT_BASE(0);        // Data base pin
-    sm_reg->instr = JMP(data_out_start);
+        PIO_OUT_BASE(0)         // Data base pin
+    );
+
+    // Jump to start and log
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Data Reader (RAM READ)");
 
     // PIO2 - Data Handlers
     //
     // SM2 - Data input (RAM WRITE)
-    uint8_t data_in_1st_instr = offset; 
-    uint8_t data_in_valid = offset;
-    instr_scratch[offset++] = PUSH_BLOCK;               // Push data to RX FIFO for DMA
-    uint8_t data_in_start = offset;
-    instr_scratch[offset++] = WAIT_IRQ_HIGH_NEXT(3);    // Wait for RAM WRITE IRQ
-    uint8_t data_in_wrap_bottom = offset;
-    instr_scratch[offset++] = NOP;  // Synchronise with address reader which takes 2 cycles to read
-    instr_scratch[offset++] = MOV_ISR_PINS;             // Read at same time as address pins
-    uint8_t data_in_wrap_top = offset;
-    instr_scratch[offset++] = JMP_PIN(data_in_valid);   // Jump when /W goes high 
+    PIO_SET_SM(2);
+    PIO_LABEL_NEW(data_in_valid);
+    PIO_ADD_INSTR(PUSH_BLOCK);              // Push data to RX FIFO for DMA
+    PIO_START();
+    PIO_ADD_INSTR(WAIT_IRQ_HIGH_NEXT(3));   // Wait for RAM WRITE IRQ
+    PIO_WRAP_BOTTOM();
+    PIO_ADD_INSTR(NOP);                     // Synchronise with address reader which takes 2 cycles to read
+    PIO_ADD_INSTR(MOV_ISR_PINS);            // Read at same time as address pins
+    PIO_WRAP_TOP();
+    PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(data_in_valid)));   // Jump when /W goes high 
 
-    sm_reg = PIO2_SM_REG(2);
-    sm_reg->clkdiv = PIO_CLKDIV(1, 0);
-    sm_reg->execctrl = 
-        PIO_WRAP_BOTTOM_AS_REG(data_in_wrap_bottom) |
-        PIO_WRAP_TOP_AS_REG(data_in_wrap_top) |
-        PIO_JMP_PIN(12);    // /W pin
-    sm_reg->shiftctrl =
+    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_EXECCTRL_SET(
+        PIO_JMP_PIN(12)    // /W pin
+    );
+    PIO_SM_SHIFTCTRL_SET(
         PIO_IN_COUNT(8) |       // Number of data lines
-        // PIO_AUTOPUSH |  // No autopush
-        // PIO_PUSH_THRESH(8) |    // Number of bits to push (number of data lines)
-        PIO_IN_SHIFTDIR_L;
-    sm_reg->pinctrl =
-        PIO_IN_BASE(0);         // Data base pin
-    sm_reg->instr = JMP(data_in_start);
+        PIO_IN_SHIFTDIR_L
+    );
+    PIO_SM_PINCTRL_SET(
+        PIO_IN_BASE(0)         // Data base pin
+    );
 
-    // Now copy all PIO2 instructions
-    for (int ii = 0; ii < offset; ii++) {
-        PIO2_INSTR_MEM(ii) = instr_scratch[ii];
-    }
+    // Jump to start and log
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Data Reader (RAM WRITE)");
 
-#if defined(DEBUG_LOGGING)
-    pio_log_sm(
-        "Data IO Handler",
-        2,
-        0,
-        instr_scratch,
-        data_io_1st_instr,
-        data_io_start,
-        data_io_wrap_top
-    );
-    pio_log_sm(
-        "Data Reader (RAM READ)",
-        2,
-        1,
-        instr_scratch,
-        data_out_1st_instr,
-        data_out_start,
-        data_out_wrap_top
-    );
-    pio_log_sm(
-        "Data Reader (RAM WRITE)",
-        2,
-        2,
-        instr_scratch,
-        data_in_1st_instr,
-        data_in_start,
-        data_in_wrap_top
-    );
-#endif // DEBUG_LOGGING
+    //
+    // PIO 2 - End of block
+    //
+    PIO_END_BLOCK();
 }
 
 // Setup DMA channels for RAM serving

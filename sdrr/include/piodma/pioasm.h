@@ -2,9 +2,9 @@
 //
 // MIT License
 
-// One ROM RP2350 PIO Assembler macros
+// One ROM RP2350 Single-pass Inline PIO Assembler
 //
-// Helper macros to construct PIO programs for RP2350 PIO state machines.
+// Provides macros to construct PIO programs for RP2350 PIO state machines.
 
 #ifndef PIOASM_H
 #define PIOASM_H
@@ -16,10 +16,10 @@
 // Instructions:
 //
 // You MUST build all SMs for a single PIO block and write them using
-// `PIO_WRITE_BLOCK()` before moving onto the next PIO block, as a single
+// `PIO_END_BLOCK()` before moving onto the next PIO block, as a single
 // stack based scratch buffer is used by these macros.
 //
-// 1.  At the beginning of your PIO building function, call `PIO_BUILD_INIT()`
+// 1.  At the beginning of your PIO building function, call `PIO_ASM_INIT()`
 //     to declare and initialise the necessary variables.
 //
 // 2.  (Optional) Clear all PIO IRQs using `PIO_CLEAR_ALL_IRQS()`.
@@ -73,7 +73,7 @@
 //
 // 16. (Optional) Repeat steps 4 to 15 for each additional SM in this PIO block.
 //
-// 17. Call `PIO_WRITE_BLOCK()` to write all constructed programs to the PIO
+// 17. Call `PIO_END_BLOCK()` to write all constructed programs to the PIO
 //     instruction memory.
 //
 // 18. Repeat steps 3 to 17 for each additional PIO block.
@@ -105,7 +105,7 @@
 // Call before creating PIO programs
 //
 // Uses around 128 bytes of stack space.
-#define PIO_BUILD_INIT()    uint16_t instr_scratch[32];                                                     \
+#define PIO_ASM_INIT()    uint16_t instr_scratch[32];                                                     \
                             uint8_t __attribute__((unused)) __pio_first_instr[3][4] = OFFSET_ARRAY_INIT;    \
                             uint8_t __pio_start[3][4] = OFFSET_ARRAY_INIT;                                  \
                             uint8_t __pio_wrap_bottom[3][4] = OFFSET_ARRAY_INIT;                            \
@@ -130,12 +130,18 @@
 // Create a label for JMPs
 #define PIO_LABEL_NEW(NAME)     uint8_t label__##NAME = __pio_offset[__block];
 
+// Create a label for JMPs at a relative offset
+#define PIO_LABEL_NEW_OFFSET(NAME, OFFSET)  uint8_t label__##NAME = __pio_offset[__block] + (OFFSET);
+
 // Use a label as a destination for JMPs
 #define PIO_LABEL(NAME)         label__##NAME
 
 // Set the start offset within a PIO program - call before `PIO_ADD_INSTR()`
 // for the start instruction.
 #define PIO_START()             __pio_start[__block][__sm] = __pio_offset[__block]
+
+// Get a label representing the start of the current PIO program
+#define PIO_START_LABEL()       __pio_start[__block][__sm]
 
 // Set the end offset within a PIO program - call before `PIO_ADD_INSTR()`
 // for the last instruction.  Must be called after `PIO_WRAP_TOP()`.  If
@@ -221,12 +227,12 @@ static inline volatile uint32_t* pio_instr_mem_ptr(uint8_t block) {
 // Write the constructed PIO programs to the PIO instruction memory for the
 // current PIO block.  Call after all SMs for this block have been built,
 // before enabling.
-#define PIO_WRITE_BLOCK()   do { \
-                                volatile uint32_t* ptr = pio_instr_mem_ptr(__block);    \
-                                for (int ii = 0; ii < __pio_offset[__block]; ii++) {    \
-                                    ptr[ii] = instr_scratch[ii];                        \
-                                }                                                       \
-                            } while(0)
+#define PIO_END_BLOCK() do { \
+                            volatile uint32_t* ptr = pio_instr_mem_ptr(__block);    \
+                            for (int ii = 0; ii < __pio_offset[__block]; ii++) {    \
+                                 ptr[ii] = instr_scratch[ii];                        \
+                            }                                                       \
+                        } while(0)
 
 // Call for each SM to log its information for debugging (`DEBUG_LOGGING`
 // must be defined).
