@@ -16,28 +16,37 @@
 
 // Number of checks to confirm /W is active.  Can we used to debounce noisy /W
 // signals, or brief /W low glitches.
-#define PIORAM_WE_ACTIVE_CHECK_MAX 8  // To high and we'll run out of instructions
-#define PIORAM_WE_ACTIVE_CHECK_MIN 1
-#ifndef PIORAM_WE_ACTIVE_CHECK_COUNT
-#define PIORAM_WE_ACTIVE_CHECK_COUNT 2
-#endif // PIORAM_WE_ACTIVE_CHECK_COUNT
+#define PIORAM_WRITE_ACTIVE_CHECK_MAX 8  // Too high and we'll run out of instructions
+#define PIORAM_WRITE_ACTIVE_CHECK_MIN 1
+#ifndef PIORAM_WRITE_ACTIVE_CHECK_COUNT
+#define PIORAM_WRITE_ACTIVE_CHECK_COUNT 2
+#endif // PIORAM_WRITE_ACTIVE_CHECK_COUNT
 
-#ifndef PIORAM_WE_ACTIVE_IRQ_DELAY
+#ifndef PIORAM_WRITE_TRIGGER_IRQ_DELAY
 // Number of cycles to delay after triggering RAM WRITE IRQ before checking
 // whether /W has gone high.  This provides time for the data and address
 // reader SMs to get into a state where they can check /W as well.
-#define PIORAM_WE_ACTIVE_IRQ_DELAY 4
-#endif // PIORAM_WE_ACTIVE_IRQ_DELAY
+#define PIORAM_WRITE_TRIGGER_IRQ_DELAY 4
+#endif // PIORAM_WRITE_TRIGGER_IRQ_DELAY
+
+// The IRQ number used to trigger RAM WRITE handling.  The PIO block used for
+// this IRQ is the PIO block where the Data read handler SM is located (i.e.
+// the SM that triggers the IRQ when /W goes low).
+#define RAM_WRITE_TRIGGER_IRQ  3
 
 // Configuration structure for PIO RAM serving
 typedef struct pioram_config {
     // CS pin configuration for READ (/CE and /OE)
     uint8_t read_cs_base_pin;
     uint8_t num_read_cs_pins;  // Should be 2 for 6116
-    
+
     // CS pin configuration for WRITE (/CE and /W)
     uint8_t write_cs_base_pin;
     uint8_t num_write_cs_pins;  // Should be 2 for 6116
+
+    // /W pin number
+    uint8_t write_pin;
+    uint8_t pad0[3];
     
     // Data pins (Q0-Q7)
     uint8_t data_base_pin;
@@ -49,27 +58,31 @@ typedef struct pioram_config {
     
     // RAM table base address in SRAM
     uint32_t ram_table_addr;
-    
+
     // Clock dividers for each SM
-    uint16_t read_cs_clkdiv_int;
-    uint8_t read_cs_clkdiv_frac;
-    uint8_t pad0;
-    
-    uint16_t write_cs_clkdiv_int;
-    uint8_t write_cs_clkdiv_frac;
+    uint16_t data_read_handler_clkdiv_int;
+    uint8_t data_read_handler_clkdiv_frac;
     uint8_t pad1;
     
-    uint16_t addr_clkdiv_int;
-    uint8_t addr_clkdiv_frac;
+    uint16_t addr_reader_read_clkdiv_int;
+    uint8_t addr_reader_read_clkdiv_frac;
     uint8_t pad2;
+    
+    uint16_t addr_reader_write_clkdiv_int;
+    uint8_t addr_reader_write_clkdiv_frac;
+    uint8_t pad3;
+
+    uint16_t data_io_clkdiv_int;
+    uint8_t data_io_clkdiv_frac;
+    uint8_t pad4;
     
     uint16_t data_out_clkdiv_int;
     uint8_t data_out_clkdiv_frac;
-    uint8_t pad3;
+    uint8_t pad5;
     
     uint16_t data_in_clkdiv_int;
     uint8_t data_in_clkdiv_frac;
-    uint8_t pad4;
+    uint8_t pad6;
 } pioram_config_t;
 
 // Function prototypes
@@ -87,10 +100,58 @@ static void pioram_start_pios(void);
 //
 // Uses the single-pass PIO assembler macros from pioasm.h
 static void pioram_load_programs(pioram_config_t *config) {
-    // Get the high 16 bits of the RAM table address for preloading into the
+    // Get the high X bits of the RAM table address for preloading into the
     // address reader SMs.
-    uint32_t ram_table_high_bits = (config->ram_table_addr >> 16) & 0xFFFF;
-    DEBUG("RAM table high 16 bits: 0x%08X", ram_table_high_bits);
+    uint8_t ram_table_num_addr_bits = 32 - config->num_addr_pins;
+    uint32_t high_bits_mask = (1 << ram_table_num_addr_bits) - 1;
+    uint32_t low_bits_mask = (1 << config->num_addr_pins) - 1;
+    uint32_t __attribute__((unused)) alignment_size = (1 << config->num_addr_pins) / 1024;
+    DEBUG("Checking RAM table address 0x%08X is %uKB aligned", config->ram_table_addr, alignment_size);
+    DEBUG("High bits mask: 0x%08X, low bits mask: 0x%08X", high_bits_mask, low_bits_mask);
+    if (config->ram_table_addr & low_bits_mask) {
+        LOG("!!! PIO RAM serving requires RAM table address to be %uKB aligned",
+            alignment_size);
+        limp_mode(LIMP_MODE_INVALID_CONFIG);
+    }
+    uint32_t ram_table_high_bits = (config->ram_table_addr >> config->num_addr_pins) & high_bits_mask;
+    DEBUG("RAM table high %d bits: 0x%08X", ram_table_num_addr_bits, ram_table_high_bits);
+
+#if defined(DEBUG_BUILD)
+    // Get other config values
+    uint8_t read_cs_base_pin = config->read_cs_base_pin;
+    uint8_t write_cs_base_pin = config->write_cs_base_pin;
+    uint8_t num_read_cs_pins = config->num_read_cs_pins;
+    uint8_t num_write_cs_pins = config->num_write_cs_pins;
+    uint8_t write_pin = config->write_pin;
+    uint8_t data_base_pin = config->data_base_pin;
+    uint8_t num_data_pins = config->num_data_pins;
+    uint8_t addr_base_pin = config->addr_base_pin;
+    uint8_t num_addr_pins = config->num_addr_pins;
+    uint16_t data_read_handler_clkdiv_int = config->data_read_handler_clkdiv_int;
+    uint8_t data_read_handler_clkdiv_frac = config->data_read_handler_clkdiv_frac;
+    uint16_t addr_reader_read_clkdiv_int = config->addr_reader_read_clkdiv_int;
+    uint8_t addr_reader_read_clkdiv_frac = config->addr_reader_read_clkdiv_frac;
+    uint16_t addr_reader_write_clkdiv_int = config->addr_reader_write_clkdiv_int;
+    uint8_t addr_reader_write_clkdiv_frac = config->addr_reader_write_clkdiv_frac;
+    uint16_t data_io_clkdiv_int = config->data_io_clkdiv_int;
+    uint8_t data_io_clkdiv_frac = config->data_io_clkdiv_frac;
+    uint16_t data_out_clkdiv_int = config->data_out_clkdiv_int;
+    uint8_t data_out_clkdiv_frac = config->data_out_clkdiv_frac;
+    uint16_t data_in_clkdiv_int = config->data_in_clkdiv_int;
+    uint8_t data_in_clkdiv_frac = config->data_in_clkdiv_frac;
+    DEBUG("PIO RAM Serving Config:");
+    DEBUG("- /OE /CE pins: %d-%d", read_cs_base_pin, read_cs_base_pin + num_read_cs_pins - 1);
+    DEBUG("- /CE /W pins: %d-%d", write_cs_base_pin, write_cs_base_pin + num_write_cs_pins - 1);
+    DEBUG("- /W pin: %d", write_pin);
+    DEBUG("- Data pins: %d-%d", data_base_pin, data_base_pin + num_data_pins - 1);
+    DEBUG("- Address pins: %d-%d", addr_base_pin, addr_base_pin + num_addr_pins - 1);
+    DEBUG("- Data Read Handler CLKDIV: %d.%02d", data_read_handler_clkdiv_int, data_read_handler_clkdiv_frac);
+    DEBUG("- Addr Reader READ CLKDIV: %d.%02d", addr_reader_read_clkdiv_int, addr_reader_read_clkdiv_frac);
+    DEBUG("- Addr Reader WRITE CLKDIV: %d.%02d", addr_reader_write_clkdiv_int, addr_reader_write_clkdiv_frac);
+    DEBUG("- Data IO CLKDIV: %d.%02d", data_io_clkdiv_int, data_io_clkdiv_frac);
+    DEBUG("- Data OUT CLKDIV: %d.%02d", data_out_clkdiv_int, data_out_clkdiv_frac);
+    DEBUG("- Data IN CLKDIV: %d.%02d", data_in_clkdiv_int, data_in_clkdiv_frac);
+#endif // DEBUG_BUILD
 
     // Set up the PIO assembler
     PIO_ASM_INIT();
@@ -114,11 +175,11 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_LABEL_NEW(start_write_enabled_check);
     // This algorithm will check /CE and /W this number of times when it goes
     // low, to make sure it's really low.
-    uint8_t data_read_check_count = PIORAM_WE_ACTIVE_CHECK_COUNT;
-    if (data_read_check_count > PIORAM_WE_ACTIVE_CHECK_MAX) {
-        data_read_check_count = PIORAM_WE_ACTIVE_CHECK_MAX;
-        LOG("!!! PIORAM WE ACTIVE CHECK COUNT too high, limiting to %d", PIORAM_WE_ACTIVE_CHECK_MAX);
-    } else if (data_read_check_count < PIORAM_WE_ACTIVE_CHECK_MIN) {
+    uint8_t data_read_check_count = PIORAM_WRITE_ACTIVE_CHECK_COUNT;
+    if (data_read_check_count > PIORAM_WRITE_ACTIVE_CHECK_MAX) {
+        data_read_check_count = PIORAM_WRITE_ACTIVE_CHECK_MAX;
+        LOG("!!! PIORAM WE ACTIVE CHECK COUNT too high, limiting to %d", PIORAM_WRITE_ACTIVE_CHECK_MAX);
+    } else if (data_read_check_count < PIORAM_WRITE_ACTIVE_CHECK_MIN) {
         data_read_check_count = 1;
         LOG("!!! PIORAM WE ACTIVE CHECK COUNT too low, setting to 1");
     }
@@ -131,7 +192,7 @@ static void pioram_load_programs(pioram_config_t *config) {
     }
 
     // Trigger RAM WRITE IRQ. Triggers both addr and data readers
-    PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(3), PIORAM_WE_ACTIVE_IRQ_DELAY)); 
+    PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(RAM_WRITE_TRIGGER_IRQ), PIORAM_WRITE_TRIGGER_IRQ_DELAY)); 
 
     // Wait for either /CE or /W to go high
     PIO_LABEL_NEW(check_write_disabled);
@@ -142,14 +203,17 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(check_write_disabled)));
 
     // Set the various SM register values
-    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_CLKDIV_SET(
+        config->data_read_handler_clkdiv_int,
+        config->data_read_handler_clkdiv_frac
+    );
     PIO_SM_EXECCTRL_SET(0);
     PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(2) |    // Reading /CE and /W
+        PIO_IN_COUNT(config->num_write_cs_pins) |   // Reading /CE and /W
         PIO_IN_SHIFTDIR_L
     );
     PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(11)  // /CE and /W pins
+        PIO_IN_BASE(config->write_cs_base_pin)      // /CE and /W pins
     );
 
     // Jump to start of this SM and log
@@ -173,32 +237,35 @@ static void pioram_load_programs(pioram_config_t *config) {
     // Constantly serves bytes to the READ DMA chain
     PIO_SET_SM(0);
 
-    // Preload high 16 bits of RAM table address to X - done via TX FIFO
-    // before starting as SET(X) only supports 5 bits.
+    // Preload high bits of RAM table address to X - done via TX FIFO before
+    // starting as SET(X) only supports 5 bits.
 
-    // Pull high 16 bits from X
-    PIO_ADD_INSTR(IN_X(16));
+    // Pull high bits from X
+    PIO_ADD_INSTR(IN_X(ram_table_num_addr_bits));
 
     // Read address lines and push to RX FIFO, so READ DMA chain serves the
     // byte.  We add a delay after this, to avoid overloading the DMA chain.
     PIO_WRAP_TOP();
-    PIO_ADD_INSTR(ADD_DELAY(IN_PINS(16), 2));   // Autopush
+    PIO_ADD_INSTR(ADD_DELAY(IN_PINS(config->num_addr_pins), 2));   // Autopush
 
     // SM configuration
-    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_CLKDIV_SET(
+        config->addr_reader_read_clkdiv_int,
+        config->addr_reader_read_clkdiv_frac
+    );
     PIO_SM_EXECCTRL_SET(0);
     PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(11) |      // # of address pins
+        PIO_IN_COUNT(config->num_addr_pins) |
         PIO_AUTOPUSH |          // Auto push when we hit threshold
-        PIO_PUSH_THRESH(32) |   // Push when we have total of 32 bits
+        PIO_PUSH_THRESH(32) |   // Push when we have total of 32 bits (a full address)
         PIO_IN_SHIFTDIR_L |
         PIO_OUT_SHIFTDIR_L
     );
     PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(13)         // Address base pin
+        PIO_IN_BASE(config->addr_base_pin)
     );
 
-    // Preload the X register to the 16 high bits of the RAM table address
+    // Preload the X register to the high bits of the RAM table address
     PIO_TXF = ram_table_high_bits;
     PIO_SM_EXEC_INSTR(PULL_BLOCK);
     PIO_SM_EXEC_INSTR(MOV_X_OSR);
@@ -238,32 +305,35 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_START();
     PIO_ADD_INSTR(WAIT_IRQ_HIGH_PREV(3));
 
-    // Pull high 16 bits from X
+    // Pull high bits from X
     PIO_WRAP_BOTTOM();
-    PIO_ADD_INSTR(IN_X(16));
+    PIO_ADD_INSTR(IN_X(ram_table_num_addr_bits));
 
     // Read address lines.
-    PIO_ADD_INSTR(IN_PINS(16));
+    PIO_ADD_INSTR(IN_PINS(config->num_addr_pins));
 
     // Jump when /W goes high
     PIO_WRAP_TOP();
     PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(addr_write_valid)));
 
     // SM configuration
-    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_CLKDIV_SET(
+        config->addr_reader_write_clkdiv_int,
+        config->addr_reader_write_clkdiv_frac
+    );
     PIO_SM_EXECCTRL_SET(
-        PIO_JMP_PIN(12)         // /W pin
+        PIO_JMP_PIN(config->write_pin)
     );
     PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(11) |      // # of address pins
+        PIO_IN_COUNT(config->num_addr_pins) |
         PIO_IN_SHIFTDIR_L |
         PIO_OUT_SHIFTDIR_L
     );
     PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(13)         // Address base pin
+        PIO_IN_BASE(config->addr_base_pin)
     );
 
-    // Preload the X register to the 16 high bits of the RAM table address
+    // Preload the X register to the high bits of the RAM table address
     PIO_TXF = ram_table_high_bits;
     PIO_SM_EXEC_INSTR(PULL_BLOCK);
     PIO_SM_EXEC_INSTR(MOV_X_OSR);
@@ -309,18 +379,21 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_ADD_INSTR(MOV_PINDIRS_NOT_NULL);                    // Set data pins to outputs
 
     // Configure SM
-    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_CLKDIV_SET(
+        config->data_io_clkdiv_int,
+        config->data_io_clkdiv_frac
+    );
     PIO_SM_EXECCTRL_SET(
-        PIO_JMP_PIN(12)    // /W pin
+        PIO_JMP_PIN(config->write_pin)
     );
     PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(2) |   // /OE amd /CE
-        PIO_IN_SHIFTDIR_L    // Direction doesn't matter
+        PIO_IN_COUNT(config->num_read_cs_pins) |    // /OE amd /CE
+        PIO_IN_SHIFTDIR_L                           // Direction doesn't matter
     );
     PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(10) |   // /OE and /CE
-        PIO_OUT_COUNT(8) |  // Data pins 
-        PIO_OUT_BASE(0)     // Data base pin
+        PIO_IN_BASE(config->read_cs_base_pin) |     // /OE and /CE
+        PIO_OUT_COUNT(config->num_data_pins) |
+        PIO_OUT_BASE(config->data_base_pin)
     );
 
     // Jump to start and log
@@ -336,18 +409,21 @@ static void pioram_load_programs(pioram_config_t *config) {
     // writes them to the data pin outputs (whether they are set to outputs
     // or not).
     PIO_SET_SM(1);
-    PIO_ADD_INSTR(OUT_PINS(8));     // Autopull, blocks until 8 bits available
+    PIO_ADD_INSTR(OUT_PINS(config->num_data_pins)); // Autopull, blocks until all bits available
 
-    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_CLKDIV_SET(
+        config->data_out_clkdiv_int,
+        config->data_out_clkdiv_frac
+    );
     PIO_SM_EXECCTRL_SET(0);
     PIO_SM_SHIFTCTRL_SET(
         PIO_OUT_SHIFTDIR_R |    // Writes LSB of OSR
         PIO_AUTOPULL |          // Auto pull when we hit threshold
-        PIO_PULL_THRESH(8)      // Pull when we have 8 bits
+        PIO_PULL_THRESH(config->num_data_pins)  // Pull when we have all data bits
     );
     PIO_SM_PINCTRL_SET(
-        PIO_OUT_COUNT(8) |      // Number of data lines
-        PIO_OUT_BASE(0)         // Data base pin
+        PIO_OUT_COUNT(config->num_data_pins) |
+        PIO_OUT_BASE(config->data_base_pin)
     );
 
     // Jump to start and log
@@ -368,16 +444,19 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_WRAP_TOP();
     PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(data_in_valid)));   // Jump when /W goes high 
 
-    PIO_SM_CLKDIV_SET(1, 0);
+    PIO_SM_CLKDIV_SET(
+        config->data_in_clkdiv_int,
+        config->data_in_clkdiv_frac
+    );
     PIO_SM_EXECCTRL_SET(
-        PIO_JMP_PIN(12)    // /W pin
+        PIO_JMP_PIN(config->write_pin)
     );
     PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(8) |       // Number of data lines
+        PIO_IN_COUNT(config->num_data_pins) |
         PIO_IN_SHIFTDIR_L
     );
     PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(0)         // Data base pin
+        PIO_IN_BASE(config->data_base_pin)
     );
 
     // Jump to start and log
@@ -391,110 +470,11 @@ static void pioram_load_programs(pioram_config_t *config) {
 }
 
 // Setup DMA channels for RAM serving
+//
+// See `dma.c` for notes on RP2350 DMA usage.
 static void pioram_setup_dma(pioram_config_t *config) {
     volatile dma_ch_reg_t *dma_reg;
     
-    // RP2350 DMA Notes
-    //
-    // The RP2350's datasheet uses the terms "triggering" and "pacing" and I
-    // found it a bit vague and unintuitive.  Specifically "triggering", in
-    // datasheet terms, does NOT necessaarily cause a DMA transfer to occur.
-    // The channel has to be "paced" as well.
-    // 
-    // Hence I've have here described DMA it with the concepts of arming and
-    // triggering, with triggering differing slightly from the datasheet's
-    // usage.  I find the firearm analogy more useful.
-    //
-    // There are three ways to _arm_ a DMA channel:
-    // - Set the transfer_count to a non-zero value.
-    // - Write to a _TRIG register associated with the channel.
-    // - Chain to a channel from another channel.
-    //
-    // You must also enable the channel.
-    //
-    // In terms of _triggering_ a DMA channel, that is causing it to actually
-    // "fire", there are essentially three options:
-    // - Have it trigger by a DREQ signal, which is generated by another
-    //   peripheral like a PIO RX or TX FIFO.
-    // - Have it trigger off a timer.
-    // - Have it trigger off an arming event.
-    //
-    // The datasheet describes the trigger here as "pacing" the DMA.
-    //
-    // The transfer_count decrements after each "firing" (i.e. trigger event)
-    // and the DMA "fires" until the transfer_count reaches zero.
-    //
-    // Once it resets zero, it can be manually reset (i.e. the value changed),
-    // or it can be automatically reset by re-arming it - i.e. one of the
-    // re-arming mechanisms described above, or mode 0x1 below.
-    //
-    // The top nibble of the transfer_count has special meanings on the RP2350:
-    // - 0x0 - Normal operation
-    // - 0x1 - Immediately resets transfer_count back to its original value
-    // - 0xf - Never decrement transfer_count (i.e. infinite)
-    //
-    // Note that 0xf000_0000 never runs - as while the transfer_count never
-    // decrements, it is still initially zero.
-    //
-    // Chaining to another channel has an interesting configuration mechanism.
-    // The channel to be chained to is configured within the CTRL_TRIG
-    // register.  A value of this channel disables chaining.  To chain a
-    // channel to itself is done via a transfer_count of 0xfxxx_xxxx.
-    //
-    // There is a gotcha here.  Chaining to channel 0 is configured by a lack
-    // of setting the CHAIN_TO bits in CTRL_TRIG.  Hence, failing to set the
-    // CHAIN_TO bits means chain to channel 0.  This caused me no end of
-    // confusion not understanding why a DMA channel of 0 kept being re-armed.
-    // In fact, it was being chained to by channel 1, through a lack of
-    // explicitly configuring the CHAIN_TO bits within it.  When I added
-    // channels 2&3 for RAM WRITEs, I didn't understand why, instead I needed
-    // explicit chaining or a transfer_count of 0xfxxx_xxxx to get the DMA to
-    // run forever.  The datasheet does flag this within the CTRL_TRIG
-    // description:
-    //
-    // "Note this field resets to 0, so channels 1 and above will chain to
-    // channel 0 bydefault. Set this field to avoid this behaviour."
-    //
-    // IRQ_QUIET is set to avoid IRQs being raised each time transfer_count
-    // reaches zero.  This is not strictly required, as this firmware doesn't
-    // service those interrupts, but is cleaner.
-    //
-    // There is also the concept of DMA priorities - each channel can be normal
-    // or high priority.  All high priority channels and a maximum of one low
-    // priority channel will be scheduled in each cycle _if there is DMA
-    // saturation_.
-    //
-    // This description ignores the read and write incrementing modes, and ring
-    // buffer support, as they are not used by One ROM.
-
-    // RAM Serving DMA Configuration Notes
-    //
-    // Each of the RAM READ and WRITE operations use a chain of two DMAs.  The
-    // first DMA in each chain reads the target RAM address from the appropriate
-    // PIO RX FIFO and writes it to the second DMA's ADDR_TRIG register, which
-    // arms it.  The second DMA then performs the actual data transfer to or
-    // from the RAM table in SRAM, using another PIO FIFO as the source or
-    // destination.
-    //
-    // The first DMA in each chain is triggered by it's address reader PIO
-    // pushing an address to its RX FIFO.
-    //
-    // The READ chain is driven by its PIO continuously - that PIO tends to sit
-    // in a tight loop readig and pushing.  That PIO has strategic NOPs to
-    // avoid overloading the DMA chain.  It might seem counterintuitive to run
-    // this chain continuously, even when data is being written, but as the
-    // data lines are only set to outputs when /CE and /OE are both low, it
-    // does not interfere with RAM WRITEs, although see the next paragraph.
-    //
-    // The WRITE chain is configured as high priority, to ensure that, if there
-    // is contention, it gets serviced before the READ chain.  Contention is
-    // relatively likely, becaus the READ chain runs continuously, even when
-    // the RAM is in WRITE mode.  Hence when in WRITE mode, the READ chain's
-    // DMA may be trying to access the SRAM at the same time as the WRITE
-    // chain.  Setting the WRITE chain to high priority helps ensure that the
-    // WRITE gets serviced first, reducing the chance of the READ DMA causing
-    // delays to the WRITE operation.
-
     //
     // READ Chain DMAs
     //
@@ -570,9 +550,9 @@ static void pioram_set_gpio_func(pioram_config_t *config) {
     // GPIO_CTRL(12) = GPIO_CTRL_FUNC_PIO2; // /W
 
     // Address pins - not required, as always inputs
-    //for (int ii = 13; ii <= 23; ii++) {
-    //    GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO1;
-    //}
+    // for (int ii = 13; ii <= 23; ii++) {
+    //     GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO1;
+    // }
 
     // Data pins
     for (int ii = 0; ii < 8; ii++) {
@@ -588,6 +568,8 @@ static void pioram_start_pios(void) {
     DEBUG("RAM PIOs started");
 }
 
+// Extern RAM/ROM image start symbol from linker script.  Used because,
+// currently main() does not provide the correct address to pioram().
 extern uint32_t _ram_rom_image_start[];
 
 // Top-level RAM serving function
@@ -601,39 +583,38 @@ void pioram(
 
     ram_table_addr = (uint32_t)_ram_rom_image_start;
 
+#if defined(DEBUG_BUILD) && (DEBUG_BUILD == 1)
     // Clear 64KB RAM table
     uint8_t *ram_table_ptr = (uint8_t *)ram_table_addr;
     for (int ii = 0; ii < 65536; ii++) {
         ram_table_ptr[ii] = 0x03;
     }
+#endif // DEBUG_BUILD
 
     pioram_config_t config = {
-        .read_cs_base_pin = 10,  // /OE + /CE, fire-24-d
+        .read_cs_base_pin = 10,     // /OE + /CE, fire-24-d
         .num_read_cs_pins = 2,
-        .write_cs_base_pin = 11, // /CE + /W, fire-24-d
+        .write_cs_base_pin = 11,    // /CE + /W, fire-24-d
         .num_write_cs_pins = 2,
-        .data_base_pin = 0,  // fire-24-d
+        .write_pin = 12,            // /W pin, fire-24-d
+        .data_base_pin = 0,         // fire-24-d
         .num_data_pins = 8,
-        .addr_base_pin = 13,  // fire-24-d
-        .num_addr_pins = 11,  // 6116 has A0-A10
+        .addr_base_pin = 13,        // fire-24-d
+        .num_addr_pins = 11,        // 6116 has A0-A10
         .ram_table_addr = ram_table_addr,
-        .read_cs_clkdiv_int = 1,
-        .read_cs_clkdiv_frac = 0,
-        .write_cs_clkdiv_int = 1,
-        .write_cs_clkdiv_frac = 0,
-        .addr_clkdiv_int = 1,
-        .addr_clkdiv_frac = 0,
+        .data_read_handler_clkdiv_int = 1,
+        .data_read_handler_clkdiv_frac = 0,
+        .addr_reader_read_clkdiv_int = 1,
+        .addr_reader_read_clkdiv_frac = 0,
+        .addr_reader_write_clkdiv_int = 1,
+        .addr_reader_write_clkdiv_frac = 0,
+        .data_io_clkdiv_int = 1,
+        .data_io_clkdiv_frac = 0,
         .data_out_clkdiv_int = 1,
         .data_out_clkdiv_frac = 0,
         .data_in_clkdiv_int = 1,
         .data_in_clkdiv_frac = 0,
     };
-    
-    // Validate configuration
-    if (ram_table_addr & 0xFFFF) {
-        LOG("!!! PIO RAM serving requires RAM table address to be 64KB aligned");
-        limp_mode(LIMP_MODE_INVALID_CONFIG);
-    }
     
     // Bring PIO0, PIO1, PIO2 and DMA out of reset
     RESET_RESET &= ~(RESET_PIO0 | RESET_PIO1 | RESET_PIO2 | RESET_DMA);
