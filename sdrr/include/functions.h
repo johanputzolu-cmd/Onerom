@@ -77,7 +77,7 @@ void pio_log_sm(
     const char *sm_name,
     uint8_t pio_block,
     uint8_t pio_sm,
-    uint32_t *instr_scratch,
+    uint16_t *instr_scratch,
     uint8_t first_instr,
     uint8_t start,
     uint8_t end

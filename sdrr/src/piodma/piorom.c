@@ -557,7 +557,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t contiguous_cs_pins = config->contiguous_cs_pins;
     uint8_t multi_rom_mode = config->multi_rom_mode;
     uint32_t cs_2nd_match = config->cs_pin_2nd_match;
-    uint32_t instr_scratch[32];
+    uint16_t instr_scratch[32];
 
     // Clear all PIO0 IRQs
     PIO0_IRQ = 0x000000FF;

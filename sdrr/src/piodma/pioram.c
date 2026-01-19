@@ -148,8 +148,7 @@ static void pioram_load_programs(pioram_config_t *config) {
         PIO_IN_BASE(11)  // /CE and /W pins
     );
 
-    // Commit them and jmp to start of this SM
-    PIO_SM_COMMIT_REGS();
+    // Jump to start of this SM and log
     PIO_SM_JMP_TO_START();
     PIO_LOG_SM("Trigger Data and Address Reader (RAM WRITE)");
 
@@ -194,14 +193,13 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_SM_PINCTRL_SET(
         PIO_IN_BASE(13)         // Address base pin
     );
-    PIO_SM_COMMIT_REGS();
 
     // Preload the X register to the 16 high bits of the RAM table address
     PIO_TXF = ram_table_high_bits;
     PIO_SM_EXEC_INSTR(PULL_BLOCK);
     PIO_SM_EXEC_INSTR(MOV_X_OSR);
 
-    // Jump to start of program
+    // Jump to start and log
     PIO_SM_JMP_TO_START();
     PIO_LOG_SM("Address Reader (RAM READ)");
 
@@ -260,14 +258,13 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_SM_PINCTRL_SET(
         PIO_IN_BASE(13)         // Address base pin
     );
-    PIO_SM_COMMIT_REGS();
 
     // Preload the X register to the 16 high bits of the RAM table address
     PIO_TXF = ram_table_high_bits;
     PIO_SM_EXEC_INSTR(PULL_BLOCK);
     PIO_SM_EXEC_INSTR(MOV_X_OSR);
 
-    // Jump to start of program
+    // Jump to start and log
     PIO_SM_JMP_TO_START();
     PIO_LOG_SM("Address Reader (RAM WRITE)");
 
@@ -386,7 +383,7 @@ static void pioram_load_programs(pioram_config_t *config) {
         "Data IO Handler",
         2,
         0,
-        (uint32_t *)instr_scratch,
+        instr_scratch,
         data_io_1st_instr,
         data_io_start,
         data_io_wrap_top
@@ -395,7 +392,7 @@ static void pioram_load_programs(pioram_config_t *config) {
         "Data Reader (RAM READ)",
         2,
         1,
-        (uint32_t *)instr_scratch,
+        instr_scratch,
         data_out_1st_instr,
         data_out_start,
         data_out_wrap_top
@@ -404,7 +401,7 @@ static void pioram_load_programs(pioram_config_t *config) {
         "Data Reader (RAM WRITE)",
         2,
         2,
-        (uint32_t *)instr_scratch,
+        instr_scratch,
         data_in_1st_instr,
         data_in_start,
         data_in_wrap_top

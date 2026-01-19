@@ -62,23 +62,21 @@
 //
 // 12. Call `PIO_SM_PINCTRL_SET(PINCTRL)` to set the SM's PINCTRL register.
 //
-// 13. Call `PIO_SM_COMMIT_REGS()` to commit the SM's register values.
-//
-// 14. (Optional) Use `PIO_SM_INSTR_SET(INSTRUCTION)` to execute discrete
+// 13. (Optional) Use `PIO_SM_INSTR_SET(INSTRUCTION)` to execute discrete
 //     instructions on this SM immediately after configuration.
 //
-// 15. Call `PIO_SM_JMP_TO_START()` to set the SM to jump to the start of the
+// 14. Call `PIO_SM_JMP_TO_START()` to set the SM to jump to the start of the
 //     program after configuration.
 //
-// 16. (Optional) Call `PIO_LOG_SM("SM NAME")` to log the SM program details
+// 15. (Optional) Call `PIO_LOG_SM("SM NAME")` to log the SM program details
 //     for debugging.
 //
-// 17. (Optional) Repeat steps 4 to 16 for each additional SM in this PIO block.
+// 16. (Optional) Repeat steps 4 to 15 for each additional SM in this PIO block.
 //
-// 18. Call `PIO_WRITE_BLOCK()` to write all constructed programs to the PIO
+// 17. Call `PIO_WRITE_BLOCK()` to write all constructed programs to the PIO
 //     instruction memory.
 //
-// 19. Repeat steps 3 to 18 for each additional PIO block.
+// 18. Repeat steps 3 to 17 for each additional PIO block.
 
 // Internal macros - do not use directly
 #define STATIC_BLOCK_ASSERT(BLOCK)  _Static_assert((BLOCK) >= 0 && (BLOCK) <=2, "Invalid PIO block")
@@ -102,34 +100,20 @@
 // Clear all PIO IRQs
 #define PIO_CLEAR_ALL_IRQS()    PIO0_IRQ = 0xFFFFFFFF;  \
                                 PIO1_IRQ = 0xFFFFFFFF;  \
-                                PIO2_IRQ = 0xFFFFFFFF;
+                                PIO2_IRQ = 0xFFFFFFFF
 
 // Call before creating PIO programs
 //
-// Uses around 512 bytes of stack space.
-#define PIO_BUILD_INIT()    uint32_t instr_scratch[32]; \
-                            uint8_t __block;            \
-                            uint8_t __sm;               \
-                            uint8_t __attribute__((unused)) __pio_first_instr[3][4] = OFFSET_ARRAY_INIT; \
-                            uint8_t __pio_start[3][4] = OFFSET_ARRAY_INIT;       \
-                            uint8_t __pio_wrap_bottom[3][4] = OFFSET_ARRAY_INIT; \
-                            uint8_t __pio_wrap_top[3][4] = OFFSET_ARRAY_INIT;    \
-                            uint8_t __attribute__((unused)) __pio_end[3][4] = OFFSET_ARRAY_INIT;    \
-                            uint32_t __pio_clkdiv[3][4] = OFFSET_ARRAY_INIT;     \
-                            uint32_t __pio_execctrl[3][4] = OFFSET_ARRAY_INIT;   \
-                            uint32_t __pio_shiftctrl[3][4] = OFFSET_ARRAY_INIT;  \
-                            uint32_t __pio_pinctrl[3][4] = OFFSET_ARRAY_INIT;    \
-                            volatile pio_sm_reg_t *__pio_sm_reg[3][4] = {               \
-                                {PIO0_SM_REG(0), PIO0_SM_REG(1), PIO0_SM_REG(2), PIO0_SM_REG(3)}, \
-                                {PIO1_SM_REG(0), PIO1_SM_REG(1), PIO1_SM_REG(2), PIO1_SM_REG(3)}, \
-                                {PIO2_SM_REG(0), PIO2_SM_REG(1), PIO2_SM_REG(2), PIO2_SM_REG(3)}  \
-                            };                                                          \
-                            volatile uint32_t* __pio_instr_mem[3] = {                   \
-                                (volatile uint32_t *)(PIO0_BASE + PIO_INSTR_MEM_OFFSET),\
-                                 (volatile uint32_t *)(PIO1_BASE + PIO_INSTR_MEM_OFFSET),\
-                                 (volatile uint32_t *)(PIO2_BASE + PIO_INSTR_MEM_OFFSET) \
-                            };                                                          \
-                            static uint8_t __pio_offset[3] = {0, 0, 0}
+// Uses around 128 bytes of stack space.
+#define PIO_BUILD_INIT()    uint16_t instr_scratch[32];                                                     \
+                            uint8_t __attribute__((unused)) __pio_first_instr[3][4] = OFFSET_ARRAY_INIT;    \
+                            uint8_t __pio_start[3][4] = OFFSET_ARRAY_INIT;                                  \
+                            uint8_t __pio_wrap_bottom[3][4] = OFFSET_ARRAY_INIT;                            \
+                            uint8_t __pio_wrap_top[3][4] = OFFSET_ARRAY_INIT;                               \
+                            uint8_t __attribute__((unused)) __pio_end[3][4] = OFFSET_ARRAY_INIT;            \
+                            uint8_t __pio_offset[3] = {0, 0, 0};                                            \
+                            uint8_t __block;                                                                \
+                            uint8_t __sm
 
 // Set the current PIO block
 #define PIO_SET_BLOCK(BLOCK)    STATIC_BLOCK_ASSERT(BLOCK); \
@@ -180,21 +164,30 @@
 #endif // DEBUG_LOGGING
 
 // Set the clock divider for the current PIO SM.
-#define PIO_SM_CLKDIV_SET(INT, FRAC)     __pio_clkdiv[__block][__sm] = PIO_CLKDIV((INT), (FRAC))
+#define PIO_SM_CLKDIV_SET(INT, FRAC)    pio_sm_reg_ptr(__block, __sm)->clkdiv = PIO_CLKDIV((INT), (FRAC))
 
 // Set the EXECCTRL for the current PIO SM.  Do not include wrap top/bottom.
-// That will be set automatically by `PIO_SM_COMMIT_REGS()`.
-#define PIO_SM_EXECCTRL_SET(EXECCTRL)    __pio_execctrl[__block][__sm] = (EXECCTRL)
+// Those will be set automatically from the wrap values.
+#define PIO_SM_EXECCTRL_SET(EXECCTRL)   pio_sm_reg_ptr(__block, __sm)->execctrl =                       \
+                                            (EXECCTRL) |                                                \
+                                            PIO_WRAP_BOTTOM_AS_REG(__pio_wrap_bottom[__block][__sm]) |  \
+                                            PIO_WRAP_TOP_AS_REG(__pio_wrap_top[__block][__sm])
 
 // Set the SHIFTCTRL for the current PIO SM.
-#define PIO_SM_SHIFTCTRL_SET(SHIFTCTRL)  __pio_shiftctrl[__block][__sm] = (SHIFTCTRL)
+#define PIO_SM_SHIFTCTRL_SET(SHIFTCTRL) pio_sm_reg_ptr(__block, __sm)->shiftctrl = (SHIFTCTRL)
 
 // Set the PINCTRL for the current PIO SM.
-#define PIO_SM_PINCTRL_SET(PINCTRL)      __pio_pinctrl[__block][__sm]    = (PINCTRL)
+#define PIO_SM_PINCTRL_SET(PINCTRL)     pio_sm_reg_ptr(__block, __sm)->pinctrl = (PINCTRL)
+
+static inline volatile pio_sm_reg_t* pio_sm_reg_ptr(uint8_t block, uint8_t sm) {
+    if (block == 0) return PIO0_SM_REG(sm);
+    else if (block == 1) return PIO1_SM_REG(sm);
+    else return PIO2_SM_REG(sm);
+}
 
 // Immediately execute an instruction on the current PIO SM.  Can be called
 // before enabling the SM to set initial state.
-#define PIO_SM_EXEC_INSTR(INSTR)         __pio_sm_reg[__block][__sm]->instr = INSTR
+#define PIO_SM_EXEC_INSTR(INSTR) pio_sm_reg_ptr(__block, __sm)->instr = INSTR
 
 static inline volatile uint32_t* pio_txf_ptr(uint8_t block, uint8_t sm) {
     if (block == 0) return (volatile uint32_t *)(PIO0_BASE + PIO_TXF_OFFSET + (sm * 0x04));
@@ -214,40 +207,39 @@ static inline volatile uint32_t* pio_rxf_ptr(uint8_t block, uint8_t sm) {
 // Access the current SM's RX FIFO
 #define PIO_RXF (*pio_rxf_ptr(__block, __sm))
 
-// Commit the current PIO SM's register values.  Call before enabling the SM 
-// and before logging it.
-#define PIO_SM_COMMIT_REGS()    __pio_sm_reg[__block][__sm]->clkdiv = __pio_clkdiv[__block][__sm];  \
-                                __pio_sm_reg[__block][__sm]->execctrl =                             \
-                                    __pio_execctrl[__block][__sm] |                                 \
-                                    PIO_WRAP_BOTTOM_AS_REG(__pio_wrap_bottom[__block][__sm]) |      \
-                                    PIO_WRAP_TOP_AS_REG(__pio_wrap_top[__block][__sm]);             \
-                                __pio_sm_reg[__block][__sm]->shiftctrl = __pio_shiftctrl[__block][__sm]; \
-                                __pio_sm_reg[__block][__sm]->pinctrl = __pio_pinctrl[__block][__sm]
-
 // Set the current PIO SM to jump to its start instruction after
 // configuration.  The PIO SM will only be started by explicitly enabling.
 // This sets the point at which it will start.
 #define PIO_SM_JMP_TO_START()   PIO_SM_EXEC_INSTR(JMP(__pio_start[__block][__sm]))
 
+static inline volatile uint32_t* pio_instr_mem_ptr(uint8_t block) {
+    if (block == 0) return (volatile uint32_t *)(PIO0_BASE + PIO_INSTR_MEM_OFFSET);
+    else if (block == 1) return (volatile uint32_t *)(PIO1_BASE + PIO_INSTR_MEM_OFFSET);
+    else return (volatile uint32_t *)(PIO2_BASE + PIO_INSTR_MEM_OFFSET);
+}
+
 // Write the constructed PIO programs to the PIO instruction memory for the
 // current PIO block.  Call after all SMs for this block have been built,
 // before enabling.
-#define PIO_WRITE_BLOCK()       for (int ii = 0; ii < __pio_offset[__block]; ii++) {       \
-                                    __pio_instr_mem[__block][ii] = instr_scratch[ii];        \
-                                }
+#define PIO_WRITE_BLOCK()   do { \
+                                volatile uint32_t* ptr = pio_instr_mem_ptr(__block);    \
+                                for (int ii = 0; ii < __pio_offset[__block]; ii++) {    \
+                                    ptr[ii] = instr_scratch[ii];                        \
+                                }                                                       \
+                            } while(0)
 
 // Call for each SM to log its information for debugging (`DEBUG_LOGGING`
 // must be defined).
 #if defined(DEBUG_LOGGING)
-#define PIO_LOG_SM(NAME)                   \
-    pio_log_sm(                            \
-        NAME,                              \
-        __block,                           \
-        __sm,                              \
-        (uint32_t *)instr_scratch,         \
-        __pio_first_instr[__block][__sm],  \
-        __pio_start[__block][__sm],        \
-        __pio_end[__block][__sm]           \
+#define PIO_LOG_SM(NAME)                    \
+    pio_log_sm(                             \
+        NAME,                               \
+        __block,                            \
+        __sm,                               \
+        instr_scratch,                      \
+        __pio_first_instr[__block][__sm],   \
+        __pio_start[__block][__sm],         \
+        __pio_end[__block][__sm]            \
     )
 #else
 #define PIO_LOG_SM(NAME)
