@@ -8,6 +8,7 @@ All notables changes between versions are documented in this file.
 
 - Prototype RAM support for 24 pin RAM chips, which use the same pin-out as the 6116/2016 RAM.  See PR #98 and discussion #70.
 - Support for Fire boards (fire-24-d specifically) to use image select pins that are shared with SWD pins.  Note that this means that having an SWD programmer connected at boot will tend to change the image select value to an unexpected one, as the pins will be pulled by the programmer.  In v0.6.0 only 2 image select jumpers were supported on fire-24-d.
+- Support for Ice boards (ice-24-j specifically) to use image select pins that are shared with SWD pins.  Note that this means that having an SWD programmer connected at boot may change the image select value to an unexpected one, as the pins will be pulled by the programmer.  In v0.6.0 only 2 image select jumpers were supported on ice-24-j.  Also, unlike the Fire boards, the ice-24-j (and similar) boards will disconnect from the debug probe during boot because of this function, so reconnecting will be necessary.
 - Check in Studio/onerom-gen that firmware version is not too new (next major release) when building firmware images.
 
 ### Fixed
