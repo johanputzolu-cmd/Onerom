@@ -20,7 +20,7 @@ name = "onerom-fw"
 path = "src/main.rs"
 
 [dependencies]
-onerom-config = { version = "0.3.0" }
+onerom-config = { path="../config", version = "0.3.1" }
 onerom-gen = { path="../gen", version = "0.3.1" }
 sdrr-fw-parser = { path="../sdrr-fw-parser", version = "0.6.1" }
 
