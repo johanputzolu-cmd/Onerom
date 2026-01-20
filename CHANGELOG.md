@@ -6,6 +6,7 @@ All notables changes between versions are documented in this file.
 
 ### Added
 
+- Prototype RAM support for 24 pin RAM chips, which use the same pin-out as the 6116/2016 RAM.  See PR #98 and discussion #70.
 - Check in Studio/onerom-gen that firmware version is not too new (next major release) when building firmware images.
 
 ### Fixed
