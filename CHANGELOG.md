@@ -10,6 +10,7 @@ All notables changes between versions are documented in this file.
 - Support for Fire boards (fire-24-d specifically) to use image select pins that are shared with SWD pins.  Note that this means that having an SWD programmer connected at boot will tend to change the image select value to an unexpected one, as the pins will be pulled by the programmer.  In v0.6.0 only 2 image select jumpers were supported on fire-24-d.
 - Support for Ice boards (ice-24-j specifically) to use image select pins that are shared with SWD pins.  Note that this means that having an SWD programmer connected at boot may change the image select value to an unexpected one, as the pins will be pulled by the programmer.  In v0.6.0 only 2 image select jumpers were supported on ice-24-j.  Also, unlike the Fire boards, the ice-24-j (and similar) boards will disconnect from the debug probe during boot because of this function, so reconnecting will be necessary.
 - Check in Studio/onerom-gen that firmware version is not too new (next major release) when building firmware images.
+- Promote fire-24-d and ice-24-j to verified hardware revisions.
 
 ### Fixed
 
