@@ -11,7 +11,6 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
     printf("\n=== Validating All ROM Sets ===\n");
 
     assert(json_config != NULL);
-    create_address_mangler(json_config);
     create_byte_demangler(json_config);
 
     int total_errors = 0;
@@ -23,13 +22,18 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
     
     // Validate each ROM set
     for (int set_idx = 0; set_idx < sdrr_rom_set_count; set_idx++) {
-        printf("\nValidating ROM set %d (%d ROMs)...\n", set_idx, rom_set[set_idx].rom_count);
-        
+        printf("\nValidating ROM set %d (%d ROMs)...\n", set_idx, rom_set[set_idx].roms[0]->rom_type);
+
         int errors = 0;
         int checked = 0;
         
         uint8_t num_roms = rom_set[set_idx].rom_count;
         sdrr_serve_t serve = rom_set[set_idx].serve;
+        const sdrr_rom_type_t rom_type = rom_set[set_idx].roms[0]->rom_type;
+
+        // We have the create the address mangler on a per ROM set basis, as it depends on the ROM type
+        // being used.
+        create_address_mangler(json_config, rom_type);
 
         if (num_roms == 1) {
             int loaded_rom_idx = overall_rom_idx;
@@ -47,7 +51,7 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                     uint8_t expected_byte = loaded_roms[loaded_rom_idx].data[original_addr];
                     
                     // Test CS=0
-                    uint16_t mangled_addr_cs0 = create_mangled_address(rom_pins, logical_addr, 0, 0, 0);
+                    uint16_t mangled_addr_cs0 = create_mangled_address(rom_pins, logical_addr, 0, 255, 255, 0, 0);
                     uint8_t compiled_byte_cs0 = lookup_rom_byte(set_idx, mangled_addr_cs0);
                     uint8_t demangled_byte_cs0 = demangle_byte(compiled_byte_cs0);
                     
@@ -60,7 +64,7 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                     }
                     
                     // Test CS=1
-                    uint16_t mangled_addr_cs1 = create_mangled_address(rom_pins, logical_addr, 1, 0, 0);
+                    uint16_t mangled_addr_cs1 = create_mangled_address(rom_pins, logical_addr, 1, 255, 255, 0, 0);
                     uint8_t compiled_byte_cs1 = lookup_rom_byte(set_idx, mangled_addr_cs1);
                     uint8_t demangled_byte_cs1 = demangle_byte(compiled_byte_cs1);
                     
@@ -83,7 +87,7 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                     uint16_t original_addr = logical_addr % loaded_roms[loaded_rom_idx].size;
                     uint8_t expected_byte = loaded_roms[loaded_rom_idx].data[original_addr];
 
-                    uint16_t mangled_addr = create_mangled_address(rom_pins, logical_addr, 0, 0, 0);
+                    uint16_t mangled_addr = create_mangled_address(rom_pins, logical_addr, 0, 255, 255, 0, 0);
                     uint8_t compiled_byte = lookup_rom_byte(set_idx, mangled_addr);
                     uint8_t demangled_byte = demangle_byte(compiled_byte);
 
@@ -177,7 +181,7 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                 // Test all addresses for this combination
                 int combo_errors = 0;
                 for (uint16_t logical_addr = 0; logical_addr < 8192; logical_addr++) {
-                    uint16_t mangled_addr = create_mangled_address(rom_pins, logical_addr, cs1, x1, x2);
+                    uint16_t mangled_addr = create_mangled_address(rom_pins, logical_addr, cs1, 255, 255, x1, x2);
                     uint8_t compiled_byte = lookup_rom_byte(set_idx, mangled_addr);
                     uint8_t demangled_byte = demangle_byte(compiled_byte);
                     
