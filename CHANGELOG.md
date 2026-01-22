@@ -2,6 +2,9 @@
 
 All notables changes between versions are documented in this file.
 
+## v0.6.2 - 2026-??-??
+
+
 ## v0.6.1 - 2026-01-22
 
 ### Added

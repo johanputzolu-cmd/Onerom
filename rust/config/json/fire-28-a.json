@@ -6,7 +6,8 @@
     "rom": {
         "pins": {
             "quantity": 28
-        }
+        },
+        "bit_modes": ["8"]
     },
     "mcu": {
         "family": "rp2350",

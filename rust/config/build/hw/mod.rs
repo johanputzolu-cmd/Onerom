@@ -10,6 +10,8 @@ mod validation;
 
 use validation::{HwConfigJson, McuFamily, Port, ServeMode};
 
+use crate::hw::validation::Rom;
+
 pub const HW_CONFIG_DIRS: [&str; 1] = ["json"];
 pub const HW_CONFIG_SUB_DIRS: [&str; 2] = ["user", "third-party"];
 pub const HW_GENERATED_RS_FILENAME: &str = "hw/generated.rs";
@@ -20,7 +22,7 @@ struct HwConfigData {
     alt: Vec<String>,
     variant_name: String,
     config: HwConfigJson,
-    phys_pin_to_addr_map: [Option<usize>; 16],
+    phys_pin_to_addr_map: [Option<usize>; Rom::MAX_ADDR_PINS],
     phys_pin_to_data_map: [usize; 8],
 }
 
@@ -235,7 +237,7 @@ fn load_all_configs(config_dirs: &[std::path::PathBuf]) -> Vec<HwConfigData> {
                 }
 
                 // Compute pin maps
-                let mut phys_pin_to_addr_map = [None; 16];
+                let mut phys_pin_to_addr_map = [None; Rom::MAX_ADDR_PINS];
                 for (addr_line, &phys_pin) in config.mcu.pins.addr.iter().enumerate() {
                     let mut phys_pin = phys_pin as usize;
                     if config.mcu.serve_mode == ServeMode::Cpu {
@@ -574,6 +576,7 @@ fn generate_mcu_family_method(configs: &[HwConfigData]) -> String {
         let family = match config.config.mcu.family {
             McuFamily::Stm32f4 => "Family::Stm32f4",
             McuFamily::Rp2350 => "Family::Rp2350",
+            McuFamily::Rp2350B => "Family::Rp2350",
         };
         code.push_str(&format!(
             "            Board::{} => {},\n",
@@ -1090,7 +1093,7 @@ fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
     code.push_str("    ///\n");
     code.push_str("    /// See onerom-gen src/image.rs handle_snowflake_rom_types() for an example\n");
     code.push_str(
-        "    pub const fn phys_pin_to_addr_map(&self) -> &'static [Option<usize>; 16] {\n",
+        &format!("    pub const fn phys_pin_to_addr_map(&self) -> &'static [Option<usize>; {}] {{\n", Rom::MAX_ADDR_PINS),
     );
     code.push_str("        match self {\n");
 
@@ -1131,7 +1134,7 @@ fn generate_pin_map_methods(configs: &[HwConfigData]) -> String {
     code
 }
 
-fn format_option_array(arr: &[Option<usize>; 16]) -> String {
+fn format_option_array(arr: &[Option<usize>; Rom::MAX_ADDR_PINS]) -> String {
     arr.iter()
         .map(|opt| match opt {
             Some(v) => format!("Some({})", v),
