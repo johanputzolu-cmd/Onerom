@@ -68,11 +68,12 @@ extern uint16_t create_mangled_address(
 );
 extern uint8_t lookup_rom_byte(uint8_t set, uint16_t mangled_addr);
 extern uint8_t demangle_byte(uint8_t mangled_byte);
-extern const char* rom_type_to_string(int rom_type);
-extern size_t get_expected_rom_size(int rom_type);
-extern int rom_type_from_string(const char* type_str);
+extern const char* rom_type_to_string(sdrr_rom_type_t rom_type);
+extern uint8_t get_num_cs(sdrr_rom_type_t);
+extern uint8_t cs_combinations(sdrr_rom_type_t, uint8_t **combos);
+extern size_t get_expected_rom_size(sdrr_rom_type_t rom_type);
+extern sdrr_rom_type_t rom_type_from_string(const char* type_str);
 extern const char* cs_state_to_string(int cs_state);
-extern size_t get_expected_rom_size(int rom_type);
 extern void print_compiled_rom_info(void);
 
 // roms-config.c
