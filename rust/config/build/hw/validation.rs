@@ -154,7 +154,7 @@ pub struct McuPorts {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct RomPins {
+pub struct ChipPins {
     pub quantity: u8,
 }
 
@@ -166,13 +166,22 @@ pub enum BitMode {
     Bit16,
 }
 
+impl From<BitMode> for usize {
+    fn from(mode: BitMode) -> usize {
+        match mode {
+            BitMode::Bit8 => 8,
+            BitMode::Bit16 => 16,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
-pub struct Rom {
-    pub pins: RomPins,
+pub struct Chip {
+    pub pins: ChipPins,
     pub bit_modes: Vec<BitMode>,
 }
 
-impl Rom {
+impl Chip {
     pub const MAX_ADDR_PINS: usize = 19;
 
     pub fn max_addr_pins(&self) -> u8 {
@@ -192,17 +201,17 @@ impl Rom {
 pub struct McuPins {
     pub data: Vec<u8>,
     pub addr: Vec<u8>,
-    #[serde(default, deserialize_with = "deserialize_rom_map")]
+    #[serde(default, deserialize_with = "deserialize_chip_map")]
     pub cs1: HashMap<String, u8>,
-    #[serde(default, deserialize_with = "deserialize_rom_map")]
+    #[serde(default, deserialize_with = "deserialize_chip_map")]
     pub cs2: HashMap<String, u8>,
-    #[serde(default, deserialize_with = "deserialize_rom_map")]
+    #[serde(default, deserialize_with = "deserialize_chip_map")]
     pub cs3: HashMap<String, u8>,
     pub x1: Option<u8>,
     pub x2: Option<u8>,
-    #[serde(default, deserialize_with = "deserialize_rom_map")]
+    #[serde(default, deserialize_with = "deserialize_chip_map")]
     pub ce: HashMap<String, u8>,
-    #[serde(default, deserialize_with = "deserialize_rom_map")]
+    #[serde(default, deserialize_with = "deserialize_chip_map")]
     pub oe: HashMap<String, u8>,
     pub x_jumper_pull: u8,
     pub sel: Vec<u8>,
@@ -254,7 +263,7 @@ pub struct HwConfigJson {
     pub description: String,
     #[serde(default)]
     pub alt: Vec<String>,
-    pub rom: Rom,
+    pub chip: Chip,
     pub mcu: Mcu,
 }
 
@@ -267,7 +276,7 @@ where
         .ok_or_else(|| serde::de::Error::custom(format!("Invalid MCU family: {}", s)))
 }
 
-fn deserialize_rom_map<'de, D>(deserializer: D) -> Result<HashMap<String, u8>, D::Error>
+fn deserialize_chip_map<'de, D>(deserializer: D) -> Result<HashMap<String, u8>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -280,8 +289,8 @@ fn invalid_pin() -> u8 {
 
 pub fn validate_config(name: &str, config: &HwConfigJson) {
     // Check data pins
-    let has8 = config.rom.bit_modes.contains(&BitMode::Bit8);
-    let has16 = config.rom.bit_modes.contains(&BitMode::Bit16);
+    let has8 = config.chip.bit_modes.contains(&BitMode::Bit8);
+    let has16 = config.chip.bit_modes.contains(&BitMode::Bit16);
     if !has8 && !has16 {
         panic!("{name}: ROM bit modes must include at least one of 8 or 16")
     } else if has8 && !has16 && config.mcu.pins.data.len() != 8 {
@@ -300,7 +309,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
             config.mcu.pins.data.len()
         );
     }
-    for bit_mode in &config.rom.bit_modes {
+    for bit_mode in &config.chip.bit_modes {
         // Check we didn't add a mode
         if !matches![bit_mode, BitMode::Bit8 | BitMode::Bit16] {
             panic!(
@@ -311,13 +320,13 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
     }
 
     // Validate pins consistent within pin arrays
-    let max_data_pins= if config.rom.bit_modes.contains(&BitMode::Bit16) {
+    let max_data_pins= if config.chip.bit_modes.contains(&BitMode::Bit16) {
         16
     } else {
         8
     };
     validate_pin_array(&config.mcu, &config.mcu.pins.data, "data", name, max_data_pins);
-    let max_addr_pins = config.rom.max_addr_pins();
+    let max_addr_pins = config.chip.max_addr_pins();
     validate_pin_array(&config.mcu, &config.mcu.pins.addr, "addr", name, max_addr_pins);
     validate_pin_array(&config.mcu, &config.mcu.pins.sel, "sel", name, 7);
 
@@ -330,7 +339,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
         config.mcu.family.max_valid_data_pin(),
     );
 
-    match config.rom.pins.quantity {
+    match config.chip.pins.quantity {
         24 => validate_pin_values(
             &config.mcu.pins.addr,
             "addr",
@@ -354,7 +363,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
         ),
         _ => panic!(
             "{}: unsupported ROM type {}, expected 24 or 28-pin ROM",
-            name, config.rom.pins.quantity
+            name, config.chip.pins.quantity
         ),
     }
 

@@ -82,7 +82,7 @@ extern const sdrr_info_t sdrr_info;
 //
 // Definition consistency checking
 //
-#if defined(DEBUG_BUILD) && (DEBUG_BUILD == 1) && defined(BOOT_LOGGING) && (BOOT_LOGGING == 1)
+#if defined(DEBUG_BUILD) && defined(BOOT_LOGGING)
 #if !defined(DEBUG_LOGGING)
 #define DEBUG_LOGGING 1
 #endif // !DEBUG_LOGGING

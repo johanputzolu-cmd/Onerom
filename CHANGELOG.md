@@ -2,7 +2,15 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.6.2 - 2026-??-??
+## v0.7.0 - 2026-??-??
+
+Major release, introducing RAM support.
+
+There are breaking changes in this release.  In particular One ROM's config file format now uses "chip_sets" instead of "rom_sets" and "chips" instead of "roms".  If you have existing config files, it should be sufficient to change these two strings.  See the updated [ROM Config README](rom-config/README.md) for details.
+
+
+Changed onerom-config to support Chips instead of Roms.
+
 
 
 ## v0.6.1 - 2026-01-22

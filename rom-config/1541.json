@@ -9,10 +9,10 @@
         "commodore",
         "iec"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "1541 $E000 8KB ROM, 901229-06AA",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/new/1541/1541-e000.901229-06AA.bin",
@@ -23,7 +23,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "1541 $E000 8KB ROM, 901229-05",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/new/1541/1541-e000.901229-05.bin",
@@ -34,7 +34,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "1541/1540 $C000 8KB ROM, 325302-01",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/new/1541/1541-c000.325302-01.bin",
@@ -45,7 +45,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "1540 $E000 8KB ROM, 325303-01",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/new/1541/1540-e000.325303-01.bin",

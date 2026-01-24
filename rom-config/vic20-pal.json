@@ -10,10 +10,10 @@
         "diag",
         "vic20"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "8KB Kernal ROM, 901486-07",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/vic20/kernal.901486-07.bin",
@@ -24,7 +24,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "8KB Basic ROM, 901486-01",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/vic20/basic.901486-01.bin",
@@ -35,7 +35,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "4KB Character ROM, 901460-03",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/vic20/characters.901460-03.bin",
@@ -47,7 +47,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "8KB Dead Test Kernal ROM (PAL), V1.1.01",
                     "file": "https://github.com/piersfinlayson/Vic20-dead-test/releases/download/v1.1.01/dead-test.pal.e0",
@@ -58,7 +58,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "8KB VIC-20 One RAM Tester (PAL), V0.1.0",
                     "file": "https://github.com/piersfinlayson/vic20-one-ram-test/releases/download/v0.1.0/vic-20-one-ram-tester.pal.e0",

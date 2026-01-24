@@ -9,10 +9,10 @@
         "commodore",
         "ieee"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$F000 4KB ROM, 901468-16",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-16.bin",
@@ -24,7 +24,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$E000 4KB ROM, 901468-15",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-15.bin",
@@ -36,7 +36,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$D000 4KB ROM, 901468-14",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-14.bin",
@@ -48,7 +48,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$F000 4KB ROM, 901468-13",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-13.bin",
@@ -60,7 +60,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$E000 4KB ROM, 901468-12",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-12.bin",
@@ -72,7 +72,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$D000 4KB ROM, 901468-11",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-11.bin",

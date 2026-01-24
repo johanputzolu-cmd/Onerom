@@ -3,7 +3,7 @@
     "alt": [
         "p24-d"
     ],
-    "rom": {
+    "chip": {
         "pins": {
             "quantity": 24
         },

@@ -3,7 +3,7 @@
     "alt": [
         "fire-28-usb-a"
     ],
-    "rom": {
+    "chip": {
         "pins": {
             "quantity": 28
         },

@@ -9,10 +9,10 @@
         "ti",
         "ti99"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "4KB HB System ROM",
                     "file": "https://archive.org/download/mame-0.221-roms-merged/ti99_4a.zip",
@@ -25,7 +25,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "4KB LB System ROM",
                     "file": "https://archive.org/download/mame-0.221-roms-merged/ti99_4a.zip",

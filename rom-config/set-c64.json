@@ -11,11 +11,11 @@
         "diag",
         "c64"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "multi",
             "description": "Complete C64 ROM set",
-            "roms": [
+            "chips": [
                 {
                     "description": "Kernal ROM 901227-03",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c64/kernal.901227-03.bin",
@@ -40,7 +40,7 @@
         {
             "type": "multi",
             "description": "Dead Test with Character ROM",
-            "roms": [
+            "chips": [
                 {
                     "description": "Dead Test Kernal ROM 781220",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/misc/c64diag/c64_diag-rev781220-pn314139-03.zip",
@@ -60,7 +60,7 @@
         {
             "type": "multi",
             "description": "Kernal and Basic only",
-            "roms": [
+            "chips": [
                 {
                     "description": "Kernal ROM 901227-03",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c64/kernal.901227-03.bin",

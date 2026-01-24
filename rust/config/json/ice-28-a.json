@@ -1,6 +1,6 @@
 {
   "description": "One ROM Ice 28 (rev A)",
-  "rom": {
+  "chip": {
     "pins": {
       "quantity": 28
     },

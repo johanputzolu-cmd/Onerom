@@ -11,11 +11,11 @@
         "diag",
         "vic20"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "multi",
             "description": "Kernal and Basic ROMs",
-            "roms": [
+            "chips": [
                 {
                     "description": "Kernal ROM 901486-07",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/vic20/kernal.901486-07.bin",
@@ -33,7 +33,7 @@
         {
             "type": "single",
             "description": "Dead Test Kernal",
-            "roms": [
+            "chips": [
                 {
                     "description": "Dead Test Kernal ROM, V1.1.01",
                     "file": "https://github.com/piersfinlayson/Vic20-dead-test/releases/download/v1.1.01/dead-test.pal.e0",

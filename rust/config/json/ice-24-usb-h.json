@@ -4,7 +4,7 @@
     "24-h",
     "ice-24-h"
   ],
-  "rom": {
+  "chip": {
     "pins": {
       "quantity": 24
     },

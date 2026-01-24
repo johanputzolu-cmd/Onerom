@@ -51,6 +51,8 @@
 #define SYSINFO_PACKAGE_SEL     (*((volatile uint32_t *)(SYSINFO_BASE + 0x04)))
 #define SYSINFO_GITREF_RP2350   (*((volatile uint32_t *)(SYSINFO_BASE + 0x14)))
 
+#define SYSINFO_IS_QFN60()      (SYSINFO_PACKAGE_SEL & 0b1)
+
 // SYSCFG Registers
 #define SYSCFG_DBGFORCE             (*((volatile uint32_t *)(SYSCFG_BASE + 0x0C)))
 #define SYSCFG_DBGFORCE_ATTACH_BIT  (1 << 3)
@@ -286,14 +288,38 @@
 // SIO Registers
 #define SIO_CPUID           (*((volatile uint32_t *)(SIO_BASE + 0x00)))
 #define SIO_GPIO_IN         (*((volatile uint32_t *)(SIO_BASE + 0x04)))
+#define SIO_GPIO_HI_IN      (*((volatile uint32_t *)(SIO_BASE + 0x08)))
 #define SIO_GPIO_OUT        (*((volatile uint32_t *)(SIO_BASE + 0x10)))
+#define SIO_GPIO_HI_OUT     (*((volatile uint32_t *)(SIO_BASE + 0x14)))
 #define SIO_GPIO_OUT_SET    (*((volatile uint32_t *)(SIO_BASE + 0x18)))
+#define SIO_GPIO_HI_OUT_SET (*((volatile uint32_t *)(SIO_BASE + 0x1C)))
 #define SIO_GPIO_OUT_CLR    (*((volatile uint32_t *)(SIO_BASE + 0x20)))
+#define SIO_GPIO_HI_OUT_CLR (*((volatile uint32_t *)(SIO_BASE + 0x24)))
 #define SIO_GPIO_OE         (*((volatile uint32_t *)(SIO_BASE + 0x30)))
+#define SIO_GPIO_HI_OE      (*((volatile uint32_t *)(SIO_BASE + 0x34)))
 #define SIO_GPIO_OE_SET     (*((volatile uint32_t *)(SIO_BASE + 0x38)))
+#define SIO_GPIO_HI_OE_SET  (*((volatile uint32_t *)(SIO_BASE + 0x3C)))
 #define SIO_GPIO_OE_CLR     (*((volatile uint32_t *)(SIO_BASE + 0x40)))
+#define SIO_GPIO_HI_OE_CLR  (*((volatile uint32_t *)(SIO_BASE + 0x44)))
 
-#define SIO_GPIO_READ(pin)  (((*(volatile uint32_t*)(SIO_BASE + 0x004)) >> pin) & 1)
+#define SIO_GPIO_READ(pin)          if (pin < 32) \
+                                        (((*(volatile uint32_t*)(SIO_BASE + 0x004)) >> pin) & 1) \
+                                    else \
+                                        (((*(volatile uint32_t*)(SIO_BASE + 0x008)) >> (pin - 32)) & 1)
+
+#define SIO_GPIO_OE_SET_PIN(pin)    if (pin < 32) \
+                                        (*(volatile uint32_t*)(SIO_BASE + 0x038) = (1 << pin)); \
+                                    else \
+                                        (*(volatile uint32_t*)(SIO_BASE + 0x03C) = (1 << (pin - 32)));
+#define SIO_GPIO_OUT_SET_PIN(pin)   if (pin < 32) \
+                                        (*(volatile uint32_t*)(SIO_BASE + 0x018) = (1 << pin)); \
+                                    else \
+                                        (*(volatile uint32_t*)(SIO_BASE + 0x01C) = (1 << (pin - 32)));
+#define SIO_GPIO_IN_PIN(pin)        SIO_GPIO_READ(pin)
+#define SIO_GPIO_OUT_CLR_PIN(pin)   if (pin < 32) \
+                                        (*(volatile uint32_t*)(SIO_BASE + 0x020) = (1 << pin)); \
+                                    else \
+                                        (*(volatile uint32_t*)(SIO_BASE + 0x024) = (1 << (pin - 32)));
 
 // PPB Registers
 #define NVIC_ISER0          (*((volatile uint32_t *)(PBB_BASE + 0x0E100)))
@@ -312,7 +338,13 @@
 #define RP2350_RAM_SIZE_KB  520
 
 // Maximum number of used GPIOs - those exposed on the QFN60 RP2350A
+#if defined(RP2350A)
 #define MAX_USED_GPIOS      30
+#elif defined(RP2350B)
+#define MAX_USED_GPIOS      48
+#else // Unknown variant
+#error "Unknown RP235X variant"
+#endif // RP2350A/B
 
 
 // Boot block structure

@@ -4621,7 +4621,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "onerom-config"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "schemars",
  "serde",
@@ -4674,7 +4674,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-gen"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "onerom-config",
  "schemars",
@@ -6105,7 +6105,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "airfrog-rpc",
  "deku 0.19.1",

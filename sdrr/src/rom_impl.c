@@ -63,6 +63,7 @@ extern uint32_t _ram_rom_image_end[];
 // check CS/X state. 
 static inline void __attribute__((always_inline)) setup_cs_masks(
     const sdrr_info_t *info,
+    const sdrr_runtime_info_t *runtime_info,
     const sdrr_rom_set_t *set,
     sdrr_serve_t serve_mode,
     const sdrr_rom_info_t *rom,
@@ -81,30 +82,34 @@ static inline void __attribute__((always_inline)) setup_cs_masks(
     uint8_t pin_oe = info->pins->oe;
 
 #if defined(RP235X)
-    if (info->pins->data[0] < 8) {
+    uint8_t data_bits = 8;
+    if (runtime_info->bit_mode == BIT_MODE_16) {
+        data_bits = 16;
+    }
+    if (info->pins->data[0] < data_bits) {
         // Data pins are at start, so need to remap CS lines to end up in 
         // the right locations after the serving algorithm's ubfx shift and
         // mask.  Ensure we don't shift below 0 in case of mis-configuration.
-        if (pin_cs1 >= 8) {
-            pin_cs1 -= 8;
+        if (pin_cs1 >= data_bits) {
+            pin_cs1 -= data_bits;
         }
-        if (pin_cs2 >= 8) {
-            pin_cs2 -= 8;
+        if (pin_cs2 >= data_bits) {
+            pin_cs2 -= data_bits;
         }
-        if (pin_cs3 >= 8) {
-            pin_cs3 -= 8;
+        if (pin_cs3 >= data_bits) {
+            pin_cs3 -= data_bits;
         }
-        if (pin_x1 >= 8) {
-            pin_x1 -= 8;
+        if (pin_x1 >= data_bits) {
+            pin_x1 -= data_bits;
         }
-        if (pin_x2 >= 8) {
-            pin_x2 -= 8;
+        if (pin_x2 >= data_bits) {
+            pin_x2 -= data_bits;
         }
-        if (pin_ce >= 8) {
-            pin_ce -= 8;
+        if (pin_ce >= data_bits) {
+            pin_ce -= data_bits;
         }
-        if (pin_oe >= 8) {
-            pin_oe -= 8;
+        if (pin_oe >= data_bits) {
+            pin_oe -= data_bits;
         }
     }
 #endif 
@@ -291,7 +296,11 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     // instruction to shift before using.  It's easier to test if _any_ of 
     // the data lines is < 8 than to check the address lines.
     uint8_t use_ubfx = 1;
-    if (info->pins->data[0] < 8) {
+    uint8_t data_bits = 8;
+    if (runtime->bit_mode == BIT_MODE_16) {
+        data_bits = 16;
+    }
+    if (info->pins->data[0] < data_bits) {
         use_ubfx = 1;
     } else {
         use_ubfx = 0;
@@ -315,6 +324,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     const sdrr_rom_info_t *rom = set->roms[0];
     setup_cs_masks(
         info,
+        runtime,
         set,
         serve_mode,
         rom,
@@ -337,6 +347,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     uint32_t data_input_mask_val;
     setup_data_masks(
         info,
+        runtime,
         &data_output_mask_val,
         &data_input_mask_val
     );
@@ -354,7 +365,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
 #endif // defined(COUNT_ROM_ACCESS) && !defined(C_MAIN_LOOP)
 
 #if defined(RP235X)
-    if (!runtime->fire_pio_mode) {
+    if (runtime->fire_serve_mode == FIRE_SERVE_CPU) {
 #endif // RP235X
     // Now log current state, and items we're going to load to registers.
     ROM_IMPL_DEBUG("%s", log_divider);
@@ -399,9 +410,9 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     }
 
 #if defined(RP235X)
-    if (runtime->fire_pio_mode) {
-        // If we are using PIO/DMA ROM serving, jump to that now
-        piorom(info, set, rom_table_val);
+    // If we are using PIO/DMA ROM serving, jump to that now
+    if (runtime->fire_serve_mode == FIRE_SERVE_PIO) {
+        pio(info, set, rom_table_val);
     }
 #endif // RP235X
 
@@ -697,6 +708,12 @@ uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask) {
 void* preload_rom_image(const sdrr_rom_set_t *set) {
     uint32_t *img_src, *img_dst;
     uint32_t img_size;
+
+    if (set->roms[0]->rom_type == ROM_TYPE_6116) {
+        img_dst = _ram_rom_image_start;
+        LOG("RAM serving from 0x%08X", img_dst);
+        return (void *)img_dst;
+    }
 
     // Find the start of this ROM image in the flash memory
     img_size = set->size;

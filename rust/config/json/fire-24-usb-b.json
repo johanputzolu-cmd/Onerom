@@ -4,7 +4,7 @@
         "p24-b",
         "fire-24-b"
     ],
-    "rom": {
+    "chip": {
         "pins": {
             "quantity": 24
         },

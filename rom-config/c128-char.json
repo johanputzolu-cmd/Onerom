@@ -10,10 +10,10 @@
         "character",
         "c6128"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "C128 8KB Character ROM, 390059-01",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c128/characters.390059-01.bin",

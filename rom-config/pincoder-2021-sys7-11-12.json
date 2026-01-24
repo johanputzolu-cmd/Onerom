@@ -9,10 +9,10 @@
         "pinball"
     ],
     "notes": "For more details on these ROMs, see the Pincoder website: https://pincoder.ca/",
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "11a-sounds",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -26,7 +26,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "11b-sounds",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -40,7 +40,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "12-flippers",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -54,7 +54,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "clear_cmos",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -68,7 +68,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "edit_cmos",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -82,7 +82,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "init_cmos",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",

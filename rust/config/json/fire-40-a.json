@@ -2,7 +2,7 @@
     "description": "One ROM Fire 40 (rev A)",
     "alt": [
     ],
-    "rom": {
+    "chip": {
         "pins": {
             "quantity": 40
         },
@@ -61,7 +61,7 @@
                 "27C400": 17
             },
             "oe": {
-                "2716": 16
+                "27C400": 16
             },
             "sel": [
                 40,

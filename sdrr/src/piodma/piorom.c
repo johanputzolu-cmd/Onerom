@@ -945,7 +945,7 @@ static uint8_t get_lowest_addr_gpio(
         }
     }
 
-    if (info->pins->rom_pins == 24) {
+    if (info->pins->chip_pins == 24) {
         // Consider X pins
         if (info->pins->x1 < lowest) {
             lowest = info->pins->x1;

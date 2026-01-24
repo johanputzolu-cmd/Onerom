@@ -7,6 +7,52 @@
 #ifndef ENUMS_H
 #define ENUMS_H
 
+// ROM type enumeration
+typedef enum {
+    ROM_TYPE_2316 = 0,
+    ROM_TYPE_2332 = 1,
+    ROM_TYPE_2364 = 2,
+    ROM_TYPE_23128 = 3,
+    ROM_TYPE_23256 = 4,
+    ROM_TYPE_23512 = 5,
+    ROM_TYPE_2704 = 6,
+    ROM_TYPE_2708 = 7,
+    ROM_TYPE_2716 = 8,
+    ROM_TYPE_2732 = 9,
+    ROM_TYPE_2764 = 10,
+    ROM_TYPE_27128 = 11,
+    ROM_TYPE_27256 = 12,
+    ROM_TYPE_27512 = 13,
+    ROM_TYPE_231024 = 14,
+    ROM_TYPE_27C010 = 15,
+    ROM_TYPE_27C020 = 16,
+    ROM_TYPE_27C040 = 17,
+    ROM_TYPE_27C080 = 18,
+    ROM_TYPE_27C400 = 19,
+    ROM_TYPE_6116 = 20,
+} sdrr_rom_type_t;
+_Static_assert(sizeof(sdrr_rom_type_t) == 1, "sdrr_rom_type_t must be 1 byte");
+
+// CS state enumeration
+typedef enum {
+    CS_ACTIVE_LOW,
+    CS_ACTIVE_HIGH,
+    CS_NOT_USED,
+} sdrr_cs_state_t;
+_Static_assert(sizeof(sdrr_cs_state_t) == 1, "sdrr_cs_state_t must be 1 byte");
+
+typedef enum {
+    BIT_MODE_8  = 0x01,
+    BIT_MODE_16 = 0x02,
+} bit_modes_t;
+_Static_assert(sizeof(bit_modes_t) == 1, "bit_modes_t must be 1 byte");
+
+typedef enum {
+    FIRE_SERVE_CPU = 0x00,
+    FIRE_SERVE_PIO = 0x01,
+} fire_serve_modes_t;
+_Static_assert(sizeof(fire_serve_modes_t) == 1, "fire_serve_modes_t must be 1 byte");
+
 typedef enum {
     F401DE = 0x0000,  // 96 KB RAM
     F405 = 0x0001,

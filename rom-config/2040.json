@@ -9,10 +9,10 @@
         "commodore",
         "ieee"
     ],
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$F000 4KB ROM, 901468-07",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-07.bin",
@@ -24,7 +24,7 @@
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "$E000 4KB ROM, 901468-06",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/drives/old/4040/901468-06.bin",

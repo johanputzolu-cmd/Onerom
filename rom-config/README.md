@@ -22,7 +22,7 @@ This is a minimal config:
     "$schema": "https://images.onerom.org/configs/schema.json",
     "version": 1,
     "description": "A minimal ROM config",
-    "rom_sets": []
+    "chip_sets": []
 }
 ```
 
@@ -40,10 +40,10 @@ A slightly more advanced config with 2 ROM images:
     "version": 1,
     "name": "Simple Config",
     "description": "A simple ROM config with 2 ROMs",
-    "rom_sets": [
+    "chip_sets": [
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "ROM 1",
                     "file": "http://example.com/rom1.bin",
@@ -54,7 +54,7 @@ A slightly more advanced config with 2 ROM images:
         },
         {
             "type": "single",
-            "roms": [
+            "chips": [
                 {
                     "description": "ROM 2",
                     "file": "http://example.com/rom2.bin",
@@ -152,7 +152,7 @@ Fire boards support 16MHz to 800MHz in various increments (as defined in the sch
 
 ```json
 {
-    "rom_sets": [
+    "chip_sets": [
         {
             "description": "C64 Character ROM - requires high clock speed",
             "firmware_overrides": {
@@ -161,7 +161,7 @@ Fire boards support 16MHz to 800MHz in various increments (as defined in the sch
                     "overclock": true
                 }
             },
-            "roms": [
+            "chips": [
                 {
                     "description": "C64 Character ROM",
                     "file": "http://example.com/c64-char.bin",

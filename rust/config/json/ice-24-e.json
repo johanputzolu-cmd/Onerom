@@ -4,7 +4,7 @@
     "e",
     "24-e"
   ],
-  "rom": {
+  "chip": {
     "pins": {
       "quantity": 24
     },
