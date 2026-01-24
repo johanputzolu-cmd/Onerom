@@ -37,12 +37,14 @@
 #error "MAIN_LOOP_LOGGING cannot be used with EXECUTE_FROM_RAM"
 #endif // MAIN_LOOP && EXECUTE_FROM_RAM
 #if defined(MAIN_LOOP_LOGGING)
-ram_log_fn ROM_IMPL_LOG = do_log;
+// ROM_IMPL_LOG = do_log;
+#define ROM_IMPL_LOG LOG
 #else // !MAIN_LOOP_LOGGING
 #define ROM_IMPL_LOG(X, ...)
 #endif
 #if defined(DEBUG_LOGGING) && defined(MAIN_LOOP_LOGGING)
-ram_log_fn ROM_IMPL_DEBUG = do_log;
+//ram_log_fn ROM_IMPL_DEBUG = do_log;
+#define RAM_IMPL_DEBUG DEBUG
 #else // !DEBUG_LOGGING
 #define ROM_IMPL_DEBUG(X, ...)
 #endif // DEBUG_LOGGING
