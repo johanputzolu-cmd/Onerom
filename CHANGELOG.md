@@ -11,6 +11,7 @@ There are breaking changes in this release.  In particular One ROM's config file
 
 Changed onerom-config to support Chips instead of Roms.
 
+Ability to run from RAM has been removed, to allow 512KB to be used for ROM RAM image on RP2350.  It would be possible to add this back where the image size to be held in RAM is under 512KB, but as executing from RAM is currently unused, it has been removed for now.
 
 
 ## v0.6.1 - 2026-01-22

@@ -34,9 +34,9 @@ typedef enum {
 } sdrr_rom_type_t;
 _Static_assert(sizeof(sdrr_rom_type_t) == 1, "sdrr_rom_type_t must be 1 byte");
 
-extern const char* chip_type_strings[NUM_CHIP_TYPES];
+extern const char* const chip_type_strings[NUM_CHIP_TYPES];
 #if defined(ONEROM_CONSTANTS)
-const char * chip_type_strings[NUM_CHIP_TYPES] = {
+const char * const chip_type_strings[NUM_CHIP_TYPES] = {
     "2316",
     "2332",
     "2364",

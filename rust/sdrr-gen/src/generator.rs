@@ -1069,7 +1069,9 @@ fn generate_linker_script(filename: &Path, config: &Config) -> Result<()> {
             writeln!(file, "_Ram_Rom_Image_Start = ORIGIN(RAM);")?;
         }
     }
-    if config.mcu_variant.ram_kb() > 72 {
+    if config.board.mcu_family() == McuFamily::Rp2350 {
+        writeln!(file, "_Ram_Rom_Image_Size = 0x80000;  /* 512 KB */")?;
+    } else if config.mcu_variant.ram_kb() > 72 {
         writeln!(file, "_Ram_Rom_Image_Size = 0x10000;  /* 64 KB */")?;
     } else {
         writeln!(file, "_Ram_Rom_Image_Size = 0x04000;  /* 16 KB */")?;

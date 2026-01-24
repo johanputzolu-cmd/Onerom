@@ -51,6 +51,10 @@
 //#define TIMER_TEST  5     // Instead of the regular main loop, run a timer
 //                          // test, which will log every N seconds.
 //#define TOGGLE_PA4  1     // Toggle PA4 as main loop
+//
+// - Note EXECUTE_FROM_RAM has been removed in 0.7.0 to all 512KB of RAM to be
+//   used for the ROM RAM image on RP2350.  See linker scripts for more.
+//
 //#define EXECUTE_FROM_RAM  1   // Whether to execute main loop from RAM (flash
 //                              // is the default).  RAM takes nearly twice as
 //                              // long to execute, which may seem counter-
