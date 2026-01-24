@@ -130,6 +130,8 @@ ASSERT((_main_loop_end - _main_loop_start) <= _Ram_Func_Size,
     "Error: main_loop section too large for RAM buffer")
 
 /* Limit bss - this is all segger, and 4284 bytes as of adding this */
+/* 4096 is the UP buffer - reduce that and make clean-firmware; make */
+/* to reduce it */
 ASSERT(_bss_size <= 4284, "Error: BSS section too large")
 
 /* That leaves < 4K for stack, for both processors */
