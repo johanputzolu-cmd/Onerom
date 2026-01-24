@@ -147,7 +147,9 @@ typedef struct {
     // Padding to make 256 bytes long
     uint8_t _post[244];
 } sdrr_extra_info_t;
+#if !defined(TEST_BUILD)
 _Static_assert(sizeof(sdrr_extra_info_t) == 256, "sdrr_extra_info_t must be 256 bytes");
+#endif // !TEST_BUILD
 
 // Main SDRR information data structure
 typedef struct {
@@ -259,7 +261,9 @@ typedef struct {
 
     // Length: 64
 } sdrr_info_t;
+#if !defined(TEST_BUILD)
 _Static_assert(sizeof(sdrr_info_t) == 64, "sdrr_info_t must be 64 bytes");
+#endif // !TEST_BUILD
 
 // ROM image sizes by type (F1 family)
 #define ROM_IMAGE_SIZE_2316  2048

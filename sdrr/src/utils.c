@@ -151,13 +151,13 @@ void log_roms(const onerom_metadata_header_t *metadata_header) {
             const char *rom_type_str;
             const sdrr_rom_info_t *rom = set->roms[jj];
             switch (rom->rom_type) {
-                case ROM_TYPE_2364:
+                case CHIP_TYPE_2364:
                     rom_type_str = r2364;
                     break;
-                case ROM_TYPE_2332:
+                case CHIP_TYPE_2332:
                     rom_type_str = r2332;
                     break;
-                case ROM_TYPE_2316:
+                case CHIP_TYPE_2316:
                     rom_type_str = r2316;
                     break;
                 default:

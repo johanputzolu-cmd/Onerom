@@ -315,7 +315,7 @@ int main(void) {
         sdrr_runtime_info.bit_mode = BIT_MODE_16;
         LOG("16-bit mode");
 #if defined(STM32F4)
-        LOG(!"!!! 16-bit mode not supported on STM32F4");
+        LOG("!!! 16-bit mode not supported on STM32F4");
         limp_mode(LIMP_MODE_INVALID_BUILD);
 #endif // STM32F4
     } else {

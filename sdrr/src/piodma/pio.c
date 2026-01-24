@@ -15,7 +15,7 @@ void pio(
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 ) {
-    if (set->roms[0]->rom_type == ROM_TYPE_6116) {
+    if (set->roms[0]->rom_type == CHIP_TYPE_6116) {
         DEBUG("PIO RAM Mode");
         pioram(info, rom_table_addr);
     } else {

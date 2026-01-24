@@ -70,6 +70,9 @@ static inline void __attribute__((always_inline)) setup_cs_masks(
     uint32_t *check_mask,
     uint32_t *invert_mask
 ) {
+#if !defined(RP235X)
+    (void)runtime_info;
+#endif // RP235X
     uint32_t cs_invert_mask = 0;
     uint32_t cs_check_mask;
 
@@ -136,46 +139,46 @@ static inline void __attribute__((always_inline)) setup_cs_masks(
         uint8_t use_pin_cs3 = 255;
 
         switch (rom->rom_type) {
-            case ROM_TYPE_2316:
+            case CHIP_TYPE_2316:
                 num_cs_lines = 3;
                 use_pin_cs1 = pin_cs1;
                 use_pin_cs2 = pin_cs3; // Correctly transposed
                 use_pin_cs3 = pin_cs2; // Correctly transposed
                 break;
 
-            case ROM_TYPE_2332:
+            case CHIP_TYPE_2332:
                 num_cs_lines = 2;
                 use_pin_cs1 = pin_cs1;
                 use_pin_cs2 = pin_cs2;
                 break;
 
-            case ROM_TYPE_2364:
+            case CHIP_TYPE_2364:
                 num_cs_lines = 1;
                 use_pin_cs1 = pin_cs1;
                 break;
 
-            case ROM_TYPE_23128:
+            case CHIP_TYPE_23128:
                 num_cs_lines = 3;
                 use_pin_cs1 = pin_cs1;
                 use_pin_cs2 = pin_cs2;
                 use_pin_cs3 = pin_cs3;
                 break;
 
-            case ROM_TYPE_23256:
-            case ROM_TYPE_23512:
+            case CHIP_TYPE_23256:
+            case CHIP_TYPE_23512:
                 use_pin_cs1 = pin_cs1;
                 use_pin_cs2 = pin_cs2;
                 num_cs_lines = 2;
                 break;
 
-            case ROM_TYPE_2704:
-            case ROM_TYPE_2708:
-            case ROM_TYPE_2716:
-            case ROM_TYPE_2732:
-            case ROM_TYPE_2764:
-            case ROM_TYPE_27128:
-            case ROM_TYPE_27256:
-            case ROM_TYPE_27512:
+            case CHIP_TYPE_2704:
+            case CHIP_TYPE_2708:
+            case CHIP_TYPE_2716:
+            case CHIP_TYPE_2732:
+            case CHIP_TYPE_2764:
+            case CHIP_TYPE_27128:
+            case CHIP_TYPE_27256:
+            case CHIP_TYPE_27512:
                 num_cs_lines = 2;
                 use_pin_cs1 = pin_ce;
                 use_pin_cs2 = pin_oe;
@@ -709,7 +712,7 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
     uint32_t *img_src, *img_dst;
     uint32_t img_size;
 
-    if (set->roms[0]->rom_type == ROM_TYPE_6116) {
+    if (set->roms[0]->rom_type == CHIP_TYPE_6116) {
         img_dst = _ram_rom_image_start;
         LOG("RAM serving from 0x%08X", img_dst);
         return (void *)img_dst;
@@ -740,40 +743,40 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
     }
 #endif // BOOT_LOGGING
     switch (set->roms[0]->rom_type) {
-        case ROM_TYPE_2364:
+        case CHIP_TYPE_2364:
             DEBUG("%s 2364", rom_type);
             break;
-        case ROM_TYPE_2332:
+        case CHIP_TYPE_2332:
             DEBUG("%s 2332", rom_type);
             break;
-        case ROM_TYPE_2316:
+        case CHIP_TYPE_2316:
             DEBUG("%s 2316", rom_type);
             break;
-        case ROM_TYPE_23128:
+        case CHIP_TYPE_23128:
             DEBUG("%s 23128", rom_type);
             break;
-        case ROM_TYPE_23256:
+        case CHIP_TYPE_23256:
             DEBUG("%s 23256", rom_type);
             break;
-        case ROM_TYPE_23512:
+        case CHIP_TYPE_23512:
             DEBUG("%s 23512", rom_type);
             break;
-        case ROM_TYPE_2716:
+        case CHIP_TYPE_2716:
             DEBUG("%s 2716", rom_type);
             break;
-        case ROM_TYPE_2732:
+        case CHIP_TYPE_2732:
             DEBUG("%s 2732", rom_type);
             break;
-        case ROM_TYPE_2764:
+        case CHIP_TYPE_2764:
             DEBUG("%s 2764", rom_type);
             break;
-        case ROM_TYPE_27128:
+        case CHIP_TYPE_27128:
             DEBUG("%s 27128", rom_type);
             break;
-        case ROM_TYPE_27256:
+        case CHIP_TYPE_27256:
             DEBUG("%s 27256", rom_type);
             break;
-        case ROM_TYPE_27512:
+        case CHIP_TYPE_27512:
             DEBUG("%s 27512", rom_type);
             break;
         default:
