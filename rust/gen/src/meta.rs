@@ -243,6 +243,12 @@ impl Metadata {
         let mut rom_data_ptr = self.abs_chip_image_start();
         let mut rtn_chip_data_ptr = 0;
         for (ii, set) in self.chip_sets.iter().enumerate() {
+            if !set.has_data() && (set.chip_function() == ChipFunction::Ram) {
+                // No ROM data for RAM chip sets
+                rom_data_ptrs[ii] = 0xFFFFFFFF;
+                rtn_chip_data_ptrs[ii] = 0xFFFFFFFF;
+                continue;
+            }
             match set.chip_function() {
                 ChipFunction::Ram => {
                     rom_data_ptrs[ii] = 0xFFFFFFFF;
@@ -417,7 +423,7 @@ impl Metadata {
     pub fn rom_images_size(&self) -> usize {
         self.chip_sets
             .iter()
-            .filter(|set| set.chip_function() != ChipFunction::Ram)
+            .filter(|set| set.has_data())
             .map(|set| set.image_size(&self.board.mcu_family(), self.board.chip_pins()))
             .sum()
     }

@@ -234,6 +234,10 @@ impl Chip {
         &self.chip_type
     }
 
+    pub fn has_data(&self) -> bool {
+        self.data.is_some()
+    }
+
     /// Returns a [`Chip`] instance.
     ///
     /// Takes a raw Chip image (binary data, loaded from file) and processes it
@@ -655,6 +659,10 @@ impl ChipSet {
         })
     }
 
+    pub fn has_data(&self) -> bool {
+        self.chips[0].has_data()
+    }
+
     pub fn multi_cs_logic(&self) -> Result<CsLogic> {
         let first_cs1 = self.chips[0].cs_config.cs1_logic();
         if self.chips.len() == 1 {
@@ -740,7 +748,7 @@ impl ChipSet {
     /// Gets a byte from the chip set at the given address (as far as the MCU is
     /// concerned) and returns the byte, ready for the MCU to serve.
     pub fn get_byte(&self, address: usize, board: &Board, invert_cs1_x: bool) -> u8 {
-        if self.chip_function() == ChipFunction::Ram {
+        if (!self.has_data()) && (self.chip_function() == ChipFunction::Ram) {
             // RAM Chip sets always return 0xFF
             return Chip::byte_mangled(PAD_RAM_BYTE, board)
         }

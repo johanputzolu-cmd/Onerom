@@ -712,15 +712,16 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
     uint32_t *img_src, *img_dst;
     uint32_t img_size;
 
-    if (set->roms[0]->rom_type == CHIP_TYPE_6116) {
-        img_dst = _ram_rom_image_start;
-        LOG("RAM serving from 0x%08X", img_dst);
-        return (void *)img_dst;
-    }
-
     // Find the start of this ROM image in the flash memory
     img_size = set->size;
     img_src = (uint32_t *)(set->data);
+
+    if ((set->roms[0]->rom_type == CHIP_TYPE_6116) && (img_src == (uint32_t *)0xFFFFFFFF)) {
+        LOG("No RAM image");
+        img_dst = _ram_rom_image_start;
+        return (void *)img_dst;
+    }
+
 #if defined(CCM_RAM_BASE) && !defined(DISABLE_CCM)
     if (sdrr_info.mcu_line == F405) {
         // Preload to CCM RAM
@@ -742,48 +743,7 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
         DEBUG("ROM filename: %s", set->roms[0]->filename);
     }
 #endif // BOOT_LOGGING
-    switch (set->roms[0]->rom_type) {
-        case CHIP_TYPE_2364:
-            DEBUG("%s 2364", rom_type);
-            break;
-        case CHIP_TYPE_2332:
-            DEBUG("%s 2332", rom_type);
-            break;
-        case CHIP_TYPE_2316:
-            DEBUG("%s 2316", rom_type);
-            break;
-        case CHIP_TYPE_23128:
-            DEBUG("%s 23128", rom_type);
-            break;
-        case CHIP_TYPE_23256:
-            DEBUG("%s 23256", rom_type);
-            break;
-        case CHIP_TYPE_23512:
-            DEBUG("%s 23512", rom_type);
-            break;
-        case CHIP_TYPE_2716:
-            DEBUG("%s 2716", rom_type);
-            break;
-        case CHIP_TYPE_2732:
-            DEBUG("%s 2732", rom_type);
-            break;
-        case CHIP_TYPE_2764:
-            DEBUG("%s 2764", rom_type);
-            break;
-        case CHIP_TYPE_27128:
-            DEBUG("%s 27128", rom_type);
-            break;
-        case CHIP_TYPE_27256:
-            DEBUG("%s 27256", rom_type);
-            break;
-        case CHIP_TYPE_27512:
-            DEBUG("%s 27512", rom_type);
-            break;
-        default:
-            DEBUG("%s %d %s", rom_type, set->roms[0]->rom_type, unknown);
-            break;
-    }
-    DEBUG("ROM size %d bytes", img_size);
+    DEBUG("Preloading %d bytes for %s", img_size, chip_type_strings[set->roms[0]->rom_type]);
 
     // Set image (either single ROM or multiple ROMs) has been fully pre-
     // processed before embedding in the flash.

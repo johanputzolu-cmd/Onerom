@@ -110,7 +110,8 @@
                 },
                 "file": {
                     "description": "Filename or URL of the ROM image - filename is only valid if using a\ngenerator tool with local file access.  This is passed to the generator\ntool to retrieve the ROM image.",
-                    "type": "string"
+                    "type": "string",
+                    "default": ""
                 },
                 "label": {
                     "description": "Optional label for this ROM image.  If specified, this is used in\nmetadata instead of the filename (which itself can be complex if\nextracting a file from an image and providing location information)",
@@ -148,7 +149,6 @@
                 }
             },
             "required": [
-                "file",
                 "type"
             ]
         },

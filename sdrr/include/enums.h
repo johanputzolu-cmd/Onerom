@@ -30,8 +30,38 @@ typedef enum {
     CHIP_TYPE_27C080 = 18,
     CHIP_TYPE_27C400 = 19,
     CHIP_TYPE_6116 = 20,
+    NUM_CHIP_TYPES
 } sdrr_rom_type_t;
 _Static_assert(sizeof(sdrr_rom_type_t) == 1, "sdrr_rom_type_t must be 1 byte");
+
+extern const char* chip_type_strings[NUM_CHIP_TYPES];
+#if defined(ONEROM_CONSTANTS)
+const char * chip_type_strings[NUM_CHIP_TYPES] = {
+    "2316",
+    "2332",
+    "2364",
+    "23128",
+    "23256",
+    "23512",
+    "2704",
+    "2708",
+    "2716",
+    "2732",
+    "2764",
+    "27128",
+    "27256",
+    "27512",
+    "231024",
+    "27C010",
+    "27C020",
+    "27C040",
+    "27C080",
+    "27C400",
+    "6116"
+};
+_Static_assert(sizeof(chip_type_strings)/sizeof(chip_type_strings[0]) == NUM_CHIP_TYPES,
+               "chip_type_strings size doesn't match NUM_CHIP_TYPES");
+#endif
 
 // CS state enumeration
 typedef enum {
