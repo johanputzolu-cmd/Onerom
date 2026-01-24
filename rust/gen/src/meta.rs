@@ -245,23 +245,17 @@ impl Metadata {
         for (ii, set) in self.chip_sets.iter().enumerate() {
             if !set.has_data() && (set.chip_function() == ChipFunction::Ram) {
                 // No ROM data for RAM chip sets
-                rom_data_ptrs[ii] = 0xFFFFFFFF;
-                rtn_chip_data_ptrs[ii] = 0xFFFFFFFF;
+                rom_data_ptrs[ii] = 0xFFFF_FFFF;
+                rtn_chip_data_ptrs[ii] = 0xFFFF_FFFF;
                 continue;
             }
-            match set.chip_function() {
-                ChipFunction::Ram => {
-                    rom_data_ptrs[ii] = 0xFFFFFFFF;
-                    rtn_chip_data_ptrs[ii] = 0xFFFFFFFF;
-                }
-                ChipFunction::Rom => {
-                    rom_data_ptrs[ii] = rom_data_ptr;
-                    rtn_chip_data_ptrs[ii] = rtn_chip_data_ptr;
-                    let rom_data_size = set.image_size(&self.board.mcu_family(), chip_pins);
-                    rom_data_ptr += rom_data_size as u32;
-                    rtn_chip_data_ptr += rom_data_size as u32;
-                }
-            }
+
+            // Either ROM or RAM has an image
+            rom_data_ptrs[ii] = rom_data_ptr;
+            rtn_chip_data_ptrs[ii] = rtn_chip_data_ptr;
+            let rom_data_size = set.image_size(&self.board.mcu_family(), chip_pins);
+            rom_data_ptr += rom_data_size as u32;
+            rtn_chip_data_ptr += rom_data_size as u32;
         }
 
         // Write each set's ROM data, which need to return pointers to rom arrays.
@@ -442,7 +436,7 @@ impl Metadata {
         let mut offset = 0;
         for chip_set in &self.chip_sets {
             // Don't write a ROM image for RAM chip sets
-            if chip_set.chip_function() == ChipFunction::Ram {
+            if !chip_set.has_data() && chip_set.chip_function() == ChipFunction::Ram {
                 continue;
             }
 

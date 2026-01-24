@@ -816,7 +816,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
             .join(", ");
         writeln!(file, "    .data2 = {{{}}},", high_data_str)?;
     } else {
-        writeln!(file, "    .data2 = {{0, 0, 0, 0, 0, 0, 0, 0}},")?;
+        writeln!(file, "    .data2 = {{255, 255, 255, 255, 255, 255, 255, 255}},")?;
     }
 
     // Addr 32 - contains A16-31 (or a subset) if present on this board 
@@ -832,7 +832,7 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
             .join(", ");
         writeln!(file, "    .addr2 = {{{}}},", high_addr_str)?;
     } else {
-        writeln!(file, "    .addr2 = {{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},")?;
+        writeln!(file, "    .addr2 = {{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}},")?;
     }
 
     // sdrr_pins_t extended padding/reserved space.

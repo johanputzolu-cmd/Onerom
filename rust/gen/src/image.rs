@@ -749,7 +749,6 @@ impl ChipSet {
     /// concerned) and returns the byte, ready for the MCU to serve.
     pub fn get_byte(&self, address: usize, board: &Board, invert_cs1_x: bool) -> u8 {
         if (!self.has_data()) && (self.chip_function() == ChipFunction::Ram) {
-            // RAM Chip sets always return 0xFF
             return Chip::byte_mangled(PAD_RAM_BYTE, board)
         }
 

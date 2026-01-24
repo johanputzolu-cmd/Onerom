@@ -315,7 +315,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     // We don't copy filenames over in the RAM case, so this won't work - and
     // neither does MAIN_LOOP_LOGGING
     for (int ii = 0; ii < set->rom_count; ii++) {
-        ROM_IMPL_DEBUG("Serve ROM #%d: %s via mode: %d", ii, set->roms[ii]->filename, serve_mode);
+        ROM_IMPL_DEBUG("Serve Chip #%d: %s via mode: %d", ii, set->roms[ii]->filename, serve_mode);
     }
 #endif // EXECUTE_FROM_RAM
 

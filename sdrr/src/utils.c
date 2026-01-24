@@ -148,24 +148,10 @@ void log_roms(const onerom_metadata_header_t *metadata_header) {
         
 #if defined(DEBUG_LOGGING)
         for (uint8_t jj = 0; jj < set->rom_count; jj++) {
-            const char *rom_type_str;
             const sdrr_rom_info_t *rom = set->roms[jj];
-            switch (rom->rom_type) {
-                case CHIP_TYPE_2364:
-                    rom_type_str = r2364;
-                    break;
-                case CHIP_TYPE_2332:
-                    rom_type_str = r2332;
-                    break;
-                case CHIP_TYPE_2316:
-                    rom_type_str = r2316;
-                    break;
-                default:
-                    rom_type_str = unknown;
-                    break;
-            }
+            const char *rom_type_str = chip_type_strings[rom->rom_type];
 
-            DEBUG("  ROM #%d: %s, %s",
+            DEBUG("  Chip #%d: %s, %s",
                 jj, rom->filename,
                 rom_type_str);
         }

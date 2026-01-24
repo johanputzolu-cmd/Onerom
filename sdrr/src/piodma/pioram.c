@@ -818,14 +818,6 @@ void pioram(
 
     ram_table_addr = (uint32_t)_ram_rom_image_start;
 
-#if defined(DEBUG_BUILD) && (DEBUG_BUILD == 1)
-    // Clear 64KB RAM table
-    uint8_t *ram_table_ptr = (uint8_t *)ram_table_addr;
-    for (int ii = 0; ii < 65536; ii++) {
-        ram_table_ptr[ii] = 0x03;
-    }
-#endif // DEBUG_BUILD
-
     pioram_config_t config = {
         .read_cs_base_pin = 10,     // /OE + /CE, fire-24-d
         .num_read_cs_pins = 2,
@@ -866,7 +858,7 @@ void pioram(
     
     // Start PIOs
     pioram_start_pios();
-    DEBUG("PIO RAM serving started");
+    DEBUG("PIOs started");
     DEBUG("%s", log_divider);
 
 #define PIO_DEBUG_LOOP 1
