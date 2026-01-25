@@ -44,7 +44,7 @@
 #endif
 #if defined(DEBUG_LOGGING) && defined(MAIN_LOOP_LOGGING)
 //ram_log_fn ROM_IMPL_DEBUG = do_log;
-#define RAM_IMPL_DEBUG DEBUG
+#define ROM_IMPL_DEBUG DEBUG
 #else // !DEBUG_LOGGING
 #define ROM_IMPL_DEBUG(X, ...)
 #endif // DEBUG_LOGGING
