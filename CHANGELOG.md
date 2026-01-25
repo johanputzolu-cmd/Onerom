@@ -8,11 +8,11 @@ Major release, introducing RAM support.
 
 There are breaking changes in this release.  In particular One ROM's config file format now uses "chip_sets" instead of "rom_sets" and "chips" instead of "roms".  If you have existing config files, it should be sufficient to change these two strings.  See the updated [ROM Config README](rom-config/README.md) for details.
 
-
 Changed onerom-config to support Chips instead of Roms.
 
 Ability to run from RAM has been removed, to allow 512KB to be used for ROM RAM image on RP2350.  It would be possible to add this back where the image size to be held in RAM is under 512KB, but as executing from RAM is currently unused, it has been removed for now.
 
+Added fire-24-e.
 
 ## v0.6.1 - 2026-01-22
 
