@@ -23,6 +23,11 @@
 // - PIO1 SM0 technically uses different criteria to re-arm than PIO1 SM1, and
 //   PIO2 SM2 (EITHER /CE or /W going inactive, vs just /W going inactive).
 //   It might be possible for this to cause a problem.
+//
+// - For the data IO handler, a single cycle test would be to keep 001 in Y
+//   and test X against that (i.e. /CE /OE active, /W inactive).  This avoids
+//   the need for JMP pin, and also the need to flip the sense of /W.
+//   Hopefully can rationalise this with the ROM alg.
 
 // # Introduction
 //
