@@ -7,10 +7,10 @@
         "computer",
         "ram"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "2KB 24-pin SRAM",
                     "type": "6116"

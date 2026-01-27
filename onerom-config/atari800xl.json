@@ -10,10 +10,10 @@
         "atari",
         "800xl"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "8KB BASIC ROM, CO24947A-01",
                     "file": "https://downloads.sourceforge.net/sourceforge/atari800/xf25.zip",

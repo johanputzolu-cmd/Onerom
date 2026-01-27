@@ -10,7 +10,7 @@
         "diag",
         "vic20"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
             "firmware_overrides": {
@@ -18,7 +18,7 @@
                     "params": [254,0,0,2,0,1,254,255]
                 }
             },
-            "chips": [
+            "roms": [
                 {
                     "description": "8KB Kernal ROM, 901486-07",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/vic20/kernal.901486-07.bin",

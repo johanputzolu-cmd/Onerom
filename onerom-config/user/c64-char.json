@@ -10,7 +10,7 @@
         "diag",
         "c64"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
             "firmware_overrides": {
@@ -18,7 +18,7 @@
                     "cpu_freq": 100
                 }
             },
-            "chips": [
+            "roms": [
                 {
                     "description": "C64 4KB Character ROM, 901225-01",
                     "file": "https://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c64/characters.901225-01.bin",

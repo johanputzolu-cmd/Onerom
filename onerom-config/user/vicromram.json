@@ -7,10 +7,10 @@
         "computer",
         "ram"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "8KB Kernal ROM, 901486-07",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/vic20/kernal.901486-07.bin",
@@ -21,7 +21,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "2KB RAM chip",
                     "type": "6116"

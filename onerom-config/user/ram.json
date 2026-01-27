@@ -7,10 +7,10 @@
         "computer",
         "ram"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "file": "images/user/1.rom",
                     "size_handling": "duplicate",

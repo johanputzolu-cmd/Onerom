@@ -11,10 +11,10 @@
         "ieee",
         "diag"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "2040/3040/4040 $F000 4KB diagnostics ROM",
                     "file": "https://github.com/piersfinlayson/cbm-ieee-disk-diag-rom/releases/download/v0.2.1/xx40_ieee_diag_f000.bin",
@@ -26,7 +26,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "2040/3040/4040 $D000 4KB diagnostics ROM",
                     "file": "https://github.com/piersfinlayson/cbm-ieee-disk-diag-rom/releases/download/v0.2.1/xx40_ieee_diag_d000.bin",
@@ -38,7 +38,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "8050/8250 $E000 8KB diagnostics ROM",
                     "file": "https://github.com/piersfinlayson/cbm-ieee-disk-diag-rom/releases/download/v0.2.1/8x50_ieee_diag_e000.bin",

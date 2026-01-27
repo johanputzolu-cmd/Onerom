@@ -9,10 +9,10 @@
         "commodore",
         "pet"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "$F000 4KB Kernal ROM, 901465-22",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/kernal-4.901465-22.bin",
@@ -24,7 +24,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "$E000 4KB Edit ROM, 901498-01 (2 copies)",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/edit-4-40-n-50Hz.901498-01.bin",
@@ -37,7 +37,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "$D000 4KB Basic ROM, 901465-21",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/basic-4-d000.901465-21.bin",
@@ -49,7 +49,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "$C000 4KB Basic ROM, 901465-20",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/basic-4-c000.901465-20.bin",
@@ -61,7 +61,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "$B000 4KB Basic ROM, 901465-19",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/basic-4-b000.901465-19.bin",
@@ -73,7 +73,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "4KB Character ROM, 901447-10 (2 copies)",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/pet/characters-2.901447-10.bin",
@@ -86,7 +86,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "$F000 4KB Diagnostics ROM",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/misc/petdiag/40col_diag_20_10_1_f000.bin",
@@ -98,7 +98,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "Simple PET test program, can be loaded to any address - if loaded to $9000 execute like this `SYS 36864`",
                     "file": "https://github.com/piersfinlayson/pet-ieee-loader/releases/download/v0.1.1/test.bin",

@@ -9,7 +9,7 @@
         "commodore",
         "c64"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
             "firmware_overrides": {
@@ -23,7 +23,7 @@
                     "params": [254, 0, 3, 0, 0, 0, 254, 255]
                 }
             },
-            "chips": [
+            "roms": [
                 {
                     "description": "16KB BASIC+Kernal ROM, 251913-01",
                     "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c64/64c.251913-01.bin",

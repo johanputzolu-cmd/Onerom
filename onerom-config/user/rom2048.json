@@ -10,7 +10,7 @@
         "diag",
         "c64"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
             "firmware_overrides": {
@@ -22,7 +22,7 @@
                     "params": [254, 1, 0, 0, 0, 0, 254, 255]
                 }
             },
-            "chips": [
+            "roms": [
                 {
                     "description": "test 2KB rom",
                     "file": "/Users/pdf/builds/one-rom/config/user/rom2048.bin",

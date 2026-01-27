@@ -18,7 +18,7 @@ use crate::image::{CsConfig, CsLogic, Location, Chip, ChipSet, ChipSetType, Size
 use crate::meta::Metadata;
 use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, MIN_FIRMWARE_OVERRIDES_VERSION, Result};
 
-pub const MAX_SUPPORTED_FIRMWARE_VERSION: FirmwareVersion = FirmwareVersion::new(0, 7, 999, 0);
+pub const MAX_SUPPORTED_FIRMWARE_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 999, 0);
 
 pub(crate) use crate::firmware::*;
 
@@ -951,6 +951,7 @@ pub struct Config {
     /// 
     /// The builder description output lists either "Images" or "Sets"
     /// depending on whether there are any multi-set or banked sets in use.
+    #[serde(alias = "rom_sets")]
     pub chip_sets: Vec<ChipSetConfig>,
 
     /// Optional notes for this configuration.  This is included in the
@@ -984,6 +985,7 @@ pub struct ChipSetConfig {
 
     /// Array of chip configurations in this set.  Contains 1 member for single
     /// chip sets, and multiple members for multi-ROM and banked ROM sets.
+    #[serde(alias = "roms")]
     pub chips: Vec<ChipConfig>,
 
     /// Optional serving algorithm override for this chip set.  Only valid

@@ -10,7 +10,7 @@
         "diag",
         "c64"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
             "firmware_overrides": {
@@ -21,7 +21,7 @@
                     "enabled": false
                 }
             },
-            "chips": [
+            "roms": [
                 {
                     "description": "C64 8KB Kernal ROM, 901227-03",
                     "file": "https://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c64/kernal.901227-03.bin",

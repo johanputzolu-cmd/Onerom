@@ -9,10 +9,10 @@
         "pinball"
     ],
     "notes": "For more details on these ROMs, see the Pincoder website: https://pincoder.ca/",
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "01a-leds",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -27,7 +27,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "01b-bus",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -42,7 +42,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "01c-transceivers",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -57,7 +57,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "02-blanking",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -72,7 +72,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "03-cmos-IC19",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -87,7 +87,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "04-ram-IC13",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -102,7 +102,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "04-ram-IC16",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -117,7 +117,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "05-displays",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -132,7 +132,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "06-switches",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -147,7 +147,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "07-bounce",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -162,7 +162,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "08-interrupts",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -177,7 +177,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "09-lamps",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -192,7 +192,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "10-solenoids",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -207,7 +207,7 @@
         },
                 {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "11a-sounds",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -222,7 +222,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "11b-sounds",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -237,7 +237,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "12-flippers",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -252,7 +252,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "clear_cmos",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -267,7 +267,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "edit_cmos",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",
@@ -282,7 +282,7 @@
         },
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "init_cmos",
                     "file": "https://pincoder.ca/ccn/roms/pincoder_roms_2021.03.31.1434.zip",

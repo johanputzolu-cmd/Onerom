@@ -5,10 +5,10 @@
     "description": "Test 2732 with random image",
     "categories": [
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "single",
-            "chips": [
+            "roms": [
                 {
                     "description": "test 4KB rom",
                     "file": "/Users/pdf/builds/one-rom/images/test/rand_8192.rom",

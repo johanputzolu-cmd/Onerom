@@ -6105,7 +6105,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.7.0"
+version = "0.6.2"
 dependencies = [
  "airfrog-rpc",
  "deku 0.19.1",

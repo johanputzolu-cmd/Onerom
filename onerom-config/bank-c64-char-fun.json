@@ -10,11 +10,11 @@
         "character",
         "c64"
     ],
-    "chip_sets": [
+    "rom_sets": [
         {
             "type": "banked",
             "description": "Original and retro computer character sets",
-            "chips": [
+            "roms": [
                 {
                     "description": "Original C64 character ROM",
                     "file": "https://raw.githubusercontent.com/patrickmollohan/c64-fonts/refs/heads/master/original/c64.bin",
@@ -48,7 +48,7 @@
         {
             "type": "banked",
             "description": "Sci-fi and fantasy character sets",
-            "chips": [
+            "roms": [
                 {
                     "description": "Original C64 character ROM",
                     "file": "https://raw.githubusercontent.com/patrickmollohan/c64-fonts/refs/heads/master/original/c64.bin",
@@ -82,7 +82,7 @@
         {
             "type": "banked",
             "description": "Modern and stylized character sets",
-            "chips": [
+            "roms": [
                 {
                     "description": "Custom Comic Sans character ROM",
                     "file": "https://raw.githubusercontent.com/patrickmollohan/c64-fonts/refs/heads/master/custom/comic_sans.bin",
