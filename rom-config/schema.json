@@ -412,10 +412,8 @@
             }
         },
         "FireCpuFreq": {
-            "type": "integer",
-            "format": "uint16",
-            "maximum": 65535,
-            "minimum": 0
+            "description": "CPU frequency: 'None', 'Stock', or '{n}MHz' where n is 16-800",
+            "type": "string"
         },
         "FireServeMode": {
             "description": "Fire serve mode",
@@ -558,10 +556,8 @@
             }
         },
         "IceCpuFreq": {
-            "type": "integer",
-            "format": "uint16",
-            "maximum": 65535,
-            "minimum": 0
+            "description": "CPU frequency: 'None', 'Stock', or '{n}MHz' where n is 1-450",
+            "type": "string"
         },
         "LedConfig": {
             "description": "LED configuration structure",

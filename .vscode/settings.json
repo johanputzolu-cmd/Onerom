@@ -10,5 +10,6 @@
         "RUST_BACKTRACE": "1",
     },
     //"rust-analyzer.cargo.features": ["validate-28-fire"],
-    "C_Cpp.loggingLevel": "Debug"
+    "C_Cpp.loggingLevel": "Debug",
+    "makefile.configureOnOpen": true
 }
