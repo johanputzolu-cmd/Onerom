@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "Config",
-    "description": "Top level configuration structure",
+    "title": "One ROM Configuration",
+    "description": "One ROM chip configuration format.\n\nUsed to indicate:\n- What ROM chips, RAM chips and any other devices to emulate\n- What ROM images to include\n- Any overrides for the firmware build-time setting",
     "type": "object",
     "properties": {
         "categories": {
@@ -15,7 +15,7 @@
             }
         },
         "chip_sets": {
-            "description": "Array of ROM set configurations.  Note that even if not using complex\nfeatures like dynamic banking and multi-ROM sets, each ROM image is in\nits own set.\nThe builder description output lists either \"Images\" or \"Sets\"\ndepending on whether there are any multi-set or banked sets in use.",
+            "description": "Array of chip set configurations.  Note that even if not using complex\nfeatures like dynamic banking and multi-ROM sets, each ROM image, or\nother chip types is in its own set.\n\nThe builder description output lists either \"Images\" or \"Sets\"\ndepending on whether there are any multi-set or banked sets in use.",
             "type": "array",
             "items": {
                 "$ref": "#/$defs/ChipSetConfig"
@@ -58,11 +58,11 @@
     ],
     "$defs": {
         "ChipConfig": {
-            "description": "ROM configuration structure",
+            "description": "Chip configuration structure",
             "type": "object",
             "properties": {
                 "cs1": {
-                    "description": "Optional Chip Select 1 logic - only valid for ROM Types that have CS1",
+                    "description": "Optional Chip Select 1 logic - only valid for Chip Types that have CS1",
                     "anyOf": [
                         {
                             "$ref": "#/$defs/CsLogic"
@@ -73,7 +73,7 @@
                     ]
                 },
                 "cs2": {
-                    "description": "Optional Chip Select 2 logic - only valid for ROM Types that have CS2",
+                    "description": "Optional Chip Select 2 logic - only valid for Chip Types that have CS2",
                     "anyOf": [
                         {
                             "$ref": "#/$defs/CsLogic"
@@ -84,7 +84,7 @@
                     ]
                 },
                 "cs3": {
-                    "description": "Optional Chip Select 3 logic - only valid for ROM Types that have CS3",
+                    "description": "Optional Chip Select 3 logic - only valid for Chip Types that have CS3",
                     "anyOf": [
                         {
                             "$ref": "#/$defs/CsLogic"
@@ -109,7 +109,7 @@
                     ]
                 },
                 "file": {
-                    "description": "Filename or URL of the ROM image - filename is only valid if using a\ngenerator tool with local file access.  This is passed to the generator\ntool to retrieve the ROM image.",
+                    "description": "Filename or URL of any ROM image - filename is only valid if using a\ngenerator tool with local file access.  This is passed to the generator\ntool to retrieve the ROM image.",
                     "type": "string",
                     "default": ""
                 },
@@ -139,7 +139,7 @@
                     ]
                 },
                 "size_handling": {
-                    "description": "Optional size handling configuration for this ROM.  Used to specify\nhandling when the image supplied isn't the correct size for this ROM\ntype.",
+                    "description": "Optional size handling configuration for this Chip.  Used to specify\nhandling when the image supplied isn't the correct size for this Chip\ntype.",
                     "$ref": "#/$defs/SizeHandling",
                     "default": "none"
                 },
@@ -153,25 +153,25 @@
             ]
         },
         "ChipSetConfig": {
-            "description": "ROM Set configuration structure",
+            "description": "Chip Set configuration structure",
             "type": "object",
             "properties": {
                 "chips": {
-                    "description": "Array of ROM configurations in this set.  Contains 1 member for single\nROM sets, and multiple members for multi-ROM and banked ROM sets.",
+                    "description": "Array of chip configurations in this set.  Contains 1 member for single\nchip sets, and multiple members for multi-ROM and banked ROM sets.",
                     "type": "array",
                     "items": {
                         "$ref": "#/$defs/ChipConfig"
                     }
                 },
                 "description": {
-                    "description": "Optional description for this ROM set.  This is included in the\ndescription output by the builder.",
+                    "description": "Optional description for this chip set.  This is included in the\ndescription output by the builder.",
                     "type": [
                         "string",
                         "null"
                     ]
                 },
                 "firmware_overrides": {
-                    "description": "Optional firmware overrides when serving this ROM set.  Takes\nprecedence over any global configuration firmware overrides.",
+                    "description": "Optional firmware overrides when serving this chip set.  Takes\nprecedence over any global configuration firmware overrides.",
                     "anyOf": [
                         {
                             "$ref": "#/$defs/FirmwareConfig"
@@ -182,7 +182,7 @@
                     ]
                 },
                 "serve_alg": {
-                    "description": "Optional serving algorithm override for this ROM set",
+                    "description": "Optional serving algorithm override for this chip set.  Only valid\nwhen using CPU serving - Ice boards and Fire 24 A/B by default.",
                     "anyOf": [
                         {
                             "$ref": "#/$defs/ServeAlg"
@@ -223,7 +223,7 @@
             ]
         },
         "ChipType": {
-            "description": "Chip type\n\nSupported retrochip types with their pinouts and characteristics.\nIncludes mask ROMs (23xx series), EPROMs (27xx series) and RAM chips.\n\n# Examples\n\n```\nuse onerom_config::chip::ChipType;\n\nlet chip = ChipType::Chip2364;\nassert_eq!(chip.size_bytes(), 8192);\nassert_eq!(chip.chip_pins(), 24);\nassert_eq!(chip.num_addr_lines(), 13);\n```",
+            "description": "Chip type\n\nSupported retrochip types with their pinouts and characteristics.\nIncludes mask ROMs (23xx series), EPROMs (27xx series) and RAM chips.",
             "oneOf": [
                 {
                     "description": "512B EPROM with multiple supply voltages - 512 bytes, 24-pin package",
@@ -593,7 +593,7 @@
             ]
         },
         "ServeAlg": {
-            "description": "ROM serving algorithm",
+            "description": "Chip serving algorithm.  Only valid for firmwares serving via CPU.  By\ndefault this is Ice boards and Fire 24 A/B boards.",
             "oneOf": [
                 {
                     "description": "default",

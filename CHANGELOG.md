@@ -14,6 +14,10 @@ Ability to run from RAM has been removed, to allow 512KB to be used for ROM RAM 
 
 Added fire-24-e.
 
+Rename `config/` -> `old-config` and `rom-config` -> `onerom-config`
+
+
+
 ## v0.6.1 - 2026-01-22
 
 ### Added

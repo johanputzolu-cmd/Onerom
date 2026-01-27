@@ -1,0 +1,24 @@
+{
+    "version": 1,
+    "name": "28-C64-PLA",
+    "description": "C64 PLA image as a 27512 ROM",
+    "categories": [
+        "computer",
+        "firmware",
+        "commodore",
+        "c64",
+        "pla"
+    ],
+    "rom_sets": [
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "C64 PLA image as a 27512 ROM",
+                    "file": "images/user/c64-pla-512.bin",
+                    "type": "27512"
+                }
+            ]
+        }
+    ]
+}

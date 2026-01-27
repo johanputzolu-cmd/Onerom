@@ -1,0 +1,31 @@
+{
+    "$schema": "https://images.onerom.org/configs/schema.json",
+    "version": 1,
+    "name": "VIC-20 Kernal ROM",
+    "description": "Stock kernal ROM for a PAL VIC-20",
+    "categories": [
+        "computer",
+        "firmware",
+        "commodore",
+        "diag",
+        "vic20"
+    ],
+    "chip_sets": [
+        {
+            "type": "single",
+            "firmware_overrides": {
+                "serve_alg_params": {
+                    "params": [254,0,0,2,0,1,254,255]
+                }
+            },
+            "chips": [
+                {
+                    "description": "8KB Kernal ROM, 901486-07",
+                    "file": "http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/vic20/kernal.901486-07.bin",
+                    "type": "2364",
+                    "cs1": "active_low"
+                }
+            ]
+        }
+    ]
+}

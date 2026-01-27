@@ -879,7 +879,7 @@ pub struct FileSpec {
     /// only.
     pub size_handling: SizeHandling,
 
-    /// Type of ROM.  Provided for information only.
+    /// Type of Chip.  Provided for information only.
     pub chip_type: ChipType,
 
     /// Size of the ROM in bytes.  Provided for information only.
@@ -918,9 +918,15 @@ pub struct FileData {
     pub data: Vec<u8>,
 }
 
-/// Top level configuration structure
+/// One ROM chip configuration format.
+/// 
+/// Used to indicate:
+/// - What ROM chips, RAM chips and any other devices to emulate
+/// - What ROM images to include
+/// - Any overrides for the firmware build-time setting
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "schemars", schemars(title = "One ROM Configuration"))]
 pub struct Config {
     /// Configuration format version.
     #[cfg_attr(feature = "schemars", schemars(schema_with = "version_schema"))]
@@ -939,9 +945,10 @@ pub struct Config {
     /// description.
     pub detail: Option<String>,
 
-    /// Array of ROM set configurations.  Note that even if not using complex
-    /// features like dynamic banking and multi-ROM sets, each ROM image is in
-    /// its own set.
+    /// Array of chip set configurations.  Note that even if not using complex
+    /// features like dynamic banking and multi-ROM sets, each ROM image, or
+    /// other chip types is in its own set.
+    /// 
     /// The builder description output lists either "Images" or "Sets"
     /// depending on whether there are any multi-set or banked sets in use.
     pub chip_sets: Vec<ChipSetConfig>,
@@ -962,7 +969,7 @@ fn version_schema(_gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
     })
 }
 
-/// ROM Set configuration structure
+/// Chip Set configuration structure
 #[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ChipSetConfig {
@@ -971,27 +978,28 @@ pub struct ChipSetConfig {
     #[cfg_attr(feature = "schemars", schemars(default))]
     pub set_type: ChipSetType,
 
-    /// Optional description for this ROM set.  This is included in the
+    /// Optional description for this chip set.  This is included in the
     /// description output by the builder.
     pub description: Option<String>,
 
-    /// Array of ROM configurations in this set.  Contains 1 member for single
-    /// ROM sets, and multiple members for multi-ROM and banked ROM sets.
+    /// Array of chip configurations in this set.  Contains 1 member for single
+    /// chip sets, and multiple members for multi-ROM and banked ROM sets.
     pub chips: Vec<ChipConfig>,
 
-    /// Optional serving algorithm override for this ROM set
+    /// Optional serving algorithm override for this chip set.  Only valid
+    /// when using CPU serving - Ice boards and Fire 24 A/B by default.
     pub serve_alg: Option<ServeAlg>,
 
-    /// Optional firmware overrides when serving this ROM set.  Takes
+    /// Optional firmware overrides when serving this chip set.  Takes
     /// precedence over any global configuration firmware overrides.
     pub firmware_overrides: Option<FirmwareConfig>,
 }
 
-/// ROM configuration structure
+/// Chip configuration structure
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ChipConfig {
-    /// Filename or URL of the ROM image - filename is only valid if using a
+    /// Filename or URL of any ROM image - filename is only valid if using a
     /// generator tool with local file access.  This is passed to the generator
     /// tool to retrieve the ROM image.
     #[serde(default)]
@@ -1009,17 +1017,17 @@ pub struct ChipConfig {
     #[serde(rename = "type")]
     pub chip_type: ChipType,
 
-    /// Optional Chip Select 1 logic - only valid for ROM Types that have CS1
+    /// Optional Chip Select 1 logic - only valid for Chip Types that have CS1
     pub cs1: Option<CsLogic>,
 
-    /// Optional Chip Select 2 logic - only valid for ROM Types that have CS2
+    /// Optional Chip Select 2 logic - only valid for Chip Types that have CS2
     pub cs2: Option<CsLogic>,
 
-    /// Optional Chip Select 3 logic - only valid for ROM Types that have CS3
+    /// Optional Chip Select 3 logic - only valid for Chip Types that have CS3
     pub cs3: Option<CsLogic>,
 
-    /// Optional size handling configuration for this ROM.  Used to specify
-    /// handling when the image supplied isn't the correct size for this ROM
+    /// Optional size handling configuration for this Chip.  Used to specify
+    /// handling when the image supplied isn't the correct size for this Chip
     /// type.
     #[serde(default)]
     pub size_handling: SizeHandling,

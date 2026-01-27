@@ -1,0 +1,37 @@
+{
+    "$schema": "https://images.onerom.org/configs/schema.json",
+    "version": 1,
+    "name": "C64",
+    "description": "C64 Kernal ROM",
+    "categories": [
+        "computer",
+        "firmware",
+        "commodore",
+        "diag",
+        "c64"
+    ],
+    "chip_sets": [
+        {
+            "type": "single",
+            "firmware_overrides": {
+                "fire": {
+                    "cpu_freq": "150MHz",
+                    "serve_mode": "Pio"
+                },
+                "serve_alg_params": {
+                    "params": [254, 1, 0, 0, 0, 0, 254, 255]
+                }
+            },
+            "chips": [
+                {
+                    "description": "test 2KB rom",
+                    "file": "/Users/pdf/builds/one-rom/config/user/rom2048.bin",
+                    "type": "2316",
+                    "cs1": "active_low",
+                    "cs2": "active_high",
+                    "cs3": "active_low"
+                }
+            ]
+        }
+    ]
+}
