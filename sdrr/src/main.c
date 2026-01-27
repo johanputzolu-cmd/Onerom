@@ -62,7 +62,12 @@ uint32_t check_sel_pins(uint32_t *sel_mask) {
     // Read the actual GPIO value, masked appropriately
     gpio_value = get_sel_value(orig_sel_mask, sel_flip_bits);
 
-    DEBUG("Sel GPIO val: 0x%08lX #: %d mask 0x%08lX", gpio_value, num_sel_pins, orig_sel_mask);
+    // SEGGER doesn't cope well with 64-bit values, so split into two 32-bit
+    // parts for logging
+    DEBUG("Sel GPIO val: 0x%08lX%08lX #: %lu mask 0x%08lX%08lX", 
+        (uint32_t)(gpio_value >> 32), (uint32_t)gpio_value,
+        (unsigned long)num_sel_pins,
+        (uint32_t)(orig_sel_mask >> 32), (uint32_t)orig_sel_mask);
 
     disable_sel_pins();
 
@@ -82,8 +87,7 @@ uint32_t check_sel_pins(uint32_t *sel_mask) {
         }
     }
 
-    LOG("Sel: %llu", sel_value & *sel_mask);
-    DEBUG("Sel value: %llu mask: 0x%08X", sel_value, *sel_mask);
+    DEBUG("Sel value: 0x%08X mask: 0x%08X", sel_value, *sel_mask);
 
     // Store the value of the pins in sdrr_runtime_info
     sdrr_runtime_info.image_sel = sel_value;
