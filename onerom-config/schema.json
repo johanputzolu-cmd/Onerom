@@ -223,7 +223,7 @@
             ]
         },
         "ChipType": {
-            "description": "Chip type\n\nSupported retrochip types with their pinouts and characteristics.\nIncludes mask ROMs (23xx series), EPROMs (27xx series) and RAM chips.",
+            "description": "Chip type\n\nSupported retrochip types with their pinouts and characteristics.\nIncludes mask ROMs (23xx series), EPROMs (27xx series) and RAM chips.\n\n# Examples\n\n```\nuse onerom_config::chip::ChipType;\n\nlet chip = ChipType::Chip2364;\nassert_eq!(chip.size_bytes(), 8192);\nassert_eq!(chip.chip_pins(), 24);\nassert_eq!(chip.num_addr_lines(), 13);\n```",
             "oneOf": [
                 {
                     "description": "512B EPROM with multiple supply voltages - 512 bytes, 24-pin package",
