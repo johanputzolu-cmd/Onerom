@@ -48,5 +48,17 @@ INPUT_ELF="${INPUT_BASE}.elf"
 OUTPUT_BIN="${OUTPUT_BASE}.bin"
 OUTPUT_ELF="${OUTPUT_BASE}.elf"
 
+# Construct chip ID from INPUT_BASE
+BASE=$(basename "$INPUT_BASE")
+if [[ "$BASE" == sdrr-stm32f* ]]; then
+    CHIP=$(echo "$BASE" | sed 's/sdrr-//' | tr '[:lower:]' '[:upper:]')
+    CHIP="${CHIP}TX"
+elif [[ "$BASE" == sdrr-rp2350* ]]; then
+    CHIP="RP235X"
+else
+    echo "Error: Could not determine chip from input base name '$BASE'"
+    exit 1
+fi
+
 scripts/_append-metadata.sh "${INPUT_BIN}" "${OUTPUT_BIN}" "${ROM_CONFIG}"
 scripts/_bin-to-elf.sh "${INPUT_ELF}" "${OUTPUT_BIN}" "${OUTPUT_ELF}" "${CHIP}"
