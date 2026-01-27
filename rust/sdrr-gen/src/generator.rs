@@ -737,9 +737,10 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         }
         28 => {
             (
-                board.pin_cs1(ChipType::Chip27256),
-                board.pin_cs2(ChipType::Chip27512),
-                board.pin_cs3(ChipType::Chip27128),
+                // Use 23128 for CS pins, and 27256 for CE/OE
+                board.pin_cs1(ChipType::Chip23128),
+                board.pin_cs2(ChipType::Chip23128),
+                board.pin_cs3(ChipType::Chip23128),
                 board.pin_ce(ChipType::Chip27256),
                 board.pin_oe(ChipType::Chip27256),
             )
