@@ -54,18 +54,19 @@ impl Metadata {
         board: Board,
         chip_sets: Vec<ChipSet>,
         filenames: bool,
+        pio: bool,
         firmware_version: FirmwareVersion,
     ) -> Self {
         Self {
             board,
             chip_sets,
             filenames,
-            pio: false,
+            pio,
             firmware_version,
         }
     }
 
-    pub fn set_pio(mut self) {
+    pub fn set_pio(&mut self) {
         self.pio = true;
     }
 
@@ -445,7 +446,15 @@ impl Metadata {
             // implemented differently in this case, and the CS1/X1/X2 lines
             // are all flipped in hardware.  Without this image flipping, the
             // wrong bytes would be served.
-            let flip_cs1_x = if self.pio() {
+            let mut pio = self.pio();
+            if let Some(serve_mode) = chip_set.firmware_overrides
+                .as_ref()
+                .and_then(|o| o.fire.as_ref())
+                .and_then(|f| f.serve_mode.as_ref())
+            {
+                pio = *serve_mode == FireServeMode::Pio;
+            }
+            let flip_cs1_x = if pio {
                 chip_set.set_type == ChipSetType::Multi
             } else {
                 false

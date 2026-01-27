@@ -668,6 +668,7 @@ impl Builder {
             props.board(),
             chip_sets,
             props.boot_logging(),
+            props.board().mcu_pio(),
             props.version(),
         );
 
