@@ -248,7 +248,7 @@ discover_configs() {
     local configs=()
     
     # Find .mk files in old-config/ (top level only)
-    for mk_file in "${PROJECT_ROOT}/config"/*.mk; do
+    for mk_file in "${PROJECT_ROOT}/old-config"/*.mk; do
         if [[ -f "$mk_file" ]]; then
             local config_name=$(basename "$mk_file" .mk)
             configs+=("$config_name")
