@@ -403,24 +403,17 @@ typedef struct piorom_config {
 
     // 20 bytes to here
 
-    // PIO state machine 0 clock dividers
-    uint16_t sm0_clkdiv_int;
-    uint8_t sm0_clkdiv_frac;
-    uint8_t pad0;
-    
-    // 24 bytes to here
-
-    // PIO state machine 1 clock dividers
-    uint16_t sm1_clkdiv_int;
-    uint8_t sm1_clkdiv_frac;
-    uint8_t pad1;
-
-    // 28 bytes to here
-
-    // PIO state machine 2 clock dividers
-    uint16_t sm2_clkdiv_int;
-    uint8_t sm2_clkdiv_frac;
+    uint16_t addr_reader_read_clkdiv_int;
+    uint8_t addr_reader_read_clkdiv_frac;
     uint8_t pad2;
+
+    uint16_t data_io_clkdiv_int;
+    uint8_t data_io_clkdiv_frac;
+    uint8_t pad3;
+    
+    uint16_t data_out_clkdiv_int;
+    uint8_t data_out_clkdiv_frac;
+    uint8_t pad4;
 
     // 32 bytes to here
 
@@ -453,7 +446,7 @@ typedef struct piorom_config {
     // served via the X pins).
     uint8_t multi_rom_mode;
 
-    uint8_t pad3[2];
+    uint8_t pad5[2];
 
     // 36 bytes to here
 
@@ -464,7 +457,7 @@ typedef struct piorom_config {
 } piorom_config_t;
 
 
-// SM0 - CS Handler
+// PIO2 SM0 - CS Handler
 //
 // The program is constructed dynamically in pio_load_programs().  The overall
 // algorithm is as follows:
@@ -512,7 +505,7 @@ typedef struct piorom_config {
 // jmp x!=y inactive            ; CS != 010 So, go inactive
 // .wrap                        ; CS = 010, so test again 
 
-// SM1 - Address Read
+// PIO 1 SM 0 - Address Read
 //
 // The program is constructed dynamically in pio_load_programs().  The overall
 // algorithm is as follows:
@@ -530,7 +523,7 @@ typedef struct piorom_config {
 // in     pins, 16      ; read address lines (autopush)
 // .wrap                ; End of address read loop
 
-// SM2 - Data Byte Output
+// PIO2 SM1 - Data Byte Output
 //
 // The program is constructed dynamically in pio_load_programs().  The overall
 // algorithm is as follows:
@@ -572,12 +565,12 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t addr_read_delay = config->addr_read_delay;
     uint8_t cs_active_delay = config->cs_active_delay;
     uint8_t no_dma = config->no_dma;
-    uint16_t cs_handler_clkdiv_int = config->sm0_clkdiv_int;
-    uint8_t cs_handler_clkdiv_frac = config->sm0_clkdiv_frac;
-    uint16_t addr_reader_clkdiv_int = config->sm1_clkdiv_int;
-    uint8_t addr_reader_clkdiv_frac = config->sm1_clkdiv_frac;
-    uint16_t data_writer_clkdiv_int = config->sm2_clkdiv_int;
-    uint8_t data_writer_clkdiv_frac = config->sm2_clkdiv_frac;
+    uint16_t cs_handler_clkdiv_int = config->data_io_clkdiv_int;
+    uint8_t cs_handler_clkdiv_frac = config->data_io_clkdiv_frac;
+    uint16_t addr_reader_clkdiv_int = config->addr_reader_read_clkdiv_int;
+    uint8_t addr_reader_clkdiv_frac = config->addr_reader_read_clkdiv_frac;
+    uint16_t data_writer_clkdiv_int = config->data_out_clkdiv_int;
+    uint8_t data_writer_clkdiv_frac = config->data_out_clkdiv_frac;
     uint8_t contiguous_cs_pins = config->contiguous_cs_pins;
     uint8_t multi_rom_mode = config->multi_rom_mode;
     uint32_t cs_pin_2nd_match = config->cs_pin_2nd_match;
@@ -608,10 +601,78 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // PIO0 Programs
     //
-    // All ROM serving handlers
-    PIO_SET_BLOCK(0);
+    // Currently none for ROM serving.  Expect to rationalize RAM/ROM together
+    // at some point
 
-    // SM0 - CS handler
+    // PIO1 Programs
+    //
+    // Data handlers
+    PIO_SET_BLOCK(1);
+
+    // PIO1 SM0 - Address reader
+    //
+    // Reads address lines and pushes complete ROM table lookup address to the
+    // DMA chain.
+    PIO_SET_SM(0);
+
+    // The ADDR_READ_DELAY gets added either to the IRQ (if it exists) or the
+    // IN instruction (if no IRQ).  In the no IRQ case it is not important on
+    // which instruction we add the delay, as it doesn't affect how "old" the
+    // address will be went sent to the DMA, just how _frequently_ it is read.
+    if (!config->addr_read_irq && config->addr_read_delay) {
+        PIO_ADD_INSTR(ADD_DELAY(IN_X(rom_table_num_addr_bits), config->addr_read_delay));
+    } else {
+        PIO_ADD_INSTR(IN_X(rom_table_num_addr_bits));
+    }
+    if (config->addr_read_irq || config->no_dma) {
+        if (!config->addr_read_delay) {
+            PIO_ADD_INSTR(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ));
+        } else {
+            PIO_ADD_INSTR(ADD_DELAY(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ), config->addr_read_delay));
+        }
+    }
+    PIO_WRAP_TOP();
+    PIO_ADD_INSTR(IN_PINS(config->num_addr_pins));
+
+    // Configure the address read SM
+    PIO_SM_CLKDIV_SET(
+        config->addr_reader_read_clkdiv_int,
+        config->addr_reader_read_clkdiv_frac
+    );
+    PIO_SM_EXECCTRL_SET(0);
+    PIO_SM_SHIFTCTRL_SET(
+        PIO_IN_COUNT(config->num_addr_pins) |   // Reading the address pins (unused
+                                                // as this is for mov instructions)
+        PIO_AUTOPUSH |                          // Auto push when we hit threshold
+        PIO_PUSH_THRESH(32) |                   // Push when we have 32 bits (from
+                                                // X and from address pins)
+        PIO_IN_SHIFTDIR_L |     // Shift left, so address lines are in low bits
+        PIO_OUT_SHIFTDIR_L      // Direction doesn't matter, as we push 32 bits
+    );
+    PIO_SM_PINCTRL_SET(
+        PIO_IN_BASE(config->addr_base_pin)
+    );
+
+    // Preload the ROM table address into the X register
+    PIO_TXF = rom_table_high_bits;
+    PIO_SM_EXEC_INSTR(PULL_BLOCK);  // Pull it into OSR
+    PIO_SM_EXEC_INSTR(MOV_X_OSR);   // Store it in X
+
+    // Jump to start and log
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Address Reader");
+
+    //
+    // PIO 1 - End of block
+    //
+    PIO_END_BLOCK();
+
+    // PIO2 Programs
+    //
+    // Data handlers
+    PIO_SET_BLOCK(2);
+
+    // PIO2 SM0 - CS handler
     //
     // Handles detecting CS active/inactive and setting data pins to
     // outputs/inputs accordingly.  Also triggers address read SM via IRQ if
@@ -699,8 +760,8 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // Configure the CS handler SM
     PIO_SM_CLKDIV_SET(
-        config->sm0_clkdiv_int,
-        config->sm0_clkdiv_frac
+        config->data_io_clkdiv_int,
+        config->data_io_clkdiv_frac
     );
     PIO_SM_EXECCTRL_SET(0);
     PIO_SM_SHIFTCTRL_SET(
@@ -718,71 +779,18 @@ static void piorom_load_programs(piorom_config_t *config) {
     PIO_SM_JMP_TO_START();
     PIO_LOG_SM("CS Handler");
 
-    // SM1 - Address reader
-    //
-    // Reads address lines and pushes complete ROM table lookup address to the
-    // DMA chain.
-    PIO_SET_SM(1);
-
-    // The ADDR_READ_DELAY gets added either to the IRQ (if it exists) or the
-    // IN instruction (if no IRQ).  In the no IRQ case it is not important on
-    // which instruction we add the delay, as it doesn't affect how "old" the
-    // address will be went sent to the DMA, just how _frequently_ it is read.
-    if (!config->addr_read_irq && config->addr_read_delay) {
-        PIO_ADD_INSTR(ADD_DELAY(IN_X(rom_table_num_addr_bits), config->addr_read_delay));
-    } else {
-        PIO_ADD_INSTR(IN_X(rom_table_num_addr_bits));
-    }
-    if (config->addr_read_irq || config->no_dma) {
-        if (!config->addr_read_delay) {
-            PIO_ADD_INSTR(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ));
-        } else {
-            PIO_ADD_INSTR(ADD_DELAY(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ), config->addr_read_delay));
-        }
-    }
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(IN_PINS(config->num_addr_pins));
-
-    // Configure the address read SM
-    PIO_SM_CLKDIV_SET(
-        config->sm1_clkdiv_int,
-        config->sm1_clkdiv_frac
-    );
-    PIO_SM_EXECCTRL_SET(0);
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_addr_pins) |   // Reading the address pins (unused
-                                                // as this is for mov instructions)
-        PIO_AUTOPUSH |                          // Auto push when we hit threshold
-        PIO_PUSH_THRESH(32) |                   // Push when we have 32 bits (from
-                                                // X and from address pins)
-        PIO_IN_SHIFTDIR_L |     // Shift left, so address lines are in low bits
-        PIO_OUT_SHIFTDIR_L      // Direction doesn't matter, as we push 32 bits
-    );
-    PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->addr_base_pin)
-    );
-
-    // Preload the ROM table address into the X register
-    PIO_TXF = rom_table_high_bits;
-    PIO_SM_EXEC_INSTR(PULL_BLOCK);  // Pull it into OSR
-    PIO_SM_EXEC_INSTR(MOV_X_OSR);   // Store it in X
-
-    // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Address Reader");
-
-    // SM2 - Data byte output
+    // PIO2 SM1 - Data byte output
     //
     // Outputs a data byte received from the DMA chain on the data pins.
-    PIO_SET_SM(2);
+    PIO_SET_SM(1);
 
     // Load the data byte output program
     PIO_ADD_INSTR(OUT_PINS(config->num_data_pins));
 
     // Configure the data byte SM
     PIO_SM_CLKDIV_SET(
-        config->sm2_clkdiv_int,
-        config->sm2_clkdiv_frac
+        config->data_out_clkdiv_int,
+        config->data_out_clkdiv_frac
     );
     PIO_SM_EXECCTRL_SET(0);
     PIO_SM_SHIFTCTRL_SET(
@@ -800,14 +808,15 @@ static void piorom_load_programs(piorom_config_t *config) {
     PIO_LOG_SM("Data Byte Output");
 
     //
-    // PIO 0 - End of block
+    // PIO 2 - End of block
     //
     PIO_END_BLOCK();
 }
 
 // Starts the PIO state machines for ROM serving.
 static void piorom_start_pios() {
-    PIO0_CTRL_SM_ENABLE(0x7); // Enable SM0, SM1 and SM2
+    PIO1_CTRL_SM_ENABLE(0x1); // Enable SM0
+    PIO2_CTRL_SM_ENABLE(0x3); // Enable SM0 and SM1
 }
 
 // Set GPIOs to PIO function for ROM serving
@@ -816,31 +825,32 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
     uint8_t cs_base_pin = config->cs_base_pin;
     uint8_t *cs_pin_invert = config->invert_cs;
     uint8_t data_base_pin = config->data_base_pin;
-    uint8_t addr_base_pin = config->addr_base_pin;
+    //uint8_t addr_base_pin = config->addr_base_pin;
 
     // Data pins
     for (int ii = data_base_pin;
         ii < (data_base_pin + NUM_DATA_LINES);
         ii++) {
-        GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO0;
+        GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO2;
     }
 
-    // Address pins
-    for (int ii = addr_base_pin;
-        ii < (addr_base_pin + NUM_ADDR_LINES);
-        ii++) {
-        GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO0;
-    }
+    // Address pins - not required, inputs only
+    // for (int ii = addr_base_pin;
+    //     ii < (addr_base_pin + NUM_ADDR_LINES);
+    //     ii++) {
+    //     GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO1;
+    // }
 
     // CS pins
     //
     // We MUST set these after the address pins, as the CS pins may be part of
-    // the address pin range (they are on a 24 pin ROM).
+    // the address pin range (they are on 24 and 28 pin ROMs).
     for (int ii = 0; ii < num_cs_pins; ii++) {
         uint8_t pin = cs_base_pin + ii;
         uint8_t invert = cs_pin_invert[ii];
-        // Set to PIO function - this clears everything else.
-        GPIO_CTRL(pin) = GPIO_CTRL_FUNC_PIO0;
+        // Set to PIO function - this clears everything else - not required,
+        // inputs only
+        // GPIO_CTRL(pin) = GPIO_CTRL_FUNC_PIO0;
         if (!invert) {
             DEBUG("  CS pin %d active low CTRL=0x%08X", pin, GPIO_CTRL(pin));
         } else {
@@ -855,16 +865,18 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
 // Setup the DMA channels for ROM serving
 static void piorom_setup_dma(
     piorom_config_t *config,
-    uint8_t pio_block,
+    uint8_t pio_block_addr,
     uint8_t sm_addr_read,
+    uint8_t pio_block_data,
     uint8_t sm_data_byte
 ) {
+    (void)pio_block_data; // Unused
     volatile dma_ch_reg_t *dma_reg;
 
-    // DMA Channel 0 - Receives ROM table lookup address from PIO0 SM1 and
-    // sends it onto DMA Channel 1.  Paced by PIO0 SM1 RX FIFO DREQ.
+    // DMA Channel 0 - Receives ROM table lookup address from PIO1 SM0 and
+    // sends it onto DMA Channel 1.  Paced by PIO1 SM0 RX FIFO DREQ.
     dma_reg = DMA_CH_REG(0);
-    dma_reg->read_addr = (uint32_t)&PIO0_SM_RXF(sm_addr_read);
+    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(sm_addr_read);
     if (config->addr_read_irq) {
         // When address read is triggerd by IRQ, we only want a single
         // transfer per IRQ.  We need to trigger channel 1 manually.
@@ -873,12 +885,12 @@ static void piorom_setup_dma(
     } else {
         // When address read is not triggered by IRQ, we want continuous
         // transfers to channel 1.  No triggering is necessary, as channel 1
-        // will be paced by the PIO0 SM1 RX FIFO DREQ, like this channel.
+        // will be paced by the PIO1 SM0 RX FIFO DREQ, like this channel.
         dma_reg->write_addr = (uint32_t)&DMA_CH_READ_ADDR(1);
         dma_reg->transfer_count = 0xffffffff;
     }
     dma_reg->ctrl_trig =
-        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read)) |
+        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block_addr, sm_addr_read)) |
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_32BIT;
 
@@ -890,7 +902,7 @@ static void piorom_setup_dma(
     // inputs, but it's more valid than setting to 0.
     dma_reg = DMA_CH_REG(1);
     dma_reg->read_addr = config->rom_table_addr;
-    dma_reg->write_addr = (uint32_t)&PIO0_SM_TXF(sm_data_byte);
+    dma_reg->write_addr = (uint32_t)&PIO2_SM_TXF(sm_data_byte);
     uint32_t ctrl_trig = 
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_8BIT;
@@ -903,7 +915,7 @@ static void piorom_setup_dma(
         // When address read is not triggered by IRQ, we want continuous
         // transfers.
         dma_reg->transfer_count = 0xffffffff;
-        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read));
+        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block_addr, sm_addr_read));
     }
     dma_reg->ctrl_trig = ctrl_trig;
 
@@ -1374,17 +1386,18 @@ static piorom_config_t piorom_config = {
 #endif // PIO_CONFIG_NO_DMA
     .pad = {0, 0},
     .rom_table_addr = 0,
-    .sm0_clkdiv_int = 1,
-    .sm0_clkdiv_frac = 0,
-    .pad0 = 0,
-    .sm1_clkdiv_int = 1,
-    .sm1_clkdiv_frac = 0,
-    .pad1 = 0,
-    .sm2_clkdiv_int = 1,
-    .sm2_clkdiv_frac = 0,
+    .addr_reader_read_clkdiv_int = 1,
+    .addr_reader_read_clkdiv_frac = 0,
     .pad2 = 0,
+    .data_io_clkdiv_int = 1,
+    .data_io_clkdiv_frac = 0,
+    .pad3 = 0,
+    .data_out_clkdiv_int = 1,
+    .data_out_clkdiv_frac = 0,
+    .pad4 = 0,
     .contiguous_cs_pins = 1,
     .multi_rom_mode = 0,
+    .pad5 = {0, 0},
     .cs_pin_2nd_match = 255
 };
 
@@ -1462,15 +1475,16 @@ void piorom(
     piorom_finish_config(&config, info, set, rom_table_addr);
 
     // Bring PIO0 and DMA out of reset
-    RESET_RESET &= ~(RESET_PIO0 | RESET_DMA);
-    while (!(RESET_DONE & (RESET_PIO0 | RESET_DMA)));
+    PIO_ENABLE();
+    DMA_ENABLE();
 
     // Setup the DMA channels:
-    // - PIO block 0
-    // - SM1 is the address read SM
-    // - SM2 is the data byte output SM
+    // - Adress PIO block 1
+    // - Data PIO block 2
+    // - SM0 is the address read SM
+    // - SM1 is the data byte output SM
     if (!config.no_dma) {
-        piorom_setup_dma(&config, 0, 1, 2);
+        piorom_setup_dma(&config, 1, 0, 2, 1);
     }
 
     // Configure GPIOs for PIO function
