@@ -606,8 +606,19 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // PIO1 Programs
     //
-    // Data handlers
+    // Address handlers
     PIO_SET_BLOCK(1);
+
+    // If address lines are 16+, change this block's GPIOBASE
+    uint8_t base_addr_pin = config->addr_base_pin;
+    if (config->addr_base_pin < 16) {
+        DEBUG("PIO1 block GPIOBASE to 0");
+        PIO_BLOCK_GPIOBASE_0();
+    } else {
+        DEBUG("PIO1 block GPIOBASE to 16");
+        base_addr_pin -= 16;
+        PIO_BLOCK_GPIOBASE_16();
+    }
 
     // PIO1 SM0 - Address reader
     //
@@ -650,7 +661,7 @@ static void piorom_load_programs(piorom_config_t *config) {
         PIO_OUT_SHIFTDIR_L      // Direction doesn't matter, as we push 32 bits
     );
     PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->addr_base_pin)
+        PIO_IN_BASE(base_addr_pin)
     );
 
     // Preload the ROM table address into the X register
@@ -671,6 +682,17 @@ static void piorom_load_programs(piorom_config_t *config) {
     //
     // Data handlers
     PIO_SET_BLOCK(2);
+
+    // If data lines are 16+, change this block's GPIOBASE
+    uint8_t base_data_pin = config->data_base_pin;
+    if (config->data_base_pin < 16) {
+        DEBUG("PIO2 block GPIOBASE to 0");
+        PIO_BLOCK_GPIOBASE_0();
+    } else {
+        DEBUG("PIO2 block GPIOBASE to 16");
+        base_data_pin -= 16;
+        PIO_BLOCK_GPIOBASE_16();
+    }
 
     // PIO2 SM0 - CS handler
     //
@@ -771,7 +793,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     );
     PIO_SM_PINCTRL_SET(
         PIO_OUT_COUNT(config->num_data_pins) |
-        PIO_OUT_BASE(config->data_base_pin) |
+        PIO_OUT_BASE(base_data_pin) |
         PIO_IN_BASE(config->cs_base_pin)
     );
 
@@ -799,7 +821,7 @@ static void piorom_load_programs(piorom_config_t *config) {
         PIO_PULL_THRESH(config->num_data_pins)  // Pull when we have 8 bits
     );
     PIO_SM_PINCTRL_SET(
-        PIO_OUT_BASE(config->data_base_pin) |
+        PIO_OUT_BASE(base_data_pin) |
         PIO_OUT_COUNT(config->num_data_pins)
     );
 
@@ -977,9 +999,11 @@ static uint8_t get_lowest_addr_gpio(
     }
 
     // Consider CS pins - only need to check the base as this will be the
-    // lowest
-    if (cs_base_pin < lowest) {
-        lowest = cs_base_pin;
+    // lowest.  Not relevant for 40 pin.
+    if ((info->pins->chip_pins == 24) || (info->pins->chip_pins == 28)) {
+        if (cs_base_pin < lowest) {
+            lowest = cs_base_pin;
+        }
     }
 
     return lowest;
@@ -1073,6 +1097,10 @@ static void piorom_finish_config(
 
         case CHIP_TYPE_231024:
             config->num_cs_pins = 1;
+            break;
+
+        case CHIP_TYPE_27C400:
+            config->num_cs_pins = 2;
             break;
 
         default:
@@ -1206,6 +1234,7 @@ static void piorom_finish_config(
         case CHIP_TYPE_27128:
         case CHIP_TYPE_27256:
         case CHIP_TYPE_27512:
+        case CHIP_TYPE_27C400:
             // Use OE/CE instead of CS pins
             config->cs_base_pin = info->pins->oe;
             if (info->pins->ce == (config->cs_base_pin + 1)) {
@@ -1314,8 +1343,10 @@ static void piorom_finish_config(
     // Set the number of address lines from ROM pins
     if (info->pins->chip_pins == 24) {
         config->num_addr_pins = 16;
-    } else {
+    } else if (info->pins->chip_pins == 28) {
         config->num_addr_pins = 18; // Includes OE/CE (OE also A16 for 231024)
+    } else {
+        config->num_addr_pins = 19; // Doesn't include OE/CE/BYTE
     }
 
     // Final checks

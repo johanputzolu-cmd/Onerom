@@ -485,6 +485,9 @@ impl Args {
                 "ce" | "oe" => {
                     // Not specified
                 }
+                "byte" => {
+                    // Not specified
+                }
                 other => {
                     return Err(format!(
                         "ROM type {rom_type:?} has unknown control line: {other}",

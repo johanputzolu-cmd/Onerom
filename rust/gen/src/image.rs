@@ -767,7 +767,7 @@ impl ChipSet {
                 }
             }
             (40, McuFamily::Rp2350) => {
-                assert!(num_addr_pins == 29);
+                assert!(num_addr_pins == 19);
                 2_usize.pow(19) // 512KB
             }
             (_, _) => {

@@ -29,6 +29,7 @@
 #define PIO_SM_REG_OFFSET       (0xC8)
 #define PIO_SM_RXF_OFFSET       (0x128)
 #define PIO_SM_TXF_OFFSET       (0x138)
+#define PIO_GPIOBASE_OFFSET     (0x168)
 
 /// Macros for accessing PIO control registers
 #define PIO0_CTRL       (*(volatile uint32_t *)(PIO0_BASE + PIO_CTRL_OFFSET))
@@ -55,6 +56,9 @@
 #define PIO0_INPUT_SYNC_BYPASS  (*(volatile uint32_t *)(PIO0_BASE + PIO_INPUT_SYNC_BYPASS_OFFSET))
 #define PIO1_INPUT_SYNC_BYPASS  (*(volatile uint32_t *)(PIO1_BASE + PIO_INPUT_SYNC_BYPASS_OFFSET))
 #define PIO2_INPUT_SYNC_BYPASS  (*(volatile uint32_t *)(PIO2_BASE + PIO_INPUT_SYNC_BYPASS_OFFSET))
+#define PIO0_GPIOBASE (*(volatile uint32_t *)(PIO0_BASE + PIO_GPIOBASE_OFFSET))
+#define PIO1_GPIOBASE (*(volatile uint32_t *)(PIO1_BASE + PIO_GPIOBASE_OFFSET))
+#define PIO2_GPIOBASE (*(volatile uint32_t *)(PIO2_BASE + PIO_GPIOBASE_OFFSET))
 
 // Macros for PIO control registers
 #define PIO_CTRL_SM_ENABLE(X)      ((X & 0xf) << 0)
@@ -118,6 +122,10 @@ typedef struct pio_sm_reg {
 #define PIO_OUT_COUNT(X)        (((X) & 0x3F) << 20)
 #define PIO_SET_COUNT(X)        (((X) & 0x07) << 26)
 #define PIO_SIDE_SET_COUNT(X)   (((X) & 0x07) << 29)
+
+// GPIOBASE
+#define PIO_GPIOBASE_0          (0)
+#define PIO_GPIOBASE_16         (1 << 4)
 
 // Macro to access a PIO state machine RX FIFO entry
 #define PIO0_SM_X_RXF_Y(X, Y)   (*(volatile uint32_t *)(PIO0_BASE + PIO_SM_RXF_OFFSET + ((X) * 0x10) + ((Y) * 4)))

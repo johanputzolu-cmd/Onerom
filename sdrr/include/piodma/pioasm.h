@@ -125,6 +125,7 @@ _Static_assert((MAX_PIO_BLOCKS == 3), "MAX_PIO_BLOCKS must be 3");
 _Static_assert((MAX_SMS_PER_BLOCK == 4), "MAX_SMS_PER_BLOCK must be 4");
 _Static_assert((MAX_PIO_INSTRS == 32), "MAX_PIO_INSTRS must be 32");
 
+// Bring PIO blocks out of reset
 #define PIO_ENABLE()    RESET_RESET &= ~(RESET_PIO0 | RESET_PIO1 | RESET_PIO2 );        \
                         while (!(RESET_DONE & (RESET_PIO0 | RESET_PIO1 | RESET_PIO2)));
 
@@ -132,6 +133,24 @@ _Static_assert((MAX_PIO_INSTRS == 32), "MAX_PIO_INSTRS must be 32");
 #define PIO_SET_BLOCK(BLOCK)    STATIC_BLOCK_ASSERT(BLOCK); \
                                 __block = BLOCK; \
                                 __sm = 0
+
+// Set GPIOBASE to 0 for the current PIO block
+#define PIO_BLOCK_GPIOBASE_0()      if (__block == 0) {                 \
+                                        PIO0_GPIOBASE = PIO_GPIOBASE_0; \
+                                    } else if (__block == 1) {          \
+                                        PIO1_GPIOBASE = PIO_GPIOBASE_0; \
+                                    } else {                            \
+                                        PIO2_GPIOBASE = PIO_GPIOBASE_0; \
+                                    }
+
+// Set GPIOBASE to 16 for the current PIO block
+#define PIO_BLOCK_GPIOBASE_16()     if (__block == 0) {                     \
+                                        PIO0_GPIOBASE = PIO_GPIOBASE_16;    \
+                                    } else if (__block == 1) {              \
+                                        PIO1_GPIOBASE = PIO_GPIOBASE_16;    \
+                                    } else {                                \
+                                        PIO2_GPIOBASE = PIO_GPIOBASE_16;    \
+                                    }
 
 // Set the current PIO SM
 #define PIO_SET_SM(SM)          STATIC_SM_ASSERT(SM);                                       \

@@ -418,6 +418,8 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     // If we are using PIO/DMA ROM serving, jump to that now
     if (runtime->fire_serve_mode == FIRE_SERVE_PIO) {
         pio(info, set, rom_table_val);
+    } else {
+        DEBUG("Fire CPU");
     }
 #endif // RP235X
 
