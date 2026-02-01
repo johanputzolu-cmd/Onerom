@@ -75,6 +75,7 @@ static void parse_cs_config(json_object* cs_obj, cs_config_t* cs_config) {
     cs_config->pin_27128 = 255;
     cs_config->pin_27256 = 255;
     cs_config->pin_27512 = 255;
+    cs_config->pin_27c400 = 255;
     
     json_object* pin_obj;
     if (json_object_object_get_ex(cs_obj, "2364", &pin_obj)) {
@@ -115,6 +116,9 @@ static void parse_cs_config(json_object* cs_obj, cs_config_t* cs_config) {
     }
     if (json_object_object_get_ex(cs_obj, "27512", &pin_obj)) {
         cs_config->pin_27512 = json_object_get_int(pin_obj);
+    }
+    if (json_object_object_get_ex(cs_obj, "27c400", &pin_obj)) {
+        cs_config->pin_27c400 = json_object_get_int(pin_obj);
     }
 }
 
@@ -268,17 +272,26 @@ json_config_t* load_json_config(const char* hw_rev) {
             if (json_object_object_get_ex(pins_obj, "cs1", &cs_obj)) {
                 parse_cs_config(cs_obj, &config->mcu.pins.cs1);
             } else {
-                error = "cs1";
+                if (config->rom.pin_count != 40) {
+                    // CS1 is optional for 40 pin ROMs
+                    error = "cs1";
+                }
             }
             if (json_object_object_get_ex(pins_obj, "cs2", &cs_obj)) {
                 parse_cs_config(cs_obj, &config->mcu.pins.cs2);
             } else {
-                error = "cs2";
+                if (config->rom.pin_count != 40) {
+                    // CS2 is optional for 40 pin ROMs
+                    error = "cs2";
+                }
             }
             if (json_object_object_get_ex(pins_obj, "cs3", &cs_obj)) {
                 parse_cs_config(cs_obj, &config->mcu.pins.cs3);
             } else {
-                error = "cs3";
+                if (config->rom.pin_count != 40) {
+                    // CS3 is optional for 40 pin ROMs
+                    error = "cs3";
+                }
             }
             if (json_object_object_get_ex(pins_obj, "ce", &cs_obj)) {
                 parse_cs_config(cs_obj, &config->mcu.pins.ce);

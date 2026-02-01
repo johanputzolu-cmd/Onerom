@@ -106,6 +106,11 @@ static void init_address_mangler(
             mangler->cs2_pin = config->mcu.pins.oe.pin_27512;
             break;
 
+        case CHIP_TYPE_27C400:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_27c400;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_27c400;
+            break;
+
         default:
             printf("Error: Unsupported ROM type %d\n", rom_type);
             exit(1);
@@ -166,7 +171,7 @@ void create_address_mangler(const json_config_t* config, const sdrr_rom_type_t r
                 address_mangler.x2_pin -= 8;
             }
         }
-    } else {
+    } else if (config->rom.pin_count == 28) {
 #if defined(RP235X)
         // RP235X: CS pins ARE part of address space for 28 pin ROMs
         // Find the minimum across address AND CS pins
@@ -220,6 +225,24 @@ void create_address_mangler(const json_config_t* config, const sdrr_rom_type_t r
             }
         }
 #endif // STM32F4
+    } else if (config->rom.pin_count == 40) {
+        // 40 pins ROMs.  CS pins are NOT part of address space for 40 pins
+        // ROMs.  Only left shift address pins.
+        uint8_t min_addr_pin = 255;
+        for (int ii = 0; ii < MAX_ADDR_LINES; ii++) {
+            if (address_mangler.addr_pins[ii] < min_addr_pin) {
+                min_addr_pin = address_mangler.addr_pins[ii];
+            }
+        }
+
+        for (int ii = 0; ii < MAX_ADDR_LINES; ii++) {
+            if (address_mangler.addr_pins[ii] != 255) {
+                address_mangler.addr_pins[ii] -= min_addr_pin;
+            }
+        }
+    } else {
+        printf("Error: Unsupported pin count %d for address mangler\n", config->rom.pin_count);
+        exit(1);
     }
 
 #if defined(DEBUG_TEST)
@@ -311,7 +334,7 @@ uint32_t create_mangled_address(
         if (x2 == 1)  mangled |= (1 << address_mangler.x2_pin);
 
         max_addr_pins = 16;
-    } else {
+    } else if (rom_pins == 28) {
     // 28-pin ROMs
         max_addr_pins = 16;
 #if defined(RP235X)
@@ -328,12 +351,22 @@ uint32_t create_mangled_address(
         }
         max_addr_pins = 18;
 #endif // RP235X
+    } else if (rom_pins == 40) {
+        // 40-pin ROMs
+        max_addr_pins = 19;
+    } else {
+        printf("Error: Unsupported ROM pin count %zu in create_mangled_address\n", rom_pins);
+        exit(1);
     }
     
     // Map logical address bits to configured GPIO positions
     for (int i = 0; i < MAX_ADDR_LINES; i++) {
         if (logical_addr & (1 << i)) {
-            assert(address_mangler.addr_pins[i] <= (max_addr_pins-1));
+            if (address_mangler.addr_pins[i] > (max_addr_pins-1)) {
+                printf("Error: Address pin mapping for logical A%d (%d) is out of range for ROM pin count %zu\n", 
+                    i, address_mangler.addr_pins[i], rom_pins);
+                exit(1);
+            }
             mangled |= (1 << address_mangler.addr_pins[i]);
         }
     }
@@ -372,6 +405,7 @@ const char* rom_type_to_string(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_27128: return "27128";
         case CHIP_TYPE_27256: return "27256";
         case CHIP_TYPE_27512: return "27512";
+        case CHIP_TYPE_27C400: return "27C400";
         default: return "unknown";
     }
 }
@@ -390,11 +424,13 @@ uint8_t get_num_cs(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_27128:
         case CHIP_TYPE_27256:
         case CHIP_TYPE_27512:
+        case CHIP_TYPE_27C400:
             return 2;
         case CHIP_TYPE_2364:
         case CHIP_TYPE_231024:
             return 1;
         default:
+            printf("Error: Unsupported ROM type %d in get_num_cs\n", rom_type);
             assert(0 && "Unknown ROM type in num_cs");
             return 0;
     }
@@ -449,6 +485,7 @@ size_t get_expected_rom_size(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_27128: return 16384;
         case CHIP_TYPE_27256: return 32768;
         case CHIP_TYPE_27512: return 65536;
+        case CHIP_TYPE_27C400: return 524288;
         default: return 0;
     }
 }
@@ -469,6 +506,7 @@ sdrr_rom_type_t rom_type_from_string(const char* type_str) {
     else if (strcmp(type_str, "27128") == 0) return CHIP_TYPE_27128;
     else if (strcmp(type_str, "27256") == 0) return CHIP_TYPE_27256;
     else if (strcmp(type_str, "27512") == 0) return CHIP_TYPE_27512;
+    else if (strcmp(type_str, "27C400") == 0) return CHIP_TYPE_27C400;
     else return -1; // Unknown type
 }
 

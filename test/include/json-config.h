@@ -40,6 +40,7 @@ typedef struct {
     uint8_t pin_27128;
     uint8_t pin_27256;
     uint8_t pin_27512;
+    uint8_t pin_27c400;
 } cs_config_t;
 
 typedef struct {
