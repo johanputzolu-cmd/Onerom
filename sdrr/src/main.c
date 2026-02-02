@@ -38,7 +38,11 @@ sdrr_runtime_info_t sdrr_runtime_info __attribute__((section(".sdrr_runtime_info
 #else // !RP_PIO
     .fire_serve_mode = FIRE_SERVE_CPU,
 #endif // RP_PIO
-    .bit_mode = BIT_MODE_8
+    .bit_mode = BIT_MODE_8,
+    .rom_dma_copy = 1,
+    .num_data_pins = 8,
+    .force_16_bit = 0,
+    .reserved = 0
 };
 
 // This function checks the state of the image select pins, and returns an
@@ -217,6 +221,14 @@ void process_firmware_overrides(
                 runtime_info->fire_serve_mode = overrides->override_value[0] & (1 << 4) ? FIRE_SERVE_PIO : FIRE_SERVE_CPU;
                 LOG("Fire serve mode override: %d", runtime_info->fire_serve_mode);
             }
+            if (overrides->override_present[1] & (1 << 0)) {
+                runtime_info->rom_dma_copy = overrides->override_value[0] & (1 << 5) ? 1 : 0;
+                LOG("Fire ROM DMA preload override: %d", runtime_info->rom_dma_copy);
+            }
+            if (overrides->override_present[1] & (1 << 1)) {
+                runtime_info->force_16_bit = overrides->override_value[0] & (1 << 6) ? 1 : 0;
+                LOG("Fire Force 16 bit mode override: %d", runtime_info->force_16_bit);
+            }
 #endif
         }
     }
@@ -314,19 +326,6 @@ int main(void) {
         ERR("No ROM sets");
     }
 
-    // Check the bit mode
-    if (sdrr_info.pins->data2[0] != 0xFF) {
-        sdrr_runtime_info.bit_mode = BIT_MODE_16;
-        LOG("16-bit mode");
-#if defined(STM32F4)
-        ERR("16-bit mode not supported on STM32F4");
-        limp_mode(LIMP_MODE_INVALID_BUILD);
-#endif // STM32F4
-    } else {
-        sdrr_runtime_info.bit_mode = BIT_MODE_8;
-        LOG("8-bit mode");
-    }
-
     // Initialize clock
     DEBUG("Init clock");
     setup_clock();
@@ -335,7 +334,7 @@ int main(void) {
     if (set != NULL) {
         // Set up the ROM table
         if (sdrr_info.preload_image_to_ram) {
-            sdrr_runtime_info.rom_table = preload_rom_image(set);
+            sdrr_runtime_info.rom_table = preload_rom_image(&sdrr_runtime_info, set);
         } else {
             // If we are not preloading the ROM image, we need to set up the
             // rom_table to point to the flash location of the ROM image.

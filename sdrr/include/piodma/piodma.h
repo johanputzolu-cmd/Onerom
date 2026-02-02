@@ -9,7 +9,4 @@
 #include "piodma/pioasm.h"
 #include "piodma/dmareg.h"
 
-#define DMA_ENABLE()    RESET_RESET &= ~RESET_DMA;        \
-                        while (!(RESET_DONE & RESET_DMA));
-
 #endif // PIODMA_H

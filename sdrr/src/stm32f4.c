@@ -525,7 +525,7 @@ void dfu(void) {
 // Checks configuration before entering the main loop.
 void check_config(
     const sdrr_info_t *info,
-    const sdrr_runtime_info_t *runtime,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 ) {
     (void)runtime; // Unused for now

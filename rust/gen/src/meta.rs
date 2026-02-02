@@ -498,6 +498,10 @@ impl Metadata {
         // 5 = Status LED overridden
         // 6 = SWD overridden
         // 7 = Fire serve mode overridden
+        //
+        // Bit positions in override_present[1]:
+        // 0 = Fire ROM DMA preload overridden
+        // 1 = Force 16 bit mode overridden
         if let Some(ref ice_config) = config.ice {
             if ice_config.cpu_freq.is_some() {
                 override_present[0] |= 1 << 0; // Ice frequency
@@ -519,6 +523,12 @@ impl Metadata {
             }
             if fire_config.serve_mode.is_some() {
                 override_present[0] |= 1 << 7; // Fire serve mode
+            }
+            if fire_config.rom_dma_preload {
+                override_present[1] |= 1 << 0; // Fire ROM DMA preload
+            }
+            if fire_config.force_16_bit {
+                override_present[1] |= 1 << 1; // Force 16 bit mode
             }
         }
 
@@ -577,6 +587,8 @@ impl Metadata {
         // 2 = Status LED enabled
         // 3 = SWD enabled
         // 4 = Fire serve mode 1 = PIO, 0 = CPU
+        // 5 = Fire ROM DMA preload enabled
+        // 6 = Force 16 bit mode
         if let Some(ref ice_config) = config.ice {
             if let Some(overclock) = ice_config.overclock {
                 if overclock {
@@ -595,6 +607,12 @@ impl Metadata {
                 if *serve_mode == FireServeMode::Pio {
                     override_value[0] |= 1 << 4;
                 }
+            }
+            if fire_config.rom_dma_preload {
+                override_value[0] |= 1 << 5;
+            }
+            if fire_config.force_16_bit {
+                override_value[0] |= 1 << 6;
             }
         }
 

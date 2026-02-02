@@ -56,6 +56,8 @@
 // Pull in the RAM ROM image start/end locations from the linker
 extern uint32_t _ram_rom_image_start[];
 extern uint32_t _ram_rom_image_end[];
+extern uint32_t _Ram_Rom_Image_Size[];
+#define RAM_ROM_IMAGE_SIZE ((uint32_t)_Ram_Rom_Image_Size)
 
 // Do the fairly complex job of setting up the CS masks for use in the main
 // loop algorithm.
@@ -87,10 +89,7 @@ static inline void __attribute__((always_inline)) setup_cs_masks(
     uint8_t pin_oe = info->pins->oe;
 
 #if defined(RP235X)
-    uint8_t data_bits = 8;
-    if (runtime_info->bit_mode == BIT_MODE_16) {
-        data_bits = 16;
-    }
+    uint8_t data_bits = runtime_info->num_data_pins;
     if (info->pins->data[0] < data_bits) {
         // Data pins are at start, so need to remap CS lines to end up in 
         // the right locations after the serving algorithm's ubfx shift and
@@ -281,7 +280,7 @@ static inline void __attribute__((always_inline)) configure_x_pulls(
 
 void __attribute__((section(".main_loop"), used)) main_loop(
     const sdrr_info_t *info,
-    const sdrr_runtime_info_t *runtime,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 ) {
 #if defined(DEBUG_LOGGING) || defined(MAIN_LOOP_LOGGING)
@@ -417,7 +416,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
 #if defined(RP235X)
     // If we are using PIO/DMA ROM serving, jump to that now
     if (runtime->fire_serve_mode == FIRE_SERVE_PIO) {
-        pio(info, set, rom_table_val);
+        pio(info, runtime, set, rom_table_val);
     } else {
         DEBUG("Fire CPU");
     }
@@ -712,12 +711,18 @@ uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask) {
     return rom_index;
 }
 
-void* preload_rom_image(const sdrr_rom_set_t *set) {
+void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_set_t *set) {
     uint32_t *img_src, *img_dst;
     uint32_t img_size;
 
     // Find the start of this ROM image in the flash memory
     img_size = set->size;
+    if ((((img_size + 3) / 4) * 4) > RAM_ROM_IMAGE_SIZE) {
+        ERR("ROM image too large 0x%08X > 0x%08X",
+            ((img_size + 3) / 4) * 4,
+            RAM_ROM_IMAGE_SIZE);
+        limp_mode(LIMP_MODE_INVALID_CONFIG);
+    }
     img_src = (uint32_t *)(set->data);
 
     if ((set->roms[0]->rom_type == CHIP_TYPE_6116) && (img_src == (uint32_t *)0xFFFFFFFF)) {
@@ -749,17 +754,31 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
 #endif // BOOT_LOGGING
     DEBUG("Preloading %d bytes for %s", img_size, chip_type_strings[set->roms[0]->rom_type]);
 
-    // Set image (either single ROM or multiple ROMs) has been fully pre-
-    // processed before embedding in the flash.
-    memcpy(img_dst, img_src, img_size);
-
 #if defined(BOOT_LOGGING)
     const char *filename = "";
     if (set->roms[0]->filename != NULL) {
         filename = set->roms[0]->filename;
     }
-    LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", filename, (uint32_t)img_dst, img_size);
 #endif // BOOT_LOGGING
+
+#if defined(RP235X)
+    if (runtime_info->rom_dma_copy) {
+        if ((((uint32_t)img_src % 4) != 0) || (((uint32_t)img_dst % 4) != 0)) {
+            ERR("ROM src/dest unaligned: 0x%08X 0x%08X", (uint32_t)img_src, (uint32_t)img_dst);
+            limp_mode(LIMP_MODE_INVALID_CONFIG);
+        }
+        dma_copy((uint32_t)img_src, (uint32_t)img_dst, (img_size+3) / 4);
+        LOG("DMA preload initiated to 0x%08X size 0x%08X %s", (uint32_t)img_dst, img_size, filename);
+    } else {
+#endif // RP235X
+        // Set image (either single ROM or multiple ROMs) has been fully pre-
+        // processed before embedding in the flash.
+        memcpy(img_dst, img_src, img_size);
+        LOG("CPU preload complete to 0x%08X size 0x%08X %s", (uint32_t)img_dst, img_size, filename);
+#if defined(RP235X)
+    }
+#endif // RP235X
+
     LOG("Set ROM count: %d, Serving algorithm: %d",
         set->rom_count, set->serve);
 

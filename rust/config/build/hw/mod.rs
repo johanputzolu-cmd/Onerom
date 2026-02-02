@@ -1014,6 +1014,20 @@ fn generate_chip_pin_methods(configs: &[HwConfigData]) -> String {
     code.push_str("        }\n");
     code.push_str("    }\n\n");
 
+    // Add pin_byte() method
+    code.push_str("    /// Get pin for /BYTE line\n");
+    code.push_str("    pub const fn pin_byte(&self) -> u8 {\n");
+    code.push_str("        match self {\n");
+    for config in configs {
+        let pin = config.config.mcu.pins.byte.unwrap_or(255);
+        code.push_str(&format!(
+            "            Board::{} => {},\n",
+            config.variant_name, pin
+        ));
+    }
+    code.push_str("        }\n");
+    code.push_str("    }\n\n");
+
     // Add cs_pin_for_chip_in_set method
     code.push_str("    /// Get chip select pin for Chip in set (0=CS1, 1=X1, 2=X2)\n");
     code.push_str("    pub const fn cs_pin_for_chip_in_set(&self, chip_type: ChipType, set_index: usize) -> u8 {\n");

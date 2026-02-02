@@ -307,6 +307,8 @@ void setup_gpio(void) {
     } else {
         DEBUG("No status LED pin defined");
     }
+
+    // No need to set /BYTE to input - done above
 }
 
 // Reconfigure flash (QMI) speed if required
@@ -718,7 +720,7 @@ void enter_bootloader(void) {
 
 void check_config(
     const sdrr_info_t *info,
-    const sdrr_runtime_info_t *runtime,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 ) {
     uint8_t failed = 0;
@@ -750,6 +752,20 @@ void check_config(
         ERR("Sel pins should be using bank 0");
         failed = 1;
     }
+
+    // Count the number of data pins
+    uint8_t data_pins = 0;
+    for (int ii = 0; ii < 8; ii++) {
+        if (info->pins->data[ii] < MAX_USED_GPIOS) {
+            data_pins += 1;
+        }
+    }
+    for (int ii = 0; ii < 8; ii++) {
+        if (info->pins->data2[ii] < MAX_USED_GPIOS) {
+            data_pins += 1;
+        }
+    }
+    runtime->num_data_pins = data_pins;
 
     if (chip_pins == 24) {
         if (runtime->fire_serve_mode == FIRE_SERVE_CPU) {
@@ -884,6 +900,19 @@ void check_config(
         }
         if (num_addr_pins != 19) {
             ERR("40-pin requires 19 addr pins");
+            failed = 1;
+        }
+
+        // Check we have 16 data pins
+        if (runtime->num_data_pins < 16) {
+            ERR("40 pin requires 16 data pins");
+            failed = 1;
+        }
+
+        // Check we have a byte pin
+        uint8_t byte_pin = info->pins->byte;
+        if (byte_pin >= MAX_USED_GPIOS) {
+            ERR("40-pin requires BYTE pin");
             failed = 1;
         }
 

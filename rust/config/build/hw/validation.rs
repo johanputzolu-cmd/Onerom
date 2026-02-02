@@ -223,6 +223,7 @@ pub struct McuPins {
     #[serde(default = "invalid_pin")]
     pub swdio_sel: u8,
     pub status: u8,
+    pub byte: Option<u8>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default, PartialEq, Eq)]
@@ -354,15 +355,30 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
             14,
             config.mcu.family.max_valid_addr_cs_pin(),
         ),
-        40 => validate_pin_values(
-            &config.mcu.pins.addr,
-            "addr",
-            name,
-            16,
-            config.mcu.family.max_valid_addr_cs_pin(),
-        ),
+        40 => {
+            validate_pin_values(
+                &config.mcu.pins.addr,
+                "addr",
+                name,
+                16,
+                config.mcu.family.max_valid_addr_cs_pin(),
+            );
+            
+            // A0 must be the _first_ address pin for 40-pin ROMs, so that the
+            // LSB (as read in from the PIOs, the lowest GPIO), is A0.  This
+            // allows, 16-bit mode, sticking a 0 bit as the LSB bit to get two
+            // consecutive addresses for even addresses.
+            let min_addr_pin = *config.mcu.pins.addr.iter().min().unwrap();
+            let a0_index = config.mcu.pins.addr.iter().position(|&p| p == min_addr_pin).unwrap();
+            if a0_index != 0 {
+                panic!(
+                    "{}: for 40-pin ROMs, A0 must be the lowest address pin and at index 0, found at index {}",
+                    name, a0_index
+                );
+            }
+        }
         _ => panic!(
-            "{}: unsupported ROM type {}, expected 24 or 28-pin ROM",
+            "{}: unsupported ROM type {}, expected 24, 28, or 40-pin ROM",
             name, config.chip.pins.quantity
         ),
     }

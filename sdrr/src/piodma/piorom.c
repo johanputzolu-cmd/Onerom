@@ -446,7 +446,10 @@ typedef struct piorom_config {
     // served via the X pins).
     uint8_t multi_rom_mode;
 
-    uint8_t pad5[2];
+    // Bit mode for serving
+    bit_modes_t bit_mode;
+
+    uint8_t pad5;
 
     // 36 bytes to here
 
@@ -559,7 +562,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t cs_base_pin = config->cs_base_pin;
     uint8_t num_data_pins = config->num_data_pins;
     uint8_t data_base_pin = config->data_base_pin;
-    uint8_t num_addr_pins = config->num_addr_pins;
+    uint8_t num_addr_pins_dbg = config->num_addr_pins;
     uint8_t addr_base_pin = config->addr_base_pin;
     uint8_t addr_read_irq = config->addr_read_irq;
     uint8_t addr_read_delay = config->addr_read_delay;
@@ -573,8 +576,9 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t data_writer_clkdiv_frac = config->data_out_clkdiv_frac;
     uint8_t contiguous_cs_pins = config->contiguous_cs_pins;
     uint8_t multi_rom_mode = config->multi_rom_mode;
+    bit_modes_t bit_mode = config->bit_mode;
     uint32_t cs_pin_2nd_match = config->cs_pin_2nd_match;
-    DEBUG("PIO ROM Serving Config:");
+    DEBUG("PIO ROM Config:");
     DEBUG("- CS pins: %d-%d", cs_base_pin, cs_base_pin + num_cs_pins - 1);
     DEBUG("- CS invert: %s %s %s",
         (config->invert_cs[0] ? "Y" : "N"),
@@ -582,8 +586,9 @@ static void piorom_load_programs(piorom_config_t *config) {
         (config->invert_cs[2] ? "Y" : "N"));
     DEBUG("- Contiguous CS pins: %s, 0x%02X", (contiguous_cs_pins ? "Y" : "N"), cs_pin_2nd_match);
     DEBUG("- Multi-ROM mode: %s", (multi_rom_mode ? "Y" : "N"));
+    DEBUG("- Bit mode: %d", bit_mode == BIT_MODE_8 ? 8 : 16);
     DEBUG("- Data pins: %d-%d", data_base_pin, data_base_pin + num_data_pins - 1);
-    DEBUG("- Address pins: %d-%d", addr_base_pin, addr_base_pin + num_addr_pins - 1);
+    DEBUG("- Address pins: %d-%d", addr_base_pin, addr_base_pin + num_addr_pins_dbg - 1);
     DEBUG("- CS Handler CLKDIV: %d.%02d", cs_handler_clkdiv_int, cs_handler_clkdiv_frac);
     DEBUG("- Addr Reader CLKDIV: %d.%02d", addr_reader_clkdiv_int, addr_reader_clkdiv_frac);
     DEBUG("- Data Writer CLKDIV: %d.%02d", data_writer_clkdiv_int, data_writer_clkdiv_frac);
@@ -619,6 +624,8 @@ static void piorom_load_programs(piorom_config_t *config) {
         base_addr_pin -= 16;
         PIO_BLOCK_GPIOBASE_16();
     }
+    DEBUG("PIO1 block GPIOBASE: 0x%08X", PIO1_GPIOBASE);
+    DEBUG("base_addr_pin: %d", base_addr_pin);
 
     // PIO1 SM0 - Address reader
     //
@@ -630,6 +637,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     // IN instruction (if no IRQ).  In the no IRQ case it is not important on
     // which instruction we add the delay, as it doesn't affect how "old" the
     // address will be went sent to the DMA, just how _frequently_ it is read.
+
     if (!config->addr_read_irq && config->addr_read_delay) {
         PIO_ADD_INSTR(ADD_DELAY(IN_X(rom_table_num_addr_bits), config->addr_read_delay));
     } else {
@@ -642,8 +650,33 @@ static void piorom_load_programs(piorom_config_t *config) {
             PIO_ADD_INSTR(ADD_DELAY(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ), config->addr_read_delay));
         }
     }
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(IN_PINS(config->num_addr_pins));
+    uint8_t num_addr_pins = config->num_addr_pins;
+    if (config->bit_mode == BIT_MODE_8) {
+        PIO_WRAP_TOP();
+        PIO_ADD_INSTR(IN_PINS(num_addr_pins));
+    } else {
+        // Only read N-1 address bits, then add a 0 LSB, to get an even
+        // address.  This involves ignoring A0 (or A-1 depending on your
+        // terminology).
+        num_addr_pins -= 1;
+        base_addr_pin += 1;
+#if 0
+// Definitely doesn't work (wrong order)
+        PIO_ADD_INSTR(IN_NULL(1));
+        PIO_ADD_INSTR(IN_PINS(num_addr_pins));
+        PIO_WRAP_TOP();
+        PIO_ADD_INSTR(IN_X(rom_table_num_addr_bits))
+#endif
+#if 0
+// Doesn't work
+        PIO_ADD_INSTR(IN_NULL(1));
+        PIO_WRAP_TOP();
+        PIO_ADD_INSTR(IN_PINS(num_addr_pins));
+#endif
+        PIO_ADD_INSTR(IN_PINS(num_addr_pins));
+        PIO_WRAP_TOP();
+        PIO_ADD_INSTR(IN_NULL(1));
+    }
 
     // Configure the address read SM
     PIO_SM_CLKDIV_SET(
@@ -652,11 +685,11 @@ static void piorom_load_programs(piorom_config_t *config) {
     );
     PIO_SM_EXECCTRL_SET(0);
     PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_addr_pins) |   // Reading the address pins (unused
-                                                // as this is for mov instructions)
-        PIO_AUTOPUSH |                          // Auto push when we hit threshold
-        PIO_PUSH_THRESH(32) |                   // Push when we have 32 bits (from
-                                                // X and from address pins)
+        PIO_IN_COUNT(num_addr_pins) |   // Reading the address pins (unused
+                                        // as this is for mov instructions)
+        PIO_AUTOPUSH |                  // Auto push when we hit threshold
+        PIO_PUSH_THRESH(32) |           // Push when we have 32 bits (from
+                                        // X and from address pins)
         PIO_IN_SHIFTDIR_L |     // Shift left, so address lines are in low bits
         PIO_OUT_SHIFTDIR_L      // Direction doesn't matter, as we push 32 bits
     );
@@ -818,7 +851,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     PIO_SM_SHIFTCTRL_SET(
         PIO_OUT_SHIFTDIR_R |                    // Writes LSB of OSR
         PIO_AUTOPULL |                          // Auto pull when we hit threshold
-        PIO_PULL_THRESH(config->num_data_pins)  // Pull when we have 8 bits
+        PIO_PULL_THRESH(config->num_data_pins)  // Pull when we have 8 or 16 bits
     );
     PIO_SM_PINCTRL_SET(
         PIO_OUT_BASE(base_data_pin) |
@@ -925,9 +958,14 @@ static void piorom_setup_dma(
     dma_reg = DMA_CH_REG(1);
     dma_reg->read_addr = config->rom_table_addr;
     dma_reg->write_addr = (uint32_t)&PIO2_SM_TXF(sm_data_byte);
-    uint32_t ctrl_trig = 
-        DMA_CTRL_TRIG_EN |
-        DMA_CTRL_TRIG_DATA_SIZE_8BIT;
+    uint32_t ctrl_trig = DMA_CTRL_TRIG_EN; 
+    if (config->bit_mode == BIT_MODE_16) {
+        DEBUG("DMA1 16-bit");
+        ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_16BIT;
+    } else {
+        DEBUG("DMA1 8-bit");
+        ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_8BIT;
+    }
     if (config->addr_read_irq) {
         // When address read is triggerd by IRQ, we only want a single
         // transfer per IRQ.  We need to re-trigger channel 1 manually.
@@ -1053,6 +1091,7 @@ static void piorom_handle_non_contiguous_cs_pins(
 static void piorom_finish_config(
     piorom_config_t *config,
     const sdrr_info_t *info,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 ) {
@@ -1349,52 +1388,53 @@ static void piorom_finish_config(
         config->num_addr_pins = 19; // Doesn't include OE/CE/BYTE
     }
 
+    // Handle 8/16 bit mode for 40 pin ROMs
+    config->bit_mode = BIT_MODE_8;
+    if (info->pins->chip_pins == 40) {
+        // Read the /BYTE pin state from the SIO
+        if (runtime->force_16_bit || SIO_GPIO_READ(info->pins->byte)) {
+            // /BYTE high - 16 bit mode
+            DEBUG("Enabe 16-bit mode");
+            config->bit_mode = BIT_MODE_16;
+            if (config->addr_read_delay > 0) {
+                // PIO algorithm for 16 bits takes 1 extra cycle - so we can
+                // shave one off the delay
+                config->addr_read_delay -= 1;
+            }
+            config->num_data_pins = 16;
+        }
+    }
+    runtime->bit_mode = config->bit_mode;
+
     // Final checks
     if ((config->rom_table_addr == 0) || (config->rom_table_addr == 0xFFFFFFFF)) {
-        ERR("PIO ROM serving requires valid ROM table address");
+        ERR("PIO Invalid ROM table address");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
     if (config->cs_base_pin >= 26) {
-        ERR("PIO ROM serving requires CS pins to be GPIO 0-25");
+        ERR("PIO Invalid CS pin(s)");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
     if (config->data_base_pin >= 26) {
-        ERR("PIO ROM serving requires Data pins to be GPIO 0-25");
+        ERR("PIO Invalid data pins");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
     if (config->addr_base_pin >= 26) {
-        ERR("PIO ROM serving requires Address pins to be GPIO 0-25");
+        ERR("PIO Invalid address pins");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
     if (config->addr_read_irq > 1) {
-        ERR("PIO ROM serving invalid addr_read_irq config");
+        ERR("PIO Invalid addr_read_irq");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
     if (config->addr_read_delay > 32) {
-        ERR("PIO ROM serving invalid addr_read_delay config");
+        ERR("PIO Invalid addr_read_delay");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
     if (config->cs_active_delay > 32) {
-        ERR("PIO ROM serving invalid cs_active_delay config");
+        ERR("PIO Invalid cs_active_delay");
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
-
-    // Log final configuration
-    DEBUG("PIO ROM serving configuration:");
-    DEBUG("Multi-ROM mode: %d", config->multi_rom_mode);
-    DEBUG("  CS GPIOs: %d-%d", config->cs_base_pin, config->cs_base_pin + config->num_cs_pins - 1);
-    for (int ii = 0; ii < config->num_cs_pins; ii++) {
-        DEBUG("  - CS GPIO %d invert: %d", config->cs_base_pin + ii, config->invert_cs[ii]);
-    }
-    DEBUG("  Data GPIOs: %d-%d", config->data_base_pin, config->data_base_pin + config->num_data_pins - 1);
-    DEBUG("  Address GPIOs: %d-%d", config->addr_base_pin, config->addr_base_pin + config->num_addr_pins - 1);
-    DEBUG("  PIO algorithm options:");
-    DEBUG("  - Address Read IRQ:   %d", config->addr_read_irq);
-    DEBUG("  - Address Read Delay: %d", config->addr_read_delay);
-    DEBUG("  - CS Active Delay:    %d", config->cs_active_delay);
-    DEBUG("  - CS Inactive Delay:  %d", config->cs_inactive_delay);
-    DEBUG("  - No DMA:             %d", config->no_dma);
-    DEBUG("  ROM Table Address:  0x%08X", config->rom_table_addr);
 }
 
 // Default PIO ROM serving configuration
@@ -1428,7 +1468,8 @@ static piorom_config_t piorom_config = {
     .pad4 = 0,
     .contiguous_cs_pins = 1,
     .multi_rom_mode = 0,
-    .pad5 = {0, 0},
+    .bit_mode = BIT_MODE_8,
+    .pad5 = 0,
     .cs_pin_2nd_match = 255
 };
 
@@ -1491,6 +1532,7 @@ void piorom_overrides(
 // Configure and start the Autonomous PIO/DMA ROM serving implementation.
 void piorom(
     const sdrr_info_t *info,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 ) {
@@ -1503,7 +1545,7 @@ void piorom(
     // Apply any ROM set overrides
     piorom_overrides(set, &config);
 
-    piorom_finish_config(&config, info, set, rom_table_addr);
+    piorom_finish_config(&config, info, runtime, set, rom_table_addr);
 
     // Bring PIO0 and DMA out of reset
     PIO_ENABLE();
@@ -1534,14 +1576,28 @@ void piorom(
     piorom_load_programs(&config);
 
     if (!config.no_dma) {
+        if (runtime->rom_dma_copy) {
+            DEBUG("DMA copy words remaining: 0x%08X", dma_copy_status());
+        }
+
         // Start the PIOs.  This kicks off the autonomous ROM serving.
         piorom_start_pios();
 
         while (1) {
+#if !defined(DEBUG_LOGGING)
             // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
             // peripheral access that might introduce jitter on the PIO/DMA
             // serving.
             __asm volatile("wfi");
+#else // DEBUG_LOGGING
+            DEBUG("DMA1 Read Addr: 0x%08X",
+                DMA_CH_REG(1)->read_addr);
+            DEBUG("PIO1 FIFO Status 0x%08X", PIO1_FSTAT);
+            DEBUG("PIO2 FIFO Status 0x%08X", PIO2_FSTAT);
+
+            // Delay to avoid swamping RTT
+            for (volatile int ii = 0; ii < 100000; ii++);
+#endif // !DEBUG_LOGGING
         }
     } else {
         DEBUG("PIO ROM serving running without DMA - CPU active loop");

@@ -64,7 +64,11 @@ typedef struct {
     uint8_t ce;
     uint8_t oe;
     uint8_t x_jumper_pull;
-    uint8_t reserved3[3];
+
+    // v0.6.3 - /BYTE pin for 40 pins ROMs
+    uint8_t byte;
+
+    uint8_t reserved3[2];
 
     // As of 0.6.0
     uint8_t swclk_sel;  // SWCLK connected to which sel pin (255 = none)
@@ -331,6 +335,8 @@ typedef struct {
     // 0 | 5 = Status LED overridden
     // 0 | 6 = SWD overridden
     // 0 | 7 = Fire serve mode overridden
+    // 1 | 0 = Fire DMA ROM preload overridden
+    // 1 | 1 = Fire Force 16 bit mode
     // 
     // Unused (reserved) values MUST be set to 0.
     const uint8_t override_present[8];
@@ -361,6 +367,8 @@ typedef struct {
     // 0 | 2 : Status LED enabled/disabled 1/0
     // 0 | 3 : SWD enabled/disabled 1/0
     // 0 | 4 : Fire serve mode: 1 = PIO, 0 = CPU
+    // 0 | 5 : Fire ROM DMA preload enabled/disabled 1/0
+    // 0 | 6 : Force 16 bit mode 1/0
     const uint8_t override_value[8];
 
     // 24 bytes to here
@@ -530,10 +538,28 @@ typedef struct sdrr_runtime_info_t {
     fire_serve_modes_t fire_serve_mode;
 
     // Bit mode - v0.6.2
+    // Identicates whether One ROM is serving in 8 or 16 bit mode.
     // Offset: 35
     bit_modes_t bit_mode;
 
-    // Length = 36 bytes
+    // Whether DMA is used to copy the ROM image to RAM.  Fire only.
+    // Added in v0.6.3
+    // Offset: 36
+    uint8_t rom_dma_copy;
+
+    // Number of data pins on this ROM
+    // Added in v0.6.3
+    // Offset: 37
+    uint8_t num_data_pins;
+
+    // Force 16 bit mode
+    // Added in v0.6.3
+    // Offset: 38
+    uint8_t force_16_bit;
+
+    uint8_t reserved;
+
+    // Length = 40 bytes
 } sdrr_runtime_info_t;
 
 // One ROM Metadata Header

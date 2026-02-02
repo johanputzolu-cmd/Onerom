@@ -109,4 +109,54 @@
 
 #if defined(RP235X)
 
+#include "piodma/piodma.h"
+
+// Define which DMA channel to use for the ROM copy
+#define DMA_COPY_CHANNEL  15
+
+void dma_copy(
+    uint32_t src_addr,
+    uint32_t dst_addr,
+    size_t size_words
+) {
+    volatile dma_ch_reg_t *dma_reg;
+
+    // Bring the DMA controller out of reset
+    DMA_ENABLE();
+
+    // Set DMA Read as high priority on the AHB5 bus for both:
+    // - Reads (from RAM and PIO RX FIFO)
+    // - Writes (to PIO TX FIFO and DMA READ_ADDR)
+    BUSCTRL_BUS_PRIORITY |=
+        BUSCTRL_BUS_PRIORITY_DMA_R_BIT |
+        BUSCTRL_BUS_PRIORITY_DMA_W_BIT;
+
+    // Configure the DMA channel for the copy
+    dma_reg = DMA_CH_REG(DMA_COPY_CHANNEL);
+    dma_reg->read_addr = src_addr;
+    dma_reg->write_addr = dst_addr;
+    dma_reg->transfer_count = size_words;
+    dma_reg->ctrl_trig =
+        DMA_CTRL_TRIG_TREQ_PERM |                   // Run to completion
+        DMA_CTRL_TRIG_DATA_SIZE_32BIT |             // 32-bit transfers
+        DMA_CTRL_TRIG_PRIORITY_HIGH |               // High priority
+        DMA_CTRL_INCR_READ |                        // Increment read address
+        DMA_CTRL_INCR_WRITE |                       // Increment write address
+        DMA_CTRL_TRIG_CHAIN_TO(DMA_COPY_CHANNEL);   // Disable chaining
+
+    // Enable the DMA channel to start the copy
+    dma_reg->ctrl_trig |= DMA_CTRL_TRIG_EN;
+
+    DEBUG("DMA copy started: 0x%08X -> 0x%08X, words: 0x%08X",
+        src_addr, dst_addr, size_words);
+}
+
+// Returns the number of words remaining to copy
+uint32_t dma_copy_status() {
+    volatile dma_ch_reg_t *dma_reg;
+
+    dma_reg = DMA_CH_REG(DMA_COPY_CHANNEL);
+    return dma_reg->transfer_count;
+}
+
 #endif // RP235X

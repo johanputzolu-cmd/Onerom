@@ -308,6 +308,9 @@ static inline volatile uint32_t* pio_instr_mem_ptr(uint8_t block) {
 // Move the pins value to the ISR
 #define IN_PINS(NUM)            (0x4000 | ((NUM) & 0x1F))
 
+// Move a number of null bits to the ISR
+#define IN_NULL(NUM)            (0x4060 | ((NUM) & 0x1F))
+
 // Move X to the ISR
 #define IN_X(NUM)               (0x4020 | ((NUM) & 0x1F))
 

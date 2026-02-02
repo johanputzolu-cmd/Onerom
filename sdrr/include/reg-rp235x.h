@@ -302,10 +302,9 @@
 #define SIO_GPIO_OE_CLR     (*((volatile uint32_t *)(SIO_BASE + 0x40)))
 #define SIO_GPIO_HI_OE_CLR  (*((volatile uint32_t *)(SIO_BASE + 0x44)))
 
-#define SIO_GPIO_READ(pin)          if (pin < 32) \
-                                        (((*(volatile uint32_t*)(SIO_BASE + 0x004)) >> pin) & 1) \
-                                    else \
-                                        (((*(volatile uint32_t*)(SIO_BASE + 0x008)) >> (pin - 32)) & 1)
+#define SIO_GPIO_READ(pin)  ((pin < 32) ? \
+                            (((*(volatile uint32_t*)(SIO_BASE + 0x004)) >> pin) & 1) : \
+                            (((*(volatile uint32_t*)(SIO_BASE + 0x008)) >> (pin - 32)) & 1))
 
 #define SIO_GPIO_OE_SET_PIN(pin)    if (pin < 32) \
                                         (*(volatile uint32_t*)(SIO_BASE + 0x038) = (1 << pin)); \
@@ -315,7 +314,6 @@
                                         (*(volatile uint32_t*)(SIO_BASE + 0x018) = (1 << pin)); \
                                     else \
                                         (*(volatile uint32_t*)(SIO_BASE + 0x01C) = (1 << (pin - 32)));
-#define SIO_GPIO_IN_PIN(pin)        SIO_GPIO_READ(pin)
 #define SIO_GPIO_OUT_CLR_PIN(pin)   if (pin < 32) \
                                         (*(volatile uint32_t*)(SIO_BASE + 0x020) = (1 << pin)); \
                                     else \
