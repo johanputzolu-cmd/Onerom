@@ -362,6 +362,9 @@ static inline volatile uint32_t* pio_instr_mem_ptr(uint8_t block) {
 // Move the OSR into the X register
 #define MOV_X_OSR               0xA027
 
+// Move the OSR into the Y register
+#define MOV_Y_OSR               0xA047
+
 // Set the output pin directions to 0 (inputs)
 #define MOV_PINDIRS_NULL        0xA063
 

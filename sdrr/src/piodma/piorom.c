@@ -638,6 +638,9 @@ static void piorom_load_programs(piorom_config_t *config) {
     // which instruction we add the delay, as it doesn't affect how "old" the
     // address will be went sent to the DMA, just how _frequently_ it is read.
 
+    // !!!
+
+#if 0
     if (!config->addr_read_irq && config->addr_read_delay) {
         PIO_ADD_INSTR(ADD_DELAY(IN_X(rom_table_num_addr_bits), config->addr_read_delay));
     } else {
@@ -650,6 +653,11 @@ static void piorom_load_programs(piorom_config_t *config) {
             PIO_ADD_INSTR(ADD_DELAY(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ), config->addr_read_delay));
         }
     }
+#endif
+    // !!!
+    PIO_ADD_INSTR(ADD_DELAY(IN_X(13), 3));
+
+    
     uint8_t num_addr_pins = config->num_addr_pins;
     if (config->bit_mode == BIT_MODE_8) {
         PIO_WRAP_TOP();
@@ -704,7 +712,40 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // Jump to start and log
     PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Address Reader");
+    PIO_LOG_SM("Address Reader lower");
+
+    //
+    // Temporary Second Address Reader for 16-bit mode
+    // 
+    PIO_SET_SM(1);
+    PIO_ADD_INSTR(ADD_DELAY(IN_X(13), 3));
+    PIO_ADD_INSTR(IN_PINS(18));
+    PIO_WRAP_TOP();
+    PIO_ADD_INSTR(IN_Y(1));
+        PIO_SM_CLKDIV_SET(
+        config->addr_reader_read_clkdiv_int,
+        config->addr_reader_read_clkdiv_frac
+    );
+    PIO_SM_SHIFTCTRL_SET(
+        PIO_IN_COUNT(18) |   // Reading the address pins (unused
+                                        // as this is for mov instructions)
+        PIO_AUTOPUSH |                  // Auto push when we hit threshold
+        PIO_PUSH_THRESH(32) |           // Push when we have 32 bits (from
+                                        // X and from address pins)
+        PIO_IN_SHIFTDIR_L |     // Shift left, so address lines are in low bits
+        PIO_OUT_SHIFTDIR_L      // Direction doesn't matter, as we push 32 bits
+    );
+    PIO_SM_PINCTRL_SET(
+        PIO_IN_BASE(19)
+    );
+    PIO_TXF = rom_table_high_bits;
+    PIO_SM_EXEC_INSTR(PULL_BLOCK);  // Pull it into OSR
+    PIO_SM_EXEC_INSTR(MOV_X_OSR);   // Store it in X
+    PIO_TXF = 0xffffffff;
+    PIO_SM_EXEC_INSTR(PULL_BLOCK);  // Pull it into OSR
+    PIO_SM_EXEC_INSTR(MOV_Y_OSR);   // Store it in Y
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Address reader upper");
 
     //
     // PIO 1 - End of block
@@ -840,7 +881,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     PIO_SET_SM(1);
 
     // Load the data byte output program
-    PIO_ADD_INSTR(OUT_PINS(config->num_data_pins));
+    PIO_ADD_INSTR(OUT_PINS(8));
 
     // Configure the data byte SM
     PIO_SM_CLKDIV_SET(
@@ -851,16 +892,38 @@ static void piorom_load_programs(piorom_config_t *config) {
     PIO_SM_SHIFTCTRL_SET(
         PIO_OUT_SHIFTDIR_R |                    // Writes LSB of OSR
         PIO_AUTOPULL |                          // Auto pull when we hit threshold
-        PIO_PULL_THRESH(config->num_data_pins)  // Pull when we have 8 or 16 bits
+        PIO_PULL_THRESH(8)  // Pull when we have 8 or 16 bits
     );
     PIO_SM_PINCTRL_SET(
-        PIO_OUT_BASE(base_data_pin) |
-        PIO_OUT_COUNT(config->num_data_pins)
+        PIO_OUT_BASE(0) |
+        PIO_OUT_COUNT(8)
     );
 
     // Jump to start and log
     PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Data Byte Output");
+    PIO_LOG_SM("Data Byte Output lower");
+
+    //
+    // Temporary Second Data Byte Output for 16-bit mode
+    //
+    PIO_SET_SM(2);
+    PIO_ADD_INSTR(OUT_PINS(8));
+    PIO_SM_CLKDIV_SET(
+        config->data_out_clkdiv_int,
+        config->data_out_clkdiv_frac
+    );
+    PIO_SM_EXECCTRL_SET(0);
+    PIO_SM_SHIFTCTRL_SET(
+        PIO_OUT_SHIFTDIR_R |                    // Writes LSB of OSR
+        PIO_AUTOPULL |                          // Auto pull when we hit threshold
+        PIO_PULL_THRESH(8)  // Pull when we have 8 or 16 bits
+    );
+    PIO_SM_PINCTRL_SET(
+        PIO_OUT_BASE(8) |
+        PIO_OUT_COUNT(8)
+    );
+    PIO_SM_JMP_TO_START();
+    PIO_LOG_SM("Data Byte Output upper");
 
     //
     // PIO 2 - End of block
@@ -870,8 +933,8 @@ static void piorom_load_programs(piorom_config_t *config) {
 
 // Starts the PIO state machines for ROM serving.
 static void piorom_start_pios() {
-    PIO1_CTRL_SM_ENABLE(0x1); // Enable SM0
-    PIO2_CTRL_SM_ENABLE(0x3); // Enable SM0 and SM1
+    PIO1_CTRL_SM_ENABLE(0x3); // Enable SM0 and SM1
+    PIO2_CTRL_SM_ENABLE(0x7); // Enable SM0 and SM1 and SM2
 }
 
 // Set GPIOs to PIO function for ROM serving
@@ -926,12 +989,15 @@ static void piorom_setup_dma(
     uint8_t sm_data_byte
 ) {
     (void)pio_block_data; // Unused
+    (void)sm_data_byte;  // Unused
+    (void)pio_block_addr; // Unused
+    (void)sm_addr_read;   // Unused
     volatile dma_ch_reg_t *dma_reg;
 
     // DMA Channel 0 - Receives ROM table lookup address from PIO1 SM0 and
     // sends it onto DMA Channel 1.  Paced by PIO1 SM0 RX FIFO DREQ.
     dma_reg = DMA_CH_REG(0);
-    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(sm_addr_read);
+    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(0);
     if (config->addr_read_irq) {
         // When address read is triggerd by IRQ, we only want a single
         // transfer per IRQ.  We need to trigger channel 1 manually.
@@ -945,9 +1011,10 @@ static void piorom_setup_dma(
         dma_reg->transfer_count = 0xffffffff;
     }
     dma_reg->ctrl_trig =
-        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block_addr, sm_addr_read)) |
+        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 0)) |
         DMA_CTRL_TRIG_EN |
-        DMA_CTRL_TRIG_DATA_SIZE_32BIT;
+        DMA_CTRL_TRIG_DATA_SIZE_32BIT |
+        DMA_CTRL_TRIG_CHAIN_TO(0);
 
     // DMA Channel 1 - Reads ROM data from memory and sends to PIO0 SM2.
     // Also paced by PIO0 SM1 RX FIF DREQ, so runs in lock-step with channel
@@ -957,11 +1024,15 @@ static void piorom_setup_dma(
     // inputs, but it's more valid than setting to 0.
     dma_reg = DMA_CH_REG(1);
     dma_reg->read_addr = config->rom_table_addr;
-    dma_reg->write_addr = (uint32_t)&PIO2_SM_TXF(sm_data_byte);
-    uint32_t ctrl_trig = DMA_CTRL_TRIG_EN; 
+    dma_reg->write_addr = (uint32_t)&PIO2_SM_TXF(1);
+    uint32_t ctrl_trig = DMA_CTRL_TRIG_EN | DMA_CTRL_TRIG_CHAIN_TO(0);
     if (config->bit_mode == BIT_MODE_16) {
         DEBUG("DMA1 16-bit");
-        ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_16BIT;
+        //ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_16BIT;
+
+        // !!!!
+        ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_8BIT;
+
     } else {
         DEBUG("DMA1 8-bit");
         ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_8BIT;
@@ -975,9 +1046,31 @@ static void piorom_setup_dma(
         // When address read is not triggered by IRQ, we want continuous
         // transfers.
         dma_reg->transfer_count = 0xffffffff;
-        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block_addr, sm_addr_read));
+        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 0));
     }
     dma_reg->ctrl_trig = ctrl_trig;
+
+    //
+    // Temporary duplicate DMA channel for 16-bit mode
+    //
+    dma_reg = DMA_CH_REG(2);
+    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(1);
+    dma_reg->write_addr = (uint32_t)&DMA_CH_READ_ADDR(3);
+    dma_reg->transfer_count = 0xffffffff;
+    dma_reg->ctrl_trig =
+        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 1)) |
+        DMA_CTRL_TRIG_EN |
+        DMA_CTRL_TRIG_DATA_SIZE_32BIT |
+        DMA_CTRL_TRIG_CHAIN_TO(2);
+    dma_reg = DMA_CH_REG(3);
+    dma_reg->read_addr = config->rom_table_addr;
+    dma_reg->write_addr = (uint32_t)&PIO2_SM_TXF(2);
+    dma_reg->transfer_count = 0xffffffff;
+    dma_reg->ctrl_trig = 
+        DMA_CTRL_TRIG_EN | 
+        DMA_CTRL_TRIG_DATA_SIZE_8BIT |
+        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 1)) |
+        DMA_CTRL_TRIG_CHAIN_TO(2);
 
     // Set DMA Read as high priority on the AHB5 bus for both:
     // - Reads (from RAM and PIO RX FIFO)
@@ -1590,8 +1683,12 @@ void piorom(
             // serving.
             __asm volatile("wfi");
 #else // DEBUG_LOGGING
+            uint32_t read_addr1 = DMA_CH_REG(1)->read_addr;
+            uint32_t read_addr3 = DMA_CH_REG(3)->read_addr;
             DEBUG("DMA1 Read Addr: 0x%08X",
-                DMA_CH_REG(1)->read_addr);
+                read_addr1);
+            DEBUG("DMA3 Read Addr: 0x%08X",
+                read_addr3);
             DEBUG("PIO1 FIFO Status 0x%08X", PIO1_FSTAT);
             DEBUG("PIO2 FIFO Status 0x%08X", PIO2_FSTAT);
 
