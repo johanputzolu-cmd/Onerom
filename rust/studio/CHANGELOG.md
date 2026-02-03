@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.11 - 2026-??-??
+## v0.1.11 - 2026-02-3
 
 - Add some keyboard shortcuts to One ROM Studio:
   - r: Rescan devices
