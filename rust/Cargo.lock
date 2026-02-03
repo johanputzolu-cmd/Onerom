@@ -4622,6 +4622,17 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 [[package]]
 name = "onerom-config"
 version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa16dbd9bad292180133a23d742a9d8d349cf83b14a9506b995bd9e252f96bd9"
+dependencies = [
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "onerom-config"
+version = "0.4.2"
 dependencies = [
  "schemars",
  "serde",
@@ -4654,7 +4665,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-fw"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4662,8 +4673,8 @@ dependencies = [
  "env_logger",
  "hex",
  "log",
- "onerom-config",
- "onerom-gen",
+ "onerom-config 0.4.2",
+ "onerom-gen 0.5.1",
  "reqwest",
  "sdrr-fw-parser",
  "serde",
@@ -4675,8 +4686,20 @@ dependencies = [
 [[package]]
 name = "onerom-gen"
 version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e4f100f0a2a76905b50be3f04d45b480912899a96750a45a5d0c89ac4f76105"
 dependencies = [
- "onerom-config",
+ "onerom-config 0.4.1",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "onerom-gen"
+version = "0.5.1"
+dependencies = [
+ "onerom-config 0.4.2",
  "schemars",
  "serde",
  "serde_json",
@@ -4736,7 +4759,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-studio"
-version = "0.1.10"
+version = "0.1.12"
 dependencies = [
  "arc-swap",
  "built",
@@ -4749,9 +4772,9 @@ dependencies = [
  "hex",
  "iced",
  "log",
- "onerom-config",
+ "onerom-config 0.4.2",
  "onerom-fw",
- "onerom-gen",
+ "onerom-gen 0.5.1",
  "open",
  "picoboot",
  "probe-rs",
@@ -6001,7 +6024,7 @@ dependencies = [
 name = "schema-gen"
 version = "0.1.4"
 dependencies = [
- "onerom-gen",
+ "onerom-gen 0.5.0",
  "schemars",
  "serde",
  "serde_json",
@@ -6105,14 +6128,14 @@ dependencies = [
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "airfrog-rpc",
  "deku 0.19.1",
  "esp-println",
  "log",
- "onerom-config",
- "onerom-gen",
+ "onerom-config 0.4.2",
+ "onerom-gen 0.5.1",
  "serde",
  "static_assertions",
 ]
@@ -6124,8 +6147,8 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
- "onerom-config",
- "onerom-gen",
+ "onerom-config 0.4.2",
+ "onerom-gen 0.5.1",
  "reqwest",
  "strum",
  "thiserror 2.0.17",

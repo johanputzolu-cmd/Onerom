@@ -712,6 +712,9 @@ uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask) {
 }
 
 void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_set_t *set) {
+#if !defined(RP235X)
+    (void)runtime_info;
+#endif
     uint32_t *img_src, *img_dst;
     uint32_t img_size;
 

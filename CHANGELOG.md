@@ -2,9 +2,13 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.6.3 - 2026-??-??
+## v0.6.4 - 2026-??-??
+
+
+## v0.6.3 - 2026-02-03
 
 - Added 231024 mask programmed ROM support.  Used by BBC Master and Apple IIgs.  (Only tested on BBC Master.)
+- Add some Studio keyboard shortcuts (r for rescan, f for flash).
 
 ## v0.6.2 - 2026-01-27
 
