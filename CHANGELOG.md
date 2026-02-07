@@ -2,7 +2,7 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.6.4 - 2026-??-??
+## v0.6.4 - 2026-02-07
 
 - Fixed [#133](https://github.com/piersfinlayson/one-rom/issues/133), a complex issue where Studio v0.10 and earlier fail to build 28 pin v0.6.3 firmware images correctly.  This stemmed from 0.6.3 incorrectly including a non-backwards compatible change in order to support 231024 ROM types. As part of this:
   - v0.6.4 reverts that non-backwards compatible change, but retains 231024 support.  Specifically non-231204 ROM images use 64KB on flash, with only 231024 requiring 256KB.
