@@ -5,7 +5,7 @@
   "type": "object",
   "properties": {
     "firmware_build_compatibility": {
-      "description": "Firmware compatibility information.  Represents maximum firmware\nversion that this application version can build.",
+      "description": "Firmware compatibility information.  Represents maximum firmware\nversion that this application version can build.\n\nIntroduced in v0.1.12.",
       "type": "array",
       "default": [
         {

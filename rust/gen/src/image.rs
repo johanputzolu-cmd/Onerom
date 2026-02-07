@@ -759,7 +759,6 @@ impl ChipSet {
             }
             (28, McuFamily::Rp2350) => {
                 if *fw_version < MIN_FW_VER_FIRE_28_18_ADDR_PINS {
-                    assert!(num_addr_pins == 16);
                     2_usize.pow(16) // 64KB
                 } else {
                     // This firmware supports 18 address pins, but only the
@@ -768,7 +767,7 @@ impl ChipSet {
                     let chip = &self.chips[0];
                     match chip.chip_type() {
                         ChipType::Chip231024 => 2_usize.pow(18), // 256KB
-                        _ => 2_usize.pow(16), // 64KB
+                        _ => 2_usize.pow(16),                    // 64KB
                     }
                 }
             }

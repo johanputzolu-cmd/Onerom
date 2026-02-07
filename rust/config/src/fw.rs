@@ -31,13 +31,7 @@ impl Display for FirmwareVersion {
                 self.major, self.minor, self.patch, self.build
             )
         } else {
-            write!(
-                f,
-                "{}.{}.{}",
-                self.major,
-                self.minor,
-                self.patch,
-            )
+            write!(f, "{}.{}.{}", self.major, self.minor, self.patch,)
         }
     }
 }
@@ -55,9 +49,7 @@ impl FirmwareVersion {
 
     /// Whether this version matches another version, ignoring build number.
     pub fn matches_release(&self, other: &Self) -> bool {
-        self.major == other.major 
-            && self.minor == other.minor 
-            && self.patch == other.patch
+        self.major == other.major && self.minor == other.minor && self.patch == other.patch
     }
 
     /// Get the major version
