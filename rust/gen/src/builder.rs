@@ -20,6 +20,8 @@ use crate::{Error, FIRMWARE_SIZE, MAX_METADATA_LEN, MIN_FIRMWARE_OVERRIDES_VERSI
 
 pub const MAX_SUPPORTED_FIRMWARE_VERSION: FirmwareVersion = FirmwareVersion::new(0, 6, 999, 0);
 
+const UNSUPPORTED_FIRMWARE_VERSIONS: [FirmwareVersion; 1] = [FirmwareVersion::new(0, 6, 3, 0)];
+
 pub(crate) use crate::firmware::*;
 
 /// Main Builder object
@@ -164,6 +166,13 @@ impl Builder {
                 version: config.version,
             });
         }
+
+        // Check the firmware release is not one we explicitly do not support.
+        for unsupported_version in UNSUPPORTED_FIRMWARE_VERSIONS.iter() {
+            if unsupported_version.matches_release(version) {
+                return Err(Error::FirmwareUnsupported { version: *version })
+            }
+        } 
 
         // Validate each rom set has roms
         let mut chip_num = 0;
