@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>One ROM Logic Analyzer</title>
+    <title>One ROM Lens</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <div class="controls">
-            <h2>One ROM Logic Analyzer</h2>
+            <h2>One ROM Lens</h2>
             
             <div class="control-group">
                 <label for="addrBits">Address Bits:</label>
@@ -49,8 +49,10 @@
                     <option value="1">1 (Very Slow)</option>
                     <option value="10">10 (Slow)</option>
                     <option value="100" selected>100 (Medium)</option>
-                    <option value="1000">1000 (Fast)</option>
-                    <option value="10000">10000 (Very Fast)</option>
+                    <option value="1000">1,000 (Fast)</option>
+                    <option value="10000">10,000 (Very Fast)</option>
+                    <option value="50000">50,000 (Extreme)</option>
+                    <option value="100000">100,000 (Insane)</option>
                 </select>
             </div>
             
@@ -60,9 +62,20 @@
                     Auto-scroll to follow execution
                 </label>
             </div>
+
+            <div class="control-group">
+                <label for="readMode">Read Mode:</label>
+                <select id="readMode">
+                    <option value="sequential_once" selected>Sequential (once)</option>
+                    <option value="sequential_forever">Sequential (forever)</option>
+                    <option value="there_and_back">There and back again</option>
+                    <option value="random_forever">Random (forever)</option>
+                </select>
+            </div>
             
             <div class="control-group execution-controls">
-                <button id="startBtn" class="primary">Start Complete Read</button>
+                <button id="startBtn" class="primary">Start</button>
+                <button id="stepBtn" disabled>Step</button>
                 <button id="pauseBtn" disabled>Pause</button>
                 <button id="stopBtn" disabled>Stop</button>
             </div>
@@ -72,9 +85,9 @@
             </div>
             
             <div class="status">
-                <div>Status: <span id="status">Ready</span></div>
-                <div>Samples: <span id="sampleCount">0</span></div>
-                <div>Cycles: <span id="cycleCount">0</span></div>
+                <div>Status:&nbsp&nbsp <span id="status">Ready</span></div>
+                <div>Samples:&nbsp <span id="sampleCount">0</span></div>
+                <div>Cycles:&nbsp&nbsp <span id="cycleCount">0</span></div>
                 <div>Progress: <span id="progress">0%</span></div>
             </div>
             

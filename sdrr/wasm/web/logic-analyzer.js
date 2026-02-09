@@ -47,6 +47,23 @@ const CONFIG = {
     CURSOR_VALUE_PADDING_X: 2,      // Horizontal padding around cursor value text
     CURSOR_VALUE_PADDING_Y: 2,      // Vertical padding around cursor value text
     CURSOR_VALUE_HEIGHT_MULTIPLIER: 1.3,  // Account for font ascenders
+
+    // Time axis
+    TIME_AXIS_HEIGHT: 40,           // Height reserved for time axis at bottom
+    TIME_AXIS_TICK_HEIGHT: 8,       // Height of major tick marks
+    TIME_AXIS_MINOR_TICK_HEIGHT: 4, // Height of minor tick marks
+    TIME_AXIS_COLOR: '#888888',     // Color for axis and ticks
+    TIME_AXIS_TEXT_COLOR: '#ffffff', // Color for cycle numbers
+
+    // Stepping timers
+    STEP_INITIAL_DELAY: 500,        // Delay before starting continuous stepping (ms)
+    STEP_INTERVAL: 250,             // Interval between steps when holding (ms)
+
+    // Right hand values
+    RIGHT_HAND_VALUE_COLOR: '#000000',  // Color for right-hand values
+    RIGHT_HAND_VALUE_TEXT_COLOR: '#00ff00',  // Color for right-hand value text
+
+    MAX_SAMPLES: 1000000,  // Keep last 10M samples (~24MB)
 }
 
 // Get CSS color variables
@@ -56,6 +73,19 @@ function getCSSColor(varName) {
 
 // Color cache - populated on first render
 const COLORS = {};
+
+// Format number with comma separators
+function formatNumber(num) {
+    return num.toLocaleString();
+}
+
+// Convert byte to ASCII character (printable range 32-126)
+function byteToASCII(byte) {
+    if (byte >= 32 && byte <= 126) {
+        return String.fromCharCode(byte);
+    }
+    return '□';  // Non-printable
+}
 
 // =============================================================================
 // WASM MODULE WRAPPER
@@ -180,6 +210,12 @@ class SampleBuffer {
     
     addSample(cycle, gpios, driven) {
         this.samples.push({cycle, gpios, driven});
+
+        // Keep only the most recent samples
+        if (this.samples.length > CONFIG.MAX_SAMPLES * 1.1) {
+            // Keep only the most recent MAX_SAMPLES
+            this.samples = this.samples.slice(-CONFIG.MAX_SAMPLES);
+        }
     }
     
     clear() {
@@ -317,21 +353,29 @@ class ExecutionEngine {
         // Store only what doesn't change during execution
         this.numAddrBits = 13;
         this.cyclesPerFrame = CONFIG.DEFAULT_SPEED;
+
+        // Read mode
+        this.direction = 1;  // 1 = incrementing, -1 = decrementing (for there_and_back)
     }
+    
 
     // Start a complete read sequence
-    startCompleteRead(numAddrBits) {
+    startCompleteRead(numAddrBits, autoStart = true) {
         if (this.running) return;
         
         this.numAddrBits = numAddrBits;
         this.currentAddr = 0;
         this.maxAddr = (1 << numAddrBits) - 1;
+        this.direction = 1;
         this.readState = 'drive';
         this.cyclesRemaining = 0;
         
         this.running = true;
-        this.paused = false;
-        this.animate();
+        this.paused = !autoStart;  // Start paused if not auto-starting
+        
+        if (autoStart) {
+            this.animate();
+        }
     }
     
     pause() {
@@ -354,6 +398,18 @@ class ExecutionEngine {
         }
     }
     
+    // Execute a single cycle and pause
+    singleStep() {
+        if (!this.running) {
+            // Not started yet - need to initialize
+            return false;
+        }
+        
+        this.stepOneCycle();
+        this.paused = true;
+        return true;
+    }
+
     // Animation loop
     animate() {
         if (!this.running || this.paused) return;
@@ -411,10 +467,40 @@ class ExecutionEngine {
                 
             case 'recovery':
                 if (--this.cyclesRemaining === 0) {
-                    this.currentAddr++;
-                    if (this.currentAddr <= this.maxAddr) {
-                        this.readState = 'drive';
+                    // Read current mode from UI
+                    const readMode = document.getElementById('readMode').value;
+                    
+                    // Calculate next address based on mode
+                    switch (readMode) {
+                        case 'sequential_once':
+                            this.currentAddr++;
+                            if (this.currentAddr > this.maxAddr) {
+                                return false;  // Complete
+                            }
+                            break;
+                            
+                        case 'sequential_forever':
+                            this.currentAddr++;
+                            if (this.currentAddr > this.maxAddr) {
+                                this.currentAddr = 0;  // Wrap around
+                            }
+                            break;
+                            
+                        case 'there_and_back':
+                            this.currentAddr += this.direction;
+                            if (this.currentAddr >= this.maxAddr) {
+                                this.direction = -1;  // Start going down
+                            } else if (this.currentAddr <= 0) {
+                                return false;  // Complete (back at start)
+                            }
+                            break;
+                            
+                        case 'random_forever':
+                            this.currentAddr = Math.floor(Math.random() * (this.maxAddr + 1));
+                            break;
                     }
+                    
+                    this.readState = 'drive';
                 }
                 break;
         }
@@ -430,8 +516,21 @@ class ExecutionEngine {
     }
     
     // Get progress percentage
-    getProgress() {
+    getProgress(readMode) {
         if (this.maxAddr === 0) return 0;
+        
+        if (readMode === 'there_and_back') {
+            // First half: 0→maxAddr = 0-50%, second half: maxAddr→0 = 50-100%
+            if (this.direction === 1) {
+                // Going up
+                return Math.floor(50 * this.currentAddr / this.maxAddr);
+            } else {
+                // Going down
+                return Math.floor(50 + 50 * (this.maxAddr - this.currentAddr) / this.maxAddr);
+            }
+        }
+        
+        // Sequential modes
         return Math.floor(100 * this.currentAddr / (this.maxAddr + 1));
     }
     
@@ -584,7 +683,7 @@ class WaveformRenderer {
         }
         
         // Calculate scale factor (at least 1.0, never shrink below minimum)
-        const availableHeight = this.canvas.height;
+        const availableHeight = this.canvas.height - CONFIG.TIME_AXIS_HEIGHT;
         const scaleFactor = Math.max(1.0, availableHeight / minTotalHeight);
         
         // Second pass - apply scaling and calculate positions
@@ -645,6 +744,17 @@ class WaveformRenderer {
                 this.renderBitTrace(trace, visibleSamples, decoder, pinNum, waveformWidth);
             }
         }
+
+        // Draw cursor if active
+        if (this.cursorX !== null && this.cursorCycle !== null) {
+            this.renderCursor(sampleBuffer, decoder, layout);
+        }
+        
+        // Draw current values
+        this.renderCurrentValues(sampleBuffer, decoder, layout);
+
+        // Draw time axis
+        this.renderTimeAxis(waveformWidth);
 
         // Draw cursor if active
         if (this.cursorX !== null && this.cursorCycle !== null) {
@@ -832,15 +942,21 @@ class WaveformRenderer {
         if (stableValue !== null && stableStartX !== null && stableStartX < canvasEndX) {
             const regionWidth = canvasEndX - Math.max(CONFIG.LABEL_WIDTH, stableStartX);
             if (regionWidth > 30) {
-                const hexStr = '0x' + stableValue.toString(16).toUpperCase().padStart(
-                    Math.ceil(bits.length / 4), '0');
-                this.ctx.fillStyle = COLORS.hex;
-                this.ctx.font = `${CONFIG.FONT_SIZE}px monospace`;
-                this.ctx.textAlign = 'left';
-                this.ctx.textBaseline = 'middle';
-                this.ctx.fillText(hexStr, 
-                    Math.max(CONFIG.LABEL_WIDTH + 2, stableStartX), 
-                    trace.y + trace.height / 2);
+                // Don't draw if too close to the end (right-hand value will show it)
+                const lastSampleX = this.cycleToPixelX(samples[samples.length - 1].cycle);
+                const tooCloseToEnd = stableStartX > lastSampleX - 150;  // 150px margin
+                
+                if (!tooCloseToEnd) {
+                    const hexStr = '0x' + stableValue.toString(16).toUpperCase().padStart(
+                        Math.ceil(bits.length / 4), '0');
+                    this.ctx.fillStyle = COLORS.hex;
+                    this.ctx.font = `${CONFIG.FONT_SIZE}px monospace`;
+                    this.ctx.textAlign = 'left';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(hexStr, 
+                        Math.max(CONFIG.LABEL_WIDTH + 2, stableStartX), 
+                        trace.y + trace.height / 2);
+                }
             }
         }
     }
@@ -876,12 +992,13 @@ class WaveformRenderer {
             
             if (trace.type === 'addr_hex') {
                 const addr = decoder.decodeAddress(sample.gpios);
-                valueText = 'Addr' + ': 0x' + addr.toString(16).toUpperCase().padStart(
+                valueText = '0x' + addr.toString(16).toUpperCase().padStart(
                     Math.ceil(decoder.pinMap.addr.length / 4), '0');
             } else if (trace.type === 'data_hex') {
                 const data = decoder.decodeData(sample.gpios);
-                valueText = 'Data' + ': 0x' + data.toString(16).toUpperCase().padStart(
-                    Math.ceil(decoder.pinMap.data.length / 4), '0');
+                const ascii = byteToASCII(data);
+                valueText = '0x' + data.toString(16).toUpperCase().padStart(
+                    Math.ceil(decoder.pinMap.data.length / 4), '0') + ` ${ascii}`;
             } else if (trace.type === 'addr_bit') {
                 const pinNum = decoder.pinMap.addr[trace.bit];
                 const isDriven = decoder.isPinDriven(sample.driven, pinNum);
@@ -918,6 +1035,132 @@ class WaveformRenderer {
                 this.ctx.fillText(valueText, valueX, valueY + 2 * CONFIG.CURSOR_VALUE_PADDING_Y);
             }
         }
+
+        // Draw cycle number at top left of cursor
+        this.ctx.textAlign = 'right';  // Right-align so it ends at cursor
+        this.ctx.fillStyle = CONFIG.CURSOR_VALUE_COLOR;
+        const cycleText = 'Cycle: ' + this.cursorCycle.toString();
+        const cycleTextWidth = this.ctx.measureText(cycleText).width;
+        const cycleTextHeight = CONFIG.CURSOR_VALUE_FONT_SIZE * CONFIG.CURSOR_VALUE_HEIGHT_MULTIPLIER;
+
+        const cycleX = this.cursorX - CONFIG.CURSOR_VALUE_OFFSET_X;  // Left of cursor
+        const cycleY = CONFIG.CURSOR_VALUE_PADDING_Y;
+
+        this.ctx.fillRect(
+            cycleX - cycleTextWidth - CONFIG.CURSOR_VALUE_PADDING_X,
+            cycleY - CONFIG.CURSOR_VALUE_PADDING_Y,
+            cycleTextWidth + (CONFIG.CURSOR_VALUE_PADDING_X * 2),
+            cycleTextHeight + (CONFIG.CURSOR_VALUE_PADDING_Y * 2)
+        );
+
+        this.ctx.fillStyle = CONFIG.CURSOR_VALUE_TEXT_COLOR;
+        this.ctx.fillText(cycleText, cycleX, cycleY + 2 * CONFIG.CURSOR_VALUE_PADDING_Y);
+
+        // Reset text align for trace values
+        this.ctx.textAlign = 'left';
+    }
+
+    renderTimeAxis(waveformWidth) {
+        const startX = CONFIG.LABEL_WIDTH;
+        const y = this.canvas.height - CONFIG.TIME_AXIS_HEIGHT;
+        
+        // Draw baseline
+        this.ctx.strokeStyle = CONFIG.TIME_AXIS_COLOR;
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(startX, y);
+        this.ctx.lineTo(startX + waveformWidth, y);
+        this.ctx.stroke();
+        
+        // Calculate nice tick spacing based on zoom level
+        const pixelsPerTick = 100; // Aim for tick every ~100 pixels
+        const cyclesPerTick = pixelsPerTick * this.cyclesPerPixel;
+        
+        // Round to nice number: 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000...
+        const magnitude = Math.pow(10, Math.floor(Math.log10(cyclesPerTick)));
+        const normalized = cyclesPerTick / magnitude;
+        let niceTick;
+        if (normalized < 2) niceTick = magnitude;
+        else if (normalized < 5) niceTick = 2 * magnitude;
+        else niceTick = 5 * magnitude;
+        
+        // Draw ticks
+        const startCycle = Math.floor(this.scrollPos * this.cyclesPerPixel / niceTick) * niceTick;
+        const endCycle = (this.scrollPos + waveformWidth) * this.cyclesPerPixel;
+        
+        this.ctx.fillStyle = CONFIG.TIME_AXIS_TEXT_COLOR;
+        this.ctx.font = `${CONFIG.FONT_SIZE}px monospace`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        
+        for (let cycle = startCycle; cycle <= endCycle; cycle += niceTick) {
+            const x = this.cycleToPixelX(BigInt(Math.floor(cycle)));
+            
+            if (x < startX || x > startX + waveformWidth) continue;
+            
+            // Major tick
+            this.ctx.beginPath();
+            this.ctx.strokeStyle = CONFIG.TIME_AXIS_COLOR;
+            this.ctx.moveTo(x, y);
+            this.ctx.lineTo(x, y + CONFIG.TIME_AXIS_TICK_HEIGHT);
+            this.ctx.stroke();
+            
+            // Label
+            this.ctx.fillText(cycle.toString(), x, y + CONFIG.TIME_AXIS_TICK_HEIGHT + 2);
+        }
+    }
+
+    renderCurrentValues(sampleBuffer, decoder, layout) {
+        if (sampleBuffer.length === 0) return;
+        
+        const lastSample = sampleBuffer.samples[sampleBuffer.length - 1];
+        const lastSampleX = this.cycleToPixelX(lastSample.cycle);
+        
+        this.ctx.font = `${CONFIG.FONT_SIZE + 2}px monospace`;
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+        
+        for (const trace of layout) {
+            let valueText = '';
+            
+            if (trace.type === 'addr_hex') {
+                const addr = decoder.decodeAddress(lastSample.gpios);
+                valueText = '0x' + addr.toString(16).toUpperCase().padStart(
+                    Math.ceil(decoder.pinMap.addr.length / 4), '0');
+            } else if (trace.type === 'data_hex') {
+                const data = decoder.decodeData(lastSample.gpios);
+                const ascii = byteToASCII(data);
+                valueText = '0x' + data.toString(16).toUpperCase().padStart(
+                    Math.ceil(decoder.pinMap.data.length / 4), '0') + ` ${ascii}`;
+            } else if (trace.type === 'addr_bit' || trace.type === 'data_bit' || trace.type === 'control') {
+                let pinNum;
+                if (trace.type === 'addr_bit') pinNum = decoder.pinMap.addr[trace.bit];
+                else if (trace.type === 'data_bit') pinNum = decoder.pinMap.data[trace.bit];
+                else pinNum = decoder.pinMap.control[trace.signal];
+                
+                const isDriven = decoder.isPinDriven(lastSample.driven, pinNum);
+                const val = isDriven ? decoder.extractBit(lastSample.gpios, pinNum).toString() : 'Z';
+                valueText = trace.label + ': ' + val;
+            }
+            
+            if (valueText) {
+                const valueX = lastSampleX + 10;  // Offset from end of signal
+                const textWidth = this.ctx.measureText(valueText).width;
+                
+                // Background box
+                this.ctx.fillStyle = CONFIG.RIGHT_HAND_VALUE_COLOR;
+                this.ctx.fillRect(
+                    valueX - CONFIG.CURSOR_VALUE_PADDING_X,
+                    trace.y + trace.height/2 - CONFIG.FONT_SIZE,
+                    textWidth + (CONFIG.CURSOR_VALUE_PADDING_X * 2),
+                    CONFIG.FONT_SIZE * 2
+                );
+                
+                // Text
+                this.ctx.fillStyle = CONFIG.RIGHT_HAND_VALUE_TEXT_COLOR;
+                this.ctx.fillText(valueText, valueX, trace.y + trace.height / 2);
+            }
+        }
     }
 }
 
@@ -932,7 +1175,7 @@ class AnalyzerController {
         this.decoder = null;
         this.renderer = null;
         this.execution = null;
-        
+        this.stepInterval = null;
         this.renderTimer = null;
     }
     
@@ -963,6 +1206,8 @@ class AnalyzerController {
         
         // Start render loop
         this.startRenderLoop();
+
+        this.updateExecutionButtons(); 
         
         this.updateStatus('Ready');
     }
@@ -1108,32 +1353,78 @@ class AnalyzerController {
             this.renderer.cursorX = null;
             this.renderer.cursorCycle = null;
         });
+
+        // Step button - single click or hold to step continuously
+        const stepBtn = document.getElementById('stepBtn');
+
+        stepBtn.addEventListener('mousedown', () => {
+            if (!this.execution.isRunning()) {
+                // Starting fresh - clear samples like Start button does
+                this.samples.clear();
+                this.wasm.epioResetCycleCount();
+                this.renderer.scrollPos = 0;
+                
+                const addrBits = parseInt(document.getElementById('addrBits').value);
+                this.execution.startCompleteRead(addrBits, false);  // Initialize but don't animate
+            }
+            
+            // First step immediately
+            this.execution.singleStep();
+            this.updateExecutionButtons();
+            
+            // Start continuous stepping after short delay
+            setTimeout(() => {
+                if (this.stepInterval === null) {  // Only if still holding
+                    this.stepInterval = setInterval(() => {
+                        this.execution.singleStep();
+                    }, CONFIG.STEP_INTERVAL);
+                }
+            }, CONFIG.STEP_INITIAL_DELAY);  // 500ms delay before continuous stepping starts
+        });
+
+        stepBtn.addEventListener('mouseup', () => {
+            if (this.stepInterval) {
+                clearInterval(this.stepInterval);
+                this.stepInterval = null;
+            }
+        });
+
+        stepBtn.addEventListener('mouseleave', () => {
+            if (this.stepInterval) {
+                clearInterval(this.stepInterval);
+                this.stepInterval = null;
+            }
+        });
     }
     
     startExecution() {
         const addrBits = parseInt(document.getElementById('addrBits').value);
+        const readMode = document.getElementById('readMode').value;
         
         this.samples.clear();
         this.wasm.epioResetCycleCount();
         this.renderer.scrollPos = 0;
         
-        this.execution.startCompleteRead(addrBits);  // Only pass addrBits
+        this.execution.startCompleteRead(addrBits);
         this.updateExecutionButtons();
         this.updateStatus('Running');
     }
     
     updateExecutionButtons() {
         const startBtn = document.getElementById('startBtn');
+        const stepBtn = document.getElementById('stepBtn');
         const pauseBtn = document.getElementById('pauseBtn');
         const stopBtn = document.getElementById('stopBtn');
         
         if (this.execution.isRunning()) {
             startBtn.disabled = true;
+            stepBtn.disabled = false;
             pauseBtn.disabled = false;
             stopBtn.disabled = false;
             pauseBtn.textContent = this.execution.isPaused() ? 'Resume' : 'Pause';
         } else {
             startBtn.disabled = false;
+            stepBtn.disabled = false;
             pauseBtn.disabled = true;
             stopBtn.disabled = true;
             pauseBtn.textContent = 'Pause';
@@ -1161,20 +1452,42 @@ class AnalyzerController {
             }
             this.updateDisplay();
             
+            const readMode = document.getElementById('readMode').value;
             if (this.execution.isRunning()) {
-                this.updateStatus('Running');
+                if (this.execution.isPaused()) {
+                    // Check if actively stepping
+                    if (this.stepInterval !== null) {
+                        this.updateStatus('Stepping');
+                    } else {
+                        this.updateStatus('Paused');
+                    }
+                } else {
+                    this.updateStatus('Running');
+                }
+                
+                if (readMode === 'sequential_once' || readMode === 'there_and_back') {
+                    document.getElementById('progress').textContent = 
+                        this.execution.getProgress(readMode) + '%';
+                } else {
+                    document.getElementById('progress').textContent = '∞';
+                }
             } else if (this.samples.length > 0) {
-                if (this.execution.getProgress() === 100) {
+                // Check if we naturally completed (not just stopped)
+                const readMode = document.getElementById('readMode').value;
+                const isFiniteMode = readMode === 'sequential_once' || readMode === 'there_and_back';
+                const progress = this.execution.getProgress(readMode);
+                
+                if (isFiniteMode && progress >= 99) {
                     this.updateStatus('Complete');
                 } else {
                     this.updateStatus('Stopped');
                 }
-            }
-
-            // Always update progress display
-            if (this.samples.length > 0) {
-                document.getElementById('progress').textContent = 
-                    this.execution.getProgress() + '%';
+                
+                if (isFiniteMode) {
+                    document.getElementById('progress').textContent = progress + '%';
+                }
+                
+                this.updateExecutionButtons();
             }
             
             this.renderTimer = requestAnimationFrame(render);
@@ -1193,8 +1506,8 @@ class AnalyzerController {
     }
     
     updateSampleCount() {
-        document.getElementById('sampleCount').textContent = this.samples.length;
-        document.getElementById('cycleCount').textContent = this.samples.lastCycle.toString();
+        document.getElementById('sampleCount').textContent = formatNumber(this.samples.length);
+        document.getElementById('cycleCount').textContent = formatNumber(Number(this.samples.lastCycle));
     }
     
     updateScrollbar() {
