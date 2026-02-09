@@ -8,6 +8,10 @@
 
 #if defined(RP235X)
 
+#if defined(TEST_BUILD)
+#define TEST_PIO_C
+#endif // TEST_BUILD
+
 #include "piodma/piodma.h"
 
 void pio(

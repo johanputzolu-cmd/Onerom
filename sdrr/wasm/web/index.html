@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One ROM Logic Analyzer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <h2>One ROM Logic Analyzer</h2>
+            
+            <div class="control-group">
+                <label for="addrBits">Address Bits:</label>
+                <select id="addrBits">
+                    <option value="10">10 bits</option>
+                    <option value="11">11 bits</option>
+                    <option value="12">12 bits</option>
+                    <option value="13" selected>13 bits (2364)</option>
+                    <option value="14">14 bits</option>
+                    <option value="15">15 bits</option>
+                    <option value="16">16 bits</option>
+                    <option value="17">17 bits</option>
+                    <option value="18">18 bits</option>
+                    <option value="19">19 bits</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="setupCycles">Setup Cycles:</label>
+                <input type="number" id="setupCycles" value="20" min="1" max="1000">
+            </div>
+            
+            <div class="control-group">
+                <label for="recoveryCycles">Recovery Cycles:</label>
+                <input type="number" id="recoveryCycles" value="20" min="1" max="1000">
+            </div>
+            
+            <div class="control-group">
+                <label for="cyclesPerPixel">Cycles/Pixel:</label>
+                <input type="range" id="cyclesPerPixel" min="-200" max="300" value="0" step="1">
+                <span id="cyclesPerPixelValue">1.00</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="speedControl">Execution Speed (cycles/frame):</label>
+                <select id="speedControl">
+                    <option value="1">1 (Very Slow)</option>
+                    <option value="10">10 (Slow)</option>
+                    <option value="100" selected>100 (Medium)</option>
+                    <option value="1000">1000 (Fast)</option>
+                    <option value="10000">10000 (Very Fast)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="autoScroll" checked>
+                    Auto-scroll to follow execution
+                </label>
+            </div>
+            
+            <div class="control-group execution-controls">
+                <button id="startBtn" class="primary">Start Complete Read</button>
+                <button id="pauseBtn" disabled>Pause</button>
+                <button id="stopBtn" disabled>Stop</button>
+            </div>
+            
+            <div class="control-group">
+                <button id="clearBtn">Clear All Samples</button>
+            </div>
+            
+            <div class="status">
+                <div>Status: <span id="status">Ready</span></div>
+                <div>Samples: <span id="sampleCount">0</span></div>
+                <div>Cycles: <span id="cycleCount">0</span></div>
+                <div>Progress: <span id="progress">0%</span></div>
+            </div>
+            
+            <div class="signal-groups">
+                <h3>Signal Groups</h3>
+                <div class="group-control">
+                    <label>
+                        <input type="checkbox" id="toggleAddr" checked>
+                        Address Lines
+                    </label>
+                    <button id="collapseAddr" class="small">−</button>
+                </div>
+                <div class="group-control">
+                    <label>
+                        <input type="checkbox" id="toggleData" checked>
+                        Data Lines
+                    </label>
+                    <button id="collapseData" class="small">−</button>
+                </div>
+                <label>
+                    <input type="checkbox" id="toggleControl" checked>
+                    Control Lines
+                </label>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="waveform"></canvas>
+            <div class="scroll-controls">
+                <input type="range" id="scrollbar" min="0" max="0" value="0">
+            </div>
+        </div>
+    </div>
+    
+    <script src="onerom-wasm.js"></script>
+    <script src="logic-analyzer.js"></script>
+</body>
+</html>

@@ -742,6 +742,7 @@ static void pioram_load_programs(pioram_config_t *config) {
     PIO_END_BLOCK();
 }
 
+#if !defined(TEST_BUILD)
 // Setup DMA channels for RAM serving
 //
 // See `dma.c` for notes on RP2350 DMA usage.
@@ -832,12 +833,22 @@ static void pioram_set_gpio_func(pioram_config_t *config) {
         GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO2;
     }
 }
+#else // TEST_BUILD
+static void pioram_setup_dma(pioram_config_t *config) {
+    (void)config;
+    STUB_LOG("pioram_setup_dma");
+}
+static void pioram_set_gpio_func(pioram_config_t *config) {
+    (void)config;
+    STUB_LOG("pioram_set_gpio_func");
+}
+#endif // !defined(TEST_BUILD)
 
 // Start all PIO state machines
 static void pioram_start_pios(void) {
-    PIO_ENABLE_SM(0, 0x1);  // Enable SM0
-    PIO_ENABLE_SM(1, 0x3);  // Enable SM0 and
-    PIO_ENABLE_SM(2, 0x7);  // Enable SM0, SM1, and SM2
+    PIO_ENABLE_SMS(0, 0x1);  // Enable SM0
+    PIO_ENABLE_SMS(1, 0x3);  // Enable SM0 and SM1
+    PIO_ENABLE_SMS(2, 0x7);  // Enable SM0,
     DEBUG("RAM PIOs started");
 }
 
@@ -854,7 +865,7 @@ void pioram(
 
     DEBUG("%s", log_divider);
 
-    ram_table_addr = (uint32_t)_ram_rom_image_start;
+    ram_table_addr = (uint32_t)(uintptr_t)_ram_rom_image_start;
 
     pioram_config_t config = {
         .read_cs_base_pin = 10,     // /OE + /CE, fire-24-d
@@ -881,9 +892,9 @@ void pioram(
         .data_in_clkdiv_frac = 0,
     };
     
-    // Bring PIO0, PIO1, PIO2 and DMA out of reset
-    RESET_RESET &= ~(RESET_PIO0 | RESET_PIO1 | RESET_PIO2 | RESET_DMA);
-    while (!(RESET_DONE & (RESET_PIO0 | RESET_PIO1 | RESET_PIO2 | RESET_DMA)));
+    // Bring PIOs and DMA out of reset
+    PIO_ENABLE();
+    DMA_ENABLE();
     
     // Setup DMA channels
     pioram_setup_dma(&config);

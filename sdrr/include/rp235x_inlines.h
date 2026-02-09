@@ -1,11 +1,11 @@
-// One ROM STM32F4 Specific Routines
-
-// Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
 //
 // MIT License
 
-#ifndef STM32F4_INLINES_H
-#define STM32F4_INLINES_H
+// One ROM STM32F4 Specific Routines
+
+#ifndef RP235X_INLINES_H
+#define RP235X_INLINES_H
 
 // Does any preparatory GPIO setup within main_loop()
 //
@@ -83,4 +83,4 @@ static inline void __attribute__((always_inline)) status_led_off(uint8_t pin) {
     SIO_GPIO_OUT_SET_PIN(pin);
 }
 
-#endif // STM32F4_INLINES_H
+#endif // RP235X_INLINES_H

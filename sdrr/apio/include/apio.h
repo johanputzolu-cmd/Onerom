@@ -78,9 +78,87 @@
 //
 // 18. Repeat steps 3 to 17 for each additional PIO block.
 
+#include <stdint.h>
+#include <pioreg.h>
+#include <apio_dis.h>
+
 #define MAX_PIO_INSTRS      32
 #define MAX_SMS_PER_BLOCK   4
 #define MAX_PIO_BLOCKS      3
+#define MAX_FIFO_DEPTH      4
+
+#if defined(APIO_EMULATION)
+#define MAX_PRE_INSTRS   16
+typedef struct {
+    uint32_t irq[MAX_PIO_BLOCKS];
+    uint8_t first_instr[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint8_t start[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint8_t end[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint8_t wrap_bottom[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint8_t wrap_top[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    pio_sm_reg_t pio_sm_reg[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint16_t instr[MAX_PIO_BLOCKS][MAX_PIO_INSTRS];
+    uint16_t pre_instr[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK][MAX_PRE_INSTRS];
+    uint8_t pre_instr_count[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint32_t tx_fifos[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK][MAX_FIFO_DEPTH];
+    uint8_t tx_fifo_count[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint32_t rx_fifos[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK][MAX_FIFO_DEPTH];
+    uint8_t rx_fifo_count[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK];
+    uint8_t offset[MAX_PIO_BLOCKS];
+    uint8_t max_offset[MAX_PIO_BLOCKS];
+    uint8_t enabled_sms[MAX_PIO_BLOCKS];
+    uint8_t block;
+    uint8_t sm;
+    uint8_t block_ended[MAX_PIO_BLOCKS];
+    uint8_t pios_enabled;
+    uint32_t gpio_base[MAX_PIO_BLOCKS];
+} test_pio_t;
+extern test_pio_t test_pio;
+#define __blk  test_pio.block
+#define __sm   test_pio.sm
+#define __pio_start   test_pio.start
+#define __pio_wrap_bottom   test_pio.wrap_bottom
+#define __pio_wrap_top   test_pio.wrap_top
+#define __pio_end   test_pio.end
+#define __pio_offset test_pio.offset
+#define __pio_first_instr test_pio.first_instr
+#undef PIO0_SM_REG
+#define PIO0_SM_REG(SM)  (&test_pio.pio_sm_reg[__blk][SM])
+#undef PIO1_SM_REG
+#define PIO1_SM_REG(SM)  (&test_pio.pio_sm_reg[__blk][SM])
+#undef PIO2_SM_REG
+#define PIO2_SM_REG(SM)  (&test_pio.pio_sm_reg[__blk][SM])
+#if defined(TEST_PIO_C)
+test_pio_t test_pio = {
+    .irq = {0xFFFFFFFF},
+    .first_instr = {{0xFF}},
+    .start = {{0xFF}},
+    .end = {{0xFF}},
+    .wrap_bottom = {{0xFF}},
+    .wrap_top = {{0xFF}},
+    .pio_sm_reg = {{{
+        .clkdiv = 0xFFFFFFFF,
+        .execctrl = 0xFFFFFFFF,
+        .shiftctrl = 0xFFFFFFFF,
+        .pinctrl = 0xFFFFFFFF
+    }}},
+    .instr = {{0xFFFF}},
+    .pre_instr = {{{0xFFFF}}},
+    .pre_instr_count = {{0xFF}},
+    .tx_fifos = {{{0xFFFFFFFF}}},
+    .tx_fifo_count = {{0xFF}},
+    .rx_fifos = {{{0xFFFFFFFF}}},
+    .rx_fifo_count = {{0xFF}},
+    .offset = {0xFF},
+    .max_offset = {0xFF},
+    .enabled_sms = {0xFF},
+    .block = 0xFF,
+    .sm = 0xFF,
+    .block_ended = {0xFF},
+    .pios_enabled = 0xFF
+};
+#endif // TEST_PIO_C
+#endif // APIO_EMULATION
 
 // Internal macros - do not use directly
 #define STATIC_BLOCK_ASSERT(BLOCK)  _Static_assert((BLOCK) >= 0 && (BLOCK) < MAX_PIO_BLOCKS, "Invalid PIO block")
@@ -91,7 +169,14 @@
 // Internal macro - do not use directly
 #define OFFSET_ARRAY_INIT       {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}}
 
+#if !defined(APIO_EMULATION)
+#define IF_APIO_EMULATION(CODE)
+#else // APIO_EMULATION
+#define IF_APIO_EMULATION(CODE) CODE
+#endif // !APIO_EMULATION
+
 // Clears IRQs for the specified PIO block
+#if !defined(APIO_EMULATION)
 #define PIO_CLEAR_IRQ(BLOCK)    STATIC_BLOCK_ASSERT(BLOCK); \
                                 if (BLOCK == 0) {           \
                                     PIO0_IRQ = 0xFFFFFFFF;  \
@@ -100,15 +185,26 @@
                                 } else {                    \
                                     PIO2_IRQ = 0xFFFFFFFF;  \
                                 }
+#else // APIO_EMULATION
+
+
+#endif // !APIO_EMULATION
 
 // Clear all PIO IRQs
+#if !defined(APIO_EMULATION)
 #define PIO_CLEAR_ALL_IRQS()    PIO0_IRQ = 0xFFFFFFFF;  \
                                 PIO1_IRQ = 0xFFFFFFFF;  \
                                 PIO2_IRQ = 0xFFFFFFFF
+#else // APIO_EMULATION
+#define PIO_CLEAR_ALL_IRQS()    for (int __i = 0; __i < MAX_PIO_BLOCKS; __i++) { \
+                                    test_pio.irq[__i] = 0xFFFFFFFF; \
+                                }
+#endif // !APIO_EMULATION
 
 // Call before creating PIO programs
 //
 // Uses around 128 bytes of stack space.
+#if !defined(APIO_EMULATION)
 #define PIO_ASM_INIT()  \
     uint16_t instr_scratch[MAX_PIO_INSTRS];                                             \
     uint8_t __attribute__((unused)) __pio_first_instr[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;    \
@@ -117,83 +213,120 @@
     uint8_t __pio_wrap_top[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;      \
     uint8_t __attribute__((unused)) __pio_end[MAX_PIO_BLOCKS][MAX_SMS_PER_BLOCK] = OFFSET_ARRAY_INIT;   \
     uint8_t __pio_offset[MAX_PIO_BLOCKS] = {0, 0, 0};                                   \
-    uint8_t __block = 0;                                                                \
+    uint8_t __blk = 0;                                                                \
     uint8_t __sm = 0
+#else // APIO_EMULATION
+#define PIO_ASM_INIT()  uint8_t _pios_enabled = test_pio.pios_enabled; \
+                        test_pio = (test_pio_t){0};                    \
+                        test_pio.pios_enabled = _pios_enabled
+#endif // !APIO_EMULATION
 
 // Assert these, as if they change, the above stack space calculation must be updated.
 _Static_assert((MAX_PIO_BLOCKS == 3), "MAX_PIO_BLOCKS must be 3");
 _Static_assert((MAX_SMS_PER_BLOCK == 4), "MAX_SMS_PER_BLOCK must be 4");
 _Static_assert((MAX_PIO_INSTRS == 32), "MAX_PIO_INSTRS must be 32");
 
+// Bring PIO blocks out of reset
+#if !defined(APIO_EMULATION)
+#define PIO_ENABLE()    RESET_RESET &= ~(RESET_PIO0 | RESET_PIO1 | RESET_PIO2 );        \
+                        while (!(RESET_DONE & (RESET_PIO0 | RESET_PIO1 | RESET_PIO2)));
+#else // APIO_EMULATION
+#define PIO_ENABLE()    test_pio.pios_enabled = 1
+#endif // !APIO_EMULATION
+
+#if !defined(APIO_EMULATION)
+#define PIO_ENABLE_SMS(BLOCK, SMS_MASK)  \
+                                STATIC_BLOCK_ASSERT(BLOCK); \
+                                _Static_assert((SMS_MASK) > 0 && (SMS_MASK) < (1 << MAX_SMS_PER_BLOCK), "Invalid SMS_MASK"); \
+                                if (BLOCK == 0) {           \
+                                    PIO0_CTRL_SM_ENABLE(SMS_MASK);  \
+                                } else if (BLOCK == 1) {    \
+                                    PIO1_CTRL_SM_ENABLE(SMS_MASK);  \
+                                } else {                    \
+                                    PIO2_CTRL_SM_ENABLE(SMS_MASK);  \
+                                }
+#else // APIO_EMULATION
+#define PIO_ENABLE_SMS(BLOCK, SMS_MASK)  test_pio.enabled_sms[BLOCK] = SMS_MASK
+#endif // !APIO_EMULATION
+
 // Set the current PIO block
 #define PIO_SET_BLOCK(BLOCK)    STATIC_BLOCK_ASSERT(BLOCK); \
-                                __block = BLOCK
+                                __blk = BLOCK
+
 // Set the current PIO SM
-#define PIO_SET_SM(SM)          STATIC_SM_ASSERT(SM);                                       \
-                                __sm = SM;                                                  \
-                                __pio_first_instr[__block][__sm] = __pio_offset[__block];   \
-                                __pio_start[__block][__sm] = __pio_offset[__block];         \
-                                __pio_wrap_bottom[__block][__sm] = __pio_offset[__block];   \
-                                __pio_wrap_top[__block][__sm] = __pio_offset[__block];      \
-                                __pio_end[__block][__sm] = __pio_offset[__block]
+#define PIO_SET_SM(SM)          STATIC_SM_ASSERT(SM);                                   \
+                                __sm = SM;                                              \
+                                __pio_first_instr[__blk][__sm] = __pio_offset[__blk];   \
+                                __pio_start[__blk][__sm] = __pio_offset[__blk];         \
+                                __pio_wrap_bottom[__blk][__sm] = __pio_offset[__blk];   \
+                                __pio_wrap_top[__blk][__sm] = __pio_offset[__blk];      \
+                                __pio_end[__blk][__sm] = __pio_offset[__blk]
 
 // Use a label as a destination for JMPs
 #define PIO_LABEL(NAME)         __pio_label__##NAME
 
 // Create a label for JMPs
-#define PIO_LABEL_NEW(NAME)     uint8_t PIO_LABEL(NAME) = __pio_offset[__block];
+#define PIO_LABEL_NEW(NAME)     uint8_t PIO_LABEL(NAME) = __pio_offset[__blk]
 
 // Create a label for JMPs at a relative offset
-#define PIO_LABEL_NEW_OFFSET(NAME, OFFSET)  uint8_t PIO_LABEL(NAME) = __pio_offset[__block] + (OFFSET);
+#define PIO_LABEL_NEW_OFFSET(NAME, OFFSET)  uint8_t PIO_LABEL(NAME) = __pio_offset[__blk] + (OFFSET)
 
 // Set the start offset within a PIO program - call before `PIO_ADD_INSTR()`
 // for the start instruction.
-#define PIO_START()             __pio_start[__block][__sm] = __pio_offset[__block]
+#define PIO_START()             __pio_start[__blk][__sm] = __pio_offset[__blk]
 
 // Get a label representing the start of the current PIO program
-#define PIO_START_LABEL()       __pio_start[__block][__sm]
+#define PIO_START_LABEL()       __pio_start[__blk][__sm]
 
 // Set the end offset within a PIO program - call before `PIO_ADD_INSTR()`
 // for the last instruction.  Must be called after `PIO_WRAP_TOP()`.  If
 // .wrap is the last instruction, this is not required.
-#define PIO_END()               __pio_end[__block][__sm] = __pio_offset[__block]
+#define PIO_END()               __pio_end[__blk][__sm] = __pio_offset[__blk]
 
 // Set the wrap bottom offset within a PIO program - call before
 // `PIO_ADD_INSTR()` for the .wrap_target instruction.
-#define PIO_WRAP_BOTTOM()       __pio_wrap_bottom[__block][__sm] = __pio_offset[__block]
+#define PIO_WRAP_BOTTOM()       __pio_wrap_bottom[__blk][__sm] = __pio_offset[__blk]
 
 // Set the wrap top offset within a PIO program - call before
 // `PIO_ADD_INSTR()` for the .wrap instruction.
-#define PIO_WRAP_TOP()          __pio_wrap_top[__block][__sm] = __pio_offset[__block];  \
+#define PIO_WRAP_TOP()          __pio_wrap_top[__blk][__sm] = __pio_offset[__blk];  \
                                 PIO_END()
 
 // Add an instruction to the current PIO program.
+#if !defined(APIO_EMULATION)
 #if defined(DEBUG_LOGGING) && (DEBUG_LOGGING == 1)
-#define PIO_ADD_INSTR(INST)     if (__pio_offset[__block] >= MAX_PIO_INSTRS) {      \
-                                    ERR("PIO program overflow in PIO block %d SM %d", __block, __sm);   \
+#define PIO_ADD_INSTR(INST)     if (__pio_offset[__blk] >= MAX_PIO_INSTRS) {      \
+                                    ERR("PIO program overflow in PIO block %d SM %d", __blk, __sm);   \
                                     limp_mode(LIMP_MODE_INVALID_CONFIG);            \
                                 } else {                                            \
-                                    instr_scratch[__pio_offset[__block]++] = INST;  \
+                                    instr_scratch[__pio_offset[__blk]++] = INST;  \
                                 }
 #else // !DEBUG_LOGGING
-#define PIO_ADD_INSTR(INST)     instr_scratch[__pio_offset[__block]++] = INST
+#define PIO_ADD_INSTR(INST)     instr_scratch[__pio_offset[__blk]++] = INST
 #endif // DEBUG_LOGGING
+#else // APIO_EMULATION
+#define PIO_ADD_INSTR(INST)     if (test_pio.offset[__blk] >= MAX_PIO_INSTRS) {      \
+                                    STUB_LOG("PIO program overflow in PIO block %d SM %d", __blk, __sm);   \
+                                } else {                                            \
+                                    test_pio.instr[__blk][test_pio.offset[__blk]++] = INST;  \
+                                }
+#endif // !APIO_EMULATION
 
 // Set the clock divider for the current PIO SM.
-#define PIO_SM_CLKDIV_SET(INT, FRAC)    pio_sm_reg_ptr(__block, __sm)->clkdiv = PIO_CLKDIV((INT), (FRAC))
+#define PIO_SM_CLKDIV_SET(INT, FRAC)    pio_sm_reg_ptr(__blk, __sm)->clkdiv = PIO_CLKDIV((INT), (FRAC))
 
 // Set the EXECCTRL for the current PIO SM.  Do not include wrap top/bottom.
 // Those will be set automatically from the wrap values.
-#define PIO_SM_EXECCTRL_SET(EXECCTRL)   pio_sm_reg_ptr(__block, __sm)->execctrl =                       \
+#define PIO_SM_EXECCTRL_SET(EXECCTRL)   pio_sm_reg_ptr(__blk, __sm)->execctrl =                       \
                                             (EXECCTRL) |                                                \
-                                            PIO_WRAP_BOTTOM_AS_REG(__pio_wrap_bottom[__block][__sm]) |  \
-                                            PIO_WRAP_TOP_AS_REG(__pio_wrap_top[__block][__sm])
+                                            PIO_WRAP_BOTTOM_AS_REG(__pio_wrap_bottom[__blk][__sm]) |  \
+                                            PIO_WRAP_TOP_AS_REG(__pio_wrap_top[__blk][__sm])
 
 // Set the SHIFTCTRL for the current PIO SM.
-#define PIO_SM_SHIFTCTRL_SET(SHIFTCTRL) pio_sm_reg_ptr(__block, __sm)->shiftctrl = (SHIFTCTRL)
+#define PIO_SM_SHIFTCTRL_SET(SHIFTCTRL) pio_sm_reg_ptr(__blk, __sm)->shiftctrl = (SHIFTCTRL)
 
 // Set the PINCTRL for the current PIO SM.
-#define PIO_SM_PINCTRL_SET(PINCTRL)     pio_sm_reg_ptr(__block, __sm)->pinctrl = (PINCTRL)
+#define PIO_SM_PINCTRL_SET(PINCTRL)     pio_sm_reg_ptr(__blk, __sm)->pinctrl = (PINCTRL)
 
 static inline volatile pio_sm_reg_t* pio_sm_reg_ptr(uint8_t block, uint8_t sm) {
     if (block == 0) return PIO0_SM_REG(sm);
@@ -203,67 +336,100 @@ static inline volatile pio_sm_reg_t* pio_sm_reg_ptr(uint8_t block, uint8_t sm) {
 
 // Immediately execute an instruction on the current PIO SM.  Can be called
 // before enabling the SM to set initial state.
-#define PIO_SM_EXEC_INSTR(INSTR) pio_sm_reg_ptr(__block, __sm)->instr = INSTR
+#if !defined(APIO_EMULATION)
+#define PIO_SM_EXEC_INSTR(INSTR) pio_sm_reg_ptr(__blk, __sm)->instr = INSTR
+#else // APIO_EMULATION
+#define PIO_SM_EXEC_INSTR(INSTR) test_pio.pre_instr[__blk][__sm][test_pio.pre_instr_count[__blk][__sm]++] = INSTR;
+#endif // !APIO_EMULATION
 
+#if !defined(APIO_EMULATION)
 static inline volatile uint32_t* pio_txf_ptr(uint8_t block, uint8_t sm) {
     if (block == 0) return (volatile uint32_t *)(PIO0_BASE + PIO_TXF_OFFSET + (sm * 0x04));
     else if (block == 1) return (volatile uint32_t *)(PIO1_BASE + PIO_TXF_OFFSET + (sm * 0x04));
     else return (volatile uint32_t *)(PIO2_BASE + PIO_TXF_OFFSET + (sm * 0x04));
 }
-
 static inline volatile uint32_t* pio_rxf_ptr(uint8_t block, uint8_t sm) {
     if (block == 0) return (volatile uint32_t *)(PIO0_BASE + PIO_RXF_OFFSET + (sm * 0x04));
     else if (block == 1) return (volatile uint32_t *)(PIO1_BASE + PIO_RXF_OFFSET + (sm * 0x04));
     else return (volatile uint32_t *)(PIO2_BASE + PIO_RXF_OFFSET + (sm * 0x04));
 }
+#endif // !APIO_EMULATION
 
 // Access the current SM's TX FIFO
-#define PIO_TXF (*pio_txf_ptr(__block, __sm))
+#if !defined(APIO_EMULATION)
+#define PIO_TXF (*pio_txf_ptr(__blk, __sm))
+#else // APIO_EMULATION
+#define PIO_TXF test_pio.tx_fifos[__blk][__sm][test_pio.tx_fifo_count[__blk][__sm]++]
+#endif // !APIO_EMULATION
 
 // Access the current SM's RX FIFO
-#define PIO_RXF (*pio_rxf_ptr(__block, __sm))
+#if !defined(APIO_EMULATION)
+#define PIO_RXF (*pio_rxf_ptr(__blk, __sm))
+#else // APIO_EMULATION
+#define PIO_RXF test_pio.rx_fifos[__blk][__sm][test_pio.rx_fifo_count[__blk][__sm]++]
+#endif // !APIO_EMULATION
 
 // Set the current PIO SM to jump to its start instruction after
 // configuration.  The PIO SM will only be started by explicitly enabling.
 // This sets the point at which it will start.
-#define PIO_SM_JMP_TO_START()   PIO_SM_EXEC_INSTR(JMP(__pio_start[__block][__sm]))
+#define PIO_SM_JMP_TO_START()   PIO_SM_EXEC_INSTR(JMP(__pio_start[__blk][__sm]))
 
+#if !defined(APIO_EMULATION)
 static inline volatile uint32_t* pio_instr_mem_ptr(uint8_t block) {
     if (block == 0) return (volatile uint32_t *)(PIO0_BASE + PIO_INSTR_MEM_OFFSET);
     else if (block == 1) return (volatile uint32_t *)(PIO1_BASE + PIO_INSTR_MEM_OFFSET);
     else return (volatile uint32_t *)(PIO2_BASE + PIO_INSTR_MEM_OFFSET);
 }
+#endif // !APIO_EMULATION
 
 // Write the constructed PIO programs to the PIO instruction memory for the
 // current PIO block.  Call after all SMs for this block have been built,
 // before enabling.
+#if !defined(APIO_EMULATION)
 #define PIO_END_BLOCK() do { \
-                            volatile uint32_t* ptr = pio_instr_mem_ptr(__block);    \
-                            for (int ii = 0; ii < __pio_offset[__block]; ii++) {    \
+                            volatile uint32_t* ptr = pio_instr_mem_ptr(__blk);    \
+                            for (int ii = 0; ii < __pio_offset[__blk]; ii++) {    \
                                  ptr[ii] = instr_scratch[ii];                        \
                             }                                                       \
                         } while(0)
+#else // APIO_EMULATION
+#define PIO_END_BLOCK() test_pio.max_offset[__blk] = __pio_offset[__blk]
+#endif // !APIO_EMULATION
 
 // Call for each SM to log its information for debugging (`DEBUG_LOGGING`
 // must be defined).
+#if !defined(APIO_EMULATION)
 #if defined(DEBUG_LOGGING)
 #define PIO_LOG_SM(NAME)                    \
-    pio_log_sm(                             \
+    apio_log_sm(                            \
         NAME,                               \
-        __block,                            \
+        __blk,                              \
         __sm,                               \
         instr_scratch,                      \
-        __pio_first_instr[__block][__sm],   \
-        __pio_start[__block][__sm],         \
-        __pio_end[__block][__sm]            \
+        __pio_first_instr[__blk][__sm],     \
+        __pio_start[__blk][__sm],           \
+        __pio_end[__blk][__sm]              \
     )
 #else
 #define PIO_LOG_SM(NAME)
 #endif // defined(DEBUG_LOGGING)
+#else // APIO_EMULATION
+#define PIO_LOG_SM(NAME) \
+    apio_log_sm(                            \
+        NAME,                               \
+        __blk,                              \
+        __sm,                               \
+        test_pio.instr[__blk],              \
+        test_pio.first_instr[__blk][__sm],  \
+        __pio_start[__blk][__sm],           \
+        __pio_end[__blk][__sm]              \
+    )
+#endif // !APIO_EMULATION
 
 // Call to enable one or more SMs within a PIO block.  To enable more than SM
 // simultaneously, OR the SM numbers together (e.g. to enable SM0 and SM2, use
 // 0b00000101 = 5).
+#if !defined(APIO_EMULATION)
 #define PIO_ENABLE_SM(BLOCK, SM_MASK)   STATIC_BLOCK_ASSERT(BLOCK);         \
                                         _Static_assert((SM_MASK < 0xF), "Attempt to enable invalid SM"); \
                                         if (BLOCK == 0) {                   \
@@ -273,8 +439,13 @@ static inline volatile uint32_t* pio_instr_mem_ptr(uint8_t block) {
                                         } else {                            \
                                             PIO2_CTRL_SM_ENABLE(SM_MASK);   \
                                         }
+#else // APIO_EMULATION
+#define PIO_ENABLE_SM(BLOCK, SM_MASK)   STATIC_BLOCK_ASSERT(BLOCK);         \
+                                        _Static_assert((SM_MASK < 0xF), "Attempt to enable invalid SM"); \
+                                        test_pio.enabled_sms[BLOCK] |= SM_MASK
+#endif // !APIO_EMULATION
 
-                                        //
+//
 // PIO Instruction Macros
 //
 
@@ -384,5 +555,11 @@ static inline volatile uint32_t* pio_instr_mem_ptr(uint8_t block) {
 
 // Wait for the specified pin to go high
 #define WAIT_PIN_HIGH(X)        (0x20A0 | ((X) & 0x1F))
+
+#if !defined(APIO_EMULATION)
+#define ASM_WFI()               __asm volatile("wfi")
+#else // APIO_EMULATION
+#define ASM_WFI()               STUB_LOG("WFI called"); return
+#endif // !APIO_EMULATION
 
 #endif // PIOASM_H

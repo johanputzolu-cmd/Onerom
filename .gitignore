@@ -8,6 +8,7 @@ build/
 segger-rtt/
 pico-sdk/
 build-test/
+build-wasm/
 builds/
 test/build
 hw-config/user/*

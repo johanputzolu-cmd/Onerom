@@ -1,6 +1,6 @@
 // One ROM Main startup code (clock and GPIO initialisation)
 
-// Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
 //
 // MIT License
 
@@ -12,7 +12,12 @@
 
 const char sdrr_build_date[] = __DATE__ " " __TIME__;
 
-sdrr_runtime_info_t sdrr_runtime_info __attribute__((section(".sdrr_runtime_info"))) = {
+#if !defined(TEST_BUILD)
+#define SECTION_SDRR_RUNTIME_INFO __attribute__((section(".sdrr_runtime_info")))
+#else // TEST_BUILD
+#define SECTION_SDRR_RUNTIME_INFO
+#endif // TEST_BUILD
+sdrr_runtime_info_t sdrr_runtime_info SECTION_SDRR_RUNTIME_INFO = {
     .magic = {'s', 'd', 'r', 'r'},  // Lower case to distinguish from firmware magic
     .runtime_info_size = sizeof(sdrr_runtime_info_t),
     .image_sel = 0xFF,
@@ -243,7 +248,11 @@ void process_firmware_overrides(
 // ROM image to RAM, and having to deal with the internal complexity of
 // remapping the data to the bit ordering we need, and to skip bit 3 (and use
 // bit 14 instead).
+#if !defined(TEST_BUILD)
 int main(void) {
+#else // TEST_BUILD
+int firmware_main(void) {
+#endif // TEST_BUILD
     // Platform specific initialization
     platform_specific_init();
 
@@ -397,6 +406,9 @@ int main(void) {
     //XIP_QMI_M0_TIMING &= ~0x04;
     //XIP_QMI_M0_TIMING |= 0x01;
     main_loop(&sdrr_info, &sdrr_runtime_info, set);
+#if defined(TEST_BUILD)
+    return 0;
+#endif // TEST_BUILD
 #endif
 
 #if defined(EXECUTE_FROM_RAM) || defined(XIP_CACHE_WARM)

@@ -12,7 +12,7 @@
 
 #include "piodma/piodma.h"
 
-#if defined(DEBUG_LOGGING) && (DEBUG_LOGGING == 1)
+#if (defined(DEBUG_LOGGING) && (DEBUG_LOGGING == 1)) || defined(TEST_BUILD)
 
 static const char* piorom_get_jmp_condition(uint8_t cond) {
     switch (cond) {
@@ -158,7 +158,7 @@ static char* append_delay(char* dest, uint8_t delay) {
     return dest;
 }
 
-void pio_instruction_decoder(uint32_t instr, char out_str[64], uint8_t start_offset) {
+void apio_instruction_decoder(uint32_t instr, char out_str[64], uint8_t start_offset) {
     uint8_t opcode = (instr >> 13) & 0x7;
     uint8_t delay = (instr >> 8) & 0x1F;
     char* p;
@@ -377,7 +377,7 @@ void pio_instruction_decoder(uint32_t instr, char out_str[64], uint8_t start_off
 // - first_instr: Index of the first instruction of this program in instr_scratch
 // - start: Index of the .start instruction (where the SM starts execution)
 // - end: Index of the last instruction of this program
-void pio_log_sm(
+void apio_log_sm(
     const char *sm_name,
     uint8_t pio_block,
     uint8_t pio_sm,
@@ -400,8 +400,12 @@ void pio_log_sm(
     
     DEBUG("PIO%d:%d %s (%d instructions)", pio_block, pio_sm, sm_name, (end - first_instr + 1));
 
+#if defined(DEBUG_LOGGING) && (DEBUG_LOGGING == 1)
     uint16_t clkdiv_int = PIO_CLKDIV_INT_FROM_REG(sm_reg->clkdiv);
     uint8_t clkdiv_frac = PIO_CLKDIV_FRAC_FROM_REG(sm_reg->clkdiv);
+#else // !DEBUG_LOGGING
+    (void)sm_name;
+#endif // DEBUG_LOGGING
     uint8_t wrap_bottom = PIO_WRAP_BOTTOM_FROM_REG(sm_reg->execctrl);
     uint8_t wrap_top = PIO_WRAP_TOP_FROM_REG(sm_reg->execctrl);
     DEBUG(
@@ -420,7 +424,7 @@ void pio_log_sm(
         if (ii == wrap_bottom) {
             DEBUG("  .wrap_target");
         }
-        pio_instruction_decoder(instr_scratch[ii], instr, first_instr);
+        apio_instruction_decoder(instr_scratch[ii], instr, first_instr);
         DEBUG("    %d: 0x%04X ; %s", ii - first_instr, instr_scratch[ii], instr);
         if (ii == wrap_top) {
             DEBUG("  .wrap");
@@ -428,5 +432,5 @@ void pio_log_sm(
     }
 }
 
-#endif // defined(DEBUG_LOGGING)
+#endif // defined(DEBUG_LOGGING) || defined(TEST_BUILD)
 #endif // defined(RP235X)

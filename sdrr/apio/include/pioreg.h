@@ -9,6 +9,16 @@
 
 #include <stdint.h>
 
+// Structure representing the registers of a PIO state machine
+typedef struct pio_sm_reg {
+    uint32_t clkdiv;
+    uint32_t execctrl;
+    uint32_t shiftctrl;
+    uint32_t addr;
+    uint32_t instr;
+    uint32_t pinctrl; 
+} pio_sm_reg_t;
+
 // Base register addresses
 #define DMA_BASE            (0x50000000)
 #define PIO0_BASE           (0x50200000)
@@ -70,15 +80,6 @@
 #define PIO0_INSTR_MEM(X)       (*(volatile uint32_t *)(PIO0_BASE + PIO_INSTR_MEM_OFFSET + ((X) * 4)))
 #define PIO1_INSTR_MEM(X)       (*(volatile uint32_t *)(PIO1_BASE + PIO_INSTR_MEM_OFFSET + ((X) * 4)))
 #define PIO2_INSTR_MEM(X)       (*(volatile uint32_t *)(PIO2_BASE + PIO_INSTR_MEM_OFFSET + ((X) * 4)))
-
-typedef struct pio_sm_reg {
-    uint32_t clkdiv;
-    uint32_t execctrl;
-    uint32_t shiftctrl;
-    uint32_t addr;
-    uint32_t instr;
-    uint32_t pinctrl; 
-} pio_sm_reg_t;
 
 // Macros for accessing PIO state machine registers
 #define PIO0_SM_REG(X)      ((volatile pio_sm_reg_t *)(PIO0_BASE + PIO_SM_REG_OFFSET + ((X) * 0x18)))

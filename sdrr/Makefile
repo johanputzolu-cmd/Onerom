@@ -43,10 +43,14 @@ OBJCOPY := $(TOOLCHAIN)/arm-none-eabi-objcopy
 SIZE := $(TOOLCHAIN)/arm-none-eabi-size
 
 # Source files
-SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c src/piodma/piodis.c
+SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c \
+		src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c \
+		src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c
 OBJS := $(patsubst src/%,$(BUILD_DIR)/%,$(SRCS:.c=.o))
 SEGGER_SRCS := segger-rtt/RTT/SEGGER_RTT.c segger-rtt/RTT/SEGGER_RTT_printf.c
 SEGGER_OBJS := $(BUILD_DIR)/SEGGER_RTT.o $(BUILD_DIR)/SEGGER_RTT_printf.o
+APIO_SRCS := apio/src/apio_dis.c
+APIO_OBJS := $(patsubst apio/src/%,$(BUILD_DIR)/%,$(APIO_SRCS:.c=.o))
 
 ROMS_SRC := $(OUTPUT_DIR)/roms.c
 ROMS_OBJ := $(BUILD_DIR)/roms.o
@@ -79,7 +83,11 @@ endif
 endif # End of variables set only if not cleaning
 
 SEGGER_RTT_FLAGS := -DBUFFER_SIZE_UP=4096
-CFLAGS := $(EXTRA_C_FLAGS) $(COMMON_FLAGS) $(SEGGER_RTT_FLAGS) -Werror -I include -I $(OUTPUT_DIR) -I segger-rtt/RTT -I segger-rtt/Config -g -nostdlib -O3 -ffunction-sections -fomit-frame-pointer -fdata-sections -Wall -Wextra -MMD -MD -MP
+CFLAGS := $(EXTRA_C_FLAGS) $(COMMON_FLAGS) $(SEGGER_RTT_FLAGS) -Werror \
+          -I include -I $(OUTPUT_DIR) -I segger-rtt/RTT -I segger-rtt/Config \
+		  -I apio/include \
+		  -g -nostdlib -O3 -ffunction-sections -fomit-frame-pointer -fdata-sections \
+		  -Wall -Wextra -MMD -MP
 LDFLAGS := $(COMMON_FLAGS) -Werror -Llink -L$(OUTPUT_DIR) -nostdlib -specs=nosys.specs -specs=nano.specs -Wl,--no-gc-sections -Wl,--fatal-warnings -Wl,-Map=$(MAP)
 
 # Phony targets
@@ -126,6 +134,11 @@ $(BUILD_DIR)/SEGGER_RTT.o: segger-rtt/RTT/SEGGER_RTT.c ../Makefile  | $(BUILD_DI
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/SEGGER_RTT_printf.o: segger-rtt/RTT/SEGGER_RTT_printf.c ../Makefile | $(BUILD_DIR)
+	@echo "- Compiling sdrr/$<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: apio/src/%.c ../Makefile | $(BUILD_DIR)
+	@mkdir -p $(@D)
 	@echo "- Compiling sdrr/$<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 

@@ -166,7 +166,9 @@ fn generate_roms_implementation_file(
         writeln!(file, "extern const sdrr_rom_set_t rom_set[SDRR_NUM_SETS];")?;
         writeln!(file)?;
     }
+    writeln!(file, "#if !defined(TEST_BUILD)")?;
     writeln!(file, "__attribute__((section(\".metadata.header\")))")?;
+    writeln!(file, "#endif // !TEST_BUILD")?;
     writeln!(
         file,
         "const onerom_metadata_header_t onerom_metadata_header = {{"
@@ -198,7 +200,9 @@ fn generate_roms_implementation_file(
         for chip in &set.chips {
             let filename = chip.filename();
             let index = chip.index();
+            writeln!(file, "#if !defined(TEST_BUILD)")?;
             writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
+            writeln!(file, "#endif // !TEST_BUILD")?;
             writeln!(
                 file,
                 "static const char sdrr_rom_{index}_filename[] = \"{filename}\";",
@@ -235,7 +239,9 @@ fn generate_roms_implementation_file(
     for (ii, rom_config) in config.chips.iter().enumerate() {
         writeln!(file, "// ROM {}", ii)?;
 
+        writeln!(file, "#if !defined(TEST_BUILD)")?;
         writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
+        writeln!(file, "#endif // !TEST_BUILD")?;
         writeln!(file, "static const sdrr_rom_info_t rom_{}_info = {{", ii)?;
 
         let cs1_state = cs_logic_to_enum(rom_config.cs_config.cs1_logic());
@@ -282,7 +288,9 @@ fn generate_roms_implementation_file(
             "static const uint8_t rom_set_{}_data[];  // Forward declaration",
             ii
         )?;
+        writeln!(file, "#if !defined(TEST_BUILD)")?;
         writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
+        writeln!(file, "#endif // !TEST_BUILD")?;
         writeln!(
             file,
             "static const sdrr_rom_info_t * const rom_set_{}_roms[] = {{",
@@ -299,9 +307,13 @@ fn generate_roms_implementation_file(
     writeln!(file, "//")?;
     writeln!(file, "// ROM set array")?;
     writeln!(file, "//")?;
+    writeln!(file, "#if !defined(TEST_BUILD)")?;
     writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
+    writeln!(file, "#endif // !TEST_BUILD")?;
     writeln!(file, "const uint8_t sdrr_rom_set_count = SDRR_NUM_SETS;")?;
+    writeln!(file, "#if !defined(TEST_BUILD)")?;
     writeln!(file, "__attribute__((section(\".metadata.data\")))")?;
+    writeln!(file, "#endif // !TEST_BUILD")?;
     writeln!(file, "const sdrr_rom_set_t rom_set[SDRR_NUM_SETS] = {{")?;
 
     for rom_set in rom_sets {
@@ -351,7 +363,9 @@ fn generate_roms_implementation_file(
         let ii = rom_set.id;
 
         writeln!(file, "// ROM set {} data", rom_set.id)?;
+        writeln!(file, "#if !defined(TEST_BUILD)")?;
         writeln!(file, "__attribute__((section(\".rom_data\")))")?;
+        writeln!(file, "#endif // !TEST_BUILD")?;
         writeln!(
             file,
             "static const uint8_t rom_set_{}_data[ROM_SET_{}_DATA_SIZE] = {{",
@@ -878,10 +892,13 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
         file,
         "// Main SDRR information structure, located at known point in flash"
     )?;
+    writeln!(file, "#if !defined(TEST_BUILD)")?;
     writeln!(
         file,
-        "__attribute__((section(\".sdrr_info\"))) const sdrr_info_t sdrr_info = {{"
+        "__attribute__((section(\".sdrr_info\")))"
     )?;
+    writeln!(file, "#endif // !TEST_BUILD")?;
+    writeln!(file, "const sdrr_info_t sdrr_info = {{")?;
 
     // Magic bytes
     writeln!(file, "    .magic = {{'S', 'D', 'R', 'R'}},")?;

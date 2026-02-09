@@ -641,7 +641,7 @@ static void piorom_load_programs(piorom_config_t *config) {
             }
         }
         PIO_ADD_INSTR(MOV_PINDIRS_NOT_NULL);
-        PIO_LABEL_NEW(check_cs_gone_inactive)
+        PIO_LABEL_NEW(check_cs_gone_inactive);
         PIO_ADD_INSTR(MOV_X_PINS);
         PIO_WRAP_TOP();
         if (!config->multi_rom_mode) {
@@ -807,10 +807,11 @@ static void piorom_load_programs(piorom_config_t *config) {
 
 // Starts the PIO state machines for ROM serving.
 static void piorom_start_pios() {
-    PIO0_CTRL_SM_ENABLE(0x7); // Enable SM0, SM1 and SM2
+    PIO_ENABLE_SMS(0, 0x7); // PIO0, enable SM0, SM1 and SM2
 }
 
 // Set GPIOs to PIO function for ROM serving
+#if !defined(TEST_BUILD)
 static void piorom_set_gpio_func(piorom_config_t *config) {
     uint8_t num_cs_pins = config->num_cs_pins;
     uint8_t cs_base_pin = config->cs_base_pin;
@@ -914,6 +915,25 @@ static void piorom_setup_dma(
         BUSCTRL_BUS_PRIORITY_DMA_R_BIT |
         BUSCTRL_BUS_PRIORITY_DMA_W_BIT;
 }
+#else // TEST_BUILD
+void piorom_set_gpio_func(piorom_config_t *config) {
+    (void)config;
+    STUB_LOG("piorom_set_gpio_func");
+}
+
+void piorom_setup_dma(
+    piorom_config_t *config,
+    uint8_t pio_block,
+    uint8_t sm_addr_read,
+    uint8_t sm_data_byte
+) {
+    (void)config;
+    (void)pio_block;
+    (void)sm_addr_read;
+    (void)sm_data_byte;
+    STUB_LOG("piorom_setup_dma");
+}
+#endif // !TEST_BUILD
 
 // Get lowest data GPIO from the pin info
 static uint8_t get_lowest_data_gpio(
@@ -1486,9 +1506,9 @@ void piorom(
 
     piorom_finish_config(&config, info, set, rom_table_addr);
 
-    // Bring PIO0 and DMA out of reset
-    RESET_RESET &= ~(RESET_PIO0 | RESET_DMA);
-    while (!(RESET_DONE & (RESET_PIO0 | RESET_DMA)));
+    // Bring PIOs and DMA out of reset
+    PIO_ENABLE();
+    DMA_ENABLE();
 
     // Setup the DMA channels:
     // - PIO block 0
@@ -1521,9 +1541,10 @@ void piorom(
             // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
             // peripheral access that might introduce jitter on the PIO/DMA
             // serving.
-            __asm volatile("wfi");
+            ASM_WFI();
         }
     } else {
+#if !defined(TEST_BUILD)
         DEBUG("PIO ROM serving running without DMA - CPU active loop");
 
         register volatile uint32_t *ctrl asm("r0") = &PIO0_CTRL;
@@ -1569,6 +1590,9 @@ void piorom(
             : "r"(ctrl), "r"(rxf1), "r"(txf2), "r"(irq), "r"(irq_set)
             : "r1", "memory"
         );
+#else // TEST_BUILD
+        ERR("PIO ROM serving without DMA not supported in test build");
+#endif // !TEST_BUILD
     }
 }
 

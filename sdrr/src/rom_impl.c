@@ -279,7 +279,12 @@ static inline void __attribute__((always_inline)) configure_x_pulls(
     }
 }
 
-void __attribute__((section(".main_loop"), used)) main_loop(
+#if !defined(TEST_BUILD)
+#define SECTION_MAIN_LOOP __attribute__((section(".main_loop"), used))
+#else // TEST_BUILD
+#define SECTION_MAIN_LOOP
+#endif // TEST_BUILD
+void SECTION_MAIN_LOOP main_loop(
     const sdrr_info_t *info,
     const sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
@@ -359,13 +364,13 @@ void __attribute__((section(".main_loop"), used)) main_loop(
 
     // Set up the ROM table variables (the ROM is already in RAM by this point,
     // if RAM preloading is enabled).
-    uint32_t rom_table_val = (uint32_t)sdrr_runtime_info.rom_table;
+    uint32_t rom_table_val = (uint32_t)(uintptr_t)sdrr_runtime_info.rom_table;
 
     // If we are counting ROM accesses, set it up
 #if defined(COUNT_ROM_ACCESS) && !defined(C_MAIN_LOOP)
     sdrr_runtime_info.access_count = 0;  // Update from 0xFFFFFFFF to 0.
     sdrr_runtime_info.count_rom_access = 1;  // Flag as enabled
-    uint32_t access_count_addr = (uint32_t)&sdrr_runtime_info.access_count;
+    uint32_t access_count_addr = (uint32_t)(uintptr_t)&sdrr_runtime_info.access_count;
     uint32_t access_count = 0;  // Used to initialise the count register itself
 #endif // defined(COUNT_ROM_ACCESS) && !defined(C_MAIN_LOOP)
 
@@ -418,8 +423,13 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     // If we are using PIO/DMA ROM serving, jump to that now
     if (runtime->fire_serve_mode == FIRE_SERVE_PIO) {
         pio(info, set, rom_table_val);
+#if defined(TEST_BUILD)
+        return;
+#endif // TEST_BUILD
     }
 #endif // RP235X
+
+#if !defined(TEST_BUILD)
 
 #if !defined(C_MAIN_LOOP)
     // Start the appropriate main loop.  Includes preloading registers.
@@ -672,6 +682,7 @@ void __attribute__((section(".main_loop"), used)) main_loop(
     }
 #endif // !C_MAIN_LOOP
 
+
     if ((runtime->status_led_enabled) && (info->pins->status < MAX_USED_GPIOS)) {
         status_led_off(info->pins->status);
     }
@@ -679,6 +690,14 @@ void __attribute__((section(".main_loop"), used)) main_loop(
         ROM_IMPL_LOG("Address/CS: 0x%08X Byte: 0x%08X", addr_cs, byte);
     }
 #endif // MAIN_LOOP_ONE_SHOT
+
+#else // TEST_BUILD
+    STUB_LOG("CPU main loop");
+    (void)use_ubfx;
+    (void)access_count_addr;
+    (void)access_count;
+#endif // !TEST_BUILD
+
 }
 
 // Get the index of the selected ROM by from the image select jumper values
@@ -714,13 +733,18 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
     uint32_t *img_src, *img_dst;
     uint32_t img_size;
 
+#if !defined(TEST_BUILD)
+    uint32_t *ram_table_ptr = _ram_rom_image_start;
+#else
+    uint32_t *ram_table_ptr = get_ram_rom_image_table_aligned();
+#endif
     // Find the start of this ROM image in the flash memory
     img_size = set->size;
     img_src = (uint32_t *)(set->data);
 
     if ((set->roms[0]->rom_type == CHIP_TYPE_6116) && (img_src == (uint32_t *)0xFFFFFFFF)) {
         LOG("No RAM image");
-        img_dst = _ram_rom_image_start;
+        img_dst = ram_table_ptr;
         return (void *)img_dst;
     }
 
@@ -735,7 +759,7 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
         LOG("F405: NOT Preloading ROM image to CCM RAM");
     }
 #endif // defined(CCM_RAM_BASE) && !defined(DISABLE_CCM)
-    img_dst = _ram_rom_image_start;
+    img_dst = ram_table_ptr;
 #if defined(CCM_RAM_BASE) && !defined(DISABLE_CCM)
     }
 #endif // defined(CCM_RAM_BASE) && !defined(DISABLE_CCM)
@@ -756,12 +780,19 @@ void* preload_rom_image(const sdrr_rom_set_t *set) {
     if (set->roms[0]->filename != NULL) {
         filename = set->roms[0]->filename;
     }
-    LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", filename, (uint32_t)img_dst, img_size);
+    LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", filename, (uint32_t)(uintptr_t)img_dst, img_size);
 #endif // BOOT_LOGGING
     LOG("Set ROM count: %d, Serving algorithm: %d",
         set->rom_count, set->serve);
 
+#if !defined(TEST_BUILD)
     return (void *)img_dst;
+#else
+    // For testing pretend we wrote to 0x20000000, start of SRAM.  The tester
+    // Copies the data from where it was actually written to the PIO emulator
+    // at 0x20000000.
+    return (void *)(uintptr_t)0x20000000;
+#endif // !TEST_BUILD
 }
 
 #endif // !TIMER_TEST/TOGGLE_PA4
