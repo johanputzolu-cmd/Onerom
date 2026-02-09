@@ -37,7 +37,17 @@ const CONFIG = {
     
     // Auto-scroll margin (pixels from right edge where we start scrolling)
     AUTOSCROLL_MARGIN: 100,
-};
+
+    // Cursor
+    CURSOR_VALUE_FONT_SIZE: 20,     // Font size for cursor value display
+    CURSOR_VALUE_OFFSET_X: 20,      // Horizontal offset from cursor line
+    CURSOR_VALUE_OFFSET_Y: -0.5,       // Vertical offset above trace (as fraction of trace height)
+    CURSOR_VALUE_COLOR: '#000000',  // Color for cursor values};
+    CURSOR_VALUE_TEXT_COLOR: '#ffffff',  // Color for cursor values
+    CURSOR_VALUE_PADDING_X: 2,      // Horizontal padding around cursor value text
+    CURSOR_VALUE_PADDING_Y: 2,      // Vertical padding around cursor value text
+    CURSOR_VALUE_HEIGHT_MULTIPLIER: 1.3,  // Account for font ascenders
+}
 
 // Get CSS color variables
 function getCSSColor(varName) {
@@ -152,6 +162,11 @@ class WASMModule {
         return BigInt(this.module.ccall('epio_read_pin_states', 'number', ['number'], 
             [this.epioHandle]));
     }
+
+    epioReadDrivenPins() {
+        return BigInt(this.module.ccall('epio_read_driven_pins', 'number', ['number'], 
+            [this.epioHandle]));
+    }
 }
 
 // =============================================================================
@@ -160,11 +175,11 @@ class WASMModule {
 
 class SampleBuffer {
     constructor() {
-        this.samples = [];  // Array of {cycle: BigInt, gpios: BigInt}
+        this.samples = [];  // Array of {cycle: BigInt, gpios: BigInt, driven: BigInt}
     }
     
-    addSample(cycle, gpios) {
-        this.samples.push({cycle, gpios});
+    addSample(cycle, gpios, driven) {
+        this.samples.push({cycle, gpios, driven});
     }
     
     clear() {
@@ -272,6 +287,11 @@ class SignalDecoder {
         const pinNum = this.pinMap.control[controlName];
         return this.extractBit(gpios, pinNum);
     }
+
+    // Check if pin is actively driven
+    isPinDriven(driven, pinNum) {
+        return (driven & (1n << BigInt(pinNum))) !== 0n;
+    }
 }
 
 // =============================================================================
@@ -291,23 +311,19 @@ class ExecutionEngine {
         // Read sequence state machine
         this.currentAddr = 0;
         this.maxAddr = 0;
-        this.readState = 'idle';  // 'idle', 'drive', 'setup', 'release', 'recovery'
+        this.readState = 'idle';
         this.cyclesRemaining = 0;
         
-        // Configuration
+        // Store only what doesn't change during execution
         this.numAddrBits = 13;
-        this.setupCycles = 20;
-        this.recoveryCycles = 20;
         this.cyclesPerFrame = CONFIG.DEFAULT_SPEED;
     }
-    
+
     // Start a complete read sequence
-    startCompleteRead(numAddrBits, setupCycles, recoveryCycles) {
+    startCompleteRead(numAddrBits) {
         if (this.running) return;
         
         this.numAddrBits = numAddrBits;
-        this.setupCycles = setupCycles;
-        this.recoveryCycles = recoveryCycles;
         this.currentAddr = 0;
         this.maxAddr = (1 << numAddrBits) - 1;
         this.readState = 'drive';
@@ -361,9 +377,12 @@ class ExecutionEngine {
             return false;  // Complete
         }
         
+        // Read current values from UI
+        const setupCycles = parseInt(document.getElementById('setupCycles').value);
+        const recoveryCycles = parseInt(document.getElementById('recoveryCycles').value);
+        
         switch (this.readState) {
             case 'drive':
-                // Drive address and CS1 low
                 this.wasm.oneromDrivePins(
                     this.currentAddr,
                     this.numAddrBits,
@@ -374,12 +393,11 @@ class ExecutionEngine {
                     CONFIG.PIN_NOT_DRIVEN
                 );
                 this.readState = 'setup';
-                this.cyclesRemaining = this.setupCycles;
+                this.cyclesRemaining = setupCycles;
                 break;
                 
             case 'setup':
                 if (--this.cyclesRemaining === 0) {
-                    // Read data (not strictly necessary but matches pattern)
                     this.wasm.oneromReadData(8);
                     this.readState = 'release';
                 }
@@ -388,12 +406,11 @@ class ExecutionEngine {
             case 'release':
                 this.wasm.oneromReleasePins();
                 this.readState = 'recovery';
-                this.cyclesRemaining = this.recoveryCycles;
+                this.cyclesRemaining = recoveryCycles;
                 break;
                 
             case 'recovery':
                 if (--this.cyclesRemaining === 0) {
-                    // Move to next address
                     this.currentAddr++;
                     if (this.currentAddr <= this.maxAddr) {
                         this.readState = 'drive';
@@ -406,7 +423,8 @@ class ExecutionEngine {
         this.wasm.epioStepCycles(1);
         const cycle = this.wasm.epioGetCycleCount();
         const gpios = this.wasm.epioReadPinStates();
-        this.samples.addSample(cycle, gpios);
+        const driven = this.wasm.epioReadDrivenPins();
+        this.samples.addSample(cycle, gpios, driven);
         
         return true;
     }
@@ -447,6 +465,9 @@ class WaveformRenderer {
         this.addrExpanded = true;
         this.dataExpanded = true;
         
+        this.cursorX = null;  // Mouse X position for cursor
+        this.cursorCycle = null;  // Cycle at cursor position
+
         // Load colors from CSS
         this.loadColors();
     }
@@ -496,53 +517,54 @@ class WaveformRenderer {
     
     // Calculate Y position for each trace
     calculateTraceLayout(decoder) {
-        const layout = [];
-        let y = CONFIG.TRACE_SPACING;
+        const MIN_TRACE_HEIGHT = 20;
+        const MIN_HEX_TRACE_HEIGHT = 24;
+        const MIN_TRACE_SPACING = 4;
+        
+        // First pass - calculate minimum required height
+        let minTotalHeight = MIN_TRACE_SPACING;
+        const traceList = [];
         
         // Address group
         if (this.showAddr) {
-            layout.push({
+            traceList.push({
                 type: 'addr_hex',
-                y: y,
-                height: CONFIG.HEX_TRACE_HEIGHT,
+                minHeight: MIN_HEX_TRACE_HEIGHT,
                 label: `A[${decoder.pinMap.addr.length-1}:0]`
             });
-            y += CONFIG.HEX_TRACE_HEIGHT + CONFIG.TRACE_SPACING;
+            minTotalHeight += MIN_HEX_TRACE_HEIGHT + MIN_TRACE_SPACING;
             
             if (this.addrExpanded) {
                 for (let i = decoder.pinMap.addr.length - 1; i >= 0; i--) {
-                    layout.push({
+                    traceList.push({
                         type: 'addr_bit',
                         bit: i,
-                        y: y,
-                        height: CONFIG.TRACE_HEIGHT,
+                        minHeight: MIN_TRACE_HEIGHT,
                         label: `A${i}`
                     });
-                    y += CONFIG.TRACE_HEIGHT + CONFIG.TRACE_SPACING;
+                    minTotalHeight += MIN_TRACE_HEIGHT + MIN_TRACE_SPACING;
                 }
             }
         }
         
         // Data group
         if (this.showData) {
-            layout.push({
+            traceList.push({
                 type: 'data_hex',
-                y: y,
-                height: CONFIG.HEX_TRACE_HEIGHT,
+                minHeight: MIN_HEX_TRACE_HEIGHT,
                 label: `D[${decoder.pinMap.data.length-1}:0]`
             });
-            y += CONFIG.HEX_TRACE_HEIGHT + CONFIG.TRACE_SPACING;
+            minTotalHeight += MIN_HEX_TRACE_HEIGHT + MIN_TRACE_SPACING;
             
             if (this.dataExpanded) {
                 for (let i = decoder.pinMap.data.length - 1; i >= 0; i--) {
-                    layout.push({
+                    traceList.push({
                         type: 'data_bit',
                         bit: i,
-                        y: y,
-                        height: CONFIG.TRACE_HEIGHT,
+                        minHeight: MIN_TRACE_HEIGHT,
                         label: `D${i}`
                     });
-                    y += CONFIG.TRACE_HEIGHT + CONFIG.TRACE_SPACING;
+                    minTotalHeight += MIN_TRACE_HEIGHT + MIN_TRACE_SPACING;
                 }
             }
         }
@@ -551,20 +573,36 @@ class WaveformRenderer {
         if (this.showControl) {
             const controls = ['cs1', 'cs2', 'cs3', 'x1', 'x2'];
             for (const ctrl of controls) {
-                layout.push({
+                traceList.push({
                     type: 'control',
                     signal: ctrl,
-                    y: y,
-                    height: CONFIG.TRACE_HEIGHT,
+                    minHeight: MIN_TRACE_HEIGHT,
                     label: ctrl.toUpperCase()
                 });
-                y += CONFIG.TRACE_HEIGHT + CONFIG.TRACE_SPACING;
+                minTotalHeight += MIN_TRACE_HEIGHT + MIN_TRACE_SPACING;
             }
+        }
+        
+        // Calculate scale factor (at least 1.0, never shrink below minimum)
+        const availableHeight = this.canvas.height;
+        const scaleFactor = Math.max(1.0, availableHeight / minTotalHeight);
+        
+        // Second pass - apply scaling and calculate positions
+        const layout = [];
+        let y = MIN_TRACE_SPACING * scaleFactor;
+        
+        for (const trace of traceList) {
+            layout.push({
+                ...trace,
+                y: y,
+                height: trace.minHeight * scaleFactor
+            });
+            y += (trace.minHeight + MIN_TRACE_SPACING) * scaleFactor;
         }
         
         return layout;
     }
-    
+
     // Render all waveforms
     render(sampleBuffer, decoder) {
         this.clear();
@@ -607,6 +645,11 @@ class WaveformRenderer {
                 this.renderBitTrace(trace, visibleSamples, decoder, pinNum, waveformWidth);
             }
         }
+
+        // Draw cursor if active
+        if (this.cursorX !== null && this.cursorCycle !== null) {
+            this.renderCursor(sampleBuffer, decoder, layout);
+        }
     }
     
     // Render a single bit trace - draws horizontal lines and vertical edges
@@ -619,18 +662,19 @@ class WaveformRenderer {
         
         let previousState = null;
         let previousX = null;
+        let previousDriven = null;
         
-        this.ctx.strokeStyle = COLORS.high;
         this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
         
         for (const sample of samples) {
             const currentState = decoder.extractBit(sample.gpios, pinNum);
+            const isDriven = decoder.isPinDriven(sample.driven, pinNum);
             const currentX = this.cycleToPixelX(sample.cycle);
             
             // Skip if off-screen to the left
             if (currentX < CONFIG.LABEL_WIDTH) {
                 previousState = currentState;
+                previousDriven = isDriven;
                 previousX = currentX;
                 continue;
             }
@@ -639,34 +683,75 @@ class WaveformRenderer {
             if (currentX > canvasEndX) break;
             
             if (previousState !== null && previousX !== null) {
-                // Draw horizontal line from previous position to current
-                const y = previousState ? yHigh : yLow;
-                this.ctx.moveTo(Math.max(CONFIG.LABEL_WIDTH, previousX), y);
-                this.ctx.lineTo(currentX, y);
+                // Draw horizontal line from previous to current
+                this.ctx.beginPath();
                 
-                // If state changed, draw vertical transition edge
-                if (currentState !== previousState) {
-                    this.ctx.moveTo(currentX, yHigh);
-                    this.ctx.lineTo(currentX, yLow);
+                if (previousDriven) {
+                    // Driven - draw at HIGH or LOW
+                    this.ctx.strokeStyle = COLORS.high;
+                    const y = previousState ? yHigh : yLow;
+                    this.ctx.moveTo(Math.max(CONFIG.LABEL_WIDTH, previousX), y);
+                    this.ctx.lineTo(currentX, y);
+                } else {
+                    // High-Z - draw at middle level
+                    this.ctx.strokeStyle = COLORS.smearedHatch;
+                    const yMid = trace.y + trace.height / 2;
+                    this.ctx.moveTo(Math.max(CONFIG.LABEL_WIDTH, previousX), yMid);
+                    this.ctx.lineTo(currentX, yMid);
+                }
+                
+                this.ctx.stroke();
+                
+                // If drive state or level changed, draw transition
+                if (isDriven !== previousDriven || (isDriven && currentState !== previousState)) {
+                    this.ctx.beginPath();
+                    this.ctx.strokeStyle = COLORS.high;
+                    
+                    // Calculate previous and current Y positions
+                    let prevY, currY;
+                    
+                    if (previousDriven) {
+                        prevY = previousState ? yHigh : yLow;
+                    } else {
+                        prevY = trace.y + trace.height / 2; // yMid
+                    }
+                    
+                    if (isDriven) {
+                        currY = currentState ? yHigh : yLow;
+                    } else {
+                        currY = trace.y + trace.height / 2; // yMid
+                    }
+                    
+                    this.ctx.moveTo(currentX, prevY);
+                    this.ctx.lineTo(currentX, currY);
+                    this.ctx.stroke();
                 }
             }
             
             previousState = currentState;
+            previousDriven = isDriven;
             previousX = currentX;
         }
         
         // Draw final horizontal line, but only if last sample is visible
         if (previousState !== null && previousX !== null && previousX < canvasEndX) {
-            // Don't draw beyond the last actual sample
             const lastSampleX = this.cycleToPixelX(samples[samples.length - 1].cycle);
             if (lastSampleX > previousX) {
-                const y = previousState ? yHigh : yLow;
-                this.ctx.moveTo(previousX, y);
-                this.ctx.lineTo(Math.min(lastSampleX, canvasEndX), y);
+                this.ctx.beginPath();
+                if (previousDriven) {
+                    this.ctx.strokeStyle = COLORS.high;
+                    const y = previousState ? yHigh : yLow;
+                    this.ctx.moveTo(previousX, y);
+                    this.ctx.lineTo(Math.min(lastSampleX, canvasEndX), y);
+                } else {
+                    this.ctx.strokeStyle = COLORS.smearedHatch;
+                    const yMid = trace.y + trace.height / 2;
+                    this.ctx.moveTo(previousX, yMid);
+                    this.ctx.lineTo(Math.min(lastSampleX, canvasEndX), yMid);
+                }
+                this.ctx.stroke();
             }
         }
-        
-        this.ctx.stroke();
     }
     
     // Render hex summary trace
@@ -756,6 +841,81 @@ class WaveformRenderer {
                 this.ctx.fillText(hexStr, 
                     Math.max(CONFIG.LABEL_WIDTH + 2, stableStartX), 
                     trace.y + trace.height / 2);
+            }
+        }
+    }
+
+    renderCursor(sampleBuffer, decoder, layout) {
+        if (this.cursorX === null || this.cursorCycle === null) return;
+        
+        // Draw vertical line
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 1;
+        this.ctx.setLineDash([4, 4]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.cursorX, 0);
+        this.ctx.lineTo(this.cursorX, this.canvas.height);
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        
+        // Find sample at cursor position
+        const samples = sampleBuffer.getSamplesInRange(this.cursorCycle, this.cursorCycle + 1n);
+        if (samples.length === 0) return;
+        
+        const sample = samples[0];
+        
+        // Display values for each trace - above and to the right
+        this.ctx.font = `${CONFIG.CURSOR_VALUE_FONT_SIZE}px monospace`;
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'top';
+        
+        const valueX = this.cursorX + CONFIG.CURSOR_VALUE_OFFSET_X;
+
+        for (const trace of layout) {
+            let valueText = '';
+            
+            if (trace.type === 'addr_hex') {
+                const addr = decoder.decodeAddress(sample.gpios);
+                valueText = 'Addr' + ': 0x' + addr.toString(16).toUpperCase().padStart(
+                    Math.ceil(decoder.pinMap.addr.length / 4), '0');
+            } else if (trace.type === 'data_hex') {
+                const data = decoder.decodeData(sample.gpios);
+                valueText = 'Data' + ': 0x' + data.toString(16).toUpperCase().padStart(
+                    Math.ceil(decoder.pinMap.data.length / 4), '0');
+            } else if (trace.type === 'addr_bit') {
+                const pinNum = decoder.pinMap.addr[trace.bit];
+                const isDriven = decoder.isPinDriven(sample.driven, pinNum);
+                const val = isDriven ? decoder.extractBit(sample.gpios, pinNum).toString() : 'High-Z';
+                valueText = trace.label + ': ' + val;
+            } else if (trace.type === 'data_bit') {
+                const pinNum = decoder.pinMap.data[trace.bit];
+                const isDriven = decoder.isPinDriven(sample.driven, pinNum);
+                const val = isDriven ? decoder.extractBit(sample.gpios, pinNum).toString() : 'High-Z';
+                valueText = trace.label + ': ' + val;
+            } else if (trace.type === 'control') {
+                const pinNum = decoder.pinMap.control[trace.signal];
+                const isDriven = decoder.isPinDriven(sample.driven, pinNum);
+                const val = isDriven ? decoder.extractBit(sample.gpios, pinNum).toString() : 'High-Z';
+                valueText = trace.label + ': ' + val;
+            }
+            
+            if (valueText) {
+                // Draw background for readability
+                const textWidth = this.ctx.measureText(valueText).width;
+                const textHeight = CONFIG.CURSOR_VALUE_FONT_SIZE * CONFIG.CURSOR_VALUE_HEIGHT_MULTIPLIER;
+
+                const valueY = trace.y - (trace.height * CONFIG.CURSOR_VALUE_OFFSET_Y) - textHeight;
+                
+                this.ctx.fillStyle = CONFIG.CURSOR_VALUE_COLOR;
+                this.ctx.fillRect(
+                    valueX - CONFIG.CURSOR_VALUE_PADDING_X, 
+                    valueY - CONFIG.CURSOR_VALUE_PADDING_Y,  // Start at text position
+                    textWidth + (CONFIG.CURSOR_VALUE_PADDING_X * 2), 
+                    textHeight + (CONFIG.CURSOR_VALUE_PADDING_Y * 2)
+                );
+                
+                this.ctx.fillStyle = CONFIG.CURSOR_VALUE_TEXT_COLOR;
+                this.ctx.fillText(valueText, valueX, valueY + 2 * CONFIG.CURSOR_VALUE_PADDING_Y);
             }
         }
     }
@@ -882,8 +1042,20 @@ class AnalyzerController {
         const scrollbar = document.getElementById('scrollbar');
         scrollbar.addEventListener('input', (e) => {
             this.renderer.scrollPos = parseFloat(e.target.value);
-            this.renderer.autoScroll = false;
-            document.getElementById('autoScroll').checked = false;
+            
+            // If scrolled to near the end (within 0.1% of max), re-enable auto-scroll
+            const scrollRange = parseFloat(scrollbar.max) - parseFloat(scrollbar.min);
+            const distanceFromEnd = parseFloat(scrollbar.max) - parseFloat(e.target.value);
+            
+            if (distanceFromEnd < scrollRange * 0.001) {
+                // Near the end - re-enable auto-scroll
+                this.renderer.autoScroll = true;
+                document.getElementById('autoScroll').checked = true;
+            } else {
+                // Not at end - disable auto-scroll
+                this.renderer.autoScroll = false;
+                document.getElementById('autoScroll').checked = false;
+            }
         });
         
         // Window resize
@@ -914,18 +1086,38 @@ class AnalyzerController {
             this.renderer.dataExpanded = !this.renderer.dataExpanded;
             e.target.textContent = this.renderer.dataExpanded ? '−' : '+';
         });
+
+        // Cursor tracking on canvas
+        this.renderer.canvas.addEventListener('mousemove', (e) => {
+            const rect = this.renderer.canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            
+            // Only show cursor if over waveform area (not labels)
+            if (x > CONFIG.LABEL_WIDTH) {
+                this.renderer.cursorX = x;
+                // Calculate which cycle the cursor is over
+                const cycleOffset = (x - CONFIG.LABEL_WIDTH + this.renderer.scrollPos) * this.renderer.cyclesPerPixel;
+                this.renderer.cursorCycle = BigInt(Math.floor(cycleOffset));
+            } else {
+                this.renderer.cursorX = null;
+                this.renderer.cursorCycle = null;
+            }
+        });
+
+        this.renderer.canvas.addEventListener('mouseleave', () => {
+            this.renderer.cursorX = null;
+            this.renderer.cursorCycle = null;
+        });
     }
     
     startExecution() {
         const addrBits = parseInt(document.getElementById('addrBits').value);
-        const setupCycles = parseInt(document.getElementById('setupCycles').value);
-        const recoveryCycles = parseInt(document.getElementById('recoveryCycles').value);
         
         this.samples.clear();
         this.wasm.epioResetCycleCount();
         this.renderer.scrollPos = 0;
         
-        this.execution.startCompleteRead(addrBits, setupCycles, recoveryCycles);
+        this.execution.startCompleteRead(addrBits);  // Only pass addrBits
         this.updateExecutionButtons();
         this.updateStatus('Running');
     }

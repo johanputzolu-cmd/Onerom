@@ -86,7 +86,7 @@ WASM_LDFLAGS := -s WASM=1 \
 					"_epio_get_gpio_input","_epio_init_gpios",\
 					"_epio_set_gpio_input","_epio_set_gpio_output",\
 					"_epio_set_gpio_input_level","_epio_set_gpio_output_level",\
-					"_epio_read_pin_states",\
+					"_epio_read_pin_states","_epio_read_driven_pins",\
 					"_epio_sram_read_byte","_epio_sram_set",\
 					"_epio_sram_read_halfword","_epio_sram_read_word",\
 					"_epio_sram_write_byte","_epio_sram_write_halfword","_epio_sram_write_word"]' \

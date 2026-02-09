@@ -46,6 +46,7 @@ EPIO_EXPORT void epio_set_gpio_output(epio_t *epio, uint8_t pin);
 EPIO_EXPORT void epio_set_gpio_input_level(epio_t *epio, uint8_t pin, uint8_t level);
 EPIO_EXPORT void epio_set_gpio_output_level(epio_t *epio, uint8_t pin, uint8_t level);
 EPIO_EXPORT uint64_t epio_read_pin_states(epio_t *epio);
+EPIO_EXPORT uint64_t epio_read_driven_pins(epio_t *epio);
 
 // epio SRAM API
 EPIO_EXPORT uint8_t epio_sram_read_byte(epio_t *epio, uint32_t addr);

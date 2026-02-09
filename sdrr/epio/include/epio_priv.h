@@ -86,6 +86,9 @@ typedef struct {
 
     // 1 = output, 0 = input, GPIO0 = LSB
     uint64_t gpio_direction;
+
+    // Which GPIOs are being externally driven
+    uint64_t ext_driven;
 } epio_gpio_state_t;
 
 // IRQ state for a single PIO block

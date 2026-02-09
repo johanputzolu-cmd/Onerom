@@ -71,6 +71,7 @@ void epio_drive_gpios_ext(epio_t *epio, uint64_t gpios, uint64_t level) {
             epio_set_gpio_input_level(epio, ii, 1);
         }
     }
+    epio->gpio.ext_driven = gpios;
 }
 
 // Used to read the GPIOs as if externally.  Any undriven GPIOs are assumed to
@@ -97,4 +98,10 @@ uint64_t epio_read_pin_states(epio_t *epio) {
         }
     }
     return result;
+}
+
+// Read which GPIOs are currently being externally driven
+uint64_t epio_read_driven_pins(epio_t *epio) {
+    // A pin is driven if either externally driven OR configured as output
+    return epio->gpio.ext_driven | epio->gpio.gpio_direction;
 }
