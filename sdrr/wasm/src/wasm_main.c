@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <include.h>
 #include <test/stub.h>
-#define APIO_EMU_IMPL
 #include <apio.h>
 #include <epio.h>
 #include <epio_wasm.h>

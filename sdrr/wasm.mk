@@ -2,6 +2,8 @@
 # For native test builds only
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
+include epio/wasm/exports.mk
+
 COLOUR_YELLOW := $(shell echo -e '\033[33m')
 COLOUR_RESET := $(shell echo -e '\033[0m')
 
@@ -68,31 +70,11 @@ WASM_CFLAGS := -DAPIO_EMULATION=1 -DTEST_BUILD=1 -DEPIO_WASM \
 # Emscripten linker flags
 WASM_LDFLAGS := -s WASM=1 \
 				-s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' \
-				-s EXPORTED_FUNCTIONS='["_malloc","_free",\
-					"_onerom_init","_onerom_step",\
-					"_onerom_drive_pins","_onerom_release_pins",\
-					"_onerom_read_data","_onerom_read_gpios",\
-					"_onerom_get_addr_pin","_onerom_get_data_pin",\
-					"_onerom_get_cs1_pin","_onerom_get_cs2_pin",\
-					"_onerom_get_cs3_pin","_onerom_get_x1_pin","_onerom_get_x2_pin",\
-					"_epio_init","_epio_free","_epio_set_gpiobase",\
-					"_epio_set_sm_reg","_epio_get_sm_reg","_epio_enable_sm",\
-					"_epio_set_instr","_epio_get_instr","_epio_step_cycles",\
-					"_epio_get_cycle_count","_epio_reset_cycle_count",\
-					"_epio_wait_tx_fifo","_epio_tx_fifo_depth","_epio_rx_fifo_depth",\
-					"_epio_pop_rx_fifo","_epio_push_tx_fifo","_epio_push_rx_fifo",\
-					"_epio_drive_gpios_ext","_epio_read_gpios_ext",\
-					"_epio_get_gpio_input","_epio_init_gpios",\
-					"_epio_set_gpio_input","_epio_set_gpio_output",\
-					"_epio_set_gpio_input_level","_epio_set_gpio_output_level",\
-					"_epio_read_pin_states","_epio_read_driven_pins",\
-					"_epio_sram_read_byte","_epio_sram_set",\
-					"_epio_sram_read_halfword","_epio_sram_read_word",\
-					"_epio_sram_write_byte","_epio_sram_write_halfword","_epio_sram_write_word"]' \
+				-s EXPORTED_FUNCTIONS='[$(EPIO_WASM_EXPORTS)]' \
 				-s ALLOW_MEMORY_GROWTH=1
 
 # Targets
-.PHONY: all clean run debug web copy-web serve clean-apio-src apio
+.PHONY: all clean run debug web copy-web serve clean-apio-src apio epio-src
 
 all:  $(WASM_BIN) copy-web
 	@echo "WASM build complete: $(WASM_BIN)"
@@ -120,6 +102,13 @@ apio:
 	@if [ ! -d "$@" ]; then \
 		git clone https://github.com/piersfinlayson/apio.git; \
 	fi
+
+epio-src:
+	@if [ ! -d "epio" ]; then \
+		git clone https://github.com/piersfinlayson/epio.git; \
+	fi
+
+epio/wasm/exports.mk: epio-src
 
 $(WASM_BUILD_DIR):
 	@mkdir -p $@
