@@ -601,213 +601,213 @@ static void piorom_load_programs(piorom_config_t *config) {
 #endif // DEBUG_LOGGING
 
     // Set up the PIO assembler
-    PIO_ASM_INIT();
+    APIO_ASM_INIT();
     
     // Clear all PIO IRQs
-    PIO_CLEAR_ALL_IRQS();
+    APIO_CLEAR_ALL_IRQS();
 
     // PIO0 Programs
     //
     // All ROM serving handlers
-    PIO_SET_BLOCK(0);
+    APIO_SET_BLOCK(0);
 
     // SM0 - CS handler
     //
     // Handles detecting CS active/inactive and setting data pins to
     // outputs/inputs accordingly.  Also triggers address read SM via IRQ if
     // configured to do so.
-    PIO_SET_SM(0);
+    APIO_SET_SM(0);
 
     if (config->contiguous_cs_pins) {
         // "Normal" case - all CS pins contiguous
-        PIO_ADD_INSTR(MOV_PINDIRS_NULL);
+        APIO_ADD_INSTR(APIO_MOV_PINDIRS_NULL);
 
-        PIO_LABEL_NEW(load_cs);
-        PIO_ADD_INSTR(MOV_X_PINS);
+        APIO_LABEL_NEW(load_cs);
+        APIO_ADD_INSTR(APIO_MOV_X_PINS);
         if (!config->multi_rom_mode) {
-            PIO_ADD_INSTR(JMP_X_DEC(PIO_LABEL(load_cs)));
+            APIO_ADD_INSTR(APIO_JMP_X_DEC(APIO_LABEL(load_cs)));
         } else {
-            PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(load_cs)));
+            APIO_ADD_INSTR(APIO_JMP_NOT_X(APIO_LABEL(load_cs)));
         }
         if (config->addr_read_irq) {
             if (!config->cs_active_delay) {
-                PIO_ADD_INSTR(IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ));
+                APIO_ADD_INSTR(APIO_IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ));
             } else {
-                PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ), config->cs_active_delay));
+                APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ), config->cs_active_delay));
             }
         } else {
             if (config->cs_active_delay) {
-                PIO_ADD_INSTR(ADD_DELAY(NOP, (config->cs_active_delay - 1)));
+                APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_NOP, (config->cs_active_delay - 1)));
             }
         }
-        PIO_ADD_INSTR(MOV_PINDIRS_NOT_NULL);
-        PIO_LABEL_NEW(check_cs_gone_inactive);
-        PIO_ADD_INSTR(MOV_X_PINS);
-        PIO_WRAP_TOP();
+        APIO_ADD_INSTR(APIO_MOV_PINDIRS_NOT_NULL);
+        APIO_LABEL_NEW(check_cs_gone_inactive);
+        APIO_ADD_INSTR(APIO_MOV_X_PINS);
+        APIO_WRAP_TOP();
         if (!config->multi_rom_mode) {
-            PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(check_cs_gone_inactive)));
+            APIO_ADD_INSTR(APIO_JMP_NOT_X(APIO_LABEL(check_cs_gone_inactive)));
         } else {
-            PIO_ADD_INSTR(JMP_X_DEC(PIO_LABEL(check_cs_gone_inactive)));
+            APIO_ADD_INSTR(APIO_JMP_X_DEC(APIO_LABEL(check_cs_gone_inactive)));
         }
         if (config->cs_inactive_delay) {
-            PIO_WRAP_TOP();
-            PIO_ADD_INSTR(ADD_DELAY(NOP, (config->cs_inactive_delay - 1)));
+            APIO_WRAP_TOP();
+            APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_NOP, (config->cs_inactive_delay - 1)));
         }
     } else {
         // Non-contiguous CS pins - need to check for 2 different possible
         // CS values
-        PIO_ADD_INSTR(SET_Y(config->cs_pin_2nd_match));
+        APIO_ADD_INSTR(APIO_SET_Y(config->cs_pin_2nd_match));
         
         // inactive:
-        PIO_LABEL_NEW(inactive_offset);
-        PIO_ADD_INSTR(MOV_PINDIRS_NULL);
+        APIO_LABEL_NEW(inactive_offset);
+        APIO_ADD_INSTR(APIO_MOV_PINDIRS_NULL);
 
         // test_if_active:
-        PIO_LABEL_NEW(test_if_active_offset);
-        PIO_ADD_INSTR(MOV_X_PINS);
+        APIO_LABEL_NEW(test_if_active_offset);
+        APIO_ADD_INSTR(APIO_MOV_X_PINS);
 
-        PIO_LABEL_NEW_OFFSET(active_offset, 2);
-        PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(active_offset)));
-        PIO_ADD_INSTR(JMP_X_NOT_Y(PIO_LABEL(test_if_active_offset)));
+        APIO_LABEL_NEW_OFFSET(active_offset, 2);
+        APIO_ADD_INSTR(APIO_JMP_NOT_X(APIO_LABEL(active_offset)));
+        APIO_ADD_INSTR(APIO_JMP_X_NOT_Y(APIO_LABEL(test_if_active_offset)));
 
         // active:
         if (config->addr_read_irq) {
             if (!config->cs_active_delay) {
-                PIO_ADD_INSTR(IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ));
+                APIO_ADD_INSTR(APIO_IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ));
             } else {
-                PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ), config->cs_active_delay));
+                APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IRQ_SET(ROM_ADDR_READ_TRIGGER_IRQ), config->cs_active_delay));
             }
         } else {
             if (config->cs_active_delay) {
-                PIO_ADD_INSTR(ADD_DELAY(NOP, (config->cs_active_delay - 1)));
+                APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_NOP, (config->cs_active_delay - 1)));
             }
         }
-        PIO_ADD_INSTR(MOV_PINDIRS_NOT_NULL);
+        APIO_ADD_INSTR(APIO_MOV_PINDIRS_NOT_NULL);
 
         // .wrap_target:
         // test_if_inactive:
-        PIO_WRAP_BOTTOM();
-        PIO_LABEL_NEW(test_if_inactive_offset);
-        PIO_ADD_INSTR(MOV_X_PINS);
-        PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(test_if_inactive_offset)));
-        PIO_WRAP_TOP();
-        PIO_ADD_INSTR(JMP_X_NOT_Y(PIO_LABEL(inactive_offset)));
+        APIO_WRAP_BOTTOM();
+        APIO_LABEL_NEW(test_if_inactive_offset);
+        APIO_ADD_INSTR(APIO_MOV_X_PINS);
+        APIO_ADD_INSTR(APIO_JMP_NOT_X(APIO_LABEL(test_if_inactive_offset)));
+        APIO_WRAP_TOP();
+        APIO_ADD_INSTR(APIO_JMP_X_NOT_Y(APIO_LABEL(inactive_offset)));
         if (config->cs_inactive_delay) {
-            PIO_WRAP_TOP();
+            APIO_WRAP_TOP();
         }
     }
 
     // Configure the CS handler SM
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->sm0_clkdiv_int,
         config->sm0_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(0);
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_cs_pins) |
-        PIO_IN_SHIFTDIR_L           // Direction left important for non-
+    APIO_SM_EXECCTRL_SET(0);
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_IN_COUNT(config->num_cs_pins) |
+        APIO_IN_SHIFTDIR_L          // Direction left important for non-
                                     // contiguous CS pin handling
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_OUT_COUNT(config->num_data_pins) |
-        PIO_OUT_BASE(config->data_base_pin) |
-        PIO_IN_BASE(config->cs_base_pin)
+    APIO_SM_PINCTRL_SET(
+        APIO_OUT_COUNT(config->num_data_pins) |
+        APIO_OUT_BASE(config->data_base_pin) |
+        APIO_IN_BASE(config->cs_base_pin)
     );
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("CS Handler");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("CS Handler");
 
     // SM1 - Address reader
     //
     // Reads address lines and pushes complete ROM table lookup address to the
     // DMA chain.
-    PIO_SET_SM(1);
+    APIO_SET_SM(1);
 
     // The ADDR_READ_DELAY gets added either to the IRQ (if it exists) or the
     // IN instruction (if no IRQ).  In the no IRQ case it is not important on
     // which instruction we add the delay, as it doesn't affect how "old" the
     // address will be went sent to the DMA, just how _frequently_ it is read.
     if (!config->addr_read_irq && config->addr_read_delay) {
-        PIO_ADD_INSTR(ADD_DELAY(IN_X(rom_table_num_addr_bits), config->addr_read_delay));
+        APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(rom_table_num_addr_bits), config->addr_read_delay));
     } else {
-        PIO_ADD_INSTR(IN_X(rom_table_num_addr_bits));
+        APIO_ADD_INSTR(APIO_IN_X(rom_table_num_addr_bits));
     }
     if (config->addr_read_irq || config->no_dma) {
         if (!config->addr_read_delay) {
-            PIO_ADD_INSTR(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ));
+            APIO_ADD_INSTR(APIO_WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ));
         } else {
-            PIO_ADD_INSTR(ADD_DELAY(WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ), config->addr_read_delay));
+            APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_WAIT_IRQ_HIGH(ROM_ADDR_READ_TRIGGER_IRQ), config->addr_read_delay));
         }
     }
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(IN_PINS(config->num_addr_pins));
+    APIO_WRAP_TOP();
+    APIO_ADD_INSTR(APIO_IN_PINS(config->num_addr_pins));
 
     // Configure the address read SM
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->sm1_clkdiv_int,
         config->sm1_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(0);
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_addr_pins) |   // Reading the address pins (unused
+    APIO_SM_EXECCTRL_SET(0);
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_IN_COUNT(config->num_addr_pins) |  // Reading the address pins (unused
                                                 // as this is for mov instructions)
-        PIO_AUTOPUSH |                          // Auto push when we hit threshold
-        PIO_PUSH_THRESH(32) |                   // Push when we have 32 bits (from
+        APIO_AUTOPUSH |                         // Auto push when we hit threshold
+        APIO_PUSH_THRESH(32) |                  // Push when we have 32 bits (from
                                                 // X and from address pins)
-        PIO_IN_SHIFTDIR_L |     // Shift left, so address lines are in low bits
-        PIO_OUT_SHIFTDIR_L      // Direction doesn't matter, as we push 32 bits
+        APIO_IN_SHIFTDIR_L |    // Shift left, so address lines are in low bits
+        APIO_OUT_SHIFTDIR_L     // Direction doesn't matter, as we push 32 bits
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->addr_base_pin)
+    APIO_SM_PINCTRL_SET(
+        APIO_IN_BASE(config->addr_base_pin)
     );
 
     // Preload the ROM table address into the X register
-    PIO_TXF = rom_table_high_bits;
-    PIO_SM_EXEC_INSTR(PULL_BLOCK);  // Pull it into OSR
-    PIO_SM_EXEC_INSTR(MOV_X_OSR);   // Store it in X
+    APIO_TXF = rom_table_high_bits;
+    APIO_SM_EXEC_INSTR(APIO_PULL_BLOCK);  // Pull it into OSR
+    APIO_SM_EXEC_INSTR(APIO_MOV_X_OSR);   // Store it in X
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Address Reader");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Address Reader");
 
     // SM2 - Data byte output
     //
     // Outputs a data byte received from the DMA chain on the data pins.
-    PIO_SET_SM(2);
+    APIO_SET_SM(2);
 
     // Load the data byte output program
-    PIO_ADD_INSTR(OUT_PINS(config->num_data_pins));
+    APIO_ADD_INSTR(APIO_OUT_PINS(config->num_data_pins));
 
     // Configure the data byte SM
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->sm2_clkdiv_int,
         config->sm2_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(0);
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_OUT_SHIFTDIR_R |                    // Writes LSB of OSR
-        PIO_AUTOPULL |                          // Auto pull when we hit threshold
-        PIO_PULL_THRESH(config->num_data_pins)  // Pull when we have 8 bits
+    APIO_SM_EXECCTRL_SET(0);
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_OUT_SHIFTDIR_R |                   // Writes LSB of OSR
+        APIO_AUTOPULL |                         // Auto pull when we hit threshold
+        APIO_PULL_THRESH(config->num_data_pins) // Pull when we have 8 bits
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_OUT_BASE(config->data_base_pin) |
-        PIO_OUT_COUNT(config->num_data_pins)
+    APIO_SM_PINCTRL_SET(
+        APIO_OUT_BASE(config->data_base_pin) |
+        APIO_OUT_COUNT(config->num_data_pins)
     );
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Data Byte Output");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Data Byte Output");
 
     //
     // PIO 0 - End of block
     //
-    PIO_END_BLOCK();
+    APIO_END_BLOCK();
 }
 
 // Starts the PIO state machines for ROM serving.
 static void piorom_start_pios() {
-    PIO_ENABLE_SMS(0, 0x7); // PIO0, enable SM0, SM1 and SM2
+    APIO_ENABLE_SMS(0, 0x7); // PIO0, enable SM0, SM1 and SM2
 }
 
 // Set GPIOs to PIO function for ROM serving
@@ -865,7 +865,7 @@ static void piorom_setup_dma(
     // DMA Channel 0 - Receives ROM table lookup address from PIO0 SM1 and
     // sends it onto DMA Channel 1.  Paced by PIO0 SM1 RX FIFO DREQ.
     dma_reg = DMA_CH_REG(0);
-    dma_reg->read_addr = (uint32_t)&PIO0_SM_RXF(sm_addr_read);
+    dma_reg->read_addr = (uint32_t)&APIO0_SM_RXF(sm_addr_read);
     if (config->addr_read_irq) {
         // When address read is triggerd by IRQ, we only want a single
         // transfer per IRQ.  We need to trigger channel 1 manually.
@@ -879,7 +879,7 @@ static void piorom_setup_dma(
         dma_reg->transfer_count = 0xffffffff;
     }
     dma_reg->ctrl_trig =
-        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read)) |
+        DMA_CTRL_TRIG_TREQ_SEL(APIO_DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read)) |
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_32BIT;
 
@@ -891,7 +891,7 @@ static void piorom_setup_dma(
     // inputs, but it's more valid than setting to 0.
     dma_reg = DMA_CH_REG(1);
     dma_reg->read_addr = config->rom_table_addr;
-    dma_reg->write_addr = (uint32_t)&PIO0_SM_TXF(sm_data_byte);
+    dma_reg->write_addr = (uint32_t)&APIO0_SM_TXF(sm_data_byte);
     uint32_t ctrl_trig = 
         DMA_CTRL_TRIG_EN |
         DMA_CTRL_TRIG_DATA_SIZE_8BIT;
@@ -904,7 +904,7 @@ static void piorom_setup_dma(
         // When address read is not triggered by IRQ, we want continuous
         // transfers.
         dma_reg->transfer_count = 0xffffffff;
-        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read));
+        ctrl_trig |= DMA_CTRL_TRIG_TREQ_SEL(APIO_DREQ_PIO_X_SM_Y_RX(pio_block, sm_addr_read));
     }
     dma_reg->ctrl_trig = ctrl_trig;
 
@@ -1490,7 +1490,7 @@ void piorom_overrides(
 }
 
 // Configure and start the Autonomous PIO/DMA ROM serving implementation.
-void piorom(
+int piorom(
     const sdrr_info_t *info,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
@@ -1507,7 +1507,7 @@ void piorom(
     piorom_finish_config(&config, info, set, rom_table_addr);
 
     // Bring PIOs and DMA out of reset
-    PIO_ENABLE();
+    APIO_ENABLE_PIOS();
     DMA_ENABLE();
 
     // Setup the DMA channels:
@@ -1541,16 +1541,16 @@ void piorom(
             // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
             // peripheral access that might introduce jitter on the PIO/DMA
             // serving.
-            ASM_WFI();
+            APIO_ASM_WFI();
         }
     } else {
 #if !defined(TEST_BUILD)
         DEBUG("PIO ROM serving running without DMA - CPU active loop");
 
-        register volatile uint32_t *ctrl asm("r0") = &PIO0_CTRL;
-        register volatile uint32_t *rxf1 asm("r2") = &PIO0_SM_RXF(1);
-        register volatile uint32_t *txf2 asm("r3") = &PIO0_SM_TXF(2);
-        register volatile uint32_t *irq  asm("r4") = &PIO0_IRQ_FORCE;
+        register volatile uint32_t *ctrl asm("r0") = &APIO0_CTRL;
+        register volatile uint32_t *rxf1 asm("r2") = &APIO0_SM_RXF(1);
+        register volatile uint32_t *txf2 asm("r3") = &APIO0_SM_TXF(2);
+        register volatile uint32_t *irq  asm("r4") = &APIO0_IRQ_FORCE;
         register uint32_t irq_set asm("r5") = 0x1;  // Set IRQ 0
 
         asm volatile (
@@ -1594,6 +1594,8 @@ void piorom(
         ERR("PIO ROM serving without DMA not supported in test build");
 #endif // !TEST_BUILD
     }
+
+    return 0;
 }
 
 #endif // RP235X

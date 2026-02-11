@@ -23,16 +23,9 @@ endif
 SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c \
         src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c \
         src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c \
-        test/stub_rp235x.c test/test_main.c test/test_log.c \
-		apio/src/apio_dis.c epio/src/epio.c epio/src/epio_sram.c \
-		apio/src/epio_apio.c epio/src/epio_gpio.c epio/src/epio_exec.c \
-		apio/src/epio_fifo.c epio/src/epio_dma.c \
-		wasm/src/wasm_main.c
+        test/stub_rp235x.c test/test_main.c test/test_log.c
 OBJS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(filter src/%,$(SRCS)))
 OBJS += $(patsubst test/%.c,$(BUILD_DIR)/%.o,$(filter test/%,$(SRCS)))
-OBJS += $(patsubst apio/src/%.c,$(BUILD_DIR)/%.o,$(filter apio/src/%,$(SRCS)))
-OBJS += $(patsubst epio/src/%.c,$(BUILD_DIR)/%.o,$(filter epio/src/%,$(SRCS)))
-OBJS += $(patsubst wasm/src/%.c,$(BUILD_DIR)/%.o,$(filter wasm/src/%,$(SRCS)))
 
 # Generated files
 ROMS_SRC := $(OUTPUT_DIR)/roms.c
@@ -67,53 +60,57 @@ CFLAGS := -DAPIO_EMULATION=1 -DTEST_BUILD=1 \
 LDFLAGS := -g -fsanitize=address 
 
 # Targets
-.PHONY: all clean run debug
+.PHONY: all clean run debug clean-apio-src apio clean-epio-src epio-src epio
 
 all: $(BIN)
 	@echo "Running One ROM test\n-----"
 	@$(BIN)
 
+apio:
+	@if [ ! -d "apio" ]; then \
+		git clone https://github.com/piersfinlayson/apio.git; \
+	fi
+
+epio-src:
+	@if [ ! -d "epio" ]; then \
+		git clone https://github.com/piersfinlayson/epio.git; \
+	fi
+
+epio: epio-src
+	@$(MAKE) -C epio
+
 $(BUILD_DIR):
 	@mkdir -p $@
 
-$(BUILD_DIR)/%.o: src/%.c | $(BUILD_DIR)
-	@mkdir -p $(@D)
-	@echo "- Compiling test/$<"
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/%.o: test/%.c | $(BUILD_DIR)
-	@mkdir -p $(@D)
-	@echo "- Compiling test/$<"
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/%.o: apio/src/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: src/%.c | $(BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/%.o: epio/src/%.c | $(BUILD_DIR)
-	@mkdir -p $(@D)
-	@echo "- Compiling $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/%.o: wasm/src/%.c | $(BUILD_DIR)
+$(BUILD_DIR)/%.o: test/%.c | $(BUILD_DIR) epio
 	@mkdir -p $(@D)
 	@echo "- Compiling $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(ROMS_OBJ): $(ROMS_SRC) | $(BUILD_DIR)
-	@echo "- Compiling test/$(ROMS_SRC)"
+	@echo "- Compiling $(ROMS_SRC)"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(SDRR_CONFIG_OBJ): $(SDRR_CONFIG_SRC) | $(BUILD_DIR)
-	@echo "- Compiling test/$(SDRR_CONFIG_SRC)"
+	@echo "- Compiling $(SDRR_CONFIG_SRC)"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(BIN): $(OBJS) $(ROMS_OBJ) $(SDRR_CONFIG_OBJ)
+$(BIN): $(OBJS) $(ROMS_OBJ) $(SDRR_CONFIG_OBJ) | epio
 	@echo "- Linking test"
-	@$(CC) $(LDFLAGS) $^ -o $@
+	@$(CC) $(LDFLAGS) $^ -L epio/build -lepio -o $@
 
-clean:
+clean-apio-src:
+	@rm -rf apio/
+
+clean-epio-src:
+	@rm -rf epio/
+
+clean: clean-apio-src clean-epio-src
 	@rm -rf $(BUILD_DIR)
 
 -include $(OBJS:.o=.d) $(ROMS_OBJ:.o=.d) $(SDRR_CONFIG_OBJ:.o=.d)

@@ -349,7 +349,7 @@
 
 // Boot block structure
 typedef struct {
-    uint32_t start_marker;          // 0xffffded3, start market
+    uint32_t start_marker;          // 0xffffded3, start marker
     uint8_t  image_type_tag;        // 0x42, image type
     uint8_t  image_type_len;        // 0x1, item is one word in size
     uint16_t image_type_data;       // 0b0001000000100001, RP2350, ARM, Secure, EXE

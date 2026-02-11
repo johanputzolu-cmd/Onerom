@@ -26,15 +26,14 @@ SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c \
         src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c \
         src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c \
         test/stub_rp235x.c test/test_log.c \
-		apio/src/apio_dis.c epio/src/epio.c epio/src/epio_sram.c \
-		apio/src/epio_apio.c epio/src/epio_gpio.c epio/src/epio_exec.c \
-		apio/src/epio_fifo.c epio/src/epio_dma.c \
+		epio/src/epio.c epio/src/epio_sram.c \
+		epio/src/epio_apio.c epio/src/epio_gpio.c epio/src/epio_exec.c \
+		epio/src/epio_fifo.c epio/src/epio_dma.c \
 		wasm/src/wasm_main.c
 
 # WASM object files (same sources, different build dir)
 WASM_OBJS := $(patsubst src/%.c,$(WASM_BUILD_DIR)/%.o,$(filter src/%,$(SRCS)))
 WASM_OBJS += $(patsubst test/%.c,$(WASM_BUILD_DIR)/%.o,$(filter test/%,$(SRCS)))
-WASM_OBJS += $(patsubst apio/src/%.c,$(WASM_BUILD_DIR)/%.o,$(filter apio/src/%,$(SRCS)))
 WASM_OBJS += $(patsubst epio/src/%.c,$(WASM_BUILD_DIR)/%.o,$(filter epio/src/%,$(SRCS)))
 WASM_OBJS += $(patsubst wasm/src/%.c,$(WASM_BUILD_DIR)/%.o,$(filter wasm/src/%,$(SRCS)))
 WASM_ROMS_OBJ := $(WASM_BUILD_DIR)/roms.o
@@ -93,7 +92,7 @@ WASM_LDFLAGS := -s WASM=1 \
 				-s ALLOW_MEMORY_GROWTH=1
 
 # Targets
-.PHONY: all clean run debug web copy-web serve
+.PHONY: all clean run debug web copy-web serve clean-apio-src apio
 
 all:  $(WASM_BIN) copy-web
 	@echo "WASM build complete: $(WASM_BIN)"
@@ -117,20 +116,20 @@ serve: all
 	@echo "$(COLOUR_YELLOW)Open http://localhost:8000/index.html in your browser $(COLOUR_RESET)"
 	@cd $(WASM_BUILD_DIR) && python3 -m http.server 8000
 
+apio:
+	@if [ ! -d "$@" ]; then \
+		git clone https://github.com/piersfinlayson/apio.git; \
+	fi
+
 $(WASM_BUILD_DIR):
 	@mkdir -p $@
 
-$(WASM_BUILD_DIR)/%.o: src/%.c | $(WASM_BUILD_DIR)
+$(WASM_BUILD_DIR)/%.o: src/%.c | $(WASM_BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_BUILD_DIR)/%.o: test/%.c | $(WASM_BUILD_DIR)
-	@mkdir -p $(@D)
-	@echo "- Compiling WASM $<"
-	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
-
-$(WASM_BUILD_DIR)/%.o: apio/src/%.c | $(WASM_BUILD_DIR)
+$(WASM_BUILD_DIR)/%.o: test/%.c | $(WASM_BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
@@ -140,7 +139,7 @@ $(WASM_BUILD_DIR)/%.o: epio/src/%.c | $(WASM_BUILD_DIR)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_BUILD_DIR)/%.o: wasm/src/%.c | $(WASM_BUILD_DIR)
+$(WASM_BUILD_DIR)/%.o: wasm/src/%.c | $(WASM_BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
@@ -157,7 +156,10 @@ $(WASM_BIN): $(WASM_OBJS) $(WASM_ROMS_OBJ) $(WASM_SDRR_CONFIG_OBJ)
 	@echo "- Linking WASM"
 	@$(WASM_CC) $(WASM_LDFLAGS) $^ -o $@
 
-clean:
-	@rm -rf $(WASM_BUILD_DIR)
+clean-apio-src:
+	rm -rf apio/
+
+clean: clean-apio-src
+	@rm -rf $(BUILD_DIR)
 
 -include $(WASM_OBJS:.o=.d) $(WASM_ROMS_OBJ:.o=.d) $(WASM_SDRR_CONFIG_OBJ:.o=.d)

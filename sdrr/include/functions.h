@@ -68,19 +68,19 @@ void dfu(void);
 #endif // STM32F4
 
 // pio.c
-extern void pio(
+extern int pio(
     const sdrr_info_t *info,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 );
 // piorom.c
 #if defined(RP235X)
-extern void piorom(
+extern int piorom(
     const sdrr_info_t *info,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 );
-extern void pioram(
+extern int pioram(
     const sdrr_info_t *info,
     uint32_t rom_table_addr
 );

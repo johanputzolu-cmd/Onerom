@@ -427,15 +427,15 @@ static void pioram_load_programs(pioram_config_t *config) {
 #endif // DEBUG_LOGGGING
 
     // Set up the PIO assembler
-    PIO_ASM_INIT();
+    APIO_ASM_INIT();
     
     // Clear all PIO IRQs
-    PIO_CLEAR_ALL_IRQS();
+    APIO_CLEAR_ALL_IRQS();
 
     // PIO0 Programs
     //
     // Combined data/address handlers
-    PIO_SET_BLOCK(0);
+    APIO_SET_BLOCK(0);
 
     // SM0 - Data read handler - triggers data read chain on /CE and /W low
     //
@@ -443,9 +443,9 @@ static void pioram_load_programs(pioram_config_t *config) {
     // WRITE address reader, then the data input reader.
     //
     // Re-arms once either /CE or /W goes high.
-    PIO_SET_SM(0);
+    APIO_SET_SM(0);
 
-    PIO_LABEL_NEW(start_write_enabled_check);
+    APIO_LABEL_NEW(start_write_enabled_check);
     // This algorithm will check /CE and /W this number of times when it goes
     // low, to make sure it's really low.
     uint8_t data_read_check_count = PIORAM_WRITE_ACTIVE_CHECK_COUNT;
@@ -458,94 +458,94 @@ static void pioram_load_programs(pioram_config_t *config) {
     }
     for (int ii = 0; ii < data_read_check_count; ii++) {
         // Read /CE and /W
-        PIO_ADD_INSTR(MOV_X_PINS);
+        APIO_ADD_INSTR(APIO_MOV_X_PINS);
         
         // If either /CE or /W is high, check again
-        PIO_ADD_INSTR(JMP_X_DEC(PIO_LABEL(start_write_enabled_check)));
+        APIO_ADD_INSTR(APIO_JMP_X_DEC(APIO_LABEL(start_write_enabled_check)));
     }
 
     // Trigger RAM WRITE IRQ. Triggers both addr and data readers
-    PIO_ADD_INSTR(ADD_DELAY(IRQ_SET(RAM_WRITE_TRIGGER_IRQ), PIORAM_WRITE_TRIGGER_IRQ_DELAY)); 
+    APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IRQ_SET(RAM_WRITE_TRIGGER_IRQ), PIORAM_WRITE_TRIGGER_IRQ_DELAY)); 
 
     // Wait for either /CE or /W to go high
-    PIO_LABEL_NEW(check_write_disabled);
-    PIO_ADD_INSTR(MOV_X_PINS);
+    APIO_LABEL_NEW(check_write_disabled);
+    APIO_ADD_INSTR(APIO_MOV_X_PINS);
 
     // If both /CE and /W still low, keep waiting, otherwise jump to start
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(JMP_NOT_X(PIO_LABEL(check_write_disabled)));
+    APIO_WRAP_TOP();
+    APIO_ADD_INSTR(APIO_JMP_NOT_X(APIO_LABEL(check_write_disabled)));
 
     // Set the various SM register values
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->data_read_handler_clkdiv_int,
         config->data_read_handler_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(0);
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_write_cs_pins) |   // Reading /CE and /W
-        PIO_IN_SHIFTDIR_L
+    APIO_SM_EXECCTRL_SET(0);
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_IN_COUNT(config->num_write_cs_pins) |   // Reading /CE and /W
+        APIO_IN_SHIFTDIR_L
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->write_cs_base_pin)      // /CE and /W pins
+    APIO_SM_PINCTRL_SET(
+        APIO_IN_BASE(config->write_cs_base_pin)      // /CE and /W pins
     );
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Trigger Data and Address Reader (RAM WRITE)");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Trigger Data and Address Reader (RAM WRITE)");
 
     //
     // PIO 0 - End of block
     //
-    PIO_END_BLOCK();
+    APIO_END_BLOCK();
 
     // PIO 1 Programs
     //
     // Address Readers
-    PIO_SET_BLOCK(1);
+    APIO_SET_BLOCK(1);
 
     // PIO 1 - Address Readers
     // 
     // SM0 - Address Reader (RAM READ)
     //
     // Constantly serves bytes to the READ DMA chain
-    PIO_SET_SM(0);
+    APIO_SET_SM(0);
 
     // Preload high bits of RAM table address to X - done via TX FIFO before
     // starting as SET(X) only supports 5 bits.
 
     // Pull high bits from X
-    PIO_ADD_INSTR(IN_X(ram_table_num_addr_bits));
+    APIO_ADD_INSTR(APIO_IN_X(ram_table_num_addr_bits));
 
     // Read address lines and push to RX FIFO, so READ DMA chain serves the
     // byte.  We add a delay after this, to avoid overloading the DMA chain.
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(ADD_DELAY(IN_PINS(config->num_addr_pins), 2));   // Autopush
+    APIO_WRAP_TOP();
+    APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_PINS(config->num_addr_pins), 2));   // Autopush
 
     // SM configuration
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->addr_reader_read_clkdiv_int,
         config->addr_reader_read_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(0);
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_addr_pins) |
-        PIO_AUTOPUSH |          // Auto push when we hit threshold
-        PIO_PUSH_THRESH(32) |   // Push when we have total of 32 bits (a full address)
-        PIO_IN_SHIFTDIR_L |
-        PIO_OUT_SHIFTDIR_L
+    APIO_SM_EXECCTRL_SET(0);
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_IN_COUNT(config->num_addr_pins) |
+        APIO_AUTOPUSH |          // Auto push when we hit threshold
+        APIO_PUSH_THRESH(32) |   // Push when we have total of 32 bits (a full address)
+        APIO_IN_SHIFTDIR_L |
+        APIO_OUT_SHIFTDIR_L
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->addr_base_pin)
+    APIO_SM_PINCTRL_SET(
+        APIO_IN_BASE(config->addr_base_pin)
     );
 
     // Preload the X register to the high bits of the RAM table address
-    PIO_TXF = ram_table_high_bits;
-    PIO_SM_EXEC_INSTR(PULL_BLOCK);
-    PIO_SM_EXEC_INSTR(MOV_X_OSR);
+    APIO_TXF = ram_table_high_bits;
+    APIO_SM_EXEC_INSTR(APIO_PULL_BLOCK);
+    APIO_SM_EXEC_INSTR(APIO_MOV_X_OSR);
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Address Reader (RAM READ)");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Address Reader (RAM READ)");
 
     // PIO1 - Address Readers
     //
@@ -564,114 +564,114 @@ static void pioram_load_programs(pioram_config_t *config) {
     // they are both started at around the same time, and take roughly the same
     // time to loop, the data to write should be in the WRITE DMA chain by the
     // time the DMA gets the address and writes the byte.
-    PIO_SET_SM(1);
+    APIO_SET_SM(1);
 
     // Preload high 16 bits of RAM table address to X - done via TX FIFO
     // before starting as SET(X) only supports 5 bits.
 
     // (SM does not start here.). Push combined RAM table address and lower
     // order address bits when /W goes high.
-    PIO_LABEL_NEW(addr_write_valid);
-    PIO_ADD_INSTR(PUSH_BLOCK);
+    APIO_LABEL_NEW(addr_write_valid);
+    APIO_ADD_INSTR(APIO_PUSH_BLOCK);
 
     // Wait for address reader IRQ from Data read handler
-    PIO_START();
-    PIO_ADD_INSTR(WAIT_IRQ_HIGH_PREV(3));
+    APIO_START();
+    APIO_ADD_INSTR(APIO_WAIT_IRQ_HIGH_PREV(3));
 
     // Pull high bits from X
-    PIO_WRAP_BOTTOM();
-    PIO_ADD_INSTR(IN_X(ram_table_num_addr_bits));
+    APIO_WRAP_BOTTOM();
+    APIO_ADD_INSTR(APIO_IN_X(ram_table_num_addr_bits));
 
     // Read address lines.
-    PIO_ADD_INSTR(IN_PINS(config->num_addr_pins));
+    APIO_ADD_INSTR(APIO_IN_PINS(config->num_addr_pins));
 
     // Jump when /W goes high
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(addr_write_valid)));
+    APIO_WRAP_TOP();
+    APIO_ADD_INSTR(APIO_JMP_PIN(APIO_LABEL(addr_write_valid)));
 
     // SM configuration
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->addr_reader_write_clkdiv_int,
         config->addr_reader_write_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(
-        PIO_JMP_PIN(config->write_pin)
+    APIO_SM_EXECCTRL_SET(
+        APIO_JMP_PIN(config->write_pin)
     );
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_addr_pins) |
-        PIO_IN_SHIFTDIR_L |
-        PIO_OUT_SHIFTDIR_L
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_IN_COUNT(config->num_addr_pins) |
+        APIO_IN_SHIFTDIR_L |
+        APIO_OUT_SHIFTDIR_L
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->addr_base_pin)
+    APIO_SM_PINCTRL_SET(
+        APIO_IN_BASE(config->addr_base_pin)
     );
 
     // Preload the X register to the high bits of the RAM table address
-    PIO_TXF = ram_table_high_bits;
-    PIO_SM_EXEC_INSTR(PULL_BLOCK);
-    PIO_SM_EXEC_INSTR(MOV_X_OSR);
+    APIO_TXF = ram_table_high_bits;
+    APIO_SM_EXEC_INSTR(APIO_PULL_BLOCK);
+    APIO_SM_EXEC_INSTR(APIO_MOV_X_OSR);
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Address Reader (RAM WRITE)");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Address Reader (RAM WRITE)");
 
     //
     // PIO 1 - End of block
     //
-    PIO_END_BLOCK();
+    APIO_END_BLOCK();
 
     // PIO 2 Programs
     //
     // Data Handlers
-    PIO_SET_BLOCK(2);
+    APIO_SET_BLOCK(2);
 
     // PIO 2 - Data Handlers
     //
     // SM0 - Data Input/Output handler
     //
     // Start by setting data pins to inputs
-    PIO_SET_SM(0);
-    PIO_LABEL_NEW(data_io_write_enabled);
+    APIO_SET_SM(0);
+    APIO_LABEL_NEW(data_io_write_enabled);
 
     // Set data pins to inputs
-    PIO_ADD_INSTR(MOV_PINDIRS_NULL);
+    APIO_ADD_INSTR(APIO_MOV_PINDIRS_NULL);
 
     // Test for /CE and /OE active
-    PIO_WRAP_BOTTOM();
-    PIO_ADD_INSTR(MOV_X_PINS);
-    PIO_ADD_INSTR(JMP_X_DEC(PIO_START_LABEL()));    // /CE or /OE inactive.  Have to jump
+    APIO_WRAP_BOTTOM();
+    APIO_ADD_INSTR(APIO_MOV_X_PINS);
+    APIO_ADD_INSTR(APIO_JMP_X_DEC(APIO_START_LABEL()));    // /CE or /OE inactive.  Have to jump
                                                     // to start and set pins to inputs cos
                                                     // this part of the loop is also used
                                                     // when pins may already be outputs.
 
     // /CE and /OE low - both active.  Check /W state next
-    PIO_LABEL_NEW_OFFSET(data_io_set_outputs, 2);           // Point to set data pins as outputs
-    PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(data_io_set_outputs))); // /W disabled, do enable
-    PIO_ADD_INSTR(JMP(PIO_LABEL(data_io_write_enabled)));   // /W enabled, don't enable
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(MOV_PINDIRS_NOT_NULL);                    // Set data pins to outputs
+    APIO_LABEL_NEW_OFFSET(data_io_set_outputs, 2);           // Point to set data pins as outputs
+    APIO_ADD_INSTR(APIO_JMP_PIN(APIO_LABEL(data_io_set_outputs))); // /W disabled, do enable
+    APIO_ADD_INSTR(APIO_JMP(APIO_LABEL(data_io_write_enabled)));   // /W enabled, don't enable
+    APIO_WRAP_TOP();
+    APIO_ADD_INSTR(APIO_MOV_PINDIRS_NOT_NULL);                    // Set data pins to outputs
 
     // Configure SM
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->data_io_clkdiv_int,
         config->data_io_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(
-        PIO_JMP_PIN(config->write_pin)
+    APIO_SM_EXECCTRL_SET(
+        APIO_JMP_PIN(config->write_pin)
     );
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_read_cs_pins) |    // /OE amd /CE
-        PIO_IN_SHIFTDIR_L                           // Direction doesn't matter
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_IN_COUNT(config->num_read_cs_pins) |    // /OE amd /CE
+        APIO_IN_SHIFTDIR_L                           // Direction doesn't matter
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->read_cs_base_pin) |     // /OE and /CE
-        PIO_OUT_COUNT(config->num_data_pins) |
-        PIO_OUT_BASE(config->data_base_pin)
+    APIO_SM_PINCTRL_SET(
+        APIO_IN_BASE(config->read_cs_base_pin) |     // /OE and /CE
+        APIO_OUT_COUNT(config->num_data_pins) |
+        APIO_OUT_BASE(config->data_base_pin)
     );
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Data IO Handler");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Data IO Handler");
 
     //
     // PIO2 - Data Handlers
@@ -681,65 +681,65 @@ static void pioram_load_programs(pioram_config_t *config) {
     // Just waits until 8 bits are made available by the READ DMA chain, then
     // writes them to the data pin outputs (whether they are set to outputs
     // or not).
-    PIO_SET_SM(1);
-    PIO_ADD_INSTR(OUT_PINS(config->num_data_pins)); // Autopull, blocks until all bits available
+    APIO_SET_SM(1);
+    APIO_ADD_INSTR(APIO_OUT_PINS(config->num_data_pins)); // Autopull, blocks until all bits available
 
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->data_out_clkdiv_int,
         config->data_out_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(0);
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_OUT_SHIFTDIR_R |    // Writes LSB of OSR
-        PIO_AUTOPULL |          // Auto pull when we hit threshold
-        PIO_PULL_THRESH(config->num_data_pins)  // Pull when we have all data bits
+    APIO_SM_EXECCTRL_SET(0);
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_OUT_SHIFTDIR_R |    // Writes LSB of OSR
+        APIO_AUTOPULL |          // Auto pull when we hit threshold
+        APIO_PULL_THRESH(config->num_data_pins)  // Pull when we have all data bits
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_OUT_COUNT(config->num_data_pins) |
-        PIO_OUT_BASE(config->data_base_pin)
+    APIO_SM_PINCTRL_SET(
+        APIO_OUT_COUNT(config->num_data_pins) |
+        APIO_OUT_BASE(config->data_base_pin)
     );
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Data Reader (RAM READ)");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Data Reader (RAM READ)");
 
     // PIO2 - Data Handlers
     //
     // SM2 - Data input (RAM WRITE)
-    PIO_SET_SM(2);
-    PIO_LABEL_NEW(data_in_valid);
-    PIO_ADD_INSTR(PUSH_BLOCK);              // Push data to RX FIFO for DMA
-    PIO_START();
-    PIO_ADD_INSTR(WAIT_IRQ_HIGH_NEXT(3));   // Wait for RAM WRITE IRQ
-    PIO_WRAP_BOTTOM();
-    PIO_ADD_INSTR(NOP);                     // Synchronise with address reader which takes 2 cycles to read
-    PIO_ADD_INSTR(MOV_ISR_PINS);            // Read at same time as address pins
-    PIO_WRAP_TOP();
-    PIO_ADD_INSTR(JMP_PIN(PIO_LABEL(data_in_valid)));   // Jump when /W goes high 
+    APIO_SET_SM(2);
+    APIO_LABEL_NEW(data_in_valid);
+    APIO_ADD_INSTR(APIO_PUSH_BLOCK);              // Push data to RX FIFO for DMA
+    APIO_START();
+    APIO_ADD_INSTR(APIO_WAIT_IRQ_HIGH_NEXT(3));   // Wait for RAM WRITE IRQ
+    APIO_WRAP_BOTTOM();
+    APIO_ADD_INSTR(APIO_NOP);                     // Synchronise with address reader which takes 2 cycles to read
+    APIO_ADD_INSTR(APIO_MOV_ISR_PINS);            // Read at same time as address pins
+    APIO_WRAP_TOP();
+    APIO_ADD_INSTR(APIO_JMP_PIN(APIO_LABEL(data_in_valid)));   // Jump when /W goes high 
 
-    PIO_SM_CLKDIV_SET(
+    APIO_SM_CLKDIV_SET(
         config->data_in_clkdiv_int,
         config->data_in_clkdiv_frac
     );
-    PIO_SM_EXECCTRL_SET(
-        PIO_JMP_PIN(config->write_pin)
+    APIO_SM_EXECCTRL_SET(
+        APIO_JMP_PIN(config->write_pin)
     );
-    PIO_SM_SHIFTCTRL_SET(
-        PIO_IN_COUNT(config->num_data_pins) |
-        PIO_IN_SHIFTDIR_L
+    APIO_SM_SHIFTCTRL_SET(
+        APIO_IN_COUNT(config->num_data_pins) |
+        APIO_IN_SHIFTDIR_L
     );
-    PIO_SM_PINCTRL_SET(
-        PIO_IN_BASE(config->data_base_pin)
+    APIO_SM_PINCTRL_SET(
+        APIO_IN_BASE(config->data_base_pin)
     );
 
     // Jump to start and log
-    PIO_SM_JMP_TO_START();
-    PIO_LOG_SM("Data Reader (RAM WRITE)");
+    APIO_SM_JMP_TO_START();
+    APIO_LOG_SM("Data Reader (RAM WRITE)");
 
     //
     // PIO 2 - End of block
     //
-    PIO_END_BLOCK();
+    APIO_END_BLOCK();
 }
 
 #if !defined(TEST_BUILD)
@@ -755,20 +755,20 @@ static void pioram_setup_dma(pioram_config_t *config) {
     
     // DMA0 - Address Forwarder (READ)
     dma_reg = DMA_CH_REG(0);
-    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(0);         // Read from RAM READ address reader RX FIFO
+    dma_reg->read_addr = (uint32_t)&APIO1_SM_RXF(0);         // Read from RAM READ address reader RX FIFO
     dma_reg->write_addr = (uint32_t)&DMA_CH_READ_ADDR_TRIG(1);  // Write to DMA1 to re-arm it
     dma_reg->transfer_count = 0xffffffff;                   // Re-arm self
     dma_reg->ctrl_trig =
         DMA_CTRL_TRIG_EN |                                  // Enable DMA
         DMA_CTRL_TRIG_IRQ_QUIET |                           // No IRQs
-        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 0)) |  // Triggered by RAM READ address reader RX FIFO
+        DMA_CTRL_TRIG_TREQ_SEL(APIO_DREQ_PIO_X_SM_Y_RX(1, 0)) |  // Triggered by RAM READ address reader RX FIFO
         DMA_CTRL_TRIG_DATA_SIZE_32BIT |                     // Read a 32-bit RAM READ target address
         DMA_CTRL_TRIG_CHAIN_TO(0);                          // Disable chaining
     
     // DMA1 - Data Fetcher (READ)
     dma_reg = DMA_CH_REG(1);
     dma_reg->read_addr = config->ram_table_addr;            // Placeholder value, written to by DMA0
-    dma_reg->write_addr = (uint32_t)&PIO2_SM_TXF(1);        // Write to RAM READ data writer TX FIFO
+    dma_reg->write_addr = (uint32_t)&APIO2_SM_TXF(1);        // Write to RAM READ data writer TX FIFO
     dma_reg->transfer_count = 1;                            // Run once, then require re-arming by DMA0 writing to ADDR_TRIG register
     dma_reg->ctrl_trig =
         DMA_CTRL_TRIG_EN |                                  // Enable DMA
@@ -783,20 +783,20 @@ static void pioram_setup_dma(pioram_config_t *config) {
     
     // DMA2 - Address Forwarder (WRITE)
     dma_reg = DMA_CH_REG(2);
-    dma_reg->read_addr = (uint32_t)&PIO1_SM_RXF(1);         // Read from RAM WRITE address reader RX FIFO
+    dma_reg->read_addr = (uint32_t)&APIO1_SM_RXF(1);         // Read from RAM WRITE address reader RX FIFO
     dma_reg->write_addr = (uint32_t)&DMA_CH_WRITE_ADDR_TRIG(3);  // Trigger DMA3 to store the data byte
     dma_reg->transfer_count = 0xffffffff;                   // Re-arm self
     dma_reg->ctrl_trig =
         DMA_CTRL_TRIG_EN |                                  // Enable DMA
         DMA_CTRL_TRIG_IRQ_QUIET |                           // No IRQs
         DMA_CTRL_TRIG_PRIORITY_HIGH |                       // High priority
-        DMA_CTRL_TRIG_TREQ_SEL(DREQ_PIO_X_SM_Y_RX(1, 1)) |  // Triggered by RAM WRITE address reader RX FIFO
+        DMA_CTRL_TRIG_TREQ_SEL(APIO_DREQ_PIO_X_SM_Y_RX(1, 1)) |  // Triggered by RAM WRITE address reader RX FIFO
         DMA_CTRL_TRIG_DATA_SIZE_32BIT |                     // Read a 32-bit RAM WRITE target address
         DMA_CTRL_TRIG_CHAIN_TO(2);                          // Disable chaining
     
     // DMA3 - Data Writer (WRITE)
     dma_reg = DMA_CH_REG(3);
-    dma_reg->read_addr = (uint32_t)&PIO2_SM_RXF(2);         // Read from RAM WRITE data reader RX FIFO
+    dma_reg->read_addr = (uint32_t)&APIO2_SM_RXF(2);         // Read from RAM WRITE data reader RX FIFO
     dma_reg->write_addr = config->ram_table_addr;           // Placeholder, gets overwritten by DMA2
     dma_reg->transfer_count = 1;
     dma_reg->ctrl_trig =
@@ -846,9 +846,9 @@ static void pioram_set_gpio_func(pioram_config_t *config) {
 
 // Start all PIO state machines
 static void pioram_start_pios(void) {
-    PIO_ENABLE_SMS(0, 0x1);  // Enable SM0
-    PIO_ENABLE_SMS(1, 0x3);  // Enable SM0 and SM1
-    PIO_ENABLE_SMS(2, 0x7);  // Enable SM0,
+    APIO_ENABLE_SMS(0, 0x1);  // Enable SM0
+    APIO_ENABLE_SMS(1, 0x3);  // Enable SM0 and SM1
+    APIO_ENABLE_SMS(2, 0x7);  // Enable SM0,
     DEBUG("RAM PIOs started");
 }
 
@@ -857,7 +857,7 @@ static void pioram_start_pios(void) {
 extern uint32_t _ram_rom_image_start[];
 
 // Top-level RAM serving function
-void pioram(
+int pioram(
     const sdrr_info_t *info,
     uint32_t ram_table_addr
 ) {
@@ -893,7 +893,7 @@ void pioram(
     };
     
     // Bring PIOs and DMA out of reset
-    PIO_ENABLE();
+    APIO_ENABLE_PIOS();
     DMA_ENABLE();
     
     // Setup DMA channels
@@ -920,9 +920,9 @@ void pioram(
     while (1) {
         // See if any PIO FIFOs are full
         uint32_t volatile pio_fstats[3] = {
-            PIO0_FSTAT,
-            PIO1_FSTAT,
-            PIO2_FSTAT
+            APIO0_FSTAT,
+            APIO1_FSTAT,
+            APIO2_FSTAT
         };
         for (int ii = 0; ii < 3; ii++) {
             uint32_t pio_fstat = pio_fstats[ii];
@@ -974,8 +974,10 @@ void pioram(
 
     // Low power loop
     while (1) {
-        __asm volatile("wfi");
+        APIO_ASM_WFI();
     }
+
+    return 0;
 }
 
 

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <include.h>
 #include <test/stub.h>
+#define APIO_EMU_IMPL
 #include <apio.h>
 #include <epio.h>
 #include <epio_wasm.h>
@@ -59,7 +60,7 @@ EPIO_EXPORT epio_t *onerom_init(void) {
     firmware_main();
     
     // Check PIOs were enabled
-    if (test_pio.pios_enabled != 1) {
+    if (_apio_emulated_pio.pios_enabled != 1) {
         return 0;
     }
     

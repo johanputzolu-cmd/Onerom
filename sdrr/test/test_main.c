@@ -242,8 +242,8 @@ int main(int argc, char *argv[]) {
 
     TST_LOG("-----");
 
-    if (test_pio.pios_enabled != 1) {
-        TST_LOG("PIO programs were not enabled: %d", test_pio.pios_enabled);
+    if (_apio_emulated_pio.pios_enabled != 1) {
+        TST_LOG("PIO programs were not enabled: %d", _apio_emulated_pio.pios_enabled);
         return 1;
     }
 

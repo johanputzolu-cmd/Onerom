@@ -164,6 +164,7 @@ extern const sdrr_info_t sdrr_info;
 #endif // BOOT_LOGGING
 #if defined(DEBUG_LOGGING)
 #define DEBUG(X, ...)  do_log(X, ##__VA_ARGS__)
+#define APIO_LOG_ENABLE DEBUG
 #else // DEBUG_LOGGING
 #define DEBUG(X, ...)
 #endif // DEBUG_LOGGING
