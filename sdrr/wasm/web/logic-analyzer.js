@@ -1,4 +1,5 @@
 // Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
+//
 // MIT License
 //
 // One ROM Logic Analyzer - Browser-based PIO emulator visualization
@@ -1356,8 +1357,11 @@ class AnalyzerController {
 
         // Step button - single click or hold to step continuously
         const stepBtn = document.getElementById('stepBtn');
+        let stepButtonHeld = false; 
 
         stepBtn.addEventListener('mousedown', () => {
+            stepButtonHeld = true; 
+
             if (!this.execution.isRunning()) {
                 // Starting fresh - clear samples like Start button does
                 this.samples.clear();
@@ -1374,7 +1378,7 @@ class AnalyzerController {
             
             // Start continuous stepping after short delay
             setTimeout(() => {
-                if (this.stepInterval === null) {  // Only if still holding
+                if (stepButtonHeld && this.stepInterval === null) {
                     this.stepInterval = setInterval(() => {
                         this.execution.singleStep();
                     }, CONFIG.STEP_INTERVAL);
@@ -1383,6 +1387,7 @@ class AnalyzerController {
         });
 
         stepBtn.addEventListener('mouseup', () => {
+            stepButtonHeld = false; 
             if (this.stepInterval) {
                 clearInterval(this.stepInterval);
                 this.stepInterval = null;
@@ -1390,6 +1395,7 @@ class AnalyzerController {
         });
 
         stepBtn.addEventListener('mouseleave', () => {
+            stepButtonHeld = false;
             if (this.stepInterval) {
                 clearInterval(this.stepInterval);
                 this.stepInterval = null;
