@@ -219,6 +219,14 @@ class WASMModule {
             this.module._free(bufferPtr);
         }
     }
+
+    oneromLensGetRomSize() {
+        return this.module.ccall('onerom_lens_get_rom_size', 'number', [], []);
+    }
+
+    oneromLensGetDataBits() {
+        return this.module.ccall('onerom_lens_get_num_data_bits', 'number', [], []);
+    }
 }
 
 // =============================================================================
@@ -368,6 +376,7 @@ class ExecutionEngine {
         
         // Read sequence state machine
         this.currentAddr = 0;
+        this.romSize = this.wasm.oneromLensGetRomSize();
         this.maxAddr = 0;
         this.readState = 'idle';
         this.cyclesRemaining = 0;
@@ -387,7 +396,7 @@ class ExecutionEngine {
         
         this.numAddrBits = numAddrBits;
         this.currentAddr = 0;
-        this.maxAddr = (1 << numAddrBits) - 1;
+        this.maxAddr = this.romSize - 1;
         this.direction = 1;
         this.readState = 'drive';
         this.cyclesRemaining = 0;
@@ -1258,7 +1267,7 @@ class AnalyzerController {
         this.startRenderLoop();
 
         this.updateExecutionButtons(); 
-        
+        this.updateRomSize();
         this.updateStatus('Ready');
     }
     
@@ -1581,6 +1590,14 @@ class AnalyzerController {
         this.updateSampleCount();
         this.updateScrollbar();
     }
+
+    updateRomSize() {
+        const romSizeBytes = this.wasm.oneromLensGetRomSize();
+        document.getElementById('romSize').textContent = formatNumber(romSizeBytes) + ' bytes';
+        const dataBits = this.wasm.oneromLensGetDataBits();
+        this.setAddressBitsForRom(romSizeBytes);
+        this.setDataBitsForRom(dataBits);
+    }
     
     updateStatus(status) {
         document.getElementById('status').textContent = status;
@@ -1601,6 +1618,32 @@ class AnalyzerController {
         if (this.renderer.autoScroll) {
             scrollbar.value = this.renderer.scrollPos;
         }
+    }
+
+    setAddressBitsForRom(romSizeBytes) {
+        // Calculate required address bits: ceil(log2(size))
+        const requiredBits = Math.ceil(Math.log2(romSizeBytes));
+        
+        // Clamp to valid range (10-19 based on your dropdown)
+        const addrBits = Math.max(10, Math.min(19, requiredBits));
+        
+        // Update dropdown
+        const dropdown = document.getElementById('addrBits');
+        dropdown.value = addrBits;
+        
+        // Trigger the change to update decoder
+        const dataBits = parseInt(document.getElementById('dataBits').value);
+        this.decoder.buildPinMap(addrBits, dataBits);
+        this.updateDisplay();
+        
+        console.log(`ROM size: ${romSizeBytes} bytes → ${addrBits} address bits`);
+    }
+
+    setDataBitsForRom(dataBits) {
+        // Update dropdown
+        const dropdown = document.getElementById('dataBits');
+        dropdown.value = dataBits;
+        console.log(`ROM data bits: ${dataBits} bits`);
     }
 }
 

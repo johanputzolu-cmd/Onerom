@@ -66,7 +66,8 @@ WASM_CFLAGS := -DAPIO_EMULATION=1 -DTEST_BUILD=1 -DEPIO_WASM \
 ONEROM_WASM_EXPORTS := "_onerom_init","_onerom_drive_pins","_onerom_release_pins",\
 "_onerom_read_data","_onerom_get_addr_pin","_onerom_get_data_pin",\
 "_onerom_get_cs1_pin","_onerom_get_cs2_pin","_onerom_get_cs3_pin",\
-"_onerom_get_x1_pin","_onerom_get_x2_pin","_onerom_get_pio_disassembly"
+"_onerom_get_x1_pin","_onerom_get_x2_pin","_onerom_get_pio_disassembly",\
+"_onerom_lens_get_rom_size","_onerom_lens_get_num_data_bits"
 
 # Emscripten linker flags
 WASM_LDFLAGS := -s WASM=1 \

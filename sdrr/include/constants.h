@@ -33,5 +33,6 @@ extern const char enabled[];
 extern const char oscillator[];
 extern const char * const port_names[];
 extern const char * const cs_values[];
+extern const uint32_t chip_size_from_type[NUM_CHIP_TYPES];
 
 #endif // CONSTANTS_H

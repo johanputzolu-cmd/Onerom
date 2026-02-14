@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <include.h>
+#include "roms.h"
 #include <test/stub.h>
 #include <apio.h>
 #include <epio.h>
@@ -74,6 +75,47 @@ EPIO_EXPORT epio_t *onerom_init(void) {
     epio_sram_set(g_epio, 0x20000000, (uint8_t *)source, 512*1024);
     
     return g_epio;
+}
+
+static const sdrr_rom_info_t *get_first_rom_info(void) {
+    if (sdrr_rom_set_count == 0) {
+        return NULL; // No ROM sets available
+    }
+
+    // Get the first ROM image
+    const sdrr_rom_set_t *rom_set_0 = &rom_set[0];
+    if (rom_set_0->rom_count == 0) {
+        return NULL; // No ROMs in the set
+    }
+
+    return rom_set_0->roms[0];
+}
+
+EPIO_EXPORT int32_t onerom_lens_get_rom_size(void) {
+    const sdrr_rom_info_t *rom = get_first_rom_info();
+    if (!rom) {
+        return -1; // No ROM available
+    }
+
+    assert(rom->rom_type < NUM_CHIP_TYPES);
+    uint32_t size = chip_size_from_type[rom->rom_type];
+
+    return size;
+}
+
+EPIO_EXPORT uint8_t onerom_lens_get_num_data_bits(void) {
+    const sdrr_rom_info_t *rom = get_first_rom_info();
+    if (!rom) {
+        return 0; // No ROM available
+    }
+
+    assert(rom->rom_type < NUM_CHIP_TYPES);
+    uint8_t data_bits = 8;
+    if (rom->rom_type == CHIP_TYPE_27C400) {
+        data_bits = 16;
+    }
+
+    return data_bits;
 }
 
 // Step the emulator forward by N cycles
