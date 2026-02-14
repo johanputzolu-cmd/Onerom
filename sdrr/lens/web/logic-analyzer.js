@@ -125,10 +125,10 @@ class WASMModule {
         return this.epioHandle !== 0;  // Return success/fail as boolean
     }
     
-    oneromDrivePins(addr, numAddrBits, cs1, cs2, cs3, x1, x2) {
+    oneromDrivePins(addr, numAddrBits, cs1, cs2, cs3, x1, x2, ce, oe) {
         this.module.ccall('onerom_drive_pins', null,
-            ['number', 'number', 'number', 'number', 'number', 'number', 'number'],
-            [addr, numAddrBits, cs1, cs2, cs3, x1, x2]);
+            ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
+            [addr, numAddrBits, cs1, cs2, cs3, x1, x2, ce, oe]);
     }
     
     oneromReleasePins() {
@@ -166,6 +166,14 @@ class WASMModule {
     
     oneromGetX2Pin() {
         return this.module.ccall('onerom_get_x2_pin', 'number', [], []);
+    }
+
+    oneromGetCEPin() {
+        return this.module.ccall('onerom_get_ce_pin', 'number', [], []);
+    }
+
+    oneromGetOEPin() {
+        return this.module.ccall('onerom_get_oe_pin', 'number', [], []);
     }
     
     // Direct epio API calls using the handle
@@ -226,6 +234,14 @@ class WASMModule {
 
     oneromLensGetDataBits() {
         return this.module.ccall('onerom_lens_get_num_data_bits', 'number', [], []);
+    }
+
+    oneromLensGetNumAddrBits() {
+        return this.module.ccall('onerom_lens_get_num_addr_bits', 'number', [], []);
+    }
+
+    oneromLensDriveAddr(addr, cs) {
+        this.module.ccall('onerom_drive_addr', null, ['number', 'number'], [addr, cs]);
     }
 }
 
@@ -307,6 +323,8 @@ class SignalDecoder {
                 cs3: this.wasm.oneromGetCS3Pin(),
                 x1: this.wasm.oneromGetX1Pin(),
                 x2: this.wasm.oneromGetX2Pin(),
+                ce: this.wasm.oneromGetCEPin(),
+                oe: this.wasm.oneromGetOEPin()
             }
         };
         
@@ -470,15 +488,10 @@ class ExecutionEngine {
         
         switch (this.readState) {
             case 'drive':
-                this.wasm.oneromDrivePins(
+                this.wasm.oneromLensDriveAddr(
                     this.currentAddr,
-                    this.numAddrBits,
-                    CONFIG.PIN_DRIVEN_LOW,
-                    CONFIG.PIN_NOT_DRIVEN,
-                    CONFIG.PIN_NOT_DRIVEN,
-                    CONFIG.PIN_NOT_DRIVEN,
-                    CONFIG.PIN_NOT_DRIVEN
-                );
+                    1
+                )
                 this.readState = 'setup';
                 this.cyclesRemaining = setupCycles;
                 break;
@@ -594,6 +607,8 @@ class WaveformRenderer {
         this.showCS3 = true;
         this.showX1 = true;
         this.showX2 = true;
+        this.showCE = true;
+        this.showOE = true;
         
         // Signal group expansion state
         this.addrExpanded = true;
@@ -709,7 +724,9 @@ class WaveformRenderer {
             { name: 'cs2', show: this.showCS2 },
             { name: 'cs3', show: this.showCS3 },
             { name: 'x1', show: this.showX1 },
-            { name: 'x2', show: this.showX2 }
+            { name: 'x2', show: this.showX2 },
+            { name: 'ce', show: this.showCE },
+            { name: 'oe', show: this.showOE }
         ];
 
         for (const ctrl of controls) {
@@ -1254,6 +1271,8 @@ class AnalyzerController {
         this.renderer.showCS3 = document.getElementById('toggleCS3').checked;
         this.renderer.showX1 = document.getElementById('toggleX1').checked;
         this.renderer.showX2 = document.getElementById('toggleX2').checked;
+        this.renderer.showCE = document.getElementById('toggleCE').checked;
+        this.renderer.showOE = document.getElementById('toggleOE').checked;
         
         // Initial pin map
         const addrBits = parseInt(document.getElementById('addrBits').value);
@@ -1404,6 +1423,14 @@ class AnalyzerController {
 
         document.getElementById('toggleX2').addEventListener('change', (e) => {
             this.renderer.showX2 = e.target.checked;
+        });
+
+        document.getElementById('toggleCE').addEventListener('change', (e) => {
+            this.renderer.showCE = e.target.checked;
+        });
+
+        document.getElementById('toggleOE').addEventListener('change', (e) => {
+            this.renderer.showOE = e.target.checked;
         });
         
         // Collapse/expand buttons
@@ -1621,11 +1648,7 @@ class AnalyzerController {
     }
 
     setAddressBitsForRom(romSizeBytes) {
-        // Calculate required address bits: ceil(log2(size))
-        const requiredBits = Math.ceil(Math.log2(romSizeBytes));
-        
-        // Clamp to valid range (10-19 based on your dropdown)
-        const addrBits = Math.max(10, Math.min(19, requiredBits));
+        const addrBits = this.wasm.oneromLensGetNumAddrBits();
         
         // Update dropdown
         const dropdown = document.getElementById('addrBits');
@@ -1643,6 +1666,13 @@ class AnalyzerController {
         // Update dropdown
         const dropdown = document.getElementById('dataBits');
         dropdown.value = dataBits;
+        console.log(`ROM data bits: ${dataBits} bits`);
+
+        // Trigger the change to update decoder
+        const addrBits = parseInt(document.getElementById('addrBits').value);
+        this.decoder.buildPinMap(addrBits, dataBits);
+        this.updateDisplay();
+        
         console.log(`ROM data bits: ${dataBits} bits`);
     }
 }

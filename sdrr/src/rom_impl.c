@@ -56,8 +56,6 @@
 // Pull in the RAM ROM image start/end locations from the linker
 extern uint32_t _ram_rom_image_start[];
 extern uint32_t _ram_rom_image_end[];
-extern uint32_t _Ram_Rom_Image_Size[];
-#define RAM_ROM_IMAGE_SIZE ((uint32_t)_Ram_Rom_Image_Size)
 
 // Do the fairly complex job of setting up the CS masks for use in the main
 // loop algorithm.
@@ -731,28 +729,36 @@ uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask) {
 }
 
 void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_set_t *set) {
-#if !defined(RP235X)
+#if !defined(RP235X) || defined(TEST_BUILD)
     (void)runtime_info;
 #endif
-    uint32_t *img_src, *img_dst;
+#if !defined(TEST_BUILD)
+    uint32_t *img_dst;
+    uint32_t *img_src;
+#else // TEST_BUILD
+    uint64_t *img_src;
+    uint64_t *img_dst;
+#endif // TEST_BUILD
     uint32_t img_size;
 
 #if !defined(TEST_BUILD)
     uint32_t *ram_table_ptr = _ram_rom_image_start;
 #else
-    uint32_t *ram_table_ptr = get_ram_rom_image_table_aligned();
+    uint64_t *ram_table_ptr = get_ram_rom_image_table_aligned();
 #endif
     // Find the start of this ROM image in the flash memory
     img_size = set->size;
-    if ((((img_size + 3) / 4) * 4) > RAM_ROM_IMAGE_SIZE) {
-        ERR("ROM image too large 0x%08X > 0x%08X",
-            ((img_size + 3) / 4) * 4,
-            RAM_ROM_IMAGE_SIZE);
-        limp_mode(LIMP_MODE_INVALID_CONFIG);
-    }
+#if !defined(TEST_BUILD)
     img_src = (uint32_t *)(set->data);
+#else
+    img_src = (uint64_t *)(set->data);
+#endif
 
+#if !defined(TEST_BUILD)
     if ((set->roms[0]->rom_type == CHIP_TYPE_6116) && (img_src == (uint32_t *)0xFFFFFFFF)) {
+#else // TEST_BUILD
+    if ((set->roms[0]->rom_type == CHIP_TYPE_6116) && (img_src == (uint64_t *)0xFFFFFFFF)) {
+#endif // TEST_BUILD
         LOG("No RAM image");
         img_dst = ram_table_ptr;
         return (void *)img_dst;
@@ -775,13 +781,6 @@ void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_
 #endif // defined(CCM_RAM_BASE) && !defined(DISABLE_CCM)
 
 #if defined(BOOT_LOGGING)
-    if (set->roms[0]->filename != NULL) {
-        DEBUG("ROM filename: %s", set->roms[0]->filename);
-    }
-#endif // BOOT_LOGGING
-    DEBUG("Preloading %d bytes for %s", img_size, chip_type_strings[set->roms[0]->rom_type]);
-
-#if defined(BOOT_LOGGING)
     const char *filename = "";
     if (set->roms[0]->filename != NULL) {
         filename = set->roms[0]->filename;
@@ -789,12 +788,17 @@ void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_
     LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", filename, (uint32_t)(uintptr_t)img_dst, img_size);
 #endif // BOOT_LOGGING
 
-#if defined(RP235X)
+    DEBUG("Preloading from 0x%llX to 0x%llX size 0x%08X",
+        (unsigned long long)(uintptr_t)img_src,
+        (unsigned long long)(uintptr_t)img_dst,
+        img_size);
+#if defined(RP235X) && !defined(TEST_BUILD)
     if (runtime_info->rom_dma_copy) {
         if ((((uint32_t)img_src % 4) != 0) || (((uint32_t)img_dst % 4) != 0)) {
             ERR("ROM src/dest unaligned: 0x%08X 0x%08X", (uint32_t)img_src, (uint32_t)img_dst);
             limp_mode(LIMP_MODE_INVALID_CONFIG);
         }
+        DEBUG("Triggered DMA copy");
         dma_copy((uint32_t)img_src, (uint32_t)img_dst, (img_size+3) / 4);
         LOG("DMA preload initiated to 0x%08X size 0x%08X %s", (uint32_t)img_dst, img_size, filename);
     } else {
@@ -803,7 +807,7 @@ void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_
         // processed before embedding in the flash.
         memcpy(img_dst, img_src, img_size);
         LOG("CPU preload complete to 0x%08X size 0x%08X %s", (uint32_t)img_dst, img_size, filename);
-#if defined(RP235X)
+#if defined(RP235X) && !defined(TEST_BUILD)
     }
 #endif // RP235X
 

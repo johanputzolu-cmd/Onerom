@@ -289,14 +289,17 @@ void setup_gpio(void) {
     // Go through the data pins, disabling the output disable and setting the
     // drive strength.  We don't actually set as an output here.
     // Set the drive strength to 8mA and slew rate to fast.
-    for (int ii = 0; ii < 8; ii++) {
-        uint8_t pin = sdrr_info.pins->data[ii];
-        if (pin < MAX_USED_GPIOS) {
-            GPIO_PAD(sdrr_info.pins->data[ii]) &= ~PAD_OUTPUT_DISABLE;
-            GPIO_PAD(sdrr_info.pins->data[ii]) |= PAD_DRIVE(PAD_DRIVE_8MA) | PAD_SLEW_FAST;
-            GPIO_CTRL(pin) = GPIO_CTRL_FUNC_SIO;
-        } else {
-            ERR("Invalid data pin %d", pin);
+    const uint8_t *data_pins[] = {sdrr_info.pins->data, sdrr_info.pins->data2};
+    for (int jj = 0; jj < 2; jj++) {
+        for (int ii = 0; ii < 8; ii++) {
+            uint8_t pin = data_pins[jj][ii];
+            if (pin < MAX_USED_GPIOS) {
+                GPIO_PAD(pin) &= ~PAD_OUTPUT_DISABLE;
+                GPIO_PAD(pin) |= PAD_DRIVE(PAD_DRIVE_8MA) | PAD_SLEW_FAST;
+                GPIO_CTRL(pin) = GPIO_CTRL_FUNC_SIO;
+            } else {
+                ERR("Invalid data pin %d", pin);
+            }
         }
     }
 

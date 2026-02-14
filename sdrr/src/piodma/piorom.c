@@ -394,7 +394,11 @@ typedef struct piorom_config {
 
     // Whether to use DMA (0 = use)
     uint8_t no_dma;
-    uint8_t pad[2];
+
+    // /BYTE pin number (16 bit only)
+    uint8_t byte_pin;
+
+    uint8_t pad;
 
     // 16 bytes to here
 
@@ -655,7 +659,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     }
 #endif
     // !!!
-    APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(13), 3));
+    APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(13), config->addr_read_delay));
 
     
     uint8_t num_addr_pins = config->num_addr_pins;
@@ -693,6 +697,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     );
     APIO_SM_EXECCTRL_SET(0);
     APIO_SM_SHIFTCTRL_SET(
+        // !!! Skip the first addr pin /BYTE
         APIO_IN_COUNT(num_addr_pins) |   // Reading the address pins (unused
                                         // as this is for mov instructions)
         APIO_AUTOPUSH |                  // Auto push when we hit threshold
@@ -718,16 +723,26 @@ static void piorom_load_programs(piorom_config_t *config) {
     // Temporary Second Address Reader for 16-bit mode
     // 
     APIO_SET_SM(1);
-    APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(13), 3));
-    APIO_ADD_INSTR(APIO_IN_PINS(18));
-    APIO_WRAP_TOP();
-    APIO_ADD_INSTR(APIO_IN_Y(1));
-        APIO_SM_CLKDIV_SET(
+    APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(13), config->addr_read_delay));
+
+    if (config->bit_mode == BIT_MODE_8) {
+        APIO_WRAP_TOP();
+        APIO_ADD_INSTR(APIO_IN_PINS(num_addr_pins));
+    } else {
+        // +1 and NOP for 16 bit hack
+        APIO_ADD_INSTR(APIO_IN_PINS(num_addr_pins+1));
+        APIO_WRAP_TOP();
+        APIO_ADD_INSTR(APIO_NOP);
+    }
+    //APIO_ADD_INSTR(APIO_IN_Y(1));
+    APIO_SM_CLKDIV_SET(
         config->addr_reader_read_clkdiv_int,
         config->addr_reader_read_clkdiv_frac
     );
+    APIO_SM_EXECCTRL_SET(0);
     APIO_SM_SHIFTCTRL_SET(
-        APIO_IN_COUNT(18) |   // Reading the address pins (unused
+        // !!!!!! +1 for 16 bit hack
+        APIO_IN_COUNT(num_addr_pins+1) |   // Reading the address pins (unused
                                         // as this is for mov instructions)
         APIO_AUTOPUSH |                  // Auto push when we hit threshold
         APIO_PUSH_THRESH(32) |           // Push when we have 32 bits (from
@@ -736,14 +751,12 @@ static void piorom_load_programs(piorom_config_t *config) {
         APIO_OUT_SHIFTDIR_L      // Direction doesn't matter, as we push 32 bits
     );
     APIO_SM_PINCTRL_SET(
-        APIO_IN_BASE(19)
+        // !!! 16 bit hack
+        APIO_IN_BASE(base_addr_pin-1)
     );
     APIO_TXF = rom_table_high_bits;
     APIO_SM_EXEC_INSTR(APIO_PULL_BLOCK);  // Pull it into OSR
     APIO_SM_EXEC_INSTR(APIO_MOV_X_OSR);   // Store it in X
-    APIO_TXF = 0xffffffff;
-    APIO_SM_EXEC_INSTR(APIO_PULL_BLOCK);  // Pull it into OSR
-    APIO_SM_EXEC_INSTR(APIO_MOV_Y_OSR);   // Store it in Y
     APIO_SM_JMP_TO_START();
     APIO_LOG_SM("Address reader upper");
 
@@ -882,7 +895,13 @@ static void piorom_load_programs(piorom_config_t *config) {
     APIO_SET_SM(1);
 
     // Load the data byte output program
-    APIO_ADD_INSTR(APIO_OUT_PINS(8));
+    uint8_t bits;
+    if (config->bit_mode == BIT_MODE_8) {
+        bits = 8;
+    } else {
+        bits = 16;
+    }
+    APIO_ADD_INSTR(APIO_OUT_PINS(bits));
 
     // Configure the data byte SM
     APIO_SM_CLKDIV_SET(
@@ -893,11 +912,11 @@ static void piorom_load_programs(piorom_config_t *config) {
     APIO_SM_SHIFTCTRL_SET(
         APIO_OUT_SHIFTDIR_R |                    // Writes LSB of OSR
         APIO_AUTOPULL |                          // Auto pull when we hit threshold
-        APIO_PULL_THRESH(8)  // Pull when we have 8 or 16 bits
+        APIO_PULL_THRESH(bits)  // Pull when we have 8 or 16 bits
     );
     APIO_SM_PINCTRL_SET(
         APIO_OUT_BASE(0) |
-        APIO_OUT_COUNT(8)
+        APIO_OUT_COUNT(bits)
     );
 
     // Jump to start and log
@@ -933,9 +952,14 @@ static void piorom_load_programs(piorom_config_t *config) {
 }
 
 // Starts the PIO state machines for ROM serving.
-static void piorom_start_pios() {
-    APIO_ENABLE_SMS(1, 0x3); // Enable SM0 and SM1
-    APIO_ENABLE_SMS(2, 0x7); // Enable SM0 and SM1 and SM2
+static void piorom_start_pios(piorom_config_t *config) {
+    if (config->bit_mode == BIT_MODE_8) {
+        APIO_ENABLE_SMS(1, 0x1); // Enable SM0
+        APIO_ENABLE_SMS(2, 0x3); // Enable SM0 and SM1
+    } else {
+        APIO_ENABLE_SMS(1, 0x1); // Enable SM0
+        APIO_ENABLE_SMS(2, 0x3); // Enable SM0 and SM1
+    }
 }
 
 // Set GPIOs to PIO function for ROM serving
@@ -945,14 +969,16 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
     uint8_t cs_base_pin = config->cs_base_pin;
     uint8_t *cs_pin_invert = config->invert_cs;
     uint8_t data_base_pin = config->data_base_pin;
+    uint8_t num_data_pins = config->num_data_pins;
     //uint8_t addr_base_pin = config->addr_base_pin;
 
     // Data pins
     for (int ii = data_base_pin;
-        ii < (data_base_pin + NUM_DATA_LINES);
+        ii < (data_base_pin + num_data_pins);
         ii++) {
         GPIO_CTRL(ii) = GPIO_CTRL_FUNC_PIO2;
     }
+    DEBUG("Data pins %d-%d set to PIO2", data_base_pin, data_base_pin + num_data_pins - 1);
 
     // Address pins - not required, inputs only
     // for (int ii = addr_base_pin;
@@ -979,6 +1005,14 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
             GPIO_CTRL(pin) |= GPIO_CTRL_INOVER_INVERT;
             DEBUG("  CS pin %d active high CTRL=0x%08X", pin, GPIO_CTRL(pin));
         }
+    }
+
+    // !!! 16 bit hack
+    // For 40 pin ROMs currently force /byte to read 1, as we are using thi
+    // A-1 (addr bit 0)
+    if (config->byte_pin < MAX_USED_GPIOS) {
+        DEBUG("!!! Force /BYTE pin to read high");
+        GPIO_CTRL(config->byte_pin) |= GPIO_CTRL_INOVER_HIGH;
     }
 }
 
@@ -1030,11 +1064,7 @@ static void piorom_setup_dma(
     uint32_t ctrl_trig = DMA_CTRL_TRIG_EN | DMA_CTRL_TRIG_CHAIN_TO(0);
     if (config->bit_mode == BIT_MODE_16) {
         DEBUG("DMA1 16-bit");
-        //ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_16BIT;
-
-        // !!!!
-        ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_8BIT;
-
+        ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_16BIT;
     } else {
         DEBUG("DMA1 8-bit");
         ctrl_trig |= DMA_CTRL_TRIG_DATA_SIZE_8BIT;
@@ -1052,6 +1082,7 @@ static void piorom_setup_dma(
     }
     dma_reg->ctrl_trig = ctrl_trig;
 
+#if 0
     //
     // Temporary duplicate DMA channel for 16-bit mode
     //
@@ -1073,6 +1104,7 @@ static void piorom_setup_dma(
         DMA_CTRL_TRIG_DATA_SIZE_8BIT |
         DMA_CTRL_TRIG_TREQ_SEL(APIO_DREQ_PIO_X_SM_Y_RX(1, 1)) |
         DMA_CTRL_TRIG_CHAIN_TO(2);
+#endif
 
     // Set DMA Read as high priority on the AHB5 bus for both:
     // - Reads (from RAM and PIO RX FIFO)
@@ -1525,20 +1557,32 @@ static void piorom_finish_config(
         }
     } else {
         config->num_addr_pins = 19; // Doesn't include OE/CE/BYTE
+        config->byte_pin = info->pins->byte;
     }
 
     // Handle 8/16 bit mode for 40 pin ROMs
     config->bit_mode = BIT_MODE_8;
+
     if (info->pins->chip_pins == 40) {
+        DEBUG("40 pin ROM detected, checking /BYTE pin for 8/16 bit mode");
         // Read the /BYTE pin state from the SIO
+
+        // For now just force 16 bit mode
+        runtime->force_16_bit = 1;
+
+
+#if !defined(TEST_BUILD)
         if (runtime->force_16_bit || SIO_GPIO_READ(info->pins->byte)) {
+#else // TEST_BUILD
+        if (runtime->force_16_bit) {
+#endif // !TEST_BUILD
             // /BYTE high - 16 bit mode
             DEBUG("Enabe 16-bit mode");
             config->bit_mode = BIT_MODE_16;
             if (config->addr_read_delay > 0) {
                 // PIO algorithm for 16 bits takes 1 extra cycle - so we can
                 // shave one off the delay
-                config->addr_read_delay -= 1;
+                config->addr_read_delay += 2;
             }
             config->num_data_pins = 16;
         }
@@ -1594,7 +1638,8 @@ static piorom_config_t piorom_config = {
 #else // !PIO_CONFIG_NO_DMA
     .no_dma = 0,
 #endif // PIO_CONFIG_NO_DMA
-    .pad = {0, 0},
+    .byte_pin = 255,
+    .pad = 0,
     .rom_table_addr = 0,
     .addr_reader_read_clkdiv_int = 1,
     .addr_reader_read_clkdiv_frac = 0,
@@ -1679,14 +1724,18 @@ int piorom(
 
     DEBUG("%s", log_divider);
 
+    DEBUG("Copy PIO ROM config");
     memcpy(&config, &piorom_config, sizeof(piorom_config_t));
 
     // Apply any ROM set overrides
+    DEBUG("Apply any ROM set overrides");
     piorom_overrides(set, &config);
 
+    DEBUG("Finish PIO ROM config");
     piorom_finish_config(&config, info, runtime, set, rom_table_addr);
 
     // Bring PIO0 and DMA out of reset
+    DEBUG("Enable PIO and DMA");
     APIO_ENABLE_PIOS();
     DMA_ENABLE();
 
@@ -1695,9 +1744,12 @@ int piorom(
     // - Data PIO block 2
     // - SM0 is the address read SM
     // - SM1 is the data byte output SM
+#if !defined(TEST_BUILD)
+    DEBUG("Setup DMA");
     if (!config.no_dma) {
         piorom_setup_dma(&config, 1, 0, 2, 1);
     }
+#endif // !TEST_BUILD
 
     // Configure GPIOs for PIO function
     // - 2 CS pins
@@ -1705,6 +1757,7 @@ int piorom(
     // - CS active high/low config
     // - Data pins start at GPIO 0
     // - Address pins start at GPIO 8
+    DEBUG("Set GPIO function");
     piorom_set_gpio_func(&config);
 
     // Load and configure the PIO programs
@@ -1712,18 +1765,22 @@ int piorom(
     // - CS pins start at GPIO 10
     // - Data pins start at GPIO 0
     // - Address pins start at GPIO 8
+    DEBUG("Load and configure PIO programs");
     piorom_load_programs(&config);
 
     if (!config.no_dma) {
+#if !defined(TEST_BUILD)
         if (runtime->rom_dma_copy) {
             DEBUG("DMA copy words remaining: 0x%08X", dma_copy_status());
         }
+#endif // !TEST_BUILD
 
         // Start the PIOs.  This kicks off the autonomous ROM serving.
-        piorom_start_pios();
+        DEBUG("Start PIOs");
+        piorom_start_pios(&config);
 
         while (1) {
-#if !defined(DEBUG_LOGGING)
+#if !defined(DEBUG_LOGGING) || defined(TEST_BUILD)
             // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
             // peripheral access that might introduce jitter on the PIO/DMA
             // serving.

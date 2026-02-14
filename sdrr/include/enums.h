@@ -30,7 +30,8 @@ typedef enum {
     CHIP_TYPE_27C080 = 18,
     CHIP_TYPE_27C400 = 19,
     CHIP_TYPE_6116 = 20,
-    NUM_CHIP_TYPES
+    NUM_CHIP_TYPES,
+    INVALID_CHIP_TYPE = 0xFF
 } sdrr_rom_type_t;
 _Static_assert(sizeof(sdrr_rom_type_t) == 1, "sdrr_rom_type_t must be 1 byte");
 

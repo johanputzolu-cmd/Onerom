@@ -383,10 +383,10 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
             let min_addr_pin = *config.mcu.pins.addr.iter().min().unwrap();
             let a0_index = config.mcu.pins.addr.iter().position(|&p| p == min_addr_pin).unwrap();
             if a0_index != 0 {
-                panic!(
-                    "{}: for 40-pin ROMs, A0 must be the lowest address pin and at index 0, found at index {}",
-                    name, a0_index
-                );
+                //panic!(
+                //    "{}: for 40-pin ROMs, A0 must be the lowest address pin and at index 0, found at index {}",
+                //    name, a0_index
+                //);
             }
         }
         _ => panic!(

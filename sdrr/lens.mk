@@ -2,7 +2,7 @@
 # For native test builds only
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
--include epio/wasm/exports.mk
+include epio/wasm/exports.mk
 
 COLOUR_YELLOW := $(shell echo -e '\033[33m')
 COLOUR_RESET := $(shell echo -e '\033[0m')
@@ -53,7 +53,7 @@ BUILD_NUMBER := 0
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # WASM-specific flags (no sanitizer, add EPIO_WASM define)
-WASM_CFLAGS := -DAPIO_EMULATION=1 -DTEST_BUILD=1 -DEPIO_WASM \
+WASM_CFLAGS := -DAPIO_EMULATION=1 -DTEST_BUILD=1 \
 			$(EXTRA_C_FLAGS) -I include -I $(OUTPUT_DIR) -I include/test \
 			-I apio/include -I epio/include \
 			-DSDRR_VERSION_MAJOR=$(VERSION_MAJOR) -DSDRR_VERSION_MINOR=$(VERSION_MINOR) \
@@ -67,7 +67,9 @@ ONEROM_WASM_EXPORTS := "_onerom_init","_onerom_drive_pins","_onerom_release_pins
 "_onerom_read_data","_onerom_get_addr_pin","_onerom_get_data_pin",\
 "_onerom_get_cs1_pin","_onerom_get_cs2_pin","_onerom_get_cs3_pin",\
 "_onerom_get_x1_pin","_onerom_get_x2_pin","_onerom_get_pio_disassembly",\
-"_onerom_lens_get_rom_size","_onerom_lens_get_num_data_bits"
+"_onerom_lens_get_rom_size","_onerom_lens_get_num_data_bits",\
+"_onerom_lens_get_num_addr_bits","_onerom_lens_get_rom_type",\
+"_onerom_drive_addr","_onerom_get_ce_pin","_onerom_get_oe_pin"
 
 # Emscripten linker flags
 WASM_LDFLAGS := -s WASM=1 \
@@ -79,7 +81,7 @@ WASM_LDFLAGS := -s WASM=1 \
 # Targets
 .PHONY: all clean run debug web copy-web serve clean-apio-src apio epio-src epio clean-epio-src
 
-all:  $(WASM_BIN) copy-web
+all:  epio/wasm/exports.mk $(WASM_BIN) copy-web
 	@echo "WASM build complete: $(WASM_BIN)"
 
 # Copy web files to build directory
@@ -111,6 +113,11 @@ epio-src:
 		git clone https://github.com/piersfinlayson/epio.git; \
 	fi
 
+epio/build/wasm/libepio.a: epio
+
+epio:
+	@$(MAKE) -C epio wasm
+
 epio/wasm/exports.mk: | epio-src
 	@$(MAKE) -C epio wasm
 
@@ -129,11 +136,6 @@ $(LENS_BUILD_DIR)/%.o: test/%.c | $(LENS_BUILD_DIR) apio
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(LENS_BUILD_DIR)/%.o: epio/src/%.c | $(LENS_BUILD_DIR)
-	@mkdir -p $(@D)
-	@echo "- Compiling WASM $<"
-	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
-
 $(LENS_BUILD_DIR)/%.o: lens/src/%.c | $(LENS_BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
@@ -147,9 +149,9 @@ $(WASM_SDRR_CONFIG_OBJ): $(SDRR_CONFIG_SRC) | $(LENS_BUILD_DIR)
 	@echo "- Compiling WASM $(SDRR_CONFIG_SRC)"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_BIN): $(WASM_OBJS) $(WASM_ROMS_OBJ) $(WASM_SDRR_CONFIG_OBJ) | epio
+$(WASM_BIN): $(WASM_OBJS) $(WASM_ROMS_OBJ) $(WASM_SDRR_CONFIG_OBJ) epio/build/wasm/libepio.a
 	@echo "- Linking WASM"
-	@$(WASM_CC) $(WASM_LDFLAGS) $^ -L epio/build/wasm -lepio -o $@
+	@$(WASM_CC) $(WASM_LDFLAGS) $^ -L epio/build/wasm -l epio -o $@
 
 clean-apio-src:
 	@echo "- Cleaning apio source"
