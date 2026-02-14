@@ -2,7 +2,7 @@
 # For native test builds only
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
-include epio/wasm/exports.mk
+-include epio/wasm/exports.mk
 
 COLOUR_YELLOW := $(shell echo -e '\033[33m')
 COLOUR_RESET := $(shell echo -e '\033[0m')
@@ -19,27 +19,23 @@ else
 endif
 
 # WASM build configuration
-WASM_BUILD_DIR := build-wasm
+LENS_BUILD_DIR := build-lens
 WASM_CC := emcc
-WASM_BIN := $(WASM_BUILD_DIR)/onerom-wasm.html
+WASM_BIN := $(LENS_BUILD_DIR)/onerom-lens.html
 
 # Source files
 SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c \
         src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c \
         src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c \
         test/stub_rp235x.c test/test_log.c \
-		epio/src/epio.c epio/src/epio_sram.c \
-		epio/src/epio_apio.c epio/src/epio_gpio.c epio/src/epio_exec.c \
-		epio/src/epio_fifo.c epio/src/epio_dma.c \
-		wasm/src/wasm_main.c
+		lens/src/lens_main.c
 
 # WASM object files (same sources, different build dir)
-WASM_OBJS := $(patsubst src/%.c,$(WASM_BUILD_DIR)/%.o,$(filter src/%,$(SRCS)))
-WASM_OBJS += $(patsubst test/%.c,$(WASM_BUILD_DIR)/%.o,$(filter test/%,$(SRCS)))
-WASM_OBJS += $(patsubst epio/src/%.c,$(WASM_BUILD_DIR)/%.o,$(filter epio/src/%,$(SRCS)))
-WASM_OBJS += $(patsubst wasm/src/%.c,$(WASM_BUILD_DIR)/%.o,$(filter wasm/src/%,$(SRCS)))
-WASM_ROMS_OBJ := $(WASM_BUILD_DIR)/roms.o
-WASM_SDRR_CONFIG_OBJ := $(WASM_BUILD_DIR)/sdrr_config.o
+WASM_OBJS := $(patsubst src/%.c,$(LENS_BUILD_DIR)/%.o,$(filter src/%,$(SRCS)))
+WASM_OBJS += $(patsubst test/%.c,$(LENS_BUILD_DIR)/%.o,$(filter test/%,$(SRCS)))
+WASM_OBJS += $(patsubst lens/src/%.c,$(LENS_BUILD_DIR)/%.o,$(filter lens/src/%,$(SRCS)))
+WASM_ROMS_OBJ := $(LENS_BUILD_DIR)/roms.o
+WASM_SDRR_CONFIG_OBJ := $(LENS_BUILD_DIR)/sdrr_config.o
 
 # Generated files
 ROMS_SRC := $(OUTPUT_DIR)/roms.c
@@ -48,7 +44,7 @@ SDRR_CONFIG_SRC := $(OUTPUT_DIR)/sdrr_config.c
 SDRR_CONFIG_OBJ := $(BUILD_DIR)/sdrr_config.o
 
 # Web files
-WEB_FILES := wasm/web/index.html wasm/web/logic-analyzer.js wasm/web/style.css
+WEB_FILES := lens/web/index.html lens/web/logic-analyzer.js lens/web/style.css
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 6
@@ -67,24 +63,30 @@ WASM_CFLAGS := -DAPIO_EMULATION=1 -DTEST_BUILD=1 -DEPIO_WASM \
 			-g -O0 -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
 			-MMD -MP -fshort-enums
 
+ONEROM_WASM_EXPORTS := "_onerom_init","_onerom_drive_pins","_onerom_release_pins",\
+"_onerom_read_data","_onerom_get_addr_pin","_onerom_get_data_pin",\
+"_onerom_get_cs1_pin","_onerom_get_cs2_pin","_onerom_get_cs3_pin",\
+"_onerom_get_x1_pin","_onerom_get_x2_pin","_onerom_get_pio_disassembly"
+
 # Emscripten linker flags
 WASM_LDFLAGS := -s WASM=1 \
-				-s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' \
+				-s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","UTF8ToString"]' \
 				-s EXPORTED_FUNCTIONS='[$(EPIO_WASM_EXPORTS)]' \
+				-s EXPORTED_FUNCTIONS='[$(EPIO_WASM_EXPORTS),$(ONEROM_WASM_EXPORTS)]' \
 				-s ALLOW_MEMORY_GROWTH=1
 
 # Targets
-.PHONY: all clean run debug web copy-web serve clean-apio-src apio epio-src
+.PHONY: all clean run debug web copy-web serve clean-apio-src apio epio-src epio clean-epio-src
 
 all:  $(WASM_BIN) copy-web
 	@echo "WASM build complete: $(WASM_BIN)"
 
 # Copy web files to build directory
 copy-web: $(WEB_FILES)
-	@echo "- Copying web files to $(WASM_BUILD_DIR)"
-	@cp wasm/web/index.html $(WASM_BUILD_DIR)/
-	@cp wasm/web/logic-analyzer.js $(WASM_BUILD_DIR)/
-	@cp wasm/web/style.css $(WASM_BUILD_DIR)/
+	@echo "- Copying web files to $(LENS_BUILD_DIR)"
+	@cp lens/web/index.html $(LENS_BUILD_DIR)/
+	@cp lens/web/logic-analyzer.js $(LENS_BUILD_DIR)/
+	@cp lens/web/style.css $(LENS_BUILD_DIR)/
 
 # Alias for copy-web
 web: copy-web
@@ -96,7 +98,7 @@ run: serve
 serve: all
 	@echo "$(COLOUR_YELLOW)Starting web server on http://localhost:8000 $(COLOUR_RESET)"
 	@echo "$(COLOUR_YELLOW)Open http://localhost:8000/index.html in your browser $(COLOUR_RESET)"
-	@cd $(WASM_BUILD_DIR) && python3 -m http.server 8000
+	@python3 -m http.server -d $(LENS_BUILD_DIR) 8000
 
 apio:
 	@if [ ! -d "$@" ]; then \
@@ -108,47 +110,56 @@ epio-src:
 		git clone https://github.com/piersfinlayson/epio.git; \
 	fi
 
+epio/wasm/exports.mk: | epio-src
+	@$(MAKE) -C epio wasm
+
 epio/wasm/exports.mk: epio-src
 
-$(WASM_BUILD_DIR):
+$(LENS_BUILD_DIR):
 	@mkdir -p $@
 
-$(WASM_BUILD_DIR)/%.o: src/%.c | $(WASM_BUILD_DIR) apio
+$(LENS_BUILD_DIR)/%.o: src/%.c | $(LENS_BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_BUILD_DIR)/%.o: test/%.c | $(WASM_BUILD_DIR) apio
+$(LENS_BUILD_DIR)/%.o: test/%.c | $(LENS_BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_BUILD_DIR)/%.o: epio/src/%.c | $(WASM_BUILD_DIR)
+$(LENS_BUILD_DIR)/%.o: epio/src/%.c | $(LENS_BUILD_DIR)
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_BUILD_DIR)/%.o: wasm/src/%.c | $(WASM_BUILD_DIR) apio
+$(LENS_BUILD_DIR)/%.o: lens/src/%.c | $(LENS_BUILD_DIR) apio
 	@mkdir -p $(@D)
 	@echo "- Compiling WASM $<"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_ROMS_OBJ): $(ROMS_SRC) | $(WASM_BUILD_DIR)
+$(WASM_ROMS_OBJ): $(ROMS_SRC) | $(LENS_BUILD_DIR)
 	@echo "- Compiling WASM $(ROMS_SRC)"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_SDRR_CONFIG_OBJ): $(SDRR_CONFIG_SRC) | $(WASM_BUILD_DIR)
+$(WASM_SDRR_CONFIG_OBJ): $(SDRR_CONFIG_SRC) | $(LENS_BUILD_DIR)
 	@echo "- Compiling WASM $(SDRR_CONFIG_SRC)"
 	@$(WASM_CC) $(WASM_CFLAGS) -c $< -o $@
 
-$(WASM_BIN): $(WASM_OBJS) $(WASM_ROMS_OBJ) $(WASM_SDRR_CONFIG_OBJ)
+$(WASM_BIN): $(WASM_OBJS) $(WASM_ROMS_OBJ) $(WASM_SDRR_CONFIG_OBJ) | epio
 	@echo "- Linking WASM"
-	@$(WASM_CC) $(WASM_LDFLAGS) $^ -o $@
+	@$(WASM_CC) $(WASM_LDFLAGS) $^ -L epio/build/wasm -lepio -o $@
 
 clean-apio-src:
-	rm -rf apio/
+	@echo "- Cleaning apio source"
+	@rm -rf apio/
 
-clean: clean-apio-src
+clean-epio-src:
+	@echo "- Cleaning epio source"
+	@rm -rf epio/
+
+clean: clean-apio-src clean-epio-src
+	@echo "- Cleaning WASM build"
 	@rm -rf $(BUILD_DIR)
 
 -include $(WASM_OBJS:.o=.d) $(WASM_ROMS_OBJ:.o=.d) $(WASM_SDRR_CONFIG_OBJ:.o=.d)

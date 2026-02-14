@@ -12,18 +12,25 @@
             <h2>One ROM Lens</h2>
             
             <div class="control-group">
-                <label for="addrBits">Address Bits:</label>
+                <label for="addrBits">Address Line:</label>
                 <select id="addrBits">
-                    <option value="10">10 bits</option>
-                    <option value="11">11 bits</option>
-                    <option value="12">12 bits</option>
-                    <option value="13" selected>13 bits (2364)</option>
-                    <option value="14">14 bits</option>
-                    <option value="15">15 bits</option>
-                    <option value="16">16 bits</option>
-                    <option value="17">17 bits</option>
-                    <option value="18">18 bits</option>
-                    <option value="19">19 bits</option>
+                    <option value="11">11 (16Kb/2KB)</option>
+                    <option value="12">12 (32Kb/4KB)</option>
+                    <option value="13" selected>13 (64Kb/8KB)</option>
+                    <option value="14">14 (128Kb/16KB)</option>
+                    <option value="15">15 (256Kb/32KB)</option>
+                    <option value="16">16 (512Kb/64KB)</option>
+                    <option value="17">17 (1Mb/128KB)</option>
+                    <option value="18">18 (2Mb/256KB)</option>
+                    <option value="19">19 (4Mb/512KB)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="dataBits">Data Lines:</label>
+                <select id="dataBits">
+                    <option value="8" selected>8 (8 bit)</option>
+                    <option value="16">16 (16 bit)</option>
                 </select>
             </div>
             
@@ -107,10 +114,34 @@
                     </label>
                     <button id="collapseData" class="small">−</button>
                 </div>
-                <label>
-                    <input type="checkbox" id="toggleControl" checked>
-                    Control Lines
-                </label>
+                <div class="control-signals">
+                    <h3>Control Signals</h3>
+                    <label>
+                        <input type="checkbox" id="toggleCS1" checked>
+                        CS1
+                    </label>
+                    <label>
+                        <input type="checkbox" id="toggleCS2">
+                        CS2
+                    </label>
+                    <label>
+                        <input type="checkbox" id="toggleCS3">
+                        CS3
+                    </label>
+                    <label>
+                        <input type="checkbox" id="toggleX1">
+                        X1
+                    </label>
+                    <label>
+                        <input type="checkbox" id="toggleX2">
+                        X2
+                    </label>
+                </div>
+            </div>
+
+            <div class="pio-disassembly">
+                <h3>PIO Programs</h3>
+                <pre id="pioCode"><code>Initializing...</code></pre>
             </div>
         </div>
         
@@ -122,7 +153,7 @@
         </div>
     </div>
     
-    <script src="onerom-wasm.js"></script>
+    <script src="onerom-lens.js"></script>
     <script src="logic-analyzer.js"></script>
 </body>
 </html>

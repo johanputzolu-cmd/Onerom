@@ -2,7 +2,7 @@
 //
 // MIT License
 //
-// One ROM Logic Analyzer - Browser-based PIO emulator visualization
+// One ROM Lens - Browser-based One ROM logic analyzer and PIO emulator
 
 'use strict';
 
@@ -198,6 +198,27 @@ class WASMModule {
         return BigInt(this.module.ccall('epio_read_driven_pins', 'number', ['number'], 
             [this.epioHandle]));
     }
+
+    oneromGetPIODisassembly() {
+        const bufferSize = 16384;  // 16KB should be plenty
+        const bufferPtr = this.module._malloc(bufferSize);
+        
+        try {
+            const length = this.module.ccall('onerom_get_pio_disassembly', 'number',
+                ['number', 'number'],
+                [bufferPtr, bufferSize]);
+            
+            if (length <= 0) {
+                return "Error: Could not retrieve PIO disassembly";
+            }
+            
+            // Read the string from WASM memory
+            const result = this.module.UTF8ToString(bufferPtr);
+            return result;
+        } finally {
+            this.module._free(bufferPtr);
+        }
+    }
 }
 
 // =============================================================================
@@ -268,7 +289,7 @@ class SignalDecoder {
     }
     
     // Build pin mapping from WASM
-    buildPinMap(numAddrBits) {
+    buildPinMap(numAddrBits, numDataBits) {
         this.pinMap = {
             addr: [],
             data: [],
@@ -286,8 +307,8 @@ class SignalDecoder {
             this.pinMap.addr[i] = this.wasm.oneromGetAddrPin(i);
         }
         
-        // Data pins (always 8 bits for now)
-        for (let i = 0; i < 8; i++) {
+        // Data pins
+        for (let i = 0; i < numDataBits; i++) {
             this.pinMap.data[i] = this.wasm.oneromGetDataPin(i);
         }
     }
@@ -559,7 +580,11 @@ class WaveformRenderer {
         // Signal group visibility
         this.showAddr = true;
         this.showData = true;
-        this.showControl = true;
+        this.showCS1 = true;
+        this.showCS2 = true;
+        this.showCS3 = true;
+        this.showX1 = true;
+        this.showX2 = true;
         
         // Signal group expansion state
         this.addrExpanded = true;
@@ -670,14 +695,21 @@ class WaveformRenderer {
         }
         
         // Control signals
-        if (this.showControl) {
-            const controls = ['cs1', 'cs2', 'cs3', 'x1', 'x2'];
-            for (const ctrl of controls) {
+        const controls = [
+            { name: 'cs1', show: this.showCS1 },
+            { name: 'cs2', show: this.showCS2 },
+            { name: 'cs3', show: this.showCS3 },
+            { name: 'x1', show: this.showX1 },
+            { name: 'x2', show: this.showX2 }
+        ];
+
+        for (const ctrl of controls) {
+            if (ctrl.show) {
                 traceList.push({
                     type: 'control',
-                    signal: ctrl,
+                    signal: ctrl.name,
                     minHeight: MIN_TRACE_HEIGHT,
-                    label: ctrl.toUpperCase()
+                    label: ctrl.name.toUpperCase()
                 });
                 minTotalHeight += MIN_TRACE_HEIGHT + MIN_TRACE_SPACING;
             }
@@ -766,6 +798,9 @@ class WaveformRenderer {
     // Render a single bit trace - draws horizontal lines and vertical edges
     renderBitTrace(trace, samples, decoder, pinNum, waveformWidth) {
         if (samples.length === 0) return;
+
+        // Skip rendering if pin is not connected (255)
+        if (pinNum === 255) return;
         
         const yHigh = trace.y + 3;
         const yLow = trace.y + trace.height - 3;
@@ -1190,17 +1225,31 @@ class AnalyzerController {
             throw new Error('Failed to initialize One ROM emulator');
         }
         
+        // Get and display PIO disassembly
+        const disassembly = this.wasm.oneromGetPIODisassembly();
+        document.getElementById('pioCode').textContent = disassembly;
+
         // Set up components
         this.decoder = new SignalDecoder(this.wasm);
         this.execution = new ExecutionEngine(this.wasm, this.samples);
-        
+
         const canvas = document.getElementById('waveform');
         this.renderer = new WaveformRenderer(canvas);
         this.renderer.resize();
+
+        // Read initial visibility state from HTML
+        this.renderer.showAddr = document.getElementById('toggleAddr').checked;
+        this.renderer.showData = document.getElementById('toggleData').checked;
+        this.renderer.showCS1 = document.getElementById('toggleCS1').checked;
+        this.renderer.showCS2 = document.getElementById('toggleCS2').checked;
+        this.renderer.showCS3 = document.getElementById('toggleCS3').checked;
+        this.renderer.showX1 = document.getElementById('toggleX1').checked;
+        this.renderer.showX2 = document.getElementById('toggleX2').checked;
         
         // Initial pin map
         const addrBits = parseInt(document.getElementById('addrBits').value);
-        this.decoder.buildPinMap(addrBits);
+        const dataBits = parseInt(document.getElementById('dataBits').value);
+        this.decoder.buildPinMap(addrBits, dataBits);
         
         // Set up UI event handlers
         this.setupEventHandlers();
@@ -1250,8 +1299,17 @@ class AnalyzerController {
         
         // Address bits change
         document.getElementById('addrBits').addEventListener('change', (e) => {
-            const bits = parseInt(e.target.value);
-            this.decoder.buildPinMap(bits);
+            const addrBits = parseInt(e.target.value);
+            const dataBits = parseInt(document.getElementById('dataBits').value);
+            this.decoder.buildPinMap(addrBits, dataBits);
+            this.updateDisplay();
+        });
+
+        // Data bits change
+        document.getElementById('dataBits').addEventListener('change', (e) => {
+            const addrBits = parseInt(document.getElementById('addrBits').value);
+            const dataBits = parseInt(e.target.value);
+            this.decoder.buildPinMap(addrBits, dataBits);
             this.updateDisplay();
         });
         
@@ -1318,8 +1376,25 @@ class AnalyzerController {
             this.renderer.showData = e.target.checked;
         });
         
-        document.getElementById('toggleControl').addEventListener('change', (e) => {
-            this.renderer.showControl = e.target.checked;
+        // Control signal toggles
+        document.getElementById('toggleCS1').addEventListener('change', (e) => {
+            this.renderer.showCS1 = e.target.checked;
+        });
+
+        document.getElementById('toggleCS2').addEventListener('change', (e) => {
+            this.renderer.showCS2 = e.target.checked;
+        });
+
+        document.getElementById('toggleCS3').addEventListener('change', (e) => {
+            this.renderer.showCS3 = e.target.checked;
+        });
+
+        document.getElementById('toggleX1').addEventListener('change', (e) => {
+            this.renderer.showX1 = e.target.checked;
+        });
+
+        document.getElementById('toggleX2').addEventListener('change', (e) => {
+            this.renderer.showX2 = e.target.checked;
         });
         
         // Collapse/expand buttons

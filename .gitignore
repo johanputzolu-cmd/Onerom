@@ -10,7 +10,8 @@ apio/
 epio/
 pico-sdk/
 build-test/
-build-wasm/
+sdrr/build*
+build/
 builds/
 test/build
 hw-config/user/*

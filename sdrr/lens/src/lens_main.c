@@ -180,6 +180,61 @@ EPIO_EXPORT uint8_t onerom_get_data_pin(uint8_t bit) {
     return 0xFF;
 }
 
+EPIO_EXPORT int onerom_get_pio_disassembly(
+    char *buffer,
+    size_t buffer_size
+) {
+    int wrote, total_written = 0;
+
+    if (!g_epio) return -1;
+
+    wrote = epio_disassemble_sm(g_epio, 0, 0, buffer, buffer_size);
+    if (wrote < 0) {
+        return -1;
+    }
+    buffer += wrote-1;
+    buffer_size -= wrote-1;
+    total_written += wrote-1;
+
+    // Add 2 \ns between SMs if we have space
+    if (buffer_size > 2) {
+        *buffer++ = '\n';
+        *buffer++ = '\n';
+        buffer_size -= 2;
+        total_written += 2;
+    } else {
+        return -1;
+    }
+
+    wrote = epio_disassemble_sm(g_epio, 0, 1, buffer, buffer_size);
+    if (wrote < 0) {
+        return -1;
+    }
+    buffer += wrote-1;
+    buffer_size -= wrote-1;
+    total_written += wrote-1;
+
+    // Add 2 \ns between SMs if we have space
+    if (buffer_size > 2) {
+        *buffer++ = '\n';
+        *buffer++ = '\n';
+        buffer_size -= 2;
+        total_written += 2;
+    } else {
+        return -1;
+    }
+
+    wrote = epio_disassemble_sm(g_epio, 0, 2, buffer, buffer_size);
+    if (wrote < 0) {
+        return -1;
+    }
+    buffer += wrote;
+    buffer_size -= wrote;
+    total_written += wrote;
+
+    return total_written;
+}
+
 // Get control pin GPIO numbers
 EPIO_EXPORT uint8_t onerom_get_cs1_pin(void) { return cs1_pin; }
 EPIO_EXPORT uint8_t onerom_get_cs2_pin(void) { return cs2_pin; }

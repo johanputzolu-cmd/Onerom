@@ -694,6 +694,7 @@ static void piorom_load_programs(piorom_config_t *config) {
         APIO_ADD_INSTR(APIO_JMP_X_NOT_Y(APIO_LABEL(inactive_offset)));
         if (config->cs_inactive_delay) {
             APIO_WRAP_TOP();
+            APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_NOP, (config->cs_inactive_delay - 1)));
         }
     }
 
