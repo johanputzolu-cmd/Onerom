@@ -1,6 +1,6 @@
 // One ROM RP235X Specific Routines
 
-// Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
 //
 // MIT License
 
@@ -22,16 +22,16 @@ uint8_t calculate_pll_settings(
     rp235x_clock_config_t *clock_config,
     uint8_t overclock
 );
-static void get_clock_config(rp235x_clock_config_t *config);
+void get_clock_config(rp235x_clock_config_t *config);
 uint8_t get_vreg_from_target_mhz(uint16_t target_mhz);
-static void setup_xosc(void);
-static void setup_pll(rp235x_clock_config_t *config);
-static void setup_usb_pll(void);
-static void setup_qmi(rp235x_clock_config_t *config);
-static void setup_vreg(rp235x_clock_config_t *config);
-static void setup_adc(void);
-static void setup_cp(void);
-static void final_checks(rp235x_clock_config_t *config);
+void setup_xosc(void);
+void setup_pll(rp235x_clock_config_t *config);
+void setup_usb_pll(void);
+void setup_qmi(rp235x_clock_config_t *config);
+void setup_vreg(rp235x_clock_config_t *config);
+void setup_adc(void);
+void setup_cp(void);
+void final_checks(rp235x_clock_config_t *config);
 uint16_t get_temp(void);
 
 // RP2350 firmware needs a special boot block so the bootloader will load it.
@@ -40,7 +40,10 @@ uint16_t get_temp(void);
 // reset vectors, which is fine.  Given we do not include a VECTOR_TABLE
 // block, the bootloader assumes it is present at the start of flash - which it
 // is.
-__attribute__((section(".rp2350_block"))) const rp2350_boot_block_t rp2350_arm_boot_block = {
+#if !defined(TEST_BUILD)
+__attribute__((section(".rp2350_block")))
+#endif // !TEST_BUILD
+const rp2350_boot_block_t rp2350_arm_boot_block = {
     .start_marker    = 0xffffded3,
     .image_type_tag  = 0x42,
     .image_type_len  = 0x1,
@@ -51,6 +54,8 @@ __attribute__((section(".rp2350_block"))) const rp2350_boot_block_t rp2350_arm_b
     .next_block      = 0,
     .end_marker      = 0xab123579
 };
+
+#if !defined(TEST_BUILD)
 
 void platform_specific_init(void) {
     // RP235X needs to reset the JTAG interface to enable SWD (for example for
@@ -113,6 +118,7 @@ void vbus_connect_handler(void) {
 
     enter_bootloader();
 }
+#endif // !TEST_BUILD
 
 uint8_t calculate_pll_settings(
     rp235x_clock_config_t *config,
@@ -268,6 +274,7 @@ void setup_clock(void) {
     final_checks(&config);
 }
 
+#if !defined(TEST_BUILD)
 void setup_gpio(void) {
     // Take IO bank and pads bank out of reset
     RESET_RESET &= ~(RESET_IOBANK0 | RESET_PADS_BANK0);
@@ -456,23 +463,23 @@ void setup_usb_pll(void) {
 }
 
 void setup_adc(void) {
-        DEBUG("Setting up ADC");
+    DEBUG("Setting up ADC");
 
-        // Route USB PLL to ADC (USB is the default source so no need to set)
-        CLOCK_ADC_CTRL |= CLOCK_ADC_ENABLE;
-        while (!(CLOCK_ADC_CTRL & CLOCK_ADC_ENABLED));
-        DEBUG("ADC clock enabled");
+    // Route USB PLL to ADC (USB is the default source so no need to set)
+    CLOCK_ADC_CTRL |= CLOCK_ADC_ENABLE;
+    while (!(CLOCK_ADC_CTRL & CLOCK_ADC_ENABLED));
+    DEBUG("ADC clock enabled");
 
-        // Take ADC out of reset
-        RESET_RESET &= ~(RESET_ADC);
-        while (!(RESET_DONE & RESET_ADC));
+    // Take ADC out of reset
+    RESET_RESET &= ~(RESET_ADC);
+    while (!(RESET_DONE & RESET_ADC));
 
-        // Enable ADC and temperature sensor
-        DEBUG("ADC out of reset");
-        ADC_CS |= ADC_CS_TS_EN | ADC_CS_EN;
-        while (!(ADC_CS & ADC_CS_READY));          
+    // Enable ADC and temperature sensor
+    DEBUG("ADC out of reset");
+    ADC_CS |= ADC_CS_TS_EN | ADC_CS_EN;
+    while (!(ADC_CS & ADC_CS_READY));          
 
-        DEBUG("ADC ready");
+    DEBUG("ADC ready");
 }
 
 uint16_t get_temp(void) {
@@ -486,6 +493,7 @@ uint16_t get_temp(void) {
     // Return the result
     return (uint16_t)(ADC_RESULT & ADC_RESULT_MASK);
 }
+#endif // !TEST_BUILD
 
 void final_checks(rp235x_clock_config_t *config) {
     if (config->sys_clock_freq_mhz > 300) {
@@ -505,6 +513,7 @@ void final_checks(rp235x_clock_config_t *config) {
     }
 }
 
+#if !defined(TEST_BUILD)
 void setup_cp(void) {
 #if defined(RP_USE_CP)
     // Enable Coprocessor 0 to enable MCR instructions
@@ -515,11 +524,13 @@ void setup_cp(void) {
     DEBUG("CP0 enabled");
 #endif // RP_USE_CP
 }
+#endif // !TEST_BUILD
 
 void setup_mco(void) {
     ERR("MCO not supported on RP235X");
 }
 
+#if !defined(TEST_BUILD)
 // Set up the image select pins to be inputs with the appropriate pulls.
 //
 // As of 0.6.0 sel_jumper_pulls is a bit field indicating whether the
@@ -660,6 +671,7 @@ void disable_sel_pins(void) {
         }
     }
 }
+#endif // !TEST_BUILD
 
 void setup_status_led(void) {
     // No-op - done in setup_gpio()
@@ -677,6 +689,7 @@ void blink_pattern(uint32_t on_time, uint32_t off_time, uint8_t repeats) {
     }
 }
 
+#if !defined(TEST_BUILD)
 // Enters bootloader mode.
 void enter_bootloader(void) {
     // Look up the reboot function from ROM
@@ -717,6 +730,7 @@ void enter_bootloader(void) {
     p0 |= 0x01;     // Disable mass storage mode
     reboot(flags, ms_delay, p0, p1);
 }
+#endif // !TEST_BUILD
 
 void check_config(
     const sdrr_info_t *info,
@@ -883,6 +897,13 @@ void check_config(
             failed = 1;
         }
 
+        // Check that image size is either 64KB or 256KB
+        uint32_t img_size = set->size;
+        if ((img_size != 64 * 1024) && (img_size != 256 * 1024)) {
+            ERR("28-pin ROM image incorrect size 0x%08X", img_size);
+            failed = 1;
+        }
+
         // Other checking we could do includes that all CS/CE/OE and address
         // pins are contiguous
     } else if (chip_pins == 40) {
@@ -948,6 +969,7 @@ void check_config(
     }
 }
 
+#if !defined(TEST_BUILD)
 void platform_logging(void) {
 #if defined(BOOT_LOGGING)
     // Reset the SysInfo registers
@@ -1008,5 +1030,6 @@ void setup_xosc(void) {
     CLOCK_REF_CTRL = CLOCK_REF_SRC_XOSC;
     while ((CLOCK_REF_SELECTED & CLOCK_REF_SRC_SEL_XOSC) != CLOCK_REF_SRC_SEL_XOSC);
 }
+#endif // !TEST_BUILD
 
 #endif // RP235X

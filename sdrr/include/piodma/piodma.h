@@ -5,8 +5,8 @@
 #ifndef PIODMA_H
 #define PIODMA_H
 
-#include "piodma/pioreg.h"
-#include "piodma/pioasm.h"
+
+#include <apio.h>
 #include "piodma/dmareg.h"
 
 #endif // PIODMA_H

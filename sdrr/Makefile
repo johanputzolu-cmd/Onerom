@@ -43,7 +43,9 @@ OBJCOPY := $(TOOLCHAIN)/arm-none-eabi-objcopy
 SIZE := $(TOOLCHAIN)/arm-none-eabi-size
 
 # Source files
-SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c src/piodma/piodis.c
+SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c \
+		src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c \
+		src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c
 OBJS := $(patsubst src/%,$(BUILD_DIR)/%,$(SRCS:.c=.o))
 SEGGER_SRCS := segger-rtt/RTT/SEGGER_RTT.c segger-rtt/RTT/SEGGER_RTT_printf.c
 SEGGER_OBJS := $(BUILD_DIR)/SEGGER_RTT.o $(BUILD_DIR)/SEGGER_RTT_printf.o
@@ -79,11 +81,15 @@ endif
 endif # End of variables set only if not cleaning
 
 SEGGER_RTT_FLAGS := -DBUFFER_SIZE_UP=4096
-CFLAGS := $(EXTRA_C_FLAGS) $(COMMON_FLAGS) $(SEGGER_RTT_FLAGS) -Werror -I include -I $(OUTPUT_DIR) -I segger-rtt/RTT -I segger-rtt/Config -g -nostdlib -O3 -ffunction-sections -fomit-frame-pointer -fdata-sections -Wall -Wextra -MMD -MD -MP
+CFLAGS := $(EXTRA_C_FLAGS) $(COMMON_FLAGS) $(SEGGER_RTT_FLAGS) -Werror \
+          -I include -I $(OUTPUT_DIR) -I segger-rtt/RTT -I segger-rtt/Config \
+		  -I apio/include -I epio/include \
+		  -g -nostdlib -O3 -ffunction-sections -fomit-frame-pointer -fdata-sections \
+		  -Wall -Wextra -MMD -MP
 LDFLAGS := $(COMMON_FLAGS) -Werror -Llink -L$(OUTPUT_DIR) -nostdlib -specs=nosys.specs -specs=nano.specs -Wl,--no-gc-sections -Wl,--fatal-warnings -Wl,-Map=$(MAP)
 
 # Phony targets
-.PHONY: all clean clean-segger clean-pico-sdk segger size flash run
+.PHONY: all clean clean-segger clean-pico-sdk clean-apio-src segger segger-rtt apio size flash run
 
 # Default target
 all: $(BIN) size
@@ -104,8 +110,13 @@ segger-rtt:
 		git clone https://github.com/piersfinlayson/segger-rtt.git; \
 	fi
 
+apio:
+	@if [ ! -d "$@" ]; then \
+		git clone https://github.com/piersfinlayson/apio.git; \
+	fi
+
 # sdrr object files
-$(BUILD_DIR)/%.o: src/%.c ../Makefile | $(BUILD_DIR) segger-rtt
+$(BUILD_DIR)/%.o: src/%.c ../Makefile | $(BUILD_DIR) segger-rtt apio
 	@mkdir -p $(@D)
 	@echo "- Compiling sdrr/$<"
 	@$(CC) $(CFLAGS) -c $< -o $@
@@ -126,6 +137,11 @@ $(BUILD_DIR)/SEGGER_RTT.o: segger-rtt/RTT/SEGGER_RTT.c ../Makefile  | $(BUILD_DI
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/SEGGER_RTT_printf.o: segger-rtt/RTT/SEGGER_RTT_printf.c ../Makefile | $(BUILD_DIR)
+	@echo "- Compiling sdrr/$<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: apio/src/%.c ../Makefile | $(BUILD_DIR)
+	@mkdir -p $(@D)
 	@echo "- Compiling sdrr/$<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
@@ -154,6 +170,9 @@ size: $(ELF)
 clean-segger-src:
 	rm -rf segger-rtt/
 
+clean-apio-src:
+	rm -rf apio/
+
 # Clean pico-sdk
 clean-pico-sdk:
 	rm -rf pico-sdk/
@@ -163,7 +182,7 @@ clean-build:
 	rm -fr $(BUILD_DIR)
 
 # Clean
-clean: clean-build clean-segger-src clean-pico-sdk
+clean: clean-build clean-segger-src clean-pico-sdk clean-apio-src
 
 # Include dependency files
 -include $(shell find $(BUILD_DIR) -name '*.d' 2>/dev/null)

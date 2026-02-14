@@ -13,6 +13,10 @@
 // Pull in enums
 #include "enums.h"
 
+#if defined(TEST_BUILD)
+#include "test/stub.h"
+#endif // TEST_BUILD
+
 // Pin allocations
 //
 // All pin numbers are physical pins - allocated from the configured STM32F4

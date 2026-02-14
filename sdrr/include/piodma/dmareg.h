@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 // DMA
+#define DMA_BASE               (0x50000000U)
 
 // DMA register offsets
 #define DMA_READ_ADDR_OFFSET        (0x00)
@@ -53,7 +54,11 @@ typedef struct dma_ch_reg {
 #define DMA_CH_WRITE_ADDR_TRIG(X)   (*(volatile uint32_t *)(DMA_BASE + ((X) * 0x40) + DMA_WRITE_ADDR_TRIG_OFFSET))
 
 // Macro to enable the DMA controller
+#if !TEST_BUILD
 #define DMA_ENABLE()    RESET_RESET &= ~RESET_DMA;        \
                         while (!(RESET_DONE & RESET_DMA));
+#else // TEST_BUILD
+#define DMA_ENABLE()
+#endif // !TEST_BUILD
 
 #endif // DMAREG_H

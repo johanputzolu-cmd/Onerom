@@ -6,8 +6,12 @@ Packager_temp.toml
 *.map
 build/
 segger-rtt/
+apio/
+epio/
 pico-sdk/
 build-test/
+sdrr/build*
+build/
 builds/
 test/build
 hw-config/user/*

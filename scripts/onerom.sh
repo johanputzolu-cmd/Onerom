@@ -6,7 +6,7 @@
 set -e
 
 usage() {
-    echo "Usage: $0 [-d] [-l] [-f] <board> [<mcu>] <onerom-config.json>"
+    echo "Usage: $0 [-d] [-l] [-f] [-v] <board> [<mcu>] <onerom-config.json>"
     echo "  -d: Enable debug logging (requires -l)"
     echo "  -l: Enable boot logging"
     echo "  -f: Flash firmware to device"

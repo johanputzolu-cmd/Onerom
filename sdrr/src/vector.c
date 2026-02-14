@@ -4,6 +4,8 @@
 //
 // MIT License
 
+#if !defined(TEST_BUILD)
+
 #include "include.h"
 
 // Forward declarations
@@ -216,3 +218,5 @@ void UsageFault_Handler(void) {
         delay(1000000); // Long pause
     }
 }
+
+#endif // !TEST_BUILD

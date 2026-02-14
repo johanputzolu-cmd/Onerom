@@ -45,12 +45,11 @@ void log_init(void) {
         DEBUG("LED: disabled");
     }
 
-    DEBUG("sdrr_info: 0x%08X", (uint32_t)&sdrr_info);
-    DEBUG("sdrr_extra_info: 0x%08X", (uint32_t)sdrr_info.extra);
-    DEBUG("RAM ROM table: 0x%08X", (uint32_t)&_ram_rom_image_start);
-    DEBUG("sdrr_runtime_info: 0x%08X", (uint32_t)sdrr_info.extra->runtime_info);
-    DEBUG("RTT CB: 0x%08X", (uint32_t)sdrr_info.extra->rtt);
-
+    DEBUG("sdrr_info: 0x%08X", (uint32_t)(uintptr_t)&sdrr_info);
+    DEBUG("sdrr_extra_info: 0x%08X", (uint32_t)(uintptr_t)sdrr_info.extra);
+    DEBUG("RAM ROM table: 0x%08X", (uint32_t)(uintptr_t)&_ram_rom_image_start);
+    DEBUG("sdrr_runtime_info: 0x%08X", (uint32_t)(uintptr_t)sdrr_info.extra->runtime_info);
+    DEBUG("RTT CB: 0x%08X", (uint32_t)(uintptr_t)sdrr_info.extra->rtt);
     DEBUG(log_divider);
     DEBUG("RT Ice Freq: 0x%04X", sdrr_runtime_info.ice_freq);
     DEBUG("RT Fire Freq: 0x%04X", sdrr_runtime_info.fire_freq);
@@ -160,7 +159,7 @@ void log_roms(const onerom_metadata_header_t *metadata_header) {
 }
 #endif // BOOT_LOGGING
 
-#if defined(BOOT_LOGGING)
+#if defined(BOOT_LOGGING) && !(TEST_BUILD)
 // Special version of logging function that remains on flash, and we can get
 // a pointer to, to call from within functions (potentially) loaded to RAM.
 // Those functions call RAM_LOG(), which only takes a single arg.
@@ -183,7 +182,7 @@ void __attribute__((noinline)) err_log(const char* msg, ...) {
     do_log_v(msg, args);
     va_end(args);
 }
-#endif // BOOT_LOGGING
+#endif // BOOT_LOGGING && !(TEST_BUILD)
 
 //
 // Functions to handle copying functions to and executing them from RAM

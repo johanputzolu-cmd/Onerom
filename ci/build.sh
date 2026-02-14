@@ -823,13 +823,17 @@ generate_manifest() {
             ice-24-f) echo "Ice 24 F" ;;
             ice-24-g) echo "Ice 24 G" ;;
             ice-24-h) echo "Ice 24 H" ;;
+            ice-24-i) echo "Ice 24 I" ;;
+            ice-24-j) echo "Ice 24 J" ;;
             ice-24-usb-h) echo "Ice 24 H" ;;
             p24-a) echo "Fire 24 A" ;;
             fire-24-a) echo "Fire 24 A" ;;
             fire-24-usb-b) echo "Fire 24 B" ;;
             fire-24-c) echo "Fire 24 C" ;;
             fire-24-d) echo "Fire 24 D" ;;
+            fire-24-e) echo "Fire 24 E" ;;
             fire-28-a) echo "Fire 28 A" ;;
+            fire-40-a) echo "Fire 40 A" ;;
             *) echo "$hw_rev" ;;  # Default to hw_rev itself
         esac
     }
@@ -847,7 +851,7 @@ generate_manifest() {
         local hw_rev=$(basename "$hw_rev_dir")
         
         # Read hardware config JSON if it exists
-        local hw_config_file="${PROJECT_ROOT}/rust/old-config/json/${hw_rev}.json"
+        local hw_config_file="${PROJECT_ROOT}/rust/config/json/${hw_rev}.json"
         if [[ -f "$hw_config_file" ]]; then
             local description=$(jq -r '.description // ""' "$hw_config_file")
             local usb_support=$(jq -r '.mcu.usb.present // false' "$hw_config_file")
@@ -884,7 +888,7 @@ generate_manifest() {
         # Use dashed format for JSON key: third-party/whatever -> third-party-whatever
         local config_key="${config_name//\//-}"
         rom_configs_json+="\"${config_key}\":{\"description\":\"${description}\"}"
-    done < <(find "${PROJECT_ROOT}/config" -name "*.mk" -type f)
+    done < <(find "${PROJECT_ROOT}/old-config" -name "*.mk" -type f)
     rom_configs_json+="}"
     
     # Build artifacts list - find all .bin files recursively

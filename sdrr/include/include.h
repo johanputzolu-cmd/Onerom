@@ -1,15 +1,17 @@
-// Main header file
-
-// Copyright (C) 2025 Piers Finlayson <piers@piers.rocks>
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
 //
 // MIT License
+
+// Main header file
 
 #ifndef SDRR_INCLUDE_H
 #define SDRR_INCLUDE_H
 
 #include <stdint.h>
 #include <string.h>
+#if !defined(TEST_BUILD)
 #include "SEGGER_RTT.h"
+#endif // !TEST_BUILD
 
 // If you are not using sdrr-gen, you must define configuration options
 // manually.  Exmaples are given here:
@@ -181,7 +183,11 @@ extern uint32_t _ram_size;
 #endif // STM32F4
 
 #if defined(RP235X)
+#if !defined(TEST_BUILD)
 #include "rp235x_inlines.h"
+#else // TEST_BUILD
+#include "test/stub_rp235x_inlines.h"
+#endif // !TEST_BUILD
 #endif // RP235X
 
 #endif // SDRR_INCLUDE_H

@@ -16,7 +16,11 @@ extern void process_firmware_overrides(
     sdrr_runtime_info_t *runtime_info,
     const sdrr_rom_set_t *set
 );
+#if !defined(TEST_BUILD)
 extern int main(void);
+#else // TEST_BUILD
+extern int firmware_main(void);
+#endif // !TEST_BUILD
 
 // utils.c
 extern uint32_t check_sel_pins(uint32_t *sel_mask);
@@ -64,7 +68,7 @@ void dfu(void);
 #endif // STM32F4
 
 // pio.c
-extern void pio(
+extern int pio(
     const sdrr_info_t *info,
     sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set,
@@ -72,28 +76,17 @@ extern void pio(
 );
 // piorom.c
 #if defined(RP235X)
-extern void piorom(
+extern int piorom(
     const sdrr_info_t *info,
     sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 );
-extern void pioram(
+extern int pioram(
     const sdrr_info_t *info,
     sdrr_runtime_info_t *runtime,
     uint32_t rom_table_addr
 );
-// piodis.c
-void pio_log_sm(
-    const char *sm_name,
-    uint8_t pio_block,
-    uint8_t pio_sm,
-    uint16_t *instr_scratch,
-    uint8_t first_instr,
-    uint8_t start,
-    uint8_t end
-);
-
 #endif // RP235X
 
 // rom_impl.c
