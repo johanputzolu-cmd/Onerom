@@ -759,7 +759,7 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // If data lines are 16+, change this block's GPIOBASE
     uint8_t base_data_pin = config->data_base_pin;
-    if (config->data_base_pin < 16) {
+    if (base_data_pin < 16) {
         DEBUG("PIO2 block GPIOBASE to 0");
         APIO_GPIOBASE_0();
     } else {
@@ -868,7 +868,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     );
     APIO_SM_PINCTRL_SET(
         APIO_OUT_COUNT(config->num_data_pins) |
-        APIO_OUT_BASE(config->data_base_pin) |
+        APIO_OUT_BASE(base_data_pin) |
         APIO_IN_BASE(config->cs_base_pin)
     );
 
@@ -1089,13 +1089,15 @@ void piorom_set_gpio_func(piorom_config_t *config) {
 
 void piorom_setup_dma(
     piorom_config_t *config,
-    uint8_t pio_block,
+    uint8_t pio_block_addr,
     uint8_t sm_addr_read,
+    uint8_t pio_block_data,
     uint8_t sm_data_byte
 ) {
     (void)config;
-    (void)pio_block;
+    (void)pio_block_addr;
     (void)sm_addr_read;
+    (void)pio_block_data;
     (void)sm_data_byte;
     STUB_LOG("piorom_setup_dma");
 }
@@ -1733,8 +1735,8 @@ int piorom(
                 read_addr1);
             DEBUG("DMA3 Read Addr: 0x%08X",
                 read_addr3);
-            DEBUG("PIO1 FIFO Status 0x%08X", PIO1_FSTAT);
-            DEBUG("PIO2 FIFO Status 0x%08X", PIO2_FSTAT);
+            DEBUG("PIO1 FIFO Status 0x%08X", APIO1_FSTAT);
+            DEBUG("PIO2 FIFO Status 0x%08X", APIO2_FSTAT);
 
             // Delay to avoid swamping RTT
             for (volatile int ii = 0; ii < 100000; ii++);

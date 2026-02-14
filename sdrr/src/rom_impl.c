@@ -786,10 +786,7 @@ void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_
     if (set->roms[0]->filename != NULL) {
         filename = set->roms[0]->filename;
     }
-<<<<<<< HEAD
-=======
     LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", filename, (uint32_t)(uintptr_t)img_dst, img_size);
->>>>>>> main
 #endif // BOOT_LOGGING
 
 #if defined(RP235X)
