@@ -15,10 +15,11 @@ The following table lists the recommended verified designs.  Each design has bee
 
 | Model | MCU | Pins | USB | SWD | Image Select Pins | X Pins | PCB |
 |-------|-----|------|-----|-----|-------------------|--------|-------|
-| Fire  | RP2350 | 24 | Micro-B | ✓ | 4 | 2 | [fire-24-d](./verified/fire-24-d/README.md) |
-| Fire  | RP2354 | 24 | C | ✓ | 4 | 2 | [fire-24-e](./verified/fire-24-e/README.md) |
-| Ice   | STM3F4 | 24 | Micro-B | ✓ | 4 | 2 | [ice-24-j](./verified/ice-24-j/README.md) |
-| Fire  | RP2350 or RP2354 | 28 | C | ✓ | 2 | n/a | [fire-28-a3](./verified/fire-28-a3/README.md) |
+| Fire  | RP2350A | 24 | Micro-B | ✓ | 4 | 2 | [fire-24-d](./verified/fire-24-d/README.md) |
+| Fire  | RP2354A | 24 | C | ✓ | 4 | 2 | [fire-24-e](./verified/fire-24-e/README.md) |
+| Ice   | STM32F4 | 24 | Micro-B | ✓ | 4 | 2 | [ice-24-j](./verified/ice-24-j/README.md) |
+| Fire  | RP2350A or RP2354A | 28 | C | ✓ | 2 | n/a | [fire-28-a3](./verified/fire-28-a3/README.md) |
+| Fire  | RP2350B or RP2354B | 40 | C | ✓ | 4 | n/a | [fire-40-a](./verified/fire-40-a/README.md) |
 
 ## Notes on Fabrication
 

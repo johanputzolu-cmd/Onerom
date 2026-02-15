@@ -1,6 +1,10 @@
 # One ROM Fire 40 pin 
 
-**Unverified** - This an experimental design to emulate a 27C400 16-bit 40-pin ROM.  As of its creation, there is no firmware support for this board.
+**Verified** - This design has been verified serving a 27C400 16-bit 40-pin ROM on an Amiga A500.
+
+The external flash, has not been verified.  This design has only been tested using the RP2354B with built in flash.  While external flash is also present on the tested boards, it has not been verified, or that the design works with an RP2350.
+
+Odds are good that all will work, but buyer beware.
 
 ## Contents
 
