@@ -5,6 +5,9 @@
 #ifndef PIODMA_H
 #define PIODMA_H
 
+#if defined(DEBUG_LOGGING)
+#define APIO_LOG_ENABLE DEBUG
+#endif // DEBUG_LOGGING
 
 #include <apio.h>
 #include "piodma/dmareg.h"

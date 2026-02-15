@@ -10,9 +10,10 @@
 
 #if defined(TEST_BUILD)
 #define TEST_PIO_C
+#else
+#define APIO_LOG_IMPL  1
 #endif // TEST_BUILD
 
-#define APIO_LOG_IMPL  1
 #include "piodma/piodma.h"
 
 int pio(

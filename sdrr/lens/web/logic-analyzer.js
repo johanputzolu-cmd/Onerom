@@ -175,6 +175,10 @@ class WASMModule {
     oneromGetOEPin() {
         return this.module.ccall('onerom_get_oe_pin', 'number', [], []);
     }
+
+    oneromGetBytePin() {
+        return this.module.ccall('onerom_get_byte_pin', 'number', [], []);
+    }
     
     // Direct epio API calls using the handle
     epioStepCycles(cycles) {
@@ -241,7 +245,15 @@ class WASMModule {
     }
 
     oneromLensDriveAddr(addr, cs) {
-        this.module.ccall('onerom_drive_addr', null, ['number', 'number'], [addr, cs]);
+        const accessWidth = parseInt(document.getElementById('accessWidth').value);
+        this.module.ccall('onerom_drive_addr', null, 
+            ['number', 'number', 'number'], 
+            [addr, cs, accessWidth]);
+    }
+
+    epioGetGpioInverted(pin) {
+        return this.module.ccall('epio_get_gpio_inverted', 'number', ['number', 'number'], 
+            [this.epioHandle, pin]);
     }
 }
 
@@ -317,31 +329,48 @@ class SignalDecoder {
         this.pinMap = {
             addr: [],
             data: [],
-            control: {
-                cs1: this.wasm.oneromGetCS1Pin(),
-                cs2: this.wasm.oneromGetCS2Pin(),
-                cs3: this.wasm.oneromGetCS3Pin(),
-                x1: this.wasm.oneromGetX1Pin(),
-                x2: this.wasm.oneromGetX2Pin(),
-                ce: this.wasm.oneromGetCEPin(),
-                oe: this.wasm.oneromGetOEPin()
-            }
+            control: {}
         };
         
-        // Address pins
         for (let i = 0; i < numAddrBits; i++) {
-            this.pinMap.addr[i] = this.wasm.oneromGetAddrPin(i);
+            const pin = this.wasm.oneromGetAddrPin(i);
+            this.pinMap.addr[i] = {
+                pin: pin,
+                inverted: pin !== 255 ? this.wasm.epioGetGpioInverted(pin) : false
+            };
         }
         
-        // Data pins
         for (let i = 0; i < numDataBits; i++) {
-            this.pinMap.data[i] = this.wasm.oneromGetDataPin(i);
+            const pin = this.wasm.oneromGetDataPin(i);
+            this.pinMap.data[i] = {
+                pin: pin,
+                inverted: pin !== 255 ? this.wasm.epioGetGpioInverted(pin) : false
+            };
+        }
+        
+        const controlMethods = {
+            cs1: 'oneromGetCS1Pin',
+            cs2: 'oneromGetCS2Pin',
+            cs3: 'oneromGetCS3Pin',
+            x1: 'oneromGetX1Pin',
+            x2: 'oneromGetX2Pin',
+            ce: 'oneromGetCEPin',
+            oe: 'oneromGetOEPin',
+            byte: 'oneromGetBytePin'
+        };
+
+        for (const ctrl in controlMethods) {
+            const pin = this.wasm[controlMethods[ctrl]]();
+            this.pinMap.control[ctrl] = {
+                pin: pin,
+                inverted: pin !== 255 ? this.wasm.epioGetGpioInverted(pin) : false
+            };
         }
     }
     
-    // Extract bit state from GPIO value
-    extractBit(gpios, pinNum) {
-        return (gpios & (1n << BigInt(pinNum))) !== 0n ? 1 : 0;
+    extractBit(gpios, pinInfo) {
+        const bit = (gpios & (1n << BigInt(pinInfo.pin))) !== 0n ? 1 : 0;
+        return pinInfo.inverted ? (bit ^ 1) : bit;  // XOR with 1 to invert if needed
     }
     
     // Decode address value from GPIO state
@@ -373,8 +402,8 @@ class SignalDecoder {
     }
 
     // Check if pin is actively driven
-    isPinDriven(driven, pinNum) {
-        return (driven & (1n << BigInt(pinNum))) !== 0n;
+    isPinDriven(driven, pinInfo) {
+        return (driven & (1n << BigInt(pinInfo.pin))) !== 0n;
     }
 }
 
@@ -609,6 +638,7 @@ class WaveformRenderer {
         this.showX2 = true;
         this.showCE = true;
         this.showOE = true;
+        this.showByte = true;
         
         // Signal group expansion state
         this.addrExpanded = true;
@@ -616,6 +646,7 @@ class WaveformRenderer {
         
         this.cursorX = null;  // Mouse X position for cursor
         this.cursorCycle = null;  // Cycle at cursor position
+        this.currentLayout = [];  // Calculated layout of traces for current decoder
 
         // Load colors from CSS
         this.loadColors();
@@ -679,7 +710,8 @@ class WaveformRenderer {
             traceList.push({
                 type: 'addr_hex',
                 minHeight: MIN_HEX_TRACE_HEIGHT,
-                label: `A[${decoder.pinMap.addr.length-1}:0]`
+                label: `A[${decoder.pinMap.addr.length-1}:0]`,
+                gpio: null
             });
             minTotalHeight += MIN_HEX_TRACE_HEIGHT + MIN_TRACE_SPACING;
             
@@ -689,7 +721,8 @@ class WaveformRenderer {
                         type: 'addr_bit',
                         bit: i,
                         minHeight: MIN_TRACE_HEIGHT,
-                        label: `A${i}`
+                        label: `A${i}`,
+                        gpio: decoder.pinMap.addr[i]
                     });
                     minTotalHeight += MIN_TRACE_HEIGHT + MIN_TRACE_SPACING;
                 }
@@ -701,7 +734,8 @@ class WaveformRenderer {
             traceList.push({
                 type: 'data_hex',
                 minHeight: MIN_HEX_TRACE_HEIGHT,
-                label: `D[${decoder.pinMap.data.length-1}:0]`
+                label: `D[${decoder.pinMap.data.length-1}:0]`,
+                gpio: null
             });
             minTotalHeight += MIN_HEX_TRACE_HEIGHT + MIN_TRACE_SPACING;
             
@@ -711,7 +745,8 @@ class WaveformRenderer {
                         type: 'data_bit',
                         bit: i,
                         minHeight: MIN_TRACE_HEIGHT,
-                        label: `D${i}`
+                        label: `D${i}`,
+                        gpio: decoder.pinMap.data[i]
                     });
                     minTotalHeight += MIN_TRACE_HEIGHT + MIN_TRACE_SPACING;
                 }
@@ -720,13 +755,14 @@ class WaveformRenderer {
         
         // Control signals
         const controls = [
-            { name: 'cs1', show: this.showCS1 },
-            { name: 'cs2', show: this.showCS2 },
-            { name: 'cs3', show: this.showCS3 },
-            { name: 'x1', show: this.showX1 },
-            { name: 'x2', show: this.showX2 },
-            { name: 'ce', show: this.showCE },
-            { name: 'oe', show: this.showOE }
+            { name: 'cs1', show: this.showCS1, pin: decoder.pinMap.control.cs1 },
+            { name: 'cs2', show: this.showCS2, pin: decoder.pinMap.control.cs2 },
+            { name: 'cs3', show: this.showCS3, pin: decoder.pinMap.control.cs3 },
+            { name: 'x1', show: this.showX1, pin: decoder.pinMap.control.x1 },
+            { name: 'x2', show: this.showX2, pin: decoder.pinMap.control.x2 },
+            { name: 'ce', show: this.showCE, pin: decoder.pinMap.control.ce },
+            { name: 'oe', show: this.showOE, pin: decoder.pinMap.control.oe },
+            { name: 'byte', show: this.showByte, pin: decoder.pinMap.control.byte }
         ];
 
         for (const ctrl of controls) {
@@ -735,7 +771,8 @@ class WaveformRenderer {
                     type: 'control',
                     signal: ctrl.name,
                     minHeight: MIN_TRACE_HEIGHT,
-                    label: ctrl.name.toUpperCase()
+                    label: ctrl.name.toUpperCase(),
+                    gpio: ctrl.pin
                 });
                 minTotalHeight += MIN_TRACE_HEIGHT + MIN_TRACE_SPACING;
             }
@@ -766,6 +803,7 @@ class WaveformRenderer {
         this.clear();
         
         const layout = this.calculateTraceLayout(decoder);
+        this.currentLayout = layout;
         
         // Draw labels
         this.ctx.fillStyle = COLORS.label;
@@ -1273,6 +1311,8 @@ class AnalyzerController {
         this.renderer.showX2 = document.getElementById('toggleX2').checked;
         this.renderer.showCE = document.getElementById('toggleCE').checked;
         this.renderer.showOE = document.getElementById('toggleOE').checked;
+        this.renderer.showOE = document.getElementById('toggleOE').checked;
+        this.renderer.showByte = document.getElementById('toggleByte').checked;
         
         // Initial pin map
         const addrBits = parseInt(document.getElementById('addrBits').value);
@@ -1335,12 +1375,23 @@ class AnalyzerController {
 
         // Data bits change
         document.getElementById('dataBits').addEventListener('change', (e) => {
-            const addrBits = parseInt(document.getElementById('addrBits').value);
             const dataBits = parseInt(e.target.value);
+            const accessWidth = document.getElementById('accessWidth');
+            
+            if (dataBits === 8) {
+                // Force 8-bit access when only 8 data lines
+                accessWidth.value = '8';
+                accessWidth.disabled = true;
+            } else {
+                // Enable choice for 16 data lines
+                accessWidth.disabled = false;
+            }
+            
+            // Rebuild decoder as before
+            const addrBits = parseInt(document.getElementById('addrBits').value);
             this.decoder.buildPinMap(addrBits, dataBits);
             this.updateDisplay();
-        });
-        
+        });        
         // Speed control
         document.getElementById('speedControl').addEventListener('change', (e) => {
             this.execution.cyclesPerFrame = parseInt(e.target.value);
@@ -1432,6 +1483,10 @@ class AnalyzerController {
         document.getElementById('toggleOE').addEventListener('change', (e) => {
             this.renderer.showOE = e.target.checked;
         });
+
+        document.getElementById('toggleByte').addEventListener('change', (e) => {
+            this.renderer.showByte = e.target.checked;
+        });
         
         // Collapse/expand buttons
         document.getElementById('collapseAddr').addEventListener('click', (e) => {
@@ -1444,24 +1499,53 @@ class AnalyzerController {
             e.target.textContent = this.renderer.dataExpanded ? '−' : '+';
         });
 
-        // Cursor tracking on canvas
+        // Tooltip element
+        const tooltip = document.getElementById('signalTooltip');
+
+        // Cursor tracking on canvas WITH tooltip support
         this.renderer.canvas.addEventListener('mousemove', (e) => {
             const rect = this.renderer.canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
             
+            // Tooltip logic for label area
+            if (x <= CONFIG.LABEL_WIDTH && this.renderer.currentLayout) {
+                let foundTrace = false;
+                for (const trace of this.renderer.currentLayout) {
+                    if (y >= trace.y && y <= trace.y + trace.height) {
+                        if (trace.gpio !== null && trace.gpio !== 255) {
+                            tooltip.textContent = `GPIO ${trace.gpio}`;
+                            tooltip.style.display = 'block';
+                            tooltip.style.left = (e.clientX + 10) + 'px';
+                            tooltip.style.top = (rect.top + trace.y + trace.height / 2 - 10) + 'px';  // ← Center on trace
+                            foundTrace = true;
+                        }
+                        break;
+                    }
+                }
+                if (!foundTrace) {
+                    tooltip.style.display = 'none';
+                }
+                // In label area - no cursor
+                this.renderer.cursorX = null;
+                this.renderer.cursorCycle = null;
+            }
             // Only show cursor if over waveform area (not labels)
-            if (x > CONFIG.LABEL_WIDTH) {
+            else if (x > CONFIG.LABEL_WIDTH) {
+                tooltip.style.display = 'none';
                 this.renderer.cursorX = x;
                 // Calculate which cycle the cursor is over
                 const cycleOffset = (x - CONFIG.LABEL_WIDTH + this.renderer.scrollPos) * this.renderer.cyclesPerPixel;
                 this.renderer.cursorCycle = BigInt(Math.floor(cycleOffset));
             } else {
+                tooltip.style.display = 'none';
                 this.renderer.cursorX = null;
                 this.renderer.cursorCycle = null;
             }
         });
 
         this.renderer.canvas.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
             this.renderer.cursorX = null;
             this.renderer.cursorCycle = null;
         });
@@ -1667,6 +1751,40 @@ class AnalyzerController {
         const dropdown = document.getElementById('dataBits');
         dropdown.value = dataBits;
         console.log(`ROM data bits: ${dataBits} bits`);
+
+        // Set access width default based on ROM type
+        const accessWidth = document.getElementById('accessWidth');
+        if (dataBits === 16) {
+            accessWidth.value = '16';  // Default to word mode for 16-bit ROMs
+            accessWidth.disabled = false;
+            
+            // 16-bit ROM (27C400) - use BYTE/CE/OE, not CS1
+            document.getElementById('toggleCS1').checked = false;
+            document.getElementById('toggleByte').checked = true;
+            document.getElementById('toggleCE').checked = true;
+            document.getElementById('toggleOE').checked = true;
+            
+            // Update renderer state
+            this.renderer.showCS1 = false;
+            this.renderer.showByte = true;
+            this.renderer.showCE = true;
+            this.renderer.showOE = true;
+        } else {
+            accessWidth.value = '8';
+            accessWidth.disabled = true;
+            
+            // 8-bit ROM - use CS1, hide BYTE
+            document.getElementById('toggleCS1').checked = true;
+            document.getElementById('toggleByte').checked = false;
+            document.getElementById('toggleCE').checked = false;
+            document.getElementById('toggleOE').checked = false;
+            
+            // Update renderer state
+            this.renderer.showCS1 = true;
+            this.renderer.showByte = false;
+            this.renderer.showCE = false;
+            this.renderer.showOE = false;
+        }
 
         // Trigger the change to update decoder
         const addrBits = parseInt(document.getElementById('addrBits').value);

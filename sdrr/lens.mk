@@ -69,7 +69,8 @@ ONEROM_WASM_EXPORTS := "_onerom_init","_onerom_drive_pins","_onerom_release_pins
 "_onerom_get_x1_pin","_onerom_get_x2_pin","_onerom_get_pio_disassembly",\
 "_onerom_lens_get_rom_size","_onerom_lens_get_num_data_bits",\
 "_onerom_lens_get_num_addr_bits","_onerom_lens_get_rom_type",\
-"_onerom_drive_addr","_onerom_get_ce_pin","_onerom_get_oe_pin"
+"_onerom_drive_addr","_onerom_get_ce_pin","_onerom_get_oe_pin"\
+,"_onerom_get_byte_pin"
 
 # Emscripten linker flags
 WASM_LDFLAGS := -s WASM=1 \

@@ -270,3 +270,17 @@ body {
 .pio-disassembly code {
     font-family: inherit;
 }
+
+.signal-tooltip {
+    position: fixed;
+    background-color: var(--color-primary);
+    color: var(--color-text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    white-space: nowrap;
+}

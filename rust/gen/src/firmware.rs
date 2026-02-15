@@ -183,7 +183,11 @@ pub struct FireConfig {
     #[serde(default)]
     pub rom_dma_preload: bool,
 
-    /// Optional Force 16 bit mode
+    /// Optional Force 16 bit mode.  Only supported on One ROM 40, and if set
+    /// this _disables_ of the /BYTE pin to indicate 8-bit mode, forcing the
+    /// ROM to always operate in 16-bit mode.  This is a higher performance
+    /// mode, as the algorithm can read the address lines 33% more frequently,
+    /// but obviously disables the used of 8-bit mode.
     #[serde(default)]
     pub force_16_bit: bool,
 }
