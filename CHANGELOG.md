@@ -4,7 +4,9 @@ All notables changes between versions are documented in this file.
 
 ## v0.6.5 - 2026-??-??
 
-One ROM Lens
+The big new feature in this release is support for One ROM 40, hardware revisoin fire-40-a.  This emulates a 27C400 found in the Amiga A500, and other 16-bit systems.  I have successfully tested it on my Amiga, serving Kickstart ROM 1.3, and DiagROMV2.
+
+One ROM Lens is also included.  This is a web-based tool that runs the real One ROM serving algorithm within your web browser using a cycle exact PIO emulator.  It emulate One ROM's operation, allowing you to inspecting the GPIOs on a cycle by cycle basis using the logic analyzer style interface.  This is a great tool for understanding how One ROM (or any parallel ROM) works, for debugging firmware issues and interatively testing algorithm changes.
 
 ## v0.6.4 - 2026-02-07
 
