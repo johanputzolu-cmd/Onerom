@@ -785,28 +785,26 @@ void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_
     if (set->roms[0]->filename != NULL) {
         filename = set->roms[0]->filename;
     }
-    LOG("ROM %s preloaded to RAM 0x%08X size %d bytes", filename, (uint32_t)(uintptr_t)img_dst, img_size);
+    LOG("ROM preload %s from 0x%08X to 0x%08X size 0x%08X bytes",
+        filename, (uint32_t)(uintptr_t)img_src, (uint32_t)(uintptr_t)img_dst, img_size);
 #endif // BOOT_LOGGING
 
-    DEBUG("Preloading from 0x%llX to 0x%llX size 0x%08X",
-        (unsigned long long)(uintptr_t)img_src,
-        (unsigned long long)(uintptr_t)img_dst,
-        img_size);
 #if defined(RP235X) && !defined(TEST_BUILD)
     if (runtime_info->rom_dma_copy) {
         if ((((uint32_t)img_src % 4) != 0) || (((uint32_t)img_dst % 4) != 0)) {
             ERR("ROM src/dest unaligned: 0x%08X 0x%08X", (uint32_t)img_src, (uint32_t)img_dst);
             limp_mode(LIMP_MODE_INVALID_CONFIG);
         }
-        DEBUG("Triggered DMA copy");
         dma_copy((uint32_t)img_src, (uint32_t)img_dst, (img_size+3) / 4);
-        LOG("DMA preload initiated to 0x%08X size 0x%08X %s", (uint32_t)img_dst, img_size, filename);
+        LOG("DMA preload initiated from 0x%08X to 0x%08X size 0x%08X %s",
+            (uint32_t)(uintptr_t)img_src, (uint32_t)(uintptr_t)img_dst, img_size, filename);
     } else {
 #endif // RP235X
         // Set image (either single ROM or multiple ROMs) has been fully pre-
         // processed before embedding in the flash.
         memcpy(img_dst, img_src, img_size);
-        LOG("CPU preload complete to 0x%08X size 0x%08X %s", (uint32_t)img_dst, img_size, filename);
+        LOG("CPU preload complete from 0x%08X to 0x%08X size 0x%08X %s",
+            (uint32_t)(uintptr_t)img_src, (uint32_t)(uintptr_t)img_dst, img_size, filename);
 #if defined(RP235X) && !defined(TEST_BUILD)
     }
 #endif // RP235X

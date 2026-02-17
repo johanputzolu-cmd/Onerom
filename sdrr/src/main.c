@@ -400,7 +400,7 @@ int firmware_main(void) {
 #if !defined(EXECUTE_FROM_RAM) && !defined(XIP_CACHE_WARM)
     // Execute the main_loop
 #if !defined(MAIN_LOOP_LOGGING)
-    LOG("Start main loop - logging ends");
+    LOG("Start main loop");
 #endif // !MAIN_LOOP_LOGGING
     //XIP_QMI_M0_TIMING &= ~0x04;
     //XIP_QMI_M0_TIMING |= 0x01;

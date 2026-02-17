@@ -585,15 +585,14 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint32_t high_bits_mask = (1 << rom_table_num_addr_bits) - 1;
     uint32_t low_bits_mask = (1 << effective_addr_pins) - 1;
     uint32_t __attribute__((unused)) alignment_size = (1 << effective_addr_pins) / 1024;
-    DEBUG("Checking RAM table address 0x%08X is %uKB aligned", config->rom_table_addr, alignment_size);
-    DEBUG("High bits mask: 0x%08X, low bits mask: 0x%08X", high_bits_mask, low_bits_mask);
+    DEBUG("ROM table high mask: 0x%08X low mask: 0x%08X", high_bits_mask, low_bits_mask);
     if (config->rom_table_addr & low_bits_mask) {
         ERR("PIO ROM serving requires ROM table address to be %uKB aligned",
             alignment_size);
         limp_mode(LIMP_MODE_INVALID_CONFIG);
     }
     uint32_t rom_table_high_bits = (config->rom_table_addr >> effective_addr_pins) & high_bits_mask;
-    DEBUG("ROM table high %d bits: 0x%08X", rom_table_num_addr_bits, rom_table_high_bits);
+    DEBUG("ROM table high %d: 0x%08X", rom_table_num_addr_bits, rom_table_high_bits);
 
 #if defined(DEBUG_LOGGING)
     // Log other config values
@@ -604,15 +603,8 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t addr_read_irq = config->addr_read_irq;
     uint8_t addr_read_delay = config->addr_read_delay;
     uint8_t cs_active_delay = config->cs_active_delay;
+    uint8_t cs_inactive_delay = config->cs_inactive_delay;
     uint8_t no_dma = config->no_dma;
-    //uint16_t cs_handler_clkdiv_int = config->data_io_clkdiv_int;
-    //uint8_t cs_handler_clkdiv_frac = config->data_io_clkdiv_frac;
-    //uint16_t addr_reader_clkdiv_int = config->addr_reader_read_clkdiv_int;
-    //uint8_t addr_reader_clkdiv_frac = config->addr_reader_read_clkdiv_frac;
-    //uint16_t a_minus_1_clkdiv_int = config->a_minus_1_clkdiv_int;
-    //uint8_t a_minus_1_clkdiv_frac = config->a_minus_1_clkdiv_frac;
-    //uint16_t data_writer_clkdiv_int = config->data_out_clkdiv_int;
-    //uint8_t data_writer_clkdiv_frac = config->data_out_clkdiv_frac;
     uint8_t contiguous_cs_pins = config->contiguous_cs_pins;
     uint8_t multi_rom_mode = config->multi_rom_mode;
     bit_modes_t bit_mode = config->bit_mode;
@@ -626,19 +618,28 @@ static void piorom_load_programs(piorom_config_t *config) {
         (config->invert_cs[2] ? "Y" : "N"));
     DEBUG("- Contiguous CS pins: %s, 0x%02X", (contiguous_cs_pins ? "Y" : "N"), cs_pin_2nd_match);
     DEBUG("- Multi-ROM mode: %s", (multi_rom_mode ? "Y" : "N"));
-    DEBUG("- Bit mode: %d", bit_mode == BIT_MODE_8 ? 8 : 16);
     DEBUG("- Data pins: %d-%d", data_base_pin, data_base_pin + num_data_pins - 1);
     DEBUG("- Address pins: %d-%d", addr_base_pin, addr_base_pin + num_addr_pins - 1);
-    DEBUG("- /BYTE pin: %d, A-1 pin: %d, A-1 signal pin: %d", byte_pin, a_minus_1_pin, a_minus_1_signal_pin);
+    DEBUG("- Byte mode: %d /BYTE pin: %d, A-1 pin: %d, A-1 signal pin: %d", 
+        bit_mode == BIT_MODE_8 ? 8 : 16, byte_pin, a_minus_1_pin, a_minus_1_signal_pin);
     DEBUG("- Force 16 bit mode: %s", (force_16_bit ? "Y" : "N"));
+    DEBUG("- Addr read IRQ: %s, DMA: %s", (addr_read_irq ? "Y" : "N"), (no_dma ? "N" : "Y"));
+    DEBUG("- Delays: addr read: %u, CS active/inactive: %u/%u", addr_read_delay, cs_active_delay, cs_inactive_delay);
+#if defined(DEBUG_BUILD)
+    //uint16_t cs_handler_clkdiv_int = config->data_io_clkdiv_int;
+    //uint8_t cs_handler_clkdiv_frac = config->data_io_clkdiv_frac;
+    //uint16_t addr_reader_clkdiv_int = config->addr_reader_read_clkdiv_int;
+    //uint8_t addr_reader_clkdiv_frac = config->addr_reader_read_clkdiv_frac;
+    //uint16_t a_minus_1_clkdiv_int = config->a_minus_1_clkdiv_int;
+    //uint8_t a_minus_1_clkdiv_frac = config->a_minus_1_clkdiv_frac;
+    //uint16_t data_writer_clkdiv_int = config->data_out_clkdiv_int;
+    //uint8_t data_writer_clkdiv_frac = config->data_out_clkdiv_frac;
     //DEBUG("- CS Handler CLKDIV: %d.%02d", cs_handler_clkdiv_int, cs_handler_clkdiv_frac);
     //DEBUG("- Addr Reader CLKDIV: %d.%02d", addr_reader_clkdiv_int, addr_reader_clkdiv_frac);
     //DEBUG("- A-1 Reader CLKDIV: %d.%02d", a_minus_1_clkdiv_int, a_minus_1_clkdiv_frac);
     //DEBUG("- Data Writer CLKDIV: %d.%02d", data_writer_clkdiv_int, data_writer_clkdiv_frac);
     //DEBUG("- PIO algorithm config:");
-    DEBUG("  - Addr read IRQ: %s, DMA: %s", (addr_read_irq ? "Y" : "N"), (no_dma ? "N" : "Y"));
-    DEBUG("  - Addr read delay: %u, CS active delay: %u", addr_read_delay, cs_active_delay);
-    DEBUG("  - CS active to data output delay: %u", cs_active_delay);
+#endif // DEBUG_BUILD
 #endif // DEBUG_LOGGING
 
     // Set up the PIO assembler
@@ -704,7 +705,6 @@ static void piorom_load_programs(piorom_config_t *config) {
         // Read the pins and we're done
         APIO_WRAP_TOP();
         APIO_ADD_INSTR(APIO_IN_PINS(num_addr_pins));
-
     } else {
         // Last belt and braces check
         if ((rom_table_num_addr_bits + num_addr_pins) != 31) {
@@ -1874,18 +1874,14 @@ int piorom(
 
     DEBUG("%s", log_divider);
 
-    DEBUG("Copy PIO ROM config");
     memcpy(&config, &piorom_config, sizeof(piorom_config_t));
 
     // Apply any ROM set overrides
-    DEBUG("Apply any ROM set overrides");
     piorom_overrides(set, &config);
 
-    DEBUG("Finish PIO ROM config");
     piorom_finish_config(&config, info, runtime, set, rom_table_addr);
 
     // Bring PIO0 and DMA out of reset
-    DEBUG("Enable PIO and DMA");
     APIO_ENABLE_PIOS();
     DMA_ENABLE();
 
@@ -1895,7 +1891,6 @@ int piorom(
     // - SM0 is the address read SM
     // - SM1 is the data byte output SM
 #if !defined(TEST_BUILD)
-    DEBUG("Setup DMA");
     if (!config.no_dma) {
         piorom_setup_dma(&config, BLOCK_ADDR, SM_ADDR_READ, BLOCK_DATA, SM_DATA_WRITE);
     }
@@ -1907,7 +1902,6 @@ int piorom(
     // - CS active high/low config
     // - Data pins start at GPIO 0
     // - Address pins start at GPIO 8
-    DEBUG("Set GPIO function");
     piorom_set_gpio_func(&config);
 
     // Load and configure the PIO programs
@@ -1915,7 +1909,6 @@ int piorom(
     // - CS pins start at GPIO 10
     // - Data pins start at GPIO 0
     // - Address pins start at GPIO 8
-    DEBUG("Load and configure PIO programs");
     piorom_load_programs(&config);
 
     if (!config.no_dma) {
@@ -1930,12 +1923,7 @@ int piorom(
         piorom_start_pios(&config);
 
         while (1) {
-#if !defined(DEBUG_LOGGING) || defined(TEST_BUILD)
-            // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
-            // peripheral access that might introduce jitter on the PIO/DMA
-            // serving.
-            APIO_ASM_WFI();
-#else // DEBUG_LOGGING
+#if defined(DEBUG_BUILD)
             uint32_t read_addr1 = DMA_CH_REG(1)->read_addr;
             DEBUG("DMA1 Read Addr: 0x%08X",
                 read_addr1);
@@ -1944,7 +1932,12 @@ int piorom(
 
             // Delay to avoid swamping RTT
             for (volatile int ii = 0; ii < 100000; ii++);
-#endif // !DEBUG_LOGGING
+#else
+        // Low power wait for (VBUS) interrupt.  Avoids any potential SRAM or
+        // peripheral access that might introduce jitter on the PIO/DMA
+        // serving.
+        APIO_ASM_WFI();
+#endif // !DEBUG_BUILD
         }
     } else {
 #if !defined(TEST_BUILD)

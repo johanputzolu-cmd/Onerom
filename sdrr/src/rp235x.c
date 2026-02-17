@@ -298,7 +298,9 @@ void setup_gpio(void) {
                 GPIO_PAD(pin) |= PAD_DRIVE(PAD_DRIVE_8MA) | PAD_SLEW_FAST;
                 GPIO_CTRL(pin) = GPIO_CTRL_FUNC_SIO;
             } else {
-                ERR("Invalid data pin %d", pin);
+                if (jj == 0) {
+                    ERR("Invalid data pin %d", pin);
+                }
             }
         }
     }
