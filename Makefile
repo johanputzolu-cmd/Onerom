@@ -663,7 +663,7 @@ ifeq ($(WARNINGS),0)
 endif
 endif
 
-.PHONY: all clean clean-firmware clean-firmware-build clean-gen clean-sdrr-gen sdrr-gen gen clean-sdrr-info sdrr-info info info-detail firmware run run-actual flash flash-actual test $(CARGO_TARGET_DIR)/sdrr-gen
+.PHONY: all clean clean-firmware clean-firmware-build clean-gen clean-sdrr-gen sdrr-gen gen clean-sdrr-info sdrr-info info info-detail firmware run run-actual flash flash-actual test test-pio $(CARGO_TARGET_DIR)/sdrr-gen
 
 ifeq ($(DFU_SUPPORTED),1)
 all: firmware info dfu-binary
@@ -775,6 +775,16 @@ test: firmware
 	@ROM_CONFIGS="$(ROM_CONFIGS)" HW_REV=$(HW_REV) test/build/image-test
 	@echo "-----"
 	@echo "Tests completed"
+
+test-pio: firmware
+	@echo "=========================================="
+	@echo "Running tests to:"
+	@echo "- verify generated firmware ROM images (PIO version)"
+	@echo "-----"
+	@GEN_OUTPUT_DIR=$(GEN_OUTPUT_DIR) EXTRA_C_FLAGS="$(EXTRA_C_FLAGS)" make --no-print-directory -C sdrr -f test.mk
+	@echo "-----"
+	@echo "Tests completed"
+
 
 -include $(GEN_OUTPUT_DIR)/generated.mk
 

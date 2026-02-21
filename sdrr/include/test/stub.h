@@ -12,22 +12,16 @@
 #include "assert.h"
 #include "stdlib.h"
 #include "test/SEGGER_RTT.h"
+#include "types.h"
 
-// Function prototypes
-extern void stub_log(const char* msg, ...);
-
-// Logging macros
 #define STUB_LOG stub_log
 #define STUB_ASSERT(X, ...) STUB_LOG(__VA_ARGS__); assert(X)
 #define STUB_EXIT(X)        STUB_LOG("Exiting with code %d", X); exit(X)
 
-#define TST_LOG(...) STUB_LOG(__VA_ARGS__)
-#if defined(DEBUG_TEST)
-#define TST_DBG(...) STUB_LOG(__VA_ARGS__)
-#else // !DEBUG_TEST
-#define TST_DBG(...)
-#endif // DEBUG_TEST
-
+extern limp_mode_pattern_t limp_mode_value;
+#if defined(TEST_MAIN_C)
+limp_mode_pattern_t limp_mode_value = LIMP_MODE_NONE;
+#endif // TEST_MAIN_C
 
 // Externs required by firmware
 #define RAM_ROM_TABLE_SIZE (1024 * 1024)
@@ -43,7 +37,10 @@ uint64_t *get_ram_rom_image_table_aligned() {
     address = address * RAM_ROM_TABLE_SIZE;
     return (uint64_t *)(uintptr_t)address;
 }
-#endif
+void limp_mode(limp_mode_pattern_t pattern) {
+    limp_mode_value = pattern;
+}
+#endif // TEST_MAIN_C
 #define _metadata_start onerom_metadata_header
 #define _ram_rom_image_start test_ram_rom_image_table
 #define _sdrr_runtime_info_ram sdrr_runtime_info

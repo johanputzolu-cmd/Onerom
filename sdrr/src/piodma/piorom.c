@@ -347,10 +347,10 @@ typedef struct piorom_config {
     // How many CS pins are used (1-3), and which ones to invert, as they are
     // active high.  This inversion is done in hardware before the PIOs read
     // the pins.
+    uint8_t invert_cs[4];
     uint8_t num_cs_pins;
-    uint8_t invert_cs[3];
 
-    // 4 bytes to here
+    // 5 bytes to here
 
     // Base CS pin.  Note that a single break in otherwise contiguous pins is
     // allows - see contiguous_cs_pins and cs_pin_2nd_match below.
@@ -363,11 +363,11 @@ typedef struct piorom_config {
     // are supported).
     uint8_t num_data_pins;
 
+    // 8 bytes to here
+    
     // Lowest address pin.  For 24 pin ROMs, this includes all CS and X pins.
     uint8_t addr_base_pin;
 
-    // 8 bytes to here
-    
     // Number of address pins.  This is 16 for a Fire 24 board - as
     // they include X and CS pins.  For a Fire 28 board is is also, normally,
     // 16 (as 2^16 is 512Kbits = 64KB), as CS lines are _not_ part of the
@@ -382,11 +382,11 @@ typedef struct piorom_config {
     // delay from the instructions themselves)
     uint8_t addr_read_delay;
 
+    // 12 bytes to here
+
     // Number of cycles to wait after detecting CS going active before setting
     // data pins to outputs.
     uint8_t cs_active_delay;
-
-    // 12 bytes to here
 
     // Number of cycles to wait after CS goes inactive before setting data
     // pins back to inputs.
@@ -407,7 +407,7 @@ typedef struct piorom_config {
     // Ignore /BYTE in 16 bit mode
     uint8_t force_16_bit;
 
-    uint8_t pad7[2];
+    uint8_t pad7;
 
     // 20 bytes to here
 
@@ -612,10 +612,11 @@ static void piorom_load_programs(piorom_config_t *config) {
     uint8_t byte_pin = config->byte_pin;
     DEBUG("PIO ROM Config:");
     DEBUG("- CS pins: %d-%d", cs_base_pin, cs_base_pin + num_cs_pins - 1);
-    DEBUG("- CS invert: %s %s %s",
+    DEBUG("- CS invert: %s %s %s %s",
         (config->invert_cs[0] ? "Y" : "N"),
         (config->invert_cs[1] ? "Y" : "N"),
-        (config->invert_cs[2] ? "Y" : "N"));
+        (config->invert_cs[2] ? "Y" : "N"),
+        (config->invert_cs[3] ? "Y" : "N"));
     DEBUG("- Contiguous CS pins: %s, 0x%02X", (contiguous_cs_pins ? "Y" : "N"), cs_pin_2nd_match);
     DEBUG("- Multi-ROM mode: %s", (multi_rom_mode ? "Y" : "N"));
     DEBUG("- Data pins: %d-%d", data_base_pin, data_base_pin + num_data_pins - 1);
@@ -824,9 +825,13 @@ static void piorom_load_programs(piorom_config_t *config) {
 
     // If data lines are 16+, change this block's GPIOBASE
     uint8_t base_data_pin = config->data_base_pin;
-    if (base_data_pin < 16) {
+    if ((base_data_pin < 16) || (config->cs_base_pin < 16)) {
         DEBUG("PIO%d GPIOBASE 0", BLOCK_DATA);
         APIO_GPIOBASE_0();
+        if ((base_data_pin + config->num_data_pins) >= 32) {
+            ERR("Invalid config - data pins and CS pins cannot overlap across GPIOBASE 0/16 boundary");
+            limp_mode(LIMP_MODE_INVALID_CONFIG);
+        }
     } else {
         DEBUG("PIO%d block GPIOBASE to 16", BLOCK_DATA);
         base_data_pin -= 16;
@@ -1052,7 +1057,7 @@ static void piorom_load_programs(piorom_config_t *config) {
             APIO_IN_COUNT(1)         // Read A-1 signal pin
         );
         APIO_SM_PINCTRL_SET(
-            APIO_OUT_BASE(data_base_pin) |
+            APIO_OUT_BASE(base_data_pin) |
             APIO_OUT_COUNT(bits) |
             APIO_IN_BASE(config->a_minus_1_pin)
         );
@@ -1111,7 +1116,7 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
     //
     // We MUST set these after the address pins, as the CS pins may be part of
     // the address pin range (they are on 24 and 28 pin ROMs).
-    for (int ii = 0; ii < num_cs_pins; ii++) {
+    for (int ii = 0; (ii < num_cs_pins) && (ii < 4); ii++) {
         uint8_t pin = cs_base_pin + ii;
         uint8_t invert = cs_pin_invert[ii];
         // Set to PIO function - this clears everything else - not required,
@@ -1123,7 +1128,7 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
             // Turn CS line into active low by inverting the GPIO before the
             // PIO reads it
             APIO_GPIO_INVERT(pin);
-            //DEBUG("  CS pin %d active high CTRL=0x%08X", pin, GPIO_CTRL(pin));
+            DEBUG("CS pin %d inverted", pin);
         }
     }
 
@@ -1490,74 +1495,47 @@ static void piorom_finish_config(
         case CHIP_TYPE_23256:
         case CHIP_TYPE_23512:
         case CHIP_TYPE_231024:
-            series_23 = 1;
             // Figure out base CS pin from SDRR info
-
-            // Store off num_cs_pins as it gets modified by
-            // piorom_handle_non_contiguous_cs_pins()
+            series_23 = 1;
             uint8_t num_cs_pins = config->num_cs_pins;
-            if (num_cs_pins == 1) {
-                config->cs_base_pin = info->pins->cs1;
-            } else {
-                uint8_t next_pin;
-                if (num_cs_pins > 2) {
-                    next_pin = info->pins->cs3;
-                } else {
-                    next_pin = info->pins->cs2;
+
+            // Collect and sort the active CS pins ascending
+            uint8_t pins[3] = { info->pins->cs1, info->pins->cs2, info->pins->cs3 };
+            for (uint8_t i = 1; i < num_cs_pins; i++) {
+                for (uint8_t j = i; j > 0 && pins[j-1] > pins[j]; j--) {
+                    uint8_t tmp = pins[j-1];
+                    pins[j-1] = pins[j];
+                    pins[j] = tmp;
                 }
-                if (info->pins->cs1 < next_pin) {
-                    if (next_pin > (info->pins->cs1 + 1)) {
-                        piorom_handle_non_contiguous_cs_pins(
-                            config,
-                            num_cs_pins,
-                            info->pins->cs1,
-                            info->pins->cs1,
-                            next_pin
-                        );
+            }
+
+            config->cs_base_pin = pins[0];
+
+            if (num_cs_pins > 1) {
+                uint8_t gap_count = 0;
+                for (uint8_t i = 1; i < num_cs_pins; i++) {
+                    if (pins[i] != pins[i-1] + 1) {
+                        gap_count++;
                     }
-                    config->cs_base_pin = info->pins->cs1;
-                } else {
-                    if (info->pins->cs1 > (next_pin + 1)) {
-                        piorom_handle_non_contiguous_cs_pins(
-                            config,
-                            num_cs_pins,
-                            next_pin,
-                            next_pin,
-                            info->pins->cs1
-                        );
-                    }
-                    config->cs_base_pin = next_pin;
                 }
 
-                if (num_cs_pins > 2) {
-                    uint8_t final_pin = info->pins->cs2;
-
-                    // piorom_handle_non_contiguous_cs_pins() handles if there
-                    // are already too many breaks in contiguity
-                    if (final_pin == (config->cs_base_pin - 1)) {
-                        config->cs_base_pin = final_pin;
-                    } else if (final_pin == (config->cs_base_pin + 2)) {
-                        // cs_base_pin is already correct
-                    } else if (final_pin > (config->cs_base_pin + 2)) {
-                        piorom_handle_non_contiguous_cs_pins(
-                            config,
-                            num_cs_pins,
-                            config->cs_base_pin,
-                            config->cs_base_pin+1,
-                            final_pin
-                        );
-                        // cs_base_pin is already correct
-                    } else {
-                        // cs3 is less than cs_base_pin - 1
-                        piorom_handle_non_contiguous_cs_pins(
-                            config,
-                            num_cs_pins,
-                            final_pin,
-                            final_pin,
-                            config->cs_base_pin
-                        );
-                        config->cs_base_pin = final_pin;
+                if (gap_count == 1) {
+                    // Find which pair has the gap
+                    uint8_t low = pins[0];
+                    uint8_t high = pins[1];
+                    for (uint8_t i = 1; i < num_cs_pins; i++) {
+                        if (pins[i] != pins[i-1] + 1) {
+                            low = pins[i-1];
+                            high = pins[i];
+                            break;
+                        }
                     }
+                    piorom_handle_non_contiguous_cs_pins(config, num_cs_pins,
+                        pins[0], low, high);
+                } else if (gap_count > 1) {
+                    ERR("Multiple non-contiguous CS pin ranges not supported");
+                    limp_mode(LIMP_MODE_INVALID_CONFIG);
+                    break;
                 }
             }
             break;
@@ -1623,7 +1601,7 @@ static void piorom_finish_config(
     // That's OK as they won't match an actual CS pin.
     if (series_23) {
         if (!config->multi_rom_mode) {
-            for (int ii = 0; (ii < config->num_cs_pins) && (ii < 3); ii++) {
+            for (int ii = 0; (ii < config->num_cs_pins) && (ii < 4); ii++) {
                 if (info->pins->cs1 == (config->cs_base_pin + ii)) {
                     if (rom->cs1_state == CS_ACTIVE_HIGH) {
                         config->invert_cs[ii] = 1;
@@ -1644,8 +1622,19 @@ static void piorom_finish_config(
                     }
                 }
             }
+
+            // For the ROM type 2316 specifically, we have to swap CS2
+            // and CS3 inversions around, as 2316 CS3 is 2332 CS2, and the
+            // 2332 is how we refer to the pins.
+            if (rom->rom_type == CHIP_TYPE_2316) {
+                uint8_t cs2_offset = info->pins->cs2 - config->cs_base_pin;
+                uint8_t cs3_offset = info->pins->cs3 - config->cs_base_pin;
+                uint8_t temp = config->invert_cs[cs2_offset];
+                config->invert_cs[cs2_offset] = config->invert_cs[cs3_offset];
+                config->invert_cs[cs3_offset] = temp;
+            }
         } else {
-            // In multi-ROM mode, CS1, X1 and potentiall X2 are CS lines.
+            // In multi-ROM mode, CS1, X1 and potentially X2 are CS lines.
             // Also, invert logic is reversed compared to the normal case, as
             // _any_ CS line active is supported.
             for (int ii = 0; (ii < config->num_cs_pins) && (ii < 3); ii++) {
@@ -1786,7 +1775,7 @@ static piorom_config_t piorom_config = {
     .a_minus_1_pin = 255,
     .a_minus_1_signal_pin = 255,
     .force_16_bit = 0,
-    .pad7 = {0, 0},
+    .pad7 = 0,
     .rom_table_addr = 0,
     .addr_reader_read_clkdiv_int = 1,
     .addr_reader_read_clkdiv_frac = 0,

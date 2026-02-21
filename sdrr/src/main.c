@@ -157,6 +157,7 @@ uint8_t metadata_present(const sdrr_info_t *info) {
     return present;
 }
 
+#if !defined(TEST_BUILD)
 void limp_mode(limp_mode_pattern_t pattern) {
     LOG("Limp mode %d", pattern);
 
@@ -179,6 +180,7 @@ void limp_mode(limp_mode_pattern_t pattern) {
         blink_pattern(on_time, off_time, 1);
     }
 }
+#endif // !TEST_BUILD
 
 // Read in firmware overrides from the selected ROM set, if present (0.6.0+)
 // and modify sdrr_runtime_info accordingly.

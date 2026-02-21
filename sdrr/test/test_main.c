@@ -7,193 +7,123 @@
 #define TEST_MAIN_C
 
 #include <stdio.h>
-#if !defined(EPIO_WASM)
-#include <unistd.h>
-#endif // EPIO_WASM
 
 #include <include.h>
-#include <test/stub.h>
 #include <apio.h>
 #include <epio.h>
+#include <test/stub.h>
+#include <test/func.h>
 
-static uint8_t addr_pins[32];
-static uint8_t data_pins[16];
-
-static void check_rom_read(
+static int check_rom_read(
     epio_t *epio,
-    uint32_t addr,
-    uint8_t num_addr_bits,
-    uint8_t cs1,
-    uint8_t cs2,
-    uint8_t cs3,
-    uint8_t x1,
-    uint8_t x2,
-    uint32_t expected_data
+    uint8_t set_index,
+    uint8_t rom_index,
+    uint32_t addr
 );
-static uint32_t get_byte_from_gpio(uint64_t gpio_in, uint8_t data_bits);
-static void get_gpio_drive_from_addr_cs(
-    uint32_t addr,
-    uint8_t num_addr_bits,
-    uint8_t cs1,
-    uint8_t cs2,
-    uint8_t cs3,
-    uint8_t x1,
-    uint8_t x2,
-    uint64_t *gpios_to_drive,
-    uint64_t *gpio_levels
-);
-static void setup_addr_pins(void);
-static void setup_data_pins(void);
 static void setup_test_infra(void);
 static epio_t *start_epio(void);
 
-static void check_rom_read(
+// Cycle counts to use for tests.  At 150MHz, each cycle is 6.67ns.
+// The CS active/inactive loop generally only takes 3 cycles, but may take up
+// to 6 in the 2332 case (i.e. non-contiguous CS pins).
+#define TST_CYCLES_BEFORE_START             173 // A random number
+#define TST_CYCLES_ADDR_BEFORE_CS_ACTIVE    6   // 40ns (+ CS delay)
+#define TST_CYCLES_CS_ACTIVE_TO_DATA_READY  6   // 40ns
+#define TST_CYCLES_AFTER_READ               6   // 40ns
+static int check_rom_read(
     epio_t *epio,
-    uint32_t addr,
-    uint8_t num_addr_bits,
-    uint8_t cs1,
-    uint8_t cs2,
-    uint8_t cs3,
-    uint8_t x1,
-    uint8_t x2,
-    uint32_t expected_data
+    uint8_t set_index,
+    uint8_t rom_index,
+    uint32_t addr
 ) {
-    // Do the read
-    uint64_t gpio_driven;
-    uint64_t gpio_level;
-    get_gpio_drive_from_addr_cs(
-        addr, 
-        num_addr_bits,
-        cs1,
-        cs2,
-        cs3,
-        x1,
-        x2,
-        &gpio_driven,
-        &gpio_level
-    );
-    epio_drive_gpios_ext(epio, gpio_driven, gpio_level);
-    
-    // Step enough to through the entire chain
-    epio_step_cycles(epio, 20);
+    // Check the data pins are undriven before starting
+    if (are_cs_active_all_high(set_index, rom_index)) {
+        sdrr_rom_type_t rom_type = get_rom_type(set_index, rom_index);
+        assert(
+            rom_type == CHIP_TYPE_2316 ||
+            rom_type == CHIP_TYPE_2332 ||
+            rom_type == CHIP_TYPE_2364 ||
+            rom_type == CHIP_TYPE_23128 ||
+            rom_type == CHIP_TYPE_23256 ||
+            rom_type == CHIP_TYPE_23512 ||
+            rom_type == CHIP_TYPE_231024
+        );
+    } else {
+        check_data_pins_undriven(epio);
+    }
 
-    // Read the data
+    // First step is to drive the address GPIOs with CS inactive.
+    uint64_t gpios_driven;
+    uint64_t gpio_levels;
+    get_gpio_drive(
+        set_index,
+        rom_index,
+        addr,
+        0,
+        &gpios_driven,
+        &gpio_levels
+    );
+    epio_drive_gpios_ext(epio, gpios_driven, gpio_levels);
+    epio_step_cycles(epio, TST_CYCLES_ADDR_BEFORE_CS_ACTIVE);
+
+    // Now set CS active
+    get_gpio_drive(
+        set_index,
+        rom_index,
+        addr,
+        1,
+        &gpios_driven,
+        &gpio_levels
+    );
+    epio_drive_gpios_ext(epio, gpios_driven, gpio_levels);
+    //TST_LOG("Address 0x%08X driven with CS active", addr);
+    epio_step_cycles(epio, TST_CYCLES_CS_ACTIVE_TO_DATA_READY);
+
+    // Check the data lines are being actively driven
+    check_data_pins_driven(epio);
+
+    // Read the data lines
     uint64_t gpio_out = epio_read_gpios_ext(epio);
     uint32_t data = get_byte_from_gpio(gpio_out, 8);
 
+    // Get the expected data byte
+    uint8_t expected_data = get_rom_image_data_byte(set_index, rom_index, addr);
+
+    // Test it
+    int rc = 0;
     if (data != expected_data) {
-        TST_LOG("ROM Read Mismatch: 0x%08X expected 0x%02X got 0x%02X", addr, expected_data, data);
-        assert(0 && "ROM read mismatch");
-    }
-
-    // Stop driving GPIOs
-    gpio_driven = 0;
-    epio_drive_gpios_ext(epio, 0, 0);
-}
-
-// Turns a GPIO read into an actual, de-mangled, data byte
-static uint32_t get_byte_from_gpio(uint64_t gpio_in, uint8_t data_bits) {
-    uint32_t data = 0;
-
-    assert(((data_bits == 8) || (data_bits == 16)) && "Invalid number of data bits");
-
-    for (int ii = 0; ii < data_bits; ii++) {
-        assert((data_pins[ii] < MAX_USED_GPIOS) && "Data bit out of range for ROM");
-        if (gpio_in & (1ULL << data_pins[ii])) {
-            data |= (1 << ii);
+        if (get_progress() < 5) {
+            TST_LOG("ROM Read Mismatch: 0x%08X expected 0x%02X got 0x%02X", addr, expected_data, data);
         }
+        rc = 1;
     }
-    return data;
+
+    // Stop driving GPIOs and step a bit, as it isn't realistic to have the
+    // next read drive the address pins immediately.
+    get_gpio_drive(
+        set_index,
+        rom_index,
+        -1,
+        2,
+        &gpios_driven,
+        &gpio_levels
+    );
+    epio_drive_gpios_ext(epio, gpios_driven, gpio_levels);
+    epio_step_cycles(epio, TST_CYCLES_AFTER_READ);
+
+    inc_progress();
+
+    return rc;
 }
 
 static void setup_test_infra(void) {
     setup_addr_pins();
     setup_data_pins();
+    setup_rom_images();
 }
 
 static epio_t *start_epio(void) {
     return epio_from_apio();
-}
-
-// Gets the appropriate GPIO drive state to simulate a particular address and
-// CS state being driven on the ROM by the host.  Returns bit masks ready to
-// be applied via epio_drive_gpios_ext.
-static void get_gpio_drive_from_addr_cs(
-    uint32_t addr,
-    uint8_t num_addr_bits,
-    uint8_t cs1,
-    uint8_t cs2,
-    uint8_t cs3,
-    uint8_t x1,
-    uint8_t x2,
-    uint64_t *gpios_to_drive,
-    uint64_t *gpio_levels
-) {
-    assert(addr < (512*1024) && "Address out of range for One ROM");
-    uint64_t drive_mask = 0;
-    uint64_t level_mask = 0;
-
-    // Figure out the drive and level mask for the address lines
-    for (int ii = 0; ii < num_addr_bits; ii++) {
-        assert((addr_pins[ii] < MAX_USED_GPIOS) && "Address bit out of range for ROM");
-        drive_mask |= (1ULL << addr_pins[ii]);
-        if (addr & (1 << ii)) {
-            level_mask |= (1ULL << addr_pins[ii]);
-        }
-    }
-
-    // Add CS lines to the drive and level mask
-    if (cs1 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->cs1);
-        if (cs1) {
-            level_mask |= (1ULL << sdrr_info.pins->cs1);
-        }
-    }
-    if (cs2 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->cs2);
-        if (cs2) {
-            level_mask |= (1ULL << sdrr_info.pins->cs2);
-        }
-    }
-    if (cs3 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->cs3);
-        if (cs3) {
-            level_mask |= (1ULL << sdrr_info.pins->cs3);
-        }
-    }
-    if (x1 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->x1);
-        if (x1) {
-            level_mask |= (1ULL << sdrr_info.pins->x1);
-        }
-    }
-    if (x2 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->x2);
-        if (x2) {
-            level_mask |= (1ULL << sdrr_info.pins->x2);
-        }
-    }
-
-    *gpios_to_drive = drive_mask;
-    *gpio_levels = level_mask;
-}
-
-static void setup_addr_pins(void) {
-    for (int ii = 0; ii < 16; ii++) {
-        addr_pins[ii] = sdrr_info.pins->addr[ii];
-    }
-    for (int ii = 0; ii < 8; ii++) {
-        addr_pins[16 + ii] = sdrr_info.pins->addr2[ii];
-    }
-}
-
-static void setup_data_pins(void) {
-    for (int ii = 0; ii < 8; ii++) {
-        data_pins[ii] = sdrr_info.pins->data[ii];
-    }
-    for (int ii = 0; ii < 8; ii++) {
-        data_pins[8 + ii] = sdrr_info.pins->data2[ii];
-    }
 }
 
 int main(int argc, char *argv[]) {
@@ -217,30 +147,22 @@ int main(int argc, char *argv[]) {
     // config to make sure it looks sane.
     setup_test_infra();
 
-#if !defined(EPIO_WASM)
     // Redirect firmware logging to file
-    char *firmware_log_file = "/tmp/onerom-firmware-output.txt";
-    TST_LOG("Firmware logging: %s", firmware_log_file);
-    int saved_stdout = dup(STDOUT_FILENO);
-    FILE *file = fopen(firmware_log_file, "w");
-    if (!file) {
-        perror("Failed to open firmware log file");
-        return 1;
-    }
-    dup2(fileno(file), STDOUT_FILENO);
-#endif // EPIO_WASM
+    TST_LOG_FILE_CLEAR();
+    TST_LOG_TO_FILE();
 
     // Run the firmware - it will return when it hits the infinite loop.
     firmware_main();
 
-#if !defined(EPIO_WASM)
     // Re-instate stdout and close the log file
-    dup2(saved_stdout, STDOUT_FILENO);
-    close(saved_stdout);
-    fclose(file);
-#endif // EPIO_WASM
+    TST_LOG_RESET_STDOUT();
 
     TST_LOG("-----");
+
+    if (limp_mode_value != LIMP_MODE_NONE) {
+        TST_LOG("Firmware entered limp mode with pattern %d", limp_mode_value);
+        return 1;
+    }
 
     if (_apio_emulated_pio.pios_enabled != 1) {
         TST_LOG("PIO programs were not enabled: %d", _apio_emulated_pio.pios_enabled);
@@ -255,28 +177,52 @@ int main(int argc, char *argv[]) {
     }
 
     // Copy from the test_ram_rom_image)_table to epio
-    uint32_t *source = get_ram_rom_image_table_aligned();
+    uint64_t *source = get_ram_rom_image_table_aligned();
     epio_sram_set(epio, 0x20000000, (uint8_t *)source, 512*1024);
 
-    // Check a 2364 (8KB) ROM
-    int rom_size = 0x2000;
-    for (int ii = 0; ii < rom_size; ii++) {
-        check_rom_read(
-            epio,
-            ii,
-            13,
-            0,
-            0,
-            0,
-            0,
-            0,
-            ii & 0x3F
-        );
-        epio_step_cycles(epio, 20);
+    // Configure the DMA chain
+    uint8_t bit_mode = 8;
+    if (get_rom_type(0, 0) == CHIP_TYPE_27C400) {
+        bit_mode = 16;
     }
-    TST_LOG("Read 0x%08X bytes successfully", rom_size);
+    epio_dma_setup_read_pio_chain(
+        epio,
+        0,
+        1,
+        0,
+        4,
+        2,
+        1,
+        4,
+        bit_mode
+    );
+
+    // Step the emulator some cycles before we start
+    TST_LOG("Stepping emulator for %d cycles before starting tests", TST_CYCLES_BEFORE_START);
+    epio_step_cycles(epio, TST_CYCLES_BEFORE_START);
+
+    // Check the first ROM set image, as this is what the firmware will have
+    // loaded due to dummy sel index pins.
+    uint8_t set_index = 0;
+    uint8_t rom_index = 0;
+    uint32_t rom_size = get_rom_image_size(set_index, rom_index);
+    uint32_t failures = 0;
+    TST_LOG("Testing ROM read for set %d image %d (size 0x%08X bytes)", set_index, rom_index, rom_size);
+    for (uint32_t ii = 0; ii < rom_size; ii++) {
+        failures += check_rom_read(
+            epio,
+            set_index,
+            rom_index,
+            ii
+        );
+    }
+    if (failures == 0) {
+        TST_LOG("Read 0x%08X bytes successfully", rom_size);
+    } else {
+        TST_LOG("%d/%d ROM bytes read successfully", rom_size - failures, rom_size);
+    }
 
     epio_free(epio);
 
-    return 0;
+    return failures == 0 ? 0 : 1;
 }

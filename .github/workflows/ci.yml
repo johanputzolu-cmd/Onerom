@@ -69,6 +69,11 @@ jobs:
       run: |
         export TOOLCHAIN=/usr/bin
         ci/build.sh test
+
+    - name: Run emulated PIO tests
+      run: |
+        export TOOLCHAIN=/usr/bin
+        ci/test-pios.sh
       
     - name: Build firmware for all image configs
       run: |

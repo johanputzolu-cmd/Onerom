@@ -1,0 +1,280 @@
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
+//
+// MIT License
+
+#include <stdio.h>
+
+#include <include.h>
+#include <apio.h>
+#include <epio.h>
+#include <test/stub.h>
+#include <test/func.h>
+
+// We use int32_t for some functions so we can represent an invalid address
+// with -1.  Hence the max address we can support is 0x7FFFFFFF.
+#define MAX_SUPPORTED_ADDR 0x7FFFFFFF
+
+static uint8_t addr_pins[32];
+static uint8_t data_pins[16];
+
+// Return the GPIO drive state for a given active high/low CS configuration
+// and logical CS active state (active = 1, inactive = 0).
+static uint8_t get_cs_gpio_state(sdrr_cs_state_t state, uint8_t active) {
+    uint8_t cs_state;
+    switch (state) {
+        case CS_ACTIVE_LOW:
+            cs_state = active ? 0 : 1;
+            break;
+        case CS_ACTIVE_HIGH:
+            cs_state = active ? 1 : 0;
+            break;
+        case CS_NOT_USED:
+            cs_state = 2; // Not used, so we won't drive it
+            break;
+        default:
+            assert(0 && "Invalid CS state");
+    }
+    return cs_state;
+}
+
+// Gets the appropriate GPIO drive state to simulate a particular address and
+// CS state being driven on the ROM by the host.  Returns bit masks ready to
+// be applied via epio_drive_gpios_ext.
+static void get_gpio_drive_from_addr_cs(
+    sdrr_rom_type_t rom_type,
+    int32_t addr,
+    uint8_t num_addr_bits,
+    uint8_t cs1,
+    uint8_t cs2,
+    uint8_t cs3,
+    uint8_t x1,
+    uint8_t x2,
+    uint64_t *gpios_to_drive,
+    uint64_t *gpio_levels
+) {
+    assert(addr < (512*1024) && "Address out of range for One ROM");
+    assert(addr < MAX_SUPPORTED_ADDR && "Address too large to represent as int32_t");
+    uint64_t drive_mask = 0;
+    uint64_t level_mask = 0;
+
+    // Figure out the drive and level mask for the address lines
+    if (addr >= 0) {
+        uint8_t local_addr_pins[32];
+        memcpy(local_addr_pins, addr_pins, sizeof(local_addr_pins));
+
+        // Handle any ROM type uniqueness
+        if (rom_type == CHIP_TYPE_2732) {
+            // Swap pins A11 and A12
+            uint8_t temp = local_addr_pins[11];
+            local_addr_pins[11] = local_addr_pins[12];
+            local_addr_pins[12] = temp;
+        }
+
+        for (int ii = 0; ii < num_addr_bits; ii++) {
+            assert((local_addr_pins[ii] < MAX_USED_GPIOS) && "Address bit out of range for ROM");
+            drive_mask |= (1ULL << local_addr_pins[ii]);
+            if (addr & (1 << ii)) {
+                level_mask |= (1ULL << local_addr_pins[ii]);
+            }
+        }
+    } else {
+        // Do not drive address lines
+    }
+
+    // Flip CS2 and CS3 pin for all 24 pin ROMs except 2332 and 2364
+    uint8_t cs2_pin;
+    uint8_t cs3_pin;
+    switch (rom_type) {
+        case CHIP_TYPE_2316:
+        case CHIP_TYPE_2716:
+        case CHIP_TYPE_2732:
+            cs2_pin = sdrr_info.pins->cs3;
+            cs3_pin = sdrr_info.pins->cs2;
+            break;
+
+        default:
+            cs2_pin = sdrr_info.pins->cs2;
+            cs3_pin = sdrr_info.pins->cs3;
+            break;
+    } 
+
+    // Add CS lines to the drive and level mask
+    if (cs1 < 2) {
+        drive_mask |= (1ULL << sdrr_info.pins->cs1);
+        if (cs1) {
+            level_mask |= (1ULL << sdrr_info.pins->cs1);
+        }
+    }
+    if (cs2 < 2) {
+        drive_mask |= (1ULL << cs2_pin);
+        if (cs2) {
+            level_mask |= (1ULL << cs2_pin);
+        }
+    }
+    if (cs3 < 2) {
+        drive_mask |= (1ULL << cs3_pin);
+        if (cs3) {
+            level_mask |= (1ULL << cs3_pin);
+        }
+    }
+    if (x1 < 2) {
+        drive_mask |= (1ULL << sdrr_info.pins->x1);
+        if (x1) {
+            level_mask |= (1ULL << sdrr_info.pins->x1);
+        }
+    }
+    if (x2 < 2) {
+        drive_mask |= (1ULL << sdrr_info.pins->x2);
+        if (x2) {
+            level_mask |= (1ULL << sdrr_info.pins->x2);
+        }
+    }
+
+    *gpios_to_drive = drive_mask;
+    *gpio_levels = level_mask;
+    //TST_LOG("GPIO drive for addr 0x%08X cs1: %d cs2: %d cs3: %d x1: %d x2: %d -> drive_mask: 0x%016llX level_mask: 0x%016llX", addr, cs1, cs2, cs3, x1, x2, drive_mask, level_mask);
+}
+
+// Used to figure out the GPIO drive state for a given address and logical
+// CS state, where CS is active (1) or inactive (0)
+void get_gpio_drive(
+    uint8_t set_index,
+    uint8_t rom_index,
+    int32_t addr,
+    uint8_t cs_active,
+    uint64_t *gpios_to_drive,
+    uint64_t *gpio_levels
+) {
+    assert(addr < MAX_SUPPORTED_ADDR && "Address too large to represent as int32_t");
+    assert(set_index < SDRR_NUM_SETS && "Set index out of range");
+    const sdrr_rom_set_t *set = &rom_set[set_index];
+    assert(rom_index < set->rom_count && "ROM index out of range");
+    const sdrr_rom_info_t *rom_info = set->roms[rom_index];
+    assert(set->serve != SERVE_ADDR_ON_ANY_CS && "Multi ROM sets not yet supported");
+    assert(cs_active <= 2 && "CS active state must be 0, 1, or 2");
+    const sdrr_rom_type_t rom_type = rom_info->rom_type;
+
+    // Figure out the actual CS lines and states for the given logical CS
+    // state
+    uint8_t cs1 = 2;
+    uint8_t cs2 = 2;
+    uint8_t cs3 = 2;
+    uint8_t x1 = 2;
+    uint8_t x2 = 2;
+    if (cs_active <= 1) {
+        cs1 = get_cs_gpio_state(rom_info->cs1_state, cs_active);
+        cs2 = get_cs_gpio_state(rom_info->cs2_state, cs_active);
+        cs3 = get_cs_gpio_state(rom_info->cs3_state, cs_active);
+    } else {
+        // CS not active, so we won't drive any CS lines
+    }
+
+    // If a 24 pin ROM, pull X1/X2 low (don't support dynamic banking yet).
+    // X1/X2 not supported on other ROM types yet
+    if (sdrr_info.pins->chip_pins == 24) {
+        x1 = 0;
+        x2 = 0;
+    }
+
+    // Get the number of address bits for this ROM type
+    uint32_t chip_size = get_rom_image_size(set_index, rom_index);
+    uint8_t num_addr_bits = 0;
+    while (chip_size > 1) {
+        chip_size >>= 1;
+        num_addr_bits++;
+    }
+
+    // Now get the GPIO drive state for this address and CS state
+    get_gpio_drive_from_addr_cs(
+        rom_type,
+        addr,
+        num_addr_bits,
+        cs1,
+        cs2,
+        cs3,
+        x1,
+        x2,
+        gpios_to_drive,
+        gpio_levels
+    );
+}
+
+// Turns a GPIO read into an actual, de-mangled, data byte
+uint32_t get_byte_from_gpio(uint64_t gpio_in, uint8_t data_bits) {
+    uint32_t data = 0;
+
+    assert(((data_bits == 8) || (data_bits == 16)) && "Invalid number of data bits");
+
+    for (int ii = 0; ii < data_bits; ii++) {
+        assert((data_pins[ii] < MAX_USED_GPIOS) && "Data bit out of range for ROM");
+        if (gpio_in & (1ULL << data_pins[ii])) {
+            data |= (1 << ii);
+        }
+    }
+    return data;
+}
+
+void setup_addr_pins(void) {
+    for (int ii = 0; ii < 16; ii++) {
+        addr_pins[ii] = sdrr_info.pins->addr[ii];
+    }
+    for (int ii = 0; ii < 8; ii++) {
+        addr_pins[16 + ii] = sdrr_info.pins->addr2[ii];
+    }
+}
+
+void setup_data_pins(void) {
+    for (int ii = 0; ii < 8; ii++) {
+        data_pins[ii] = sdrr_info.pins->data[ii];
+    }
+    for (int ii = 0; ii < 8; ii++) {
+        data_pins[8 + ii] = sdrr_info.pins->data2[ii];
+    }
+}
+
+void check_data_pins_driven(epio_t *epio) {
+    uint64_t driven = epio_read_driven_pins(epio);
+    for (int ii = 0; ii < 16; ii++) {
+        uint8_t pin = data_pins[ii];
+        if (pin < MAX_USED_GPIOS) {
+            if (!(driven & (1ULL << pin))) {
+                uint64_t level = epio_read_gpios_ext(epio);
+                TST_LOG("Data pin %d (GPIO %d) not driven when it should be at 0x%08X GPIOs driven: 0x%016llX levels: 0x%016llX", ii, pin, get_progress(), driven, level);
+                assert(0 && "Data pin not driven");
+            }
+        }
+    }
+}
+
+void check_data_pins_undriven(epio_t *epio) {
+    uint64_t driven = epio_read_driven_pins(epio);
+    for (int ii = 0; ii < 16; ii++) {
+        uint8_t pin = data_pins[ii];
+        if (pin < MAX_USED_GPIOS) {
+            if (driven & (1ULL << pin)) {
+                uint64_t level = epio_read_gpios_ext(epio);
+                TST_LOG("Data pin %d (GPIO %d) driven when it shouldn't be at 0x%08X GPIO driven: 0x%016llX levels: 0x%016llX", ii, pin, get_progress(), driven, level);
+                assert(0 && "Data pin driven when it shouldn't be");
+            }
+        }
+    }
+}
+
+uint8_t are_cs_active_all_high(uint8_t set_index, uint8_t rom_index) {
+    assert(set_index < SDRR_NUM_SETS && "Set index out of range");
+    const sdrr_rom_set_t *set = &rom_set[set_index];
+    assert(rom_index < set->rom_count && "ROM index out of range");
+    const sdrr_rom_info_t *rom_info = set->roms[rom_index];
+
+    uint8_t all_high = 1;
+    if (rom_info->cs1_state != CS_NOT_USED) {
+        all_high &= (rom_info->cs1_state == CS_ACTIVE_HIGH);
+    }
+    if (rom_info->cs2_state != CS_NOT_USED) {
+        all_high &= (rom_info->cs2_state == CS_ACTIVE_HIGH);
+    }
+    if (rom_info->cs3_state != CS_NOT_USED) {
+        all_high &= (rom_info->cs3_state == CS_ACTIVE_HIGH);
+    }
+    return all_high;
+}

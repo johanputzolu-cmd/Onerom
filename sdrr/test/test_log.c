@@ -2,8 +2,20 @@
 //
 // MIT License
 
-#include "stdio.h"
-#include "stdarg.h"
+// Test logging functions
+
+// Include an implementation of the APIO logging function
+#define APIO_LOG_IMPL
+#define APIO_LOG_ENABLE(fmt, ...) printf(fmt "\n", ##__VA_ARGS__)
+
+#include <stdio.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <apio.h>
+#include <epio.h>
+#include "test/func.h"
 
 void stub_log_v(const char* msg, va_list args) {
     vprintf(msg, args);
@@ -23,4 +35,47 @@ void err_log(const char* msg, ...) {
     va_start(args, msg);
     stub_log_v(msg, args);
     va_end(args);
+}
+
+#define LOG_FILE "/tmp/onerom-firmware-output.txt"
+static int saved_stdout;
+static FILE *file;
+
+void clear_log_file(void) {
+    assert(file == NULL && "clear_log_file called while log file is open");
+    file = fopen(LOG_FILE, "w");
+    assert(file && "Failed to clear firmware log file");
+    fclose(file);
+    file = NULL;
+}
+
+void redirect_stdout_to_file(void) {
+    assert(file == NULL && "redirect_stdout_to_file called while log file is already open");
+    TST_LOG("Firmware logging: %s", LOG_FILE);
+    saved_stdout = dup(STDOUT_FILENO);
+    file = fopen(LOG_FILE, "a");
+    assert(file && "Failed to open firmware log file");
+    dup2(fileno(file), STDOUT_FILENO);
+}
+
+void reset_stdout(void) {
+    assert(file != NULL && "reset_stdout called while log file is not open");
+    dup2(saved_stdout, STDOUT_FILENO);
+    close(saved_stdout);
+    fclose(file);
+    file = NULL;
+}
+
+static uint32_t progress_counter = 0;
+
+void inc_progress(void) {
+    progress_counter++;
+}
+
+uint32_t get_progress(void) {
+    return progress_counter;
+}
+
+void reset_progress(void) {
+    progress_counter = 0;
 }

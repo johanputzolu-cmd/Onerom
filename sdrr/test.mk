@@ -23,7 +23,8 @@ endif
 SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c \
         src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c \
         src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c \
-        test/stub_rp235x.c test/test_main.c test/test_log.c
+        test/stub_rp235x.c test/test_main.c test/test_log.c \
+        test/test_image.c test/test_gpio.c
 OBJS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(filter src/%,$(SRCS)))
 OBJS += $(patsubst test/%.c,$(BUILD_DIR)/%.o,$(filter test/%,$(SRCS)))
 
