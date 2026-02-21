@@ -9,6 +9,7 @@
 
 use anyhow::{Context, Result, anyhow};
 use bytes::Bytes;
+use onerom_gen::SizeHandling;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs;
@@ -158,6 +159,7 @@ pub fn source_image_file(
     rom_num: usize,
     source: &FileSource,
     out_dir: &Path,
+    size_handling: &SizeHandling,
 ) -> Result<PathBuf, String> {
     // Create filename for this ROM
     let image_dir = image_dir(out_dir);
@@ -172,6 +174,18 @@ pub fn source_image_file(
             download_and_extract_zip(&out_file, url, extract_file)?
         }
     };
+
+    // Write .info file alongside .rom
+    let info_file = image_dir.join(format!("{rom_num}.info"));
+    let tag = match size_handling {
+        SizeHandling::None => "none",
+        SizeHandling::Duplicate => "duplicate",
+        SizeHandling::Truncate => "truncate",
+        SizeHandling::Pad => "pad",
+    };
+    File::create(&info_file)
+        .and_then(|mut f| f.write_all(tag.as_bytes()))
+        .map_err(|e| format!("Failed to write info file: {e}"))?;
 
     update_image_list(rom_num, source, out_dir)
         .map_err(|e| format!("Failed to update image list: {}", e))?;

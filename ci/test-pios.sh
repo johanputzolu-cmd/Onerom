@@ -54,7 +54,7 @@ run_no_cs() {
         { echo "FAILED: $cmd"; exit 1; }
 }
 
-test_24pin() {
+test_24_all_rom_types() {
     local hw_rev=${1:-fire-24-e}
     local extra_flags=${2:-}
 
@@ -65,7 +65,7 @@ test_24pin() {
     run_no_cs  $hw_rev images/test/rand_8192.rom trunc,type=2732   "$extra_flags"
 }
 
-test_28pin() {
+test_28_all_rom_types() {
     local hw_rev=${1:-fire-28-a}
     local extra_flags=${2:-}
 
@@ -86,13 +86,61 @@ test_40pin() {
     run_no_cs  $hw_rev images/test/rand_512KB.rom type=27C400 "$extra_flags"
 }
 
-test_24pin fire-24-a -DRP_PIO
-test_24pin fire-24-b -DRP_PIO
-test_24pin fire-24-c
-test_24pin fire-24-d
-test_24pin fire-24-e
+run_config() {
+    local hw_rev=$1
+    local config=$2
+    local extra_flags=${3:-}
 
-test_28pin fire-28-a
+    local cmd="HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS=\"$extra_flags\" CONFIG=\"$config\" make test-pio"
+    echo "$cmd"
+    env HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS="$extra_flags" \
+        CONFIG="$config" make test-pio > /dev/null || \
+        { echo "FAILED: $cmd"; exit 1; }
+}
 
-# PIO tester doesn't support 40 pin ROMs yet
+test_config() {
+    local hw_rev=${1:-fire-24-a}
+    local config=$2
+    local extra_flags=${3:-}
+
+    run_config $hw_rev "$config" "$extra_flags"
+}
+
+test_24_config() {
+    local config=$1
+
+    test_config fire-24-a "$config" -DRP_PIO
+    test_config fire-24-b "$config" -DRP_PIO
+    test_config fire-24-c "$config"
+    test_config fire-24-d "$config"
+    test_config fire-24-e "$config"
+}
+
+test_28_config() {
+    local config=$1
+
+    test_config fire-28-a "$config"
+}
+
+# Test every ROM type on every Fire 24 hardware revision.  This tests a single
+# ROM image/set
+test_24_all_rom_types fire-24-a -DRP_PIO
+test_24_all_rom_types fire-24-b -DRP_PIO
+test_24_all_rom_types fire-24-c
+test_24_all_rom_types fire-24-d
+test_24_all_rom_types fire-24-e
+
+# Test every ROM type on the first Fire 28 hardware revision.  This tests a
+# single ROM image/set
+test_28_all_rom_types fire-28-a
+
+# The PIO tester doesn't support 40 pin ROMs yet
 #test_40pin fire-40-a
+
+# Test specific ROM configurations on all Fire 24 hardware revisions.
+test_24_config old-config/c64-no-destestmax.mk
+test_24_config old-config/pet-4-40-50.mk
+
+# Test specific ROM configurations on all Fire 28 hardware revisions.
+test_28_config old-config/28-c64c.mk
+

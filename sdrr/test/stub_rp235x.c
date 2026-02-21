@@ -62,18 +62,49 @@ void setup_cp(void) {
     STUB_LOG("setup_cp");
 }
 
+// Sel pin stub state
+static uint64_t stub_gpio_sel_value;
+static uint8_t stub_sel_image;
+
+uint8_t stub_set_sel_image(uint8_t image_index) {
+    uint8_t valid_bits = 0;
+    stub_gpio_sel_value = 0;
+    for (int ii = 0; ii < MAX_IMG_SEL_PINS; ii++) {
+        uint8_t pin = sdrr_info.pins->sel[ii];
+        if (pin < MAX_USED_GPIOS) {
+            valid_bits++;
+            if (image_index & (1 << ii)) {
+                stub_gpio_sel_value |= (1ULL << pin);
+            }
+        }
+    }
+
+    stub_sel_image = image_index % (1 << valid_bits);
+
+    return stub_sel_image;
+}
+
+uint8_t stub_get_sel_image(void) {
+    return stub_sel_image;
+}
+
 uint32_t setup_sel_pins(uint64_t *sel_mask, uint64_t *flip_bits) {
-    STUB_LOG("setup_sel_pins");
     *sel_mask = 0;
     *flip_bits = 0;
-    return 0;
+    uint32_t count = 0;
+    for (int ii = 0; ii < MAX_IMG_SEL_PINS; ii++) {
+        uint8_t pin = sdrr_info.pins->sel[ii];
+        if (pin < MAX_USED_GPIOS) {
+            *sel_mask |= (1ULL << pin);
+            count++;
+        }
+    }
+    return count;
 }
 
 uint64_t get_sel_value(uint64_t sel_mask, uint64_t flip_bits) {
-    (void)sel_mask;
     (void)flip_bits;
-    STUB_LOG("get_sel_value");
-    return 0;
+    return stub_gpio_sel_value & sel_mask;
 }
 
 void disable_sel_pins(void) {

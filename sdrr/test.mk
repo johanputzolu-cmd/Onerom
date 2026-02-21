@@ -2,6 +2,7 @@
 # For native test builds only
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
+CC := gcc
 COLOUR_YELLOW := $(shell echo -e '\033[33m')
 COLOUR_RESET := $(shell echo -e '\033[0m')
 

@@ -51,7 +51,7 @@ void clear_log_file(void) {
 
 void redirect_stdout_to_file(void) {
     assert(file == NULL && "redirect_stdout_to_file called while log file is already open");
-    TST_LOG("Firmware logging: %s", LOG_FILE);
+    TST_DBG("Firmware logging: %s", LOG_FILE);
     saved_stdout = dup(STDOUT_FILENO);
     file = fopen(LOG_FILE, "a");
     assert(file && "Failed to open firmware log file");
@@ -79,3 +79,34 @@ uint32_t get_progress(void) {
 void reset_progress(void) {
     progress_counter = 0;
 }
+
+const char *chip_type[NUM_CHIP_TYPES] = {
+    "2316",
+    "2332",
+    "2364",
+    "23128",
+    "23256",
+    "23512",
+    "2704",
+    "2708",
+    "2716",
+    "2732",
+    "2764",
+    "27128",
+    "27256",
+    "27512",
+    "231024",
+    "27C010",
+    "27C020",
+    "27C040",
+    "27C080",
+    "27C400",
+    "6116"
+};
+
+const char *transform_to_str[] = {
+    "none",
+    "duplicate",
+    "truncate",
+    "pad"
+};

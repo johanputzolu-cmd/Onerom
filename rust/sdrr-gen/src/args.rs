@@ -453,7 +453,7 @@ impl Args {
             source
         };
 
-        let file = source_image_file(rom_num, &source, &self.output_dir)?;
+        let file = source_image_file(rom_num, &source, &self.output_dir, &size_handling)?;
 
         let rom_type = rom_type.ok_or("Missing ROM 'type' parameter")?;
 

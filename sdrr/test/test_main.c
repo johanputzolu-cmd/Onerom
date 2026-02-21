@@ -2,7 +2,23 @@
 //
 // MIT License
 
-// Main test program
+// PIO tester program
+//
+// This works by:
+// - Building the firmware with a test stub.
+// - Executing the firmware up to the point where it is about to start serving
+//   ROM data, at which point it returns to the test code.
+// - Checking that limp mode hasn't been entered, and that the PIO SMs have
+//   been enabled.
+// - Driving the address and approrpriate CS lines to read the entire ROM
+//   configuration, checking the data read matches the expected data for each
+//   address.
+//
+// Current limitations:
+// - Doesn't support 40 pin ROMs, and may need enhancing for 32 pin support.
+// - Doesn't support testing multiple ROM sets - only tests the first ROM set
+//   in the configuration.
+// - Doesn't support testing multi-ROM sets, or dyanmically banked ROMs.
 
 #define TEST_MAIN_C
 
@@ -126,26 +142,16 @@ static epio_t *start_epio(void) {
     return epio_from_apio();
 }
 
-int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+static int test_set(uint8_t set_index) {
+    TST_DBG("Testing ROM set %d", set_index);
 
-    TST_LOG("One ROM Fire Firmware Tester");
-    TST_LOG("%s %s", copyright, author);
-    TST_LOG("");
-    TST_LOG("Build date/time:   %s", sdrr_info.build_date);
-    TST_LOG("Firmware version:  %d.%d.%d", sdrr_info.major_version, sdrr_info.minor_version, sdrr_info.patch_version);
-    if (sdrr_info.build_number) {
-        TST_LOG("Firmware build:    %d", sdrr_info.build_number);
+    uint8_t set_sel_index = stub_set_sel_image(set_index);
+    if (set_sel_index != set_index) {
+        TST_LOG("WARNING: Insufficient image select jumpers for set %d, testing set %d instead", set_index, set_sel_index);
     }
-    TST_LOG("Hardware revision: %s", sdrr_info.hw_rev);
-    TST_LOG("");
-    TST_LOG("Launching firmware");
-    TST_LOG("-----");
+    set_index = set_sel_index;
 
-    // Set up the test infrastructure, also does some checking of the captured
-    // config to make sure it looks sane.
-    setup_test_infra();
+    TST_DBG("Launching firmware");
 
     // Redirect firmware logging to file
     TST_LOG_FILE_CLEAR();
@@ -154,10 +160,8 @@ int main(int argc, char *argv[]) {
     // Run the firmware - it will return when it hits the infinite loop.
     firmware_main();
 
-    // Re-instate stdout and close the log file
+        // Re-instate stdout and close the log file
     TST_LOG_RESET_STDOUT();
-
-    TST_LOG("-----");
 
     if (limp_mode_value != LIMP_MODE_NONE) {
         TST_LOG("Firmware entered limp mode with pattern %d", limp_mode_value);
@@ -182,7 +186,8 @@ int main(int argc, char *argv[]) {
 
     // Configure the DMA chain
     uint8_t bit_mode = 8;
-    if (get_rom_type(0, 0) == CHIP_TYPE_27C400) {
+    sdrr_rom_type_t rom_type = get_rom_type(set_index, 0);
+    if (rom_type == CHIP_TYPE_27C400) {
         bit_mode = 16;
     }
     epio_dma_setup_read_pio_chain(
@@ -198,16 +203,16 @@ int main(int argc, char *argv[]) {
     );
 
     // Step the emulator some cycles before we start
-    TST_LOG("Stepping emulator for %d cycles before starting tests", TST_CYCLES_BEFORE_START);
+    TST_DBG("Stepping emulator for %d cycles before starting tests", TST_CYCLES_BEFORE_START);
     epio_step_cycles(epio, TST_CYCLES_BEFORE_START);
 
     // Check the first ROM set image, as this is what the firmware will have
     // loaded due to dummy sel index pins.
-    uint8_t set_index = 0;
     uint8_t rom_index = 0;
     uint32_t rom_size = get_rom_image_size(set_index, rom_index);
     uint32_t failures = 0;
-    TST_LOG("Testing ROM read for set %d image %d (size 0x%08X bytes)", set_index, rom_index, rom_size);
+    const char *image_name = get_rom_image_name(set_index, rom_index);
+    TST_LOG("Testing ROM read for set %d image %d %s %s %d bytes ...", set_index, rom_index, chip_type[rom_type], image_name, rom_size);
     for (uint32_t ii = 0; ii < rom_size; ii++) {
         failures += check_rom_read(
             epio,
@@ -217,12 +222,46 @@ int main(int argc, char *argv[]) {
         );
     }
     if (failures == 0) {
-        TST_LOG("Read 0x%08X bytes successfully", rom_size);
+        TST_LOG("  read %d bytes successfully", rom_size);
     } else {
-        TST_LOG("%d/%d ROM bytes read successfully", rom_size - failures, rom_size);
+        TST_LOG("  ERROR - %d/%d ROM bytes read successfully", rom_size - failures, rom_size);
     }
 
     epio_free(epio);
 
     return failures == 0 ? 0 : 1;
+}
+
+int main(int argc, char *argv[]) {
+    (void)argc;
+    (void)argv;
+
+    TST_LOG("One ROM Fire Firmware Tester");
+    TST_LOG("%s %s", copyright, author);
+    TST_LOG("");
+    TST_LOG("Build date/time:   %s", sdrr_info.build_date);
+    TST_LOG("Firmware version:  %d.%d.%d", sdrr_info.major_version, sdrr_info.minor_version, sdrr_info.patch_version);
+    if (sdrr_info.build_number) {
+        TST_LOG("Firmware build:    %d", sdrr_info.build_number);
+    }
+    TST_LOG("Hardware revision: %s", sdrr_info.hw_rev);
+    TST_LOG("-----");
+
+    // Set up the test infrastructure, also does some checking of the captured
+    // config to make sure it looks sane.
+    setup_test_infra();
+
+    // Now test each set in turn.
+    assert(sdrr_info.metadata_header->rom_set_count == SDRR_NUM_SETS);
+    int rc;
+    for (int ii = 0; ii < SDRR_NUM_SETS; ii++) {
+        rc = test_set(ii);
+        if (rc != 0) {
+            break;
+        }
+    }
+
+    free_src_rom_images();
+
+    return rc;
 }
