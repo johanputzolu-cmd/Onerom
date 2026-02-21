@@ -35,10 +35,6 @@ ROMS_OBJ := $(BUILD_DIR)/roms.o
 SDRR_CONFIG_SRC := $(OUTPUT_DIR)/sdrr_config.c
 SDRR_CONFIG_OBJ := $(BUILD_DIR)/sdrr_config.o
 
-VERSION_MAJOR := 0
-VERSION_MINOR := 6
-VERSION_PATCH := 4
-BUILD_NUMBER := 0
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Compile flags:
