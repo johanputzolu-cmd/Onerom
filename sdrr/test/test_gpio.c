@@ -136,7 +136,10 @@ static void get_gpio_drive_from_addr_cs(
 }
 
 // Used to figure out the GPIO drive state for a given address and logical
-// CS state, where CS is active (1) or inactive (0)
+// CS state, where CS is active (1) or inactive (0).
+//
+// When used for a multi-set ROM, the rom_index is used as an index into the
+// set's ROM
 void get_gpio_drive(
     uint8_t set_index,
     uint8_t rom_index,
@@ -145,14 +148,23 @@ void get_gpio_drive(
     uint64_t *gpios_to_drive,
     uint64_t *gpio_levels
 ) {
+    assert(cs_active <= 2 && "CS active state must be 0, 1, or 2");
     assert(addr < MAX_SUPPORTED_ADDR && "Address too large to represent as int32_t");
     assert(set_index < SDRR_NUM_SETS && "Set index out of range");
     const sdrr_rom_set_t *set = &rom_set[set_index];
     assert(rom_index < set->rom_count && "ROM index out of range");
     const sdrr_rom_info_t *rom_info = set->roms[rom_index];
-    assert(set->serve != SERVE_ADDR_ON_ANY_CS && "Multi ROM sets not yet supported");
-    assert(cs_active <= 2 && "CS active state must be 0, 1, or 2");
     const sdrr_rom_type_t rom_type = rom_info->rom_type;
+
+    uint8_t multi_rom = 0;
+    if (set->serve == SERVE_ADDR_ON_ANY_CS) {
+        assert(set->rom_count > 1 && "Multi ROM sets must have more than one ROM");
+        assert(set->rom_count < 4 && "Multi ROM sets with more than 3 ROMs not supported");
+        assert(rom_index < set->rom_count && "ROM index out of range for multi ROM set");
+        assert(((rom_type == CHIP_TYPE_2364) || (rom_type == CHIP_TYPE_2332)) && "Only 2364/2332 ROMs supported for multi ROM sets");
+        assert(set->multi_rom_cs1_state == CS_ACTIVE_LOW && "Only active low CS1 supported for multi ROM sets");
+        multi_rom = 1;
+    }
 
     // Figure out the actual CS lines and states for the given logical CS
     // state
@@ -161,19 +173,43 @@ void get_gpio_drive(
     uint8_t cs3 = 2;
     uint8_t x1 = 2;
     uint8_t x2 = 2;
-    if (cs_active <= 1) {
-        cs1 = get_cs_gpio_state(rom_info->cs1_state, cs_active);
-        cs2 = get_cs_gpio_state(rom_info->cs2_state, cs_active);
-        cs3 = get_cs_gpio_state(rom_info->cs3_state, cs_active);
-    } else {
-        // CS not active, so we won't drive any CS lines
-    }
 
     // If a 24 pin ROM, pull X1/X2 low (don't support dynamic banking yet).
     // X1/X2 not supported on other ROM types yet
-    if (sdrr_info.pins->chip_pins == 24) {
+    if ((sdrr_info.pins->chip_pins == 24) && (!multi_rom)) {
         x1 = 0;
         x2 = 0;
+    }
+
+    if ((cs_active <= 1) && (!multi_rom)) {
+        cs1 = get_cs_gpio_state(rom_info->cs1_state, cs_active);
+        cs2 = get_cs_gpio_state(rom_info->cs2_state, cs_active);
+        cs3 = get_cs_gpio_state(rom_info->cs3_state, cs_active);
+    } else if (multi_rom) {
+        // There are 3 CS lines - CS1 (ROM 0), X1 (ROM 1) and X2 (ROM 2)
+        uint8_t rom_cs = get_cs_gpio_state(set->multi_rom_cs1_state, cs_active);
+
+        // For inactive CS we must flip it, as all pins are actually 
+        uint8_t inactive_cs = get_cs_gpio_state(set->multi_rom_cs1_state, 0);
+
+        cs1 = inactive_cs;
+        x1 = inactive_cs;
+        x2 = inactive_cs;
+        if (cs_active < 2) {
+            // We want to actually drive the active rom index's CS line
+            // either inactive or active
+            if (rom_index == 0) {
+                cs1 = rom_cs;
+            } else if (rom_index == 1) {
+                x1 = rom_cs;
+            } else if (rom_index == 2) {
+                x2 = rom_cs;
+            }
+        } else {
+            // CS not driven any direction.  For now, leave them all as inactive
+        }
+    } else {
+        // CS not active, so we won't drive any CS lines
     }
 
     // Get the number of address bits for this ROM type

@@ -40,18 +40,37 @@ static void setup_test_infra(void);
 static epio_t *start_epio(void);
 
 // Cycle counts to use for tests.  At 150MHz, each cycle is 6.67ns.
+//
+// Strictly these are more aggressive than the real world, as in the real
+// world we have 2 cycles before reading a changed GPIO state due to meta-
+// stability handling.
+//
+// When explicit meta-stability handling is added to epio, these timings will
+// need to be relaxed.
+
 // The CS active/inactive loop generally only takes 3 cycles, but may take up
 // to 6 in the 2332 case (i.e. non-contiguous CS pins).
 #define TST_CYCLES_BEFORE_START             173 // A random number
 #define TST_CYCLES_ADDR_BEFORE_CS_ACTIVE    6   // 40ns (+ CS delay)
 #define TST_CYCLES_CS_ACTIVE_TO_DATA_READY  6   // 40ns
 #define TST_CYCLES_AFTER_READ               6   // 40ns
+
+// Additional delay required for multi-ROM sets as the address can only be
+// validly retrieved after CS has gone active.  This allows for another
+// address read -> DMA -> data write chain
+#define TST_CYCLES_MULTI_ROM_CS_ACTIVE_TO_DATA_READY 12 // 80ns
+
 static int check_rom_read(
     epio_t *epio,
     uint8_t set_index,
     uint8_t rom_index,
     uint32_t addr
 ) {
+    uint8_t multi_rom = 0;
+    if (rom_set[set_index].rom_count > 1) {
+        multi_rom = 1;
+    }
+
     // Check the data pins are undriven before starting
     if (are_cs_active_all_high(set_index, rom_index)) {
         sdrr_rom_type_t rom_type = get_rom_type(set_index, rom_index);
@@ -93,7 +112,8 @@ static int check_rom_read(
     );
     epio_drive_gpios_ext(epio, gpios_driven, gpio_levels);
     //TST_LOG("Address 0x%08X driven with CS active", addr);
-    epio_step_cycles(epio, TST_CYCLES_CS_ACTIVE_TO_DATA_READY);
+    uint32_t delay_cycles = multi_rom ? TST_CYCLES_MULTI_ROM_CS_ACTIVE_TO_DATA_READY : TST_CYCLES_CS_ACTIVE_TO_DATA_READY;
+    epio_step_cycles(epio, delay_cycles);
 
     // Check the data lines are being actively driven
     check_data_pins_driven(epio);
@@ -136,6 +156,7 @@ static void setup_test_infra(void) {
     setup_addr_pins();
     setup_data_pins();
     setup_rom_images();
+    TST_LOG_FILE_CLEAR();
 }
 
 static epio_t *start_epio(void) {
@@ -154,7 +175,6 @@ static int test_set(uint8_t set_index) {
     TST_DBG("Launching firmware");
 
     // Redirect firmware logging to file
-    TST_LOG_FILE_CLEAR();
     TST_LOG_TO_FILE();
 
     // Run the firmware - it will return when it hits the infinite loop.
@@ -209,22 +229,26 @@ static int test_set(uint8_t set_index) {
     // Check the first ROM set image, as this is what the firmware will have
     // loaded due to dummy sel index pins.
     uint8_t rom_index = 0;
-    uint32_t rom_size = get_rom_image_size(set_index, rom_index);
+    uint8_t rom_count = rom_set[set_index].rom_count;
     uint32_t failures = 0;
-    const char *image_name = get_rom_image_name(set_index, rom_index);
-    TST_LOG("Testing ROM read for set %d image %d %s %s %d bytes ...", set_index, rom_index, chip_type[rom_type], image_name, rom_size);
-    for (uint32_t ii = 0; ii < rom_size; ii++) {
-        failures += check_rom_read(
-            epio,
-            set_index,
-            rom_index,
-            ii
-        );
-    }
-    if (failures == 0) {
-        TST_LOG("  read %d bytes successfully", rom_size);
-    } else {
-        TST_LOG("  ERROR - %d/%d ROM bytes read successfully", rom_size - failures, rom_size);
+    for (rom_index = 0; rom_index < rom_count; rom_index++) {
+        const sdrr_rom_info_t *rom = rom_set[set_index].roms[rom_index];
+        uint32_t rom_size = get_rom_image_size(set_index, rom_index);
+        TST_LOG("Testing ROM read for set %d image %d %s %s %d bytes ...", set_index, rom_index, chip_type[rom->rom_type], rom->filename, rom_size);
+        reset_progress();
+        for (uint32_t ii = 0; ii < rom_size; ii++) {
+            failures += check_rom_read(
+                epio,
+                set_index,
+                rom_index,
+                ii
+            );
+        }
+        if (failures == 0) {
+            TST_LOG("  read %d bytes successfully", rom_size);
+        } else {
+            TST_LOG("  ERROR - %d/%d ROM bytes read successfully", rom_size - failures, rom_size);
+        }
     }
 
     epio_free(epio);
