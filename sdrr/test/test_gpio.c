@@ -155,16 +155,32 @@ void get_gpio_drive(
     assert(rom_index < set->rom_count && "ROM index out of range");
     const sdrr_rom_info_t *rom_info = set->roms[rom_index];
     const sdrr_rom_type_t rom_type = rom_info->rom_type;
+    uint8_t rom_count = set->rom_count;
 
     uint8_t multi_rom = 0;
-    if (set->serve == SERVE_ADDR_ON_ANY_CS) {
-        assert(set->rom_count > 1 && "Multi ROM sets must have more than one ROM");
-        assert(set->rom_count < 4 && "Multi ROM sets with more than 3 ROMs not supported");
-        assert(rom_index < set->rom_count && "ROM index out of range for multi ROM set");
-        assert(((rom_type == CHIP_TYPE_2364) || (rom_type == CHIP_TYPE_2332)) && "Only 2364/2332 ROMs supported for multi ROM sets");
-        assert(set->multi_rom_cs1_state == CS_ACTIVE_LOW && "Only active low CS1 supported for multi ROM sets");
-        multi_rom = 1;
+    uint8_t banked_rom = 0;
+    if (set->rom_count > 1) {
+        // Initial sanity checks
+        assert(rom_index < rom_count && "ROM index out of range for this set");
+        assert(sdrr_info.pins->chip_pins == 24 && "Multi-ROM sets only supported on 24 pin ROMs");
+        
+        if (set->serve == SERVE_ADDR_ON_ANY_CS) {
+            // Multi-ROM set, with CS/X1/X2 selecting the ROM image
+            assert(rom_count <= 3 && "Multi ROM sets with more than 3 ROMs not supported");
+            assert(((rom_type == CHIP_TYPE_2364) || (rom_type == CHIP_TYPE_2332)) && "Only 2364/2332 ROMs supported for multi ROM sets");
+            assert(set->multi_rom_cs1_state == CS_ACTIVE_LOW && "Only active low CS1 supported for multi ROM sets");
+            multi_rom = 1;
+        } else {
+            // Dynamically banked set, with CS acting as CS and X1/X2 ued to
+            // indicate ROM number, with X1 being LSB and X2 being MSB.
+            assert(rom_count <= 4 && "Dynamically banked sets with more than 4 ROMs not supported");
+            banked_rom = 1;
+
+        }
+    } else {
+        assert(set->serve != SERVE_ADDR_ON_ANY_CS && "Single ROM set but multi-ROM serving mode configured");
     }
+    assert(!(multi_rom && banked_rom) && "ROM set cannot be both multi-ROM and banked");
 
     // Figure out the actual CS lines and states for the given logical CS
     // state
@@ -174,11 +190,33 @@ void get_gpio_drive(
     uint8_t x1 = 2;
     uint8_t x2 = 2;
 
-    // If a 24 pin ROM, pull X1/X2 low (don't support dynamic banking yet).
+    // If a 24 pin ROM, handle X1/X2 in banked/multi-rom cases.
     // X1/X2 not supported on other ROM types yet
-    if ((sdrr_info.pins->chip_pins == 24) && (!multi_rom)) {
-        x1 = 0;
-        x2 = 0;
+    if (sdrr_info.pins->chip_pins == 24) {
+        if (banked_rom) {
+            // X1 is LSB of ROM index, X2 is MSB of ROM index
+            if (sdrr_info.pins->x_jumper_pull == 1) {
+                // Active high: drive high to select
+                x1 = (rom_index & 0x1) ? 1 : 0;
+                x2 = (rom_index & 0x2) ? 1 : 0;
+            } else {
+                // Active low: drive low to select (inverted)
+                x1 = (rom_index & 0x1) ? 0 : 1;
+                x2 = (rom_index & 0x2) ? 0 : 1;
+            }
+        } else if (!multi_rom) {
+            if (sdrr_info.pins->x_jumper_pull == 0) {
+                // Active high: drive high to select
+                x1 = 1;
+                x2 = 1;
+            } else {
+                // Active low: drive low to select
+                x1 = 0;
+                x2 = 0;
+            }
+        } else {
+            // Ignore X1/X2
+        }
     }
 
     if ((cs_active <= 1) && (!multi_rom)) {
@@ -190,7 +228,7 @@ void get_gpio_drive(
         uint8_t rom_cs = get_cs_gpio_state(set->multi_rom_cs1_state, cs_active);
 
         // For inactive CS we must flip it, as all pins are actually 
-        uint8_t inactive_cs = get_cs_gpio_state(set->multi_rom_cs1_state, 0);
+        uint8_t inactive_cs = get_cs_gpio_state(set->multi_rom_cs1_state, sdrr_info.pins->x_jumper_pull);
 
         cs1 = inactive_cs;
         x1 = inactive_cs;

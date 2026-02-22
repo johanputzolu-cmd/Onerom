@@ -155,6 +155,12 @@ test_24_config old-config/vic20-pal.mk
 test_24_config_c_onwards old-config/test/set-2-images.mk
 test_24_config_c_onwards old-config/test/set-3-images.mk
 
+# Test banked switched ROM configurations on all Fire 24 hardware revisions.
+# All hardware revisions support bank switched ROMs with PIO support.
+test_24_config old-config/bank-1541.mk
+test_24_config old-config/bank-c64-char.mk
+test_24_config old-config/bank-vic20-char-fun.mk
+
 # Test specific ROM configurations on all Fire 28 hardware revisions.
 test_28_config old-config/28-c64c.mk
 test_28_config old-config/28-1541.mk
