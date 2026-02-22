@@ -1462,6 +1462,10 @@ static void piorom_finish_config(
             if (config->multi_rom_mode) {
                 // For 2 or 3 ROMs always use CS, X1 and X2.
                 // The base pin is the lowest of these.
+                // Strictly contiguity of X2 with the others is not required
+                // when serving 2 ROM sets, but required for simplicity - it
+                // would be perverse to develop hardware to support 2 ROM sets
+                // but not 3 ROM sets.
                 series_23 = 1;
                 uint8_t lowest = info->pins->cs1;
                 if (info->pins->x1 < lowest) {

@@ -148,6 +148,7 @@ test_28_all_rom_types fire-28-a
 # Test specific ROM configurations on all Fire 24 hardware revisions.
 test_24_config old-config/c64-no-destestmax.mk
 test_24_config old-config/pet-4-40-50.mk
+test_24_config old-config/vic20-pal.mk
 
 # Test multi-ROM sets on revisions C+.  A/B do not support multi-ROM sets with
 # PIO support due to a lack of contiguity between CS and X pins.
@@ -156,5 +157,4 @@ test_24_config_c_onwards old-config/test/set-3-images.mk
 
 # Test specific ROM configurations on all Fire 28 hardware revisions.
 test_28_config old-config/28-c64c.mk
-
-!!!!! Add multi-ROM tests
+test_28_config old-config/28-1541.mk
