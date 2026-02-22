@@ -163,4 +163,4 @@ test_24_config old-config/bank-vic20-char-fun.mk
 
 # Test specific ROM configurations on all Fire 28 hardware revisions.
 test_28_config old-config/28-c64c.mk
-test_28_config old-config/28-1541.mk
+test_28_config old-config/28-1541ii.mk
