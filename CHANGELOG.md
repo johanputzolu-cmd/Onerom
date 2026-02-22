@@ -2,16 +2,20 @@
 
 All notables changes between versions are documented in this file.
 
-## v0.6.5 - 2026-??-??
+## v0.6.5 - 2026-02-22
 
-!!! NOTE TO SELF
+The big new feature in this release is support for One ROM 40, hardware revision fire-40-a.  This emulates a 27C400 found in the Amiga A500, and other 16-bit systems.  I have successfully tested it on my Amiga, serving Kickstart ROM 1.3 and [DiagROMV2](https://www.diagrom.com/).
 
-must live test Fire (non PIO) and Ice multi-rom sets, including both 2 and 3 ROM sets, de to change in gen/image.rs
+One ROM Lens is also included.  This is a web-based tool that runs the real One ROM serving algorithm within your web browser using a cycle exact PIO emulator.  It emulates One ROM's operation, allowing you to inspecting the GPIOs on a cycle by cycle basis using the logic analyzer style interface.  This is a great tool for understanding how One ROM (or any parallel ROM) works, for debugging firmware issues and interatively testing algorithm changes. To use, there are two steps:
 
+1. Build the One ROM firmware, using an "old-style" config, with the emulated hardware type and image you want One ROM to serve: e.g. `HW_REV=fire-40-a MCU=rp2350 CONFIG=old-config/test/40-random.mk make`.
+2. Build and run One ROM Lens: `make -C sdrr -f lens.mk serve`.
 
-The big new feature in this release is support for One ROM 40, hardware revisoin fire-40-a.  This emulates a 27C400 found in the Amiga A500, and other 16-bit systems.  I have successfully tested it on my Amiga, serving Kickstart ROM 1.3, and DiagROMV2.
+    Then point a browser at http://localhost:8000/index.html.
 
-One ROM Lens is also included.  This is a web-based tool that runs the real One ROM serving algorithm within your web browser using a cycle exact PIO emulator.  It emulate One ROM's operation, allowing you to inspecting the GPIOs on a cycle by cycle basis using the logic analyzer style interface.  This is a great tool for understanding how One ROM (or any parallel ROM) works, for debugging firmware issues and interatively testing algorithm changes.
+    It is likely that simpler commands will be added to the future to make this easier.
+
+This release also introduces extensive automated regression testing for the Fire PIO serving algorithm (#134), for 24 and 28 pin boards.  As a result, a number of Fire PIO serving bugs have been fixed, including #110 and #94.
 
 ## v0.6.4 - 2026-02-07
 

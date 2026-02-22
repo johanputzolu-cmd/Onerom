@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.13
+
+Adds One ROM 40 ROM support.
+
+## v0.1.12
+
 ## v0.1.11 - 2026-02-3
 
 - Add some keyboard shortcuts to One ROM Studio:

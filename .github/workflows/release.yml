@@ -31,7 +31,12 @@ jobs:
     - name: Extract version from tag
       id: version
       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-      
+
+    - name: Run emulated PIO tests
+      run: |
+        export TOOLCHAIN=/usr/bin
+        ci/test-pios.sh
+
     - name: Build all combinations
       env:
         TOOLCHAIN: /usr/bin
