@@ -910,24 +910,12 @@ impl ChipSet {
 
                 let cs1_is_active = is_pin_active(pins_active_high, invert_cs1_x, address, cs1_pin);
                 let x1_is_active = is_pin_active(pins_active_high, invert_cs1_x, address, x1_pin);
+                let x2_is_active = is_pin_active(pins_active_high, invert_cs1_x, address, x2_pin);
 
-                // For a 2-chip set only cs1 and x1 are used for selection; x2 is
-                // unconnected and its state in the address word is indeterminate.
-                // Only count the selection pins that are actually wired for this set size,
-                // otherwise x2 noise causes active_count > 1 and no chip is ever selected.
-                let active_count = if self.chips.len() >= 3 {
-                    let x2_is_active = is_pin_active(pins_active_high, invert_cs1_x, address, x2_pin);
-                    [cs1_is_active, x1_is_active, x2_is_active]
-                        .iter()
-                        .filter(|&&x| x)
-                        .count()
-                } else {
-                    // 2-chip set: x2 is not used, don't include it in the count
-                    [cs1_is_active, x1_is_active]
-                        .iter()
-                        .filter(|&&x| x)
-                        .count()
-                };
+                let active_count = [cs1_is_active, x1_is_active, x2_is_active]
+                    .iter()
+                    .filter(|&&x| x)
+                    .count();
 
                 if active_count == 1 && self.check_chip_cs_requirements(chip_in_set, address, board)
                 {

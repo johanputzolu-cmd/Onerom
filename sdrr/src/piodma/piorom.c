@@ -1409,7 +1409,10 @@ static void piorom_finish_config(
                     limp_mode(LIMP_MODE_INVALID_CONFIG);
                     config->num_cs_pins = 1;
                 } else {
-                    config->num_cs_pins = set->rom_count;
+                    // Always use CS AND both X pins, even when serving dual
+                    // ROM sets.  This ensures X2 is also hardware inverted,
+                    // which is required to serve the correct byte.
+                    config->num_cs_pins = 3;
                     config->multi_rom_mode = 1;
                 }
             }
@@ -1457,7 +1460,7 @@ static void piorom_finish_config(
         case CHIP_TYPE_2364:
             // Special case for handling multi-ROM serving
             if (config->multi_rom_mode) {
-                // For 2 ROMs, use CS and X1.  For 3 ROMs use CS, X1 and X2.
+                // For 2 or 3 ROMs always use CS, X1 and X2.
                 // The base pin is the lowest of these.
                 series_23 = 1;
                 uint8_t lowest = info->pins->cs1;
