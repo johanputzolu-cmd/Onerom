@@ -311,6 +311,11 @@
                     "const": "27C010"
                 },
                 {
+                    "description": "128KB EPROM with fixed active-low CE/OE - 131072 bytes, 32-pin package",
+                    "type": "string",
+                    "const": "27C301"
+                },
+                {
                     "description": "256KB EPROM with fixed active-low CE/OE - 262144 bytes, 32-pin package",
                     "type": "string",
                     "const": "27C020"
