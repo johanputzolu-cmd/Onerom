@@ -4,6 +4,10 @@ All notables changes between versions are documented in this file.
 
 ## v0.6.6 - 2026-??-??
 
+!!!
+!!! Modified regular 40 pin algorithm - must test it live
+!!!
+
 This releases adds support for One ROM 32 including:
 - Hardware revision fire-32-a
 - EPROM types 27C010, 27C020, 27C040 and 27C301

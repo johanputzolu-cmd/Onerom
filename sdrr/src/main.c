@@ -46,7 +46,11 @@ sdrr_runtime_info_t sdrr_runtime_info SECTION_SDRR_RUNTIME_INFO = {
     .bit_mode = BIT_MODE_8,
     .rom_dma_copy = 1,
     .num_data_pins = 8,
+#if defined(FORCE_16_BIT) && (FORCE_16_BIT == 1)
+    .force_16_bit = 1,
+#else // !FORCE_16_BIT
     .force_16_bit = 0,
+#endif // FORCE_16_BIT
     .reserved = 0
 };
 

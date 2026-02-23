@@ -688,7 +688,7 @@ static void piorom_load_programs(piorom_config_t *config) {
     if ((config->bit_mode == BIT_MODE_16) && (!force_16_bit)) {
         // We must add 3 cycles of delay, to ensure this PIO takes a total of
         // 6 cycles, to match the data output SM's worst case.
-        APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(rom_table_num_addr_bits), 3));
+        APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(rom_table_num_addr_bits), 4));
     } else if (!config->addr_read_irq) {
         APIO_ADD_INSTR(APIO_ADD_DELAY(APIO_IN_X(rom_table_num_addr_bits), config->addr_read_delay));
     } else {
@@ -999,12 +999,15 @@ static void piorom_load_programs(piorom_config_t *config) {
 
         bits = 16;
 
-        // Set all 16 data pins to values from DMA
-        APIO_ADD_INSTR(APIO_OUT_PINS(16));
+        // Read from the TX FIFO
+        APIO_ADD_INSTR(APIO_PULL_BLOCK);
 
         // If /BYTE active mode (high), jump to special byte handling
-        APIO_LABEL_NEW_OFFSET(byte_mode_active_offset, 2);
+        APIO_LABEL_NEW_OFFSET(byte_mode_active_offset, 3);
         APIO_ADD_INSTR(APIO_JMP_PIN(APIO_LABEL(byte_mode_active_offset)));
+
+        // 16-bit mode - set all 16 data pins to values from DMA
+        APIO_ADD_INSTR(APIO_OUT_PINS(16));
 
         // If we get here, we're in /BYTE inactive mode and done.  We jump
         // rather than wrapping, as we need the byte mode active code to take
@@ -1015,18 +1018,25 @@ static void piorom_load_programs(piorom_config_t *config) {
         // Read the A-1 signalling pin to X
         APIO_ADD_INSTR(APIO_MOV_X_PINS);
 
-        // If X is low (meaning output low 8 bits, do nothing more, as those
-        // bits are already set
-        APIO_ADD_INSTR(APIO_JMP_NOT_X(APIO_START_LABEL()));
+        // If X high low (meaning high 8 bits are required) jump to do that
+        APIO_LABEL_NEW_OFFSET(high_byte, 4);
+        APIO_ADD_INSTR(APIO_JMP_X_DEC(APIO_LABEL(high_byte)));
 
-        // If X is high, we have 16 more bits in the OSR, which are the same
-        // 16-bit data value.  Shift the first 8 (low byte) out to null to
-        // get rid of them
+        // Output low 8 bits
+        APIO_ADD_INSTR(APIO_OUT_PINS(8));
+
+        // Output high 8 bits to null
         APIO_ADD_INSTR(APIO_OUT_NULL(8));
 
-        // Now shift the top 8 bits out to the low data lines.  And we're done.
+        // Jump to start
+        APIO_ADD_INSTR(APIO_JMP(APIO_START_LABEL()));
+
+        // First shift low 8 bits to null
+        APIO_ADD_INSTR(APIO_OUT_NULL(8));
+
+        // Write high 8 bits to pins, then wrap to save a JMP
         APIO_WRAP_TOP();
-        APIO_ADD_INSTR(APIO_OUT_PINS(8));
+        APIO_ADD_INSTR(APIO_OUT_PINS(8)); 
     }
 
     // Configure the data byte SM

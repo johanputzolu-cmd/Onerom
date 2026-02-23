@@ -165,6 +165,7 @@ test_32pin fire-32-a
 
 # The PIO tester doesn't support 40 pin ROMs yet
 test_40pin fire-40-a
+test_40pin fire-40-a -DFORCE_16_BIT
 
 # Test specific ROM configurations on all Fire 24 hardware revisions.
 test_24_config old-config/c64-no-destestmax.mk

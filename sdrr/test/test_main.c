@@ -46,6 +46,9 @@ static epio_t *start_epio(void);
 // world we have 2 cycles before reading a changed GPIO state due to meta-
 // stability handling.
 //
+// The figures are explicitly tuned as low as possible so changes to the PIOs
+// which slow down byte serving will break the tests.
+//
 // When explicit meta-stability handling is added to epio, these timings will
 // need to be relaxed.
 
@@ -61,19 +64,30 @@ static epio_t *start_epio(void);
 // address read -> DMA -> data write chain
 #define TST_CYCLES_MULTI_ROM_CS_ACTIVE_TO_DATA_READY 12 // 80ns
 
-// The following 27C400 figures are highly tuned.  Once the /BYTE algorithm
-// has been improved, they will need to be reset.  Right now, /BYTE low only
-// serves the correct byte for a very specific window, as it serves the wrong
-// byte for about 2/3 of the cycle.
+// The following 27C400 figures are tuned to be just long enough to work with
+// the current algorithms, so the tests will break if the algorithms are
+// changed without updating these figures. 
 
-// Additional delay required for 27C400 as address read loop is deliberately
-// passed to 6 cycles to give /BYTE mode handling time to complete
-#define TST_CYCLES_27C400_ADDR_BEFORE_CS_ACTIVE         12  // 80ns (+ CS delay)
+#if !defined(FORCE_16_BIT) || (FORCE_16_BIT == 0)
+// An additional delay is required for 27C400 when 16bit mode isn't forced as
+// the address read loop is deliberately slowed down to 7 cycles to give /BYTE
+// mode handling time to complete
+#define TST_CYCLES_27C400_ADDR_BEFORE_CS_ACTIVE         13  // 86.7ns (+ CS delay)
 
 // Additional delay required for 27C400 as, due to /BYTE handling, it has a
 // longer delay before the byte is correctly served (specifically in /BYTE
 // low mode)
-#define TST_CYCLES_27C400_BYTE_CS_ACTIVE_TO_DATA_READY  6   // 40ns
+#define TST_CYCLES_27C400_BYTE_CS_ACTIVE_TO_DATA_READY  9   // 60ns
+
+#else // FORCE_16_BIT
+
+#define TST_CYCLES_27C400_ADDR_BEFORE_CS_ACTIVE         8   // 53.3ns (+ CS delay)
+
+// BYTE mode not supported - required so code compiles, but set it to a
+// nonsensical value
+#define TST_CYCLES_27C400_BYTE_CS_ACTIVE_TO_DATA_READY  0
+
+#endif // FORCE_16_BIT
 
 // addr is a word address in 16-bit mode
 static int check_rom_read(
@@ -285,7 +299,11 @@ static int test_set(uint8_t set_index) {
         rom_type = get_rom_type(set_index, rom_index);
 
         // Do two passes for 27C400, one for 16 bit mode, the other in 8-bit mode
+#if defined(FORCE_16_BIT) && (FORCE_16_BIT == 1 )
+        uint8_t num_passes = 1;
+#else // !FORCE_16_BIT
         uint8_t num_passes = (rom_type == CHIP_TYPE_27C400) ? 2 : 1;
+#endif // FORCE_16_BIT
         for (uint8_t pass = 0; pass < num_passes; pass++) {
             // Figure out whether to test in 8 or 16 bit mode for this pass
             uint8_t pass_bit_mode = (rom_type == CHIP_TYPE_27C400 && pass == 0) ? 16 : 8;

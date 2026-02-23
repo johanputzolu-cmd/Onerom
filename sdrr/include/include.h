@@ -38,6 +38,8 @@
 // #define RP_PIO 1     // Use PIO by default for GPIO access on the RP2350.
 // #define DEBUG_BUILD 1    // Enable debug checks.  If BOOT_LOGGING is
 //                          // defined, DEBUG_LOGGING is also enabled.
+// #define FORCE_16_BIT 1   // Force 16 bit mode.  This can still be overridden
+//                          // using firmware overrides
 //
 // sdrr-gen also provides the rom images:
 //
