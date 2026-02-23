@@ -13,13 +13,14 @@ extern void get_gpio_drive(
     int32_t addr,
     uint8_t cs_active,
     uint64_t *gpios_to_drive,
-    uint64_t *gpio_levels
+    uint64_t *gpio_levels,
+    uint8_t bit_mode
 );
 extern void setup_addr_pins(void);
 extern void setup_data_pins(void);
 extern uint32_t get_byte_from_gpio(uint64_t gpio_in, uint8_t data_bits);
-extern void check_data_pins_driven(epio_t *epio);
-extern void check_data_pins_undriven(epio_t *epio);
+extern void check_data_pins_driven(epio_t *epio, uint8_t bit_mode);
+extern void check_data_pins_undriven(epio_t *epio, uint8_t bit_mode);
 uint8_t are_cs_active_all_high(uint8_t set_index, uint8_t rom_index);
 
 // test_image.c

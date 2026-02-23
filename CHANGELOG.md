@@ -4,8 +4,12 @@ All notables changes between versions are documented in this file.
 
 ## v0.6.6 - 2026-??-??
 
-Add 27C301 EPROM type
-Add support for One ROM 32
+This releases adds support for One ROM 32 including:
+- Hardware revision fire-32-a
+- EPROM types 27C010, 27C020, 27C040 and 27C301
+- Support for 27C080 is included allowing two physically stacked One ROMs to be configured, each to serve half of the 27C080.  The one serving the lower 512KB should have cs1 set active low and the other one should have cs1 active high in their respective ROM configs. 
+
+All supported ROM types and CS configurations are now fully PIO tested as part of automated (CI) regression testing, for all Fire hardware revisions.
 
 ## v0.6.5 - 2026-02-22
 

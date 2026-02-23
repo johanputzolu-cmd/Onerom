@@ -34,7 +34,8 @@ static int check_rom_read(
     epio_t *epio,
     uint8_t set_index,
     uint8_t rom_index,
-    uint32_t addr
+    uint32_t addr,
+    uint8_t bit_mode
 );
 static void setup_test_infra(void);
 static epio_t *start_epio(void);
@@ -60,20 +61,53 @@ static epio_t *start_epio(void);
 // address read -> DMA -> data write chain
 #define TST_CYCLES_MULTI_ROM_CS_ACTIVE_TO_DATA_READY 12 // 80ns
 
+// The following 27C400 figures are highly tuned.  Once the /BYTE algorithm
+// has been improved, they will need to be reset.  Right now, /BYTE low only
+// serves the correct byte for a very specific window, as it serves the wrong
+// byte for about 2/3 of the cycle.
+
+// Additional delay required for 27C400 as address read loop is deliberately
+// passed to 6 cycles to give /BYTE mode handling time to complete
+#define TST_CYCLES_27C400_ADDR_BEFORE_CS_ACTIVE         12  // 80ns (+ CS delay)
+
+// Additional delay required for 27C400 as, due to /BYTE handling, it has a
+// longer delay before the byte is correctly served (specifically in /BYTE
+// low mode)
+#define TST_CYCLES_27C400_BYTE_CS_ACTIVE_TO_DATA_READY  6   // 40ns
+
+// addr is a word address in 16-bit mode
 static int check_rom_read(
     epio_t *epio,
     uint8_t set_index,
     uint8_t rom_index,
-    uint32_t addr
+    uint32_t addr,
+    uint8_t bit_mode
 ) {
     uint8_t multi_rom = 0;
     if (rom_set[set_index].rom_count > 1) {
         multi_rom = 1;
     }
 
+    sdrr_rom_type_t rom_type = get_rom_type(set_index, rom_index);
+
+    // Select delay based on ROM type
+    uint32_t addr_before_cs_cycles;
+    if (rom_type == CHIP_TYPE_27C400) {
+        addr_before_cs_cycles = TST_CYCLES_27C400_ADDR_BEFORE_CS_ACTIVE;
+    } else {
+        addr_before_cs_cycles = TST_CYCLES_ADDR_BEFORE_CS_ACTIVE;
+    }
+    uint32_t cs_to_data_cycles;
+    if ((rom_type == CHIP_TYPE_27C400) && (bit_mode == 8)) {
+        cs_to_data_cycles = TST_CYCLES_27C400_BYTE_CS_ACTIVE_TO_DATA_READY;
+    } else if (multi_rom) {
+        cs_to_data_cycles = TST_CYCLES_MULTI_ROM_CS_ACTIVE_TO_DATA_READY;
+    } else {
+        cs_to_data_cycles = TST_CYCLES_CS_ACTIVE_TO_DATA_READY;
+    }
+
     // Check the data pins are undriven before starting
     if (are_cs_active_all_high(set_index, rom_index)) {
-        sdrr_rom_type_t rom_type = get_rom_type(set_index, rom_index);
         assert(
             rom_type == CHIP_TYPE_2316 ||
             rom_type == CHIP_TYPE_2332 ||
@@ -84,13 +118,15 @@ static int check_rom_read(
             rom_type == CHIP_TYPE_231024 ||
             rom_type == CHIP_TYPE_27C080
         );
+
         if (rom_type == CHIP_TYPE_27C080) {
             // 27C080 is only in this list as only CS1 is marked as active high
-            // in the config, but CE and OE are actually active low
-            check_data_pins_undriven(epio);
+            // in the config, but CE and OE are actually active low.  Hence we
+            // can safely check that data lines are undriven between reads.
+            check_data_pins_undriven(epio, bit_mode);
         }
     } else {
-        check_data_pins_undriven(epio);
+        check_data_pins_undriven(epio, bit_mode);
     }
 
     // First step is to drive the address GPIOs with CS inactive.
@@ -102,10 +138,11 @@ static int check_rom_read(
         addr,
         0,
         &gpios_driven,
-        &gpio_levels
+        &gpio_levels,
+        bit_mode
     );
     epio_drive_gpios_ext(epio, gpios_driven, gpio_levels);
-    epio_step_cycles(epio, TST_CYCLES_ADDR_BEFORE_CS_ACTIVE);
+    epio_step_cycles(epio, addr_before_cs_cycles);
 
     // Now set CS active
     get_gpio_drive(
@@ -114,28 +151,34 @@ static int check_rom_read(
         addr,
         1,
         &gpios_driven,
-        &gpio_levels
+        &gpio_levels,
+        bit_mode
     );
     epio_drive_gpios_ext(epio, gpios_driven, gpio_levels);
     //TST_LOG("Address 0x%08X driven with CS active", addr);
-    uint32_t delay_cycles = multi_rom ? TST_CYCLES_MULTI_ROM_CS_ACTIVE_TO_DATA_READY : TST_CYCLES_CS_ACTIVE_TO_DATA_READY;
-    epio_step_cycles(epio, delay_cycles);
+    epio_step_cycles(epio, cs_to_data_cycles);
 
     // Check the data lines are being actively driven
-    check_data_pins_driven(epio);
+    check_data_pins_driven(epio, bit_mode);
 
     // Read the data lines
     uint64_t gpio_out = epio_read_gpios_ext(epio);
-    uint32_t data = get_byte_from_gpio(gpio_out, 8);
+    uint32_t data = get_byte_from_gpio(gpio_out, bit_mode);
 
-    // Get the expected data byte
-    uint8_t expected_data = get_rom_image_data_byte(set_index, rom_index, addr);
-
-    // Test it
+    // Test whether we got the expected data
     int rc = 0;
+    uint16_t expected_data;
+    if (bit_mode == 16) {
+        // Construct from the two appropriate bytes in the ROM image
+        expected_data = 
+            (uint16_t)get_rom_image_data_byte(set_index, rom_index, addr * 2) |
+            ((uint16_t)get_rom_image_data_byte(set_index, rom_index, addr * 2 + 1) << 8);
+    } else {
+        expected_data = get_rom_image_data_byte(set_index, rom_index, addr);
+    }
     if (data != expected_data) {
         if (get_progress() < 5) {
-            TST_LOG("ROM Read Mismatch: 0x%08X expected 0x%02X got 0x%02X", addr, expected_data, data);
+            TST_LOG("ROM Read Mismatch: 0x%08X expected 0x%04X got 0x%04X", addr, expected_data, data);
         }
         rc = 1;
     }
@@ -148,7 +191,8 @@ static int check_rom_read(
         -1,
         2,
         &gpios_driven,
-        &gpio_levels
+        &gpio_levels,
+        bit_mode
     );
     epio_drive_gpios_ext(epio, gpios_driven, gpio_levels);
     epio_step_cycles(epio, TST_CYCLES_AFTER_READ);
@@ -232,28 +276,44 @@ static int test_set(uint8_t set_index) {
     TST_DBG("Stepping emulator for %d cycles before starting tests", TST_CYCLES_BEFORE_START);
     epio_step_cycles(epio, TST_CYCLES_BEFORE_START);
 
-    // Check the first ROM set image, as this is what the firmware will have
-    // loaded due to dummy sel index pins.
+    // Now loop through each ROM image and each address
     uint8_t rom_index = 0;
     uint8_t rom_count = rom_set[set_index].rom_count;
     uint32_t failures = 0;
     for (rom_index = 0; rom_index < rom_count; rom_index++) {
         const sdrr_rom_info_t *rom = rom_set[set_index].roms[rom_index];
-        uint32_t rom_size = get_rom_image_size(set_index, rom_index);
-        TST_LOG("Testing ROM read for set %d image %d %s %s %d bytes ...", set_index, rom_index, chip_type[rom->rom_type], rom->filename, rom_size);
-        reset_progress();
-        for (uint32_t ii = 0; ii < rom_size; ii++) {
-            failures += check_rom_read(
-                epio,
-                set_index,
-                rom_index,
-                ii
-            );
-        }
-        if (failures == 0) {
-            TST_LOG("  read %d bytes successfully", rom_size);
-        } else {
-            TST_LOG("  ERROR - %d/%d ROM bytes read successfully", rom_size - failures, rom_size);
+        rom_type = get_rom_type(set_index, rom_index);
+
+        // Do two passes for 27C400, one for 16 bit mode, the other in 8-bit mode
+        uint8_t num_passes = (rom_type == CHIP_TYPE_27C400) ? 2 : 1;
+        for (uint8_t pass = 0; pass < num_passes; pass++) {
+            // Figure out whether to test in 8 or 16 bit mode for this pass
+            uint8_t pass_bit_mode = (rom_type == CHIP_TYPE_27C400 && pass == 0) ? 16 : 8;
+
+            // Get the ROM size, and halve it for 16-bit mode, to use word addresses
+            uint32_t rom_size = get_rom_image_size(set_index, rom_index);
+            uint32_t iter_count = (rom_type == CHIP_TYPE_27C400 && pass_bit_mode == 16)
+                ? rom_size / 2
+                : rom_size;
+
+            TST_LOG("Testing ROM read for set %d image %d %s %s %d bytes (%d-bit mode) ...",
+                set_index, rom_index, chip_type[rom->rom_type], rom->filename, rom_size,
+                pass_bit_mode);
+
+            // Run the test for all addresses
+            reset_progress();
+            uint32_t pass_failures = 0;
+            for (uint32_t ii = 0; ii < iter_count; ii++) {
+                // We pass in a word address in 16-bit mode
+                int r = check_rom_read(epio, set_index, rom_index, ii, pass_bit_mode);
+                pass_failures += r;
+                failures += r;
+            }
+            if (pass_failures == 0) {
+                TST_LOG("  read %d bytes successfully", rom_size);
+            } else {
+                TST_LOG("  ERROR - %d/%d ROM bytes read successfully", rom_size - pass_failures, rom_size);
+            }
         }
     }
 

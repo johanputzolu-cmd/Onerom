@@ -164,7 +164,7 @@ test_28_all_rom_types fire-28-a
 test_32pin fire-32-a
 
 # The PIO tester doesn't support 40 pin ROMs yet
-#test_40pin fire-40-a
+test_40pin fire-40-a
 
 # Test specific ROM configurations on all Fire 24 hardware revisions.
 test_24_config old-config/c64-no-destestmax.mk
@@ -192,4 +192,4 @@ test_32_config old-config/test/32-random-27c301.mk
 test_32_config old-config/test/32-random-27c0x0.mk
 
 # Test specific ROM configurations on all Fire 40 hardware revisions.
-#test_config fire-40-a old-config/test/40-random.mk
+test_config fire-40-a old-config/test/40-random.mk
