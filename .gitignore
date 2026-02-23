@@ -27,7 +27,6 @@ onerom-config/user/*
 sdrr-pcb/panels/*
 !sdrr-pcb/panels/README.md
 rust/config/src/rom
-config/
 
 dist/
 output/
