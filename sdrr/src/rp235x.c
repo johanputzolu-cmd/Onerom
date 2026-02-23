@@ -744,7 +744,7 @@ void check_config(
 ) {
     uint8_t failed = 0;
     const uint8_t chip_pins = info->pins->chip_pins;
-    if ((chip_pins != 24) && (chip_pins != 28) && (chip_pins != 40)) {
+    if ((chip_pins != 24) && (chip_pins != 28) && (chip_pins != 32) && (chip_pins != 40)) {
         ERR("Invalid ROM pins: %d", chip_pins);
         failed = 1;
     } else if (chip_pins >= 28) {
@@ -911,6 +911,46 @@ void check_config(
 
         // Other checking we could do includes that all CS/CE/OE and address
         // pins are contiguous
+    } else if (chip_pins == 32) {
+        // Check CS and CE/OE lines are valid
+        uint8_t ce_pin = info->pins->ce;
+        uint8_t oe_pin = info->pins->oe;
+        uint8_t cs1_pin = info->pins->cs1;  // 27C080 A19
+        uint8_t cs2_pin = info->pins->cs2;  // 27C301 /OE
+        if ((cs1_pin >= MAX_USED_GPIOS) ||
+            (cs2_pin >= MAX_USED_GPIOS) ||
+            (ce_pin >= MAX_USED_GPIOS) ||
+            (oe_pin >= MAX_USED_GPIOS)) {
+            ERR("32-pin requires 2xCS and CE/OE");
+            failed = 1;
+        }
+
+        // Check that we have 19 address pins (16 in addr, 3 in addr2)
+        uint8_t num_addr_pins = 0;
+        for (int ii = 0; ii < 16; ii++) {
+            if (info->pins->addr[ii] < MAX_USED_GPIOS) {
+                num_addr_pins += 1;
+            }
+        }
+        for (int ii = 0; ii < 3; ii++) {
+            if (info->pins->addr2[ii] < MAX_USED_GPIOS) {
+                num_addr_pins += 1;
+            }
+        }
+        if (num_addr_pins != 19) {
+            ERR("32-pin requires 19 addr pins");
+            failed = 1;
+        }
+
+        // Check that image size is 512KB
+        uint32_t img_size = set->size;
+        if (img_size != 512 * 1024) {
+            ERR("32-pin ROM image incorrect size 0x%08X", img_size);
+            failed = 1;
+        }
+
+        // Other checking we could do includes that all CS/CE/OE and address
+        // pins are contiguous
     } else if (chip_pins == 40) {
         // Check that we have 19 address pins (16 in addr, 3 in addr2)
         uint8_t num_addr_pins = 0;
@@ -944,7 +984,7 @@ void check_config(
 
         // Other checking we do do includes CE/OE not being in address pins
     } else {
-        ERR("Only 24/28/40 pins =supported");
+        ERR("Unsupported chip pins: %d", chip_pins);
         failed = 1;
     }
 

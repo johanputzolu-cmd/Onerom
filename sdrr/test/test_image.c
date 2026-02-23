@@ -181,7 +181,13 @@ uint32_t get_rom_image_size(uint8_t set_index, uint8_t image_index) {
     assert(image_index < rom_set[set_index].rom_count && "Image index out of range");
     const sdrr_rom_info_t *rom_info = rom_set[set_index].roms[image_index];
     assert(rom_info->rom_type < NUM_CHIP_TYPES && "Invalid ROM type");
-    return chip_size_from_type[rom_info->rom_type];
+    uint32_t chip_size = chip_size_from_type[rom_info->rom_type];
+    if (rom_info->rom_type == CHIP_TYPE_27C080) {
+        // We only expect to read 512KB not 1MB
+        chip_size /= 2;
+        assert(chip_size == 512*1024 && "Unexpected ROM size for 27C080");
+    }
+    return chip_size;
 }
 
 uint8_t get_rom_image_data_byte(uint8_t set_index, uint8_t image_index, uint32_t addr) {

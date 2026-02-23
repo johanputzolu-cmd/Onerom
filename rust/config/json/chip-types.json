@@ -918,6 +918,74 @@
                 }
             ]
         },
+        "27C301": {
+            "description": "128KB EPROM with fixed active-low CE/OE",
+            "function": "ROM",
+            "bit_modes": [8],
+            "pins": 32,
+            "size": 131072,
+            "address": [
+                12,
+                11,
+                10,
+                9,
+                8,
+                7,
+                6,
+                5,
+                27,
+                26,
+                23,
+                25,
+                4,
+                28,
+                29,
+                3,
+                24
+            ],
+            "data": [
+                13,
+                14,
+                15,
+                17,
+                18,
+                19,
+                20,
+                21
+            ],
+            "control": {
+                "ce": {
+                    "pin": 22,
+                    "type": "fixed_active_low"
+                },
+                "oe": {
+                    "pin": 2,
+                    "type": "fixed_active_low"
+                }
+            },
+            "programming": {
+                "vpp": {
+                    "pin": 1,
+                    "read_state": "x"
+                },
+                "pgm": {
+                    "pin": 31,
+                    "read_state": "x"
+                }
+            },
+            "power": [
+                {
+                    "name": "VCC",
+                    "pin": 32,
+                    "voltage": "+5V"
+                },
+                {
+                    "name": "GND",
+                    "pin": 16,
+                    "voltage": "0V"
+                }
+            ]
+        },
         "27C010": {
             "description": "128KB EPROM with fixed active-low CE/OE",
             "function": "ROM",

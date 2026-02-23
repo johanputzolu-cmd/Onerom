@@ -4698,16 +4698,6 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "onerom-config"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58b2fc5e1ee7b00814e8f98b69f8867c721e69dd37b3e4206fb4ef877b69f0f5"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "onerom-config"
 version = "0.4.4"
 dependencies = [
  "schemars",
@@ -4749,10 +4739,10 @@ dependencies = [
  "env_logger",
  "hex",
  "log",
- "onerom-config 0.4.4",
- "onerom-gen 0.5.3",
+ "onerom-config",
+ "onerom-gen",
  "reqwest",
- "sdrr-fw-parser 0.6.6",
+ "sdrr-fw-parser",
  "serde",
  "serde_json",
  "smol",
@@ -4761,20 +4751,9 @@ dependencies = [
 
 [[package]]
 name = "onerom-gen"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97be9fec82e6dd247462120d06d1f49ccd76c1956e8ca85978fe099f106f2147"
-dependencies = [
- "onerom-config 0.4.3",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "onerom-gen"
 version = "0.5.3"
 dependencies = [
- "onerom-config 0.4.4",
+ "onerom-config",
  "schemars",
  "serde",
  "serde_json",
@@ -4847,9 +4826,9 @@ dependencies = [
  "hex",
  "iced",
  "log",
- "onerom-config 0.4.4",
+ "onerom-config",
  "onerom-fw",
- "onerom-gen 0.5.3",
+ "onerom-gen",
  "open",
  "picoboot",
  "probe-rs",
@@ -4857,7 +4836,7 @@ dependencies = [
  "resvg",
  "rfd",
  "schemars",
- "sdrr-fw-parser 0.6.6",
+ "sdrr-fw-parser",
  "semver 1.0.27",
  "serde",
  "serde_json",
@@ -6116,7 +6095,7 @@ dependencies = [
 name = "schema-gen"
 version = "0.1.5"
 dependencies = [
- "onerom-gen 0.5.3",
+ "onerom-gen",
  "schemars",
  "serde",
  "serde_json",
@@ -6220,42 +6199,27 @@ dependencies = [
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c60e26516b0242cabcce3a86e69efae80c3c76cfffe15fca57499fdf54cecfa"
-dependencies = [
- "airfrog-rpc",
- "deku 0.19.1",
- "log",
- "onerom-config 0.4.3",
- "onerom-gen 0.5.2",
- "serde",
- "static_assertions",
-]
-
-[[package]]
-name = "sdrr-fw-parser"
 version = "0.6.6"
 dependencies = [
  "airfrog-rpc",
  "deku 0.19.1",
  "esp-println",
  "log",
- "onerom-config 0.4.4",
- "onerom-gen 0.5.3",
+ "onerom-config",
+ "onerom-gen",
  "serde",
  "static_assertions",
 ]
 
 [[package]]
 name = "sdrr-gen"
-version = "0.6.5"
+version = "0.6.6"
 dependencies = [
  "anyhow",
  "bytes",
  "clap",
- "onerom-config 0.4.4",
- "onerom-gen 0.5.3",
+ "onerom-config",
+ "onerom-gen",
  "reqwest",
  "strum",
  "thiserror 2.0.18",
@@ -6265,13 +6229,13 @@ dependencies = [
 
 [[package]]
 name = "sdrr-info"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "anyhow",
  "chrono",
  "clap",
  "goblin",
- "sdrr-fw-parser 0.6.5",
+ "sdrr-fw-parser",
  "smol",
 ]
 

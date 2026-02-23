@@ -475,6 +475,9 @@ fn generate_hw_config_impl(configs: &[HwConfigData]) -> String {
     code.push_str("\n\n");
 
     code.push_str(&generate_bit_modes_method(configs));
+    code.push_str("\n\n");
+
+    code.push_str(&generate_alt_pins(configs));
     code.push_str("\n\n}\n");
 
     code
@@ -1301,6 +1304,45 @@ fn generate_bit_modes_method(configs: &[HwConfigData]) -> String {
         ));
     }
 
+    code.push_str("        }\n");
+    code.push_str("    }");
+
+    code
+}
+
+fn generate_alt_pins(configs: &[HwConfigData]) -> String {
+    let mut code = String::new();
+
+    code.push_str("    /// Get alternative pin mappings for this board\n");
+    code.push_str("    pub fn alt_pin(&self, chip_type: &ChipType, pin: &str) -> Option<u8> {\n");
+    code.push_str("        match self {\n");
+
+    for config in configs {
+        if let Some(alt) = config.config.mcu.pins.alt.as_ref() {
+            code.push_str(&format!(
+                "            Board::{} => match chip_type {{\n",
+                config.variant_name
+            ));
+            for (chip, pins) in alt {
+                code.push_str(&format!(
+                    "                ChipType::Chip{} => match pin {{\n",
+                    chip
+                ));
+                for (name, pin) in pins {
+                    code.push_str(&format!(
+                        "                    \"{}\" => Some({}),\n",
+                        name, pin
+                    ));
+                }
+                code.push_str("                    _ => None,\n");
+                code.push_str("                },\n");
+            }
+            code.push_str("                _ => None,\n");
+            code.push_str("            },\n");
+        }
+    }
+
+    code.push_str("            _ => None,\n");
     code.push_str("        }\n");
     code.push_str("    }");
 

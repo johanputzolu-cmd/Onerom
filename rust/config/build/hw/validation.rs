@@ -188,7 +188,8 @@ impl Chip {
         match self.pins.quantity {
             24 => 16, // Includes CS and X pins
             28 => 18, // Includes CS lines (to allow for 231024 which uses /OE as address line)
-            40 => 19, // Just addr pins
+            32 => 19, // Just addr pins, 512KB max
+            40 => 19, // Just addr pins, 512KB max
             _ => panic!(
                 "Unsupported ROM type {}, expected 24, 28, or 40-pin ROM",
                 self.pins.quantity
@@ -224,6 +225,7 @@ pub struct McuPins {
     pub swdio_sel: u8,
     pub status: u8,
     pub byte: Option<u8>,
+    pub alt: Option<HashMap<String, HashMap<String, u8>>>,
 }
 
 #[derive(Debug, Deserialize, Clone, Default, PartialEq, Eq)]
@@ -367,6 +369,26 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
             14,
             config.mcu.family.max_valid_addr_cs_pin(),
         ),
+        32 => {
+            validate_pin_values(
+                &config.mcu.pins.addr,
+                "addr",
+                name,
+                19,
+                config.mcu.family.max_valid_addr_cs_pin(),
+            );
+
+            // A16 must be the _first_ address pin for 32-pin ROMs, as in the
+            // 27C301 case it doubles as /OE.
+            let min_addr_pin = *config.mcu.pins.addr.iter().min().unwrap();
+            let a16_index = config.mcu.pins.addr[16];
+            if a16_index != min_addr_pin {
+                panic!(
+                    "{}: for 32-pin ROMs, A16 must be the lowest address pin",
+                    name
+                );
+            }
+        },
         40 => {
             validate_pin_values(
                 &config.mcu.pins.addr,
@@ -381,8 +403,8 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
             // allows, 16-bit mode, sticking a 0 bit as the LSB bit to get two
             // consecutive addresses for even addresses.
             let min_addr_pin = *config.mcu.pins.addr.iter().min().unwrap();
-            let a0_index = config.mcu.pins.addr.iter().position(|&p| p == min_addr_pin).unwrap();
-            if a0_index != 0 {
+            let a0_index = config.mcu.pins.addr[0];
+            if a0_index != min_addr_pin {
                 //panic!(
                 //    "{}: for 40-pin ROMs, A0 must be the lowest address pin and at index 0, found at index {}",
                 //    name, a0_index
@@ -390,7 +412,7 @@ pub fn validate_config(name: &str, config: &HwConfigJson) {
             }
         }
         _ => panic!(
-            "{}: unsupported ROM type {}, expected 24, 28, or 40-pin ROM",
+            "{}: unsupported ROM type {}, expected 24, 28, 32 or 40-pin ROM",
             name, config.chip.pins.quantity
         ),
     }

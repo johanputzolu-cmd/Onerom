@@ -60,6 +60,7 @@ There are also some other inconsistencies between types:
 | 27256 | 32KB | 15 (A0-A14) | /CE (pin 20), /OE (pin 22) | VPP: pin 1 (VCC during read) |
 | 27512 | 64KB | 16 (A0-A15) | /CE (pin 20), /OE (pin 22) | VPP: pin 22 (VCC during read) |
 | 27C010 | 128KB | 17 (A0-A16) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 31 (x) |
+| 27C301 | 128KB | 17 (A0-A16) | /CE (pin 22), /OE (pin 2) | VPP: pin 1 (x); /PGM: pin 31 (x) |
 | 27C020 | 256KB | 18 (A0-A17) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 31 (x) |
 | 27C040 | 512KB | 19 (A0-A18) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 22 (Acts as /OE) |
 | 27C400 | 512KB | 19 (A0-A18) | /BYTE (pin 31), /CE (pin 10), /OE (pin 12) | VPP: pin 31 (word_size); /PGM: pin 10 (Acts as /OE) |
@@ -411,6 +412,23 @@ There are also some other inconsistencies between types:
 | Data (D0-D7) | 13,14,15,17,18,19,20,21 | 8 data lines |
 | CE | 22 | Active low |
 | OE | 24 | Active low |
+| VPP | 1 | x during read |
+| /PGM | 31 | x during read |
+| VCC | 32 | +5V |
+| GND | 16 | 0V |
+
+### 27C301 - 128KB EPROM with fixed active-low CE/OE
+
+**Package:** 32-pin DIP  
+**Capacity:** 131072 bytes  
+**Control:** /CE, /OE  
+
+| Function | Pins | Notes |
+|----------|------|-------|
+| Address (A0-A16) | 12,11,10,9,8,7,6,5,27,26,23,25,4,28,29,3,24 | 17 address lines |
+| Data (D0-D7) | 13,14,15,17,18,19,20,21 | 8 data lines |
+| CE | 22 | Active low |
+| OE | 2 | Active low |
 | VPP | 1 | x during read |
 | /PGM | 31 | x during read |
 | VCC | 32 | +5V |

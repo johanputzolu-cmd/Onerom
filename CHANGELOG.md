@@ -4,6 +4,8 @@ All notables changes between versions are documented in this file.
 
 ## v0.6.6 - 2026-??-??
 
+Add 27C301 EPROM type
+Add support for One ROM 32
 
 ## v0.6.5 - 2026-02-22
 

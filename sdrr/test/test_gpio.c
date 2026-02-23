@@ -68,6 +68,15 @@ static void get_gpio_drive_from_addr_cs(
             uint8_t temp = local_addr_pins[11];
             local_addr_pins[11] = local_addr_pins[12];
             local_addr_pins[12] = temp;
+        } else if (rom_type == CHIP_TYPE_27C301) {
+            // Pin A16 should be 1 after the higest address pin
+            uint8_t highest_addr_pin = 0;
+            for (int ii = 0; ii < 19; ii++) {
+                if (local_addr_pins[ii] > highest_addr_pin) {
+                    highest_addr_pin = local_addr_pins[ii];
+                }
+            }
+            local_addr_pins[16] = highest_addr_pin + 1;
         }
 
         for (int ii = 0; ii < num_addr_bits; ii++) {
@@ -81,28 +90,51 @@ static void get_gpio_drive_from_addr_cs(
         // Do not drive address lines
     }
 
-    // Flip CS2 and CS3 pin for all 24 pin ROMs except 2332 and 2364
-    uint8_t cs2_pin;
-    uint8_t cs3_pin;
+    uint8_t cs1_pin = sdrr_info.pins->cs1;
+    uint8_t cs2_pin = sdrr_info.pins->cs2;
+    uint8_t cs3_pin = sdrr_info.pins->cs3;
+    uint8_t x1_pin = sdrr_info.pins->x1;
+    uint8_t x2_pin = sdrr_info.pins->x2;
+    uint8_t oe_pin = sdrr_info.pins->oe;
+    uint8_t ce_pin = sdrr_info.pins->ce;
     switch (rom_type) {
         case CHIP_TYPE_2316:
         case CHIP_TYPE_2716:
         case CHIP_TYPE_2732:
+            // Flip CS2 and CS3 pin for all 24 pin ROMs except 2332 and 2364
             cs2_pin = sdrr_info.pins->cs3;
             cs3_pin = sdrr_info.pins->cs2;
             break;
 
-        default:
-            cs2_pin = sdrr_info.pins->cs2;
-            cs3_pin = sdrr_info.pins->cs3;
+        case CHIP_TYPE_27C301:
+            // /OE should be cs2
+            cs1_pin = ce_pin;
             break;
-    } 
+
+        case CHIP_TYPE_27C010:
+        case CHIP_TYPE_27C020:
+        case CHIP_TYPE_27C040:
+            cs1_pin = ce_pin;
+            cs2_pin = oe_pin;
+            break;
+
+        case CHIP_TYPE_27C080:
+            // CS1 pin is A19
+            cs2_pin = ce_pin;
+            cs3_pin = oe_pin;
+            break;
+
+        default:
+            break;
+    }
+
+
 
     // Add CS lines to the drive and level mask
     if (cs1 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->cs1);
+        drive_mask |= (1ULL << cs1_pin);
         if (cs1) {
-            level_mask |= (1ULL << sdrr_info.pins->cs1);
+            level_mask |= (1ULL << cs1_pin);
         }
     }
     if (cs2 < 2) {
@@ -118,15 +150,15 @@ static void get_gpio_drive_from_addr_cs(
         }
     }
     if (x1 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->x1);
+        drive_mask |= (1ULL << x1_pin);
         if (x1) {
-            level_mask |= (1ULL << sdrr_info.pins->x1);
+            level_mask |= (1ULL << x1_pin);
         }
     }
     if (x2 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->x2);
+        drive_mask |= (1ULL << x2_pin);
         if (x2) {
-            level_mask |= (1ULL << sdrr_info.pins->x2);
+            level_mask |= (1ULL << x2_pin);
         }
     }
 
@@ -223,6 +255,13 @@ void get_gpio_drive(
         cs1 = get_cs_gpio_state(rom_info->cs1_state, cs_active);
         cs2 = get_cs_gpio_state(rom_info->cs2_state, cs_active);
         cs3 = get_cs_gpio_state(rom_info->cs3_state, cs_active);
+
+        // Override CS2/CS3 for 27C080 - CE and OE are always active low
+        // and won't be configured in rom_info cs states
+        if (rom_type == CHIP_TYPE_27C080) {
+            cs2 = get_cs_gpio_state(CS_ACTIVE_LOW, cs_active);
+            cs3 = get_cs_gpio_state(CS_ACTIVE_LOW, cs_active);
+        }
     } else if (multi_rom) {
         // There are 3 CS lines - CS1 (ROM 0), X1 (ROM 1) and X2 (ROM 2)
         uint8_t rom_cs = get_cs_gpio_state(set->multi_rom_cs1_state, cs_active);

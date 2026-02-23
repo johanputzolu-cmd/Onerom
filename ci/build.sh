@@ -833,6 +833,7 @@ generate_manifest() {
             fire-24-d) echo "Fire 24 D" ;;
             fire-24-e) echo "Fire 24 E" ;;
             fire-28-a) echo "Fire 28 A" ;;
+            fire-32-a) echo "Fire 32 A" ;;
             fire-40-a) echo "Fire 40 A" ;;
             *) echo "$hw_rev" ;;  # Default to hw_rev itself
         esac

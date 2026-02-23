@@ -30,6 +30,7 @@ typedef enum {
     CHIP_TYPE_27C080 = 18,
     CHIP_TYPE_27C400 = 19,
     CHIP_TYPE_6116 = 20,
+    CHIP_TYPE_27C301 = 21,
     NUM_CHIP_TYPES,
     INVALID_CHIP_TYPE = 0xFF
 } sdrr_rom_type_t;

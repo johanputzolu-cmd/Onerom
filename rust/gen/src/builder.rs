@@ -22,7 +22,7 @@ pub const MAX_SUPPORTED_FIRMWARE_VERSION: FirmwareVersion = FirmwareVersion::new
 
 const UNSUPPORTED_FIRMWARE_VERSIONS: [FirmwareVersion; 1] = [FirmwareVersion::new(0, 6, 3, 0)];
 
-pub const SUPPORTED_CHIP_TYPES: &[ChipType; 15] = &[
+pub const SUPPORTED_CHIP_TYPES: &[ChipType; 20] = &[
     ChipType::Chip2316,
     ChipType::Chip2716,
     ChipType::Chip6116,
@@ -37,7 +37,12 @@ pub const SUPPORTED_CHIP_TYPES: &[ChipType; 15] = &[
     ChipType::Chip23512,
     ChipType::Chip27512,
     ChipType::Chip231024,
-    ChipType::Chip27C400
+    ChipType::Chip27C400,
+    ChipType::Chip27C010,
+    ChipType::Chip27C020,
+    ChipType::Chip27C040,
+    ChipType::Chip27C080,
+    ChipType::Chip27C301,
 ];
 
 pub(crate) use crate::firmware::*;
@@ -346,13 +351,20 @@ impl Builder {
 
                 // Check that the correct CS lines are specified for the Chip
                 // type
-                let required_cs_lines: BTreeSet<&str> = chip
+                let mut required_cs_lines: BTreeSet<&str> = chip
                     .chip_type
                     .control_lines()
                     .iter()
                     .filter(|line| matches!(line.name, "cs1" | "cs2" | "cs3"))
                     .map(|line| line.name)
                     .collect();
+                if chip.chip_type == ChipType::Chip27C080 {
+                    // Sepcial handling for 27C080.  The chip itself
+                    // doesn't have CS lines, but we consider A19 to be
+                    // CS1, so we can use that to switch between two One
+                    // ROMs, each servig half
+                    required_cs_lines.insert("cs1");
+                }
 
                 let specified_cs_lines: BTreeSet<&str> = {
                     let mut lines = BTreeSet::new();

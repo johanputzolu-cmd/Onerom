@@ -81,8 +81,14 @@ static int check_rom_read(
             rom_type == CHIP_TYPE_23128 ||
             rom_type == CHIP_TYPE_23256 ||
             rom_type == CHIP_TYPE_23512 ||
-            rom_type == CHIP_TYPE_231024
+            rom_type == CHIP_TYPE_231024 ||
+            rom_type == CHIP_TYPE_27C080
         );
+        if (rom_type == CHIP_TYPE_27C080) {
+            // 27C080 is only in this list as only CS1 is marked as active high
+            // in the config, but CE and OE are actually active low
+            check_data_pins_undriven(epio);
+        }
     } else {
         check_data_pins_undriven(epio);
     }

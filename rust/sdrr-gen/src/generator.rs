@@ -6,7 +6,6 @@
 
 use anyhow::{Context, Result};
 use onerom_config::fw::FirmwareVersion;
-use onerom_config::hw::Board;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -447,8 +446,8 @@ fn generate_sdrr_config_header(filename: &Path, config: &Config) -> Result<()> {
     writeln!(file)?;
     writeln!(file, "// MCU variant")?;
     writeln!(file, "{}", config.mcu_variant.define_var_fam())?;
-    if config.board == Board::Fire40A {
-        // Special case for Fire 40 A board which uses RP2350B variant
+    if config.board.chip_pins() > 28 {
+        // Special cases for boards which uses RP2350B variant
         writeln!(file, "#define RP2350B        1")?;
     } else {
         writeln!(file, "{}", config.mcu_variant.define_var_sub_fam())?;
@@ -731,6 +730,15 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
                 board.pin_oe(ChipType::Chip27256),
             )
         }
+        32 => {
+            (
+                board.pin_cs1(ChipType::Chip27C080),
+                board.pin_oe(ChipType::Chip27C301),
+                board.pin_cs3(ChipType::Chip27C010),
+                board.pin_ce(ChipType::Chip27C010),
+                board.pin_oe(ChipType::Chip27C010),
+            )
+        }
         40 => (
             board.pin_cs1(ChipType::Chip27C400),
             board.pin_cs2(ChipType::Chip27C400),
@@ -824,6 +832,28 @@ fn generate_sdrr_config_implementation(filename: &Path, config: &Config) -> Resu
             file,
             "    .addr2 = {{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}},"
         )?;
+    }
+    // We have nowhere to put special address pin assignments, so just check
+    // here
+    if board.chip_pins() == 32 {
+        if let Some(pin) = board.alt_pin(&ChipType::Chip27C301, "a16") {
+            // The pin must be 1 more than the highest pin value
+            let max_pin = board
+                .addr_pins()
+                .iter()
+                .copied()
+                .max()
+                .ok_or_else(|| anyhow::anyhow!("Board has no pins defined"))?;
+            if pin != max_pin + 1 {
+                return Err(anyhow::anyhow!(
+                    "For 32 pin boards, the alternative pin assignment for 27C301 A16 must be 1 more than the highest defined pin"
+                ));
+            }
+        } else {
+            return Err(anyhow::anyhow!(
+                "For 32 pin boards, 27C301 A16 must have an alternative pin assignment"
+            ));
+        }
     }
 
     // sdrr_pins_t extended padding/reserved space.

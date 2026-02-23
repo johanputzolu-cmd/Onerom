@@ -19,6 +19,7 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
+use core::panic;
 
 use onerom_config::chip::{ChipFunction, ChipType};
 use onerom_config::fw::{FirmwareVersion, ServeAlg};
@@ -307,6 +308,13 @@ impl Chip {
                 actual: dest.len(),
             });
         }
+        let expected_size = if *chip_type == ChipType::Chip27C080 {
+            // For a 27C080, we only use a half size image, as a single One
+            // ROM can only serve half.
+            expected_size / 2
+        } else {
+            expected_size
+        };
 
         // See what handling is required, if any
         match source.len().cmp(&expected_size) {
@@ -546,6 +554,7 @@ impl Chip {
             ChipType::Chip27C080 => 18,
             ChipType::Chip27C400 => 19,
             ChipType::Chip6116 => 20,
+            ChipType::Chip27C301 => 21,
         }
     }
 }
@@ -771,6 +780,10 @@ impl ChipSet {
                     }
                 }
             }
+            (32, McuFamily::Rp2350) => {
+                assert!(num_addr_pins == 19);
+                2_usize.pow(19) // 512KB
+            }
             (40, McuFamily::Rp2350) => {
                 assert!(num_addr_pins == 19);
                 2_usize.pow(19) // 512KB
@@ -846,6 +859,7 @@ impl ChipSet {
 
             let num_addr_lines = self.chips[chip_index].chip_type.num_addr_lines();
             let mut phys_pin_to_addr_map = handle_snowflake_chip_types(
+                board,
                 board.phys_pin_to_addr_map(),
                 &self.chips[chip_index].chip_type,
             );
@@ -866,7 +880,7 @@ impl ChipSet {
             // a different type (size).
             let num_addr_lines = chip_in_set.chip_type.num_addr_lines();
             let mut phys_pin_to_addr_map =
-                handle_snowflake_chip_types(board.phys_pin_to_addr_map(), &chip_in_set.chip_type);
+                handle_snowflake_chip_types(board, board.phys_pin_to_addr_map(), &chip_in_set.chip_type);
             Self::truncate_phys_pin_to_addr_map(&mut phys_pin_to_addr_map, num_addr_lines);
 
             // All of CS1/X1/X2 have to have the same active low/high status
@@ -1268,6 +1282,7 @@ impl ChipSet {
 // as these are CS lines, which aren't used as address lines, except for the
 // 231024.
 fn handle_snowflake_chip_types(
+    _board: &Board,
     phys_pin_to_addr_map: &[Option<usize>],
     chip_type: &ChipType,
 ) -> Vec<Option<usize>> {
@@ -1290,6 +1305,19 @@ fn handle_snowflake_chip_types(
         modified_map.remove(0);
         modified_map.push(None);
         modified_map.push(None);
+    } else if *chip_type == ChipType::Chip27C301 {
+        // A16 is an alternate pin
+        if let Some(a16_index) = modified_map.iter().position(|&x| x == Some(16)) {
+            if a16_index == 0 {
+                // Remove this entry, and add Some(16) on the end instead.
+                modified_map.remove(0);
+                modified_map.push(Some(16));
+            } else {
+                panic!("Address line A16 found at unexpected position {} in phys_pin_to_addr_map for 27C301 handling", a16_index);
+            }
+        } else {
+            panic!("Address line A16 not found in phys_pin_to_addr_map for 27C301 handling");
+        }
     }
     modified_map
 }

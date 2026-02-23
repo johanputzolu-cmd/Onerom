@@ -56,8 +56,15 @@ typedef struct {
     //
     // Offset: 36
     // 16 x 1 byte = 16 bytes
+
+    // As well as CS1 for relevant 23 series ROMs, CS2 is used to 27080 A19,
+    // which is treated as CS line
     uint8_t cs1;
+
+    // As well as CS2 for relevant 23 series ROMs, CS1 is used for the 27C301
+    // /OE line
     uint8_t cs2;
+
     // 3rd CS line, only used on 2316 and 23128, actually 2316's CS2, as 2316's CS3 is 2332's CS2
     uint8_t cs3;
     uint8_t reserved2a[1];

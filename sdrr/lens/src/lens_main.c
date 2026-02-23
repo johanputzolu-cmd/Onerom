@@ -294,6 +294,7 @@ EPIO_EXPORT void onerom_drive_addr(
         case CHIP_TYPE_27256:
         case CHIP_TYPE_27512:
         case CHIP_TYPE_27C010:
+        case CHIP_TYPE_27C301:
         case CHIP_TYPE_27C020:
         case CHIP_TYPE_27C040:
         case CHIP_TYPE_27C080:

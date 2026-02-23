@@ -494,10 +494,17 @@ impl Args {
                     ));
                 }
             }
+
+            #[allow(clippy::collapsible_if)]
             if cs1.is_some() && !control_lines.iter().any(|l| l.name == "cs1") {
-                return Err(format!(
-                    "cs1 specified but not used by ROM type {rom_type:?}",
-                ));
+                if rom_type != ChipType::Chip27C080 {
+                    // While 27C8080 doesn't have a CS1 line, it's how we
+                    // control which half of a pair of One ROM 32s is active -
+                    // CS1 is A19.
+                    return Err(format!(
+                        "cs1 specified but not used by ROM type {rom_type:?}",
+                    ));
+                }
             }
             if cs2.is_some() && !control_lines.iter().any(|l| l.name == "cs2") {
                 return Err(format!(
