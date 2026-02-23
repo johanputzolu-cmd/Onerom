@@ -2,6 +2,9 @@
 
 All notables changes between versions are documented in this file.
 
+## v0.6.6 - 2026-??-??
+
+
 ## v0.6.5 - 2026-02-22
 
 The big new feature in this release is support for One ROM 40, hardware revision fire-40-a.  This emulates a 27C400 found in the Amiga A500, and other 16-bit systems.  I have successfully tested it on my Amiga, serving Kickstart ROM 1.3 and [DiagROMV2](https://www.diagrom.com/).
