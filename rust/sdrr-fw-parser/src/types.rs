@@ -286,6 +286,10 @@ pub enum SdrrRomType {
     // 6116 (RAM)
     #[deku(id = "20")]
     Ram6116,
+
+    // 27C301
+    #[deku(id = "21")]
+    Rom27C301,
 }
 
 impl fmt::Display for SdrrRomType {
@@ -312,6 +316,7 @@ impl fmt::Display for SdrrRomType {
             SdrrRomType::Rom27C080 => write!(f, "27C080"),
             SdrrRomType::Rom27C400 => write!(f, "27C400"),
             SdrrRomType::Ram6116 => write!(f, "6116 (RAM)"),
+            SdrrRomType::Rom27C301 => write!(f, "27C301"),
         }
     }
 }
@@ -349,6 +354,7 @@ impl SdrrRomType {
             SdrrRomType::Rom27C080 => 1024,
             SdrrRomType::Rom27C400 => 512,
             SdrrRomType::Ram6116 => 2,
+            SdrrRomType::Rom27C301 => 128,
         }
     }
 
@@ -376,6 +382,7 @@ impl SdrrRomType {
             SdrrRomType::Rom27C080 => 32,
             SdrrRomType::Rom27C400 => 40,
             SdrrRomType::Ram6116 => 24,
+            SdrrRomType::Rom27C301 => 32,
         }
     }
 
@@ -408,6 +415,7 @@ impl SdrrRomType {
             SdrrRomType::Rom27C080 => false,
             SdrrRomType::Rom27C400 => false,
             SdrrRomType::Ram6116 => false,
+            SdrrRomType::Rom27C301 => false,
         }
     }
 
@@ -435,6 +443,7 @@ impl SdrrRomType {
             SdrrRomType::Rom27C080 => false,
             SdrrRomType::Rom27C400 => false,
             SdrrRomType::Ram6116 => false,
+            SdrrRomType::Rom27C301 => false,
         }
     }
 }

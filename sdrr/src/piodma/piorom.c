@@ -1137,14 +1137,14 @@ static void piorom_set_gpio_func(piorom_config_t *config) {
         } else {
             // Turn CS line into active low by inverting the GPIO before the
             // PIO reads it
-            APIO_GPIO_INVERT(pin);
+            APIO_GPIO_INPUT_INVERT(pin);
             DEBUG("CS pin %d inverted", pin);
         }
     }
 
     // Invert the /BYTE pin so it becomes active high
     if (config->bit_mode == BIT_MODE_16 && (!force_16_bit)) {
-        APIO_GPIO_INVERT(config->byte_pin);
+        APIO_GPIO_INPUT_INVERT(config->byte_pin);
         DEBUG("/BYTE inverted %d", config->byte_pin);
     }
 
@@ -1925,6 +1925,132 @@ void piorom_overrides(
     }
 }
 
+static void piorom_force_unused_addr_pins_to_zero(
+    const sdrr_info_t *info,
+    const sdrr_runtime_info_t *runtime,
+    const sdrr_rom_set_t *set,
+    const piorom_config_t *config
+) {
+    (void)runtime;
+
+    // Force any unused address pins to 0.  This is quite complicated:
+    // - For 24 pin ROMs, CS and X pins are in the same range.  For 23 series
+    //   24 pin ROMs, CS and address lines are always used.  X pins are only
+    //   used to multi-ROM and dynamic banked configurations.  In the multi-ROM
+    //   case, X2 is only used for a 3 ROM set.
+    // - For 28 pin ROMs, CS pins are part of the address space.
+    // - 32 pin ROMs.  CS lines are not part of the address space.
+    // - 40 pin ROMs are easy - all address pins are always used.
+    if (config->multi_rom_mode) {
+        if (set->rom_count < 3) {
+            if (info->pins->x2 < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->x2);
+            }
+        }
+    }
+
+    switch (set->roms[0]->rom_type) {
+        case CHIP_TYPE_2316:
+        case CHIP_TYPE_2332:
+        case CHIP_TYPE_2364:
+        case CHIP_TYPE_23512:
+            // No NC pins - any spare A lines are used as CS lines.
+            break;
+
+        case CHIP_TYPE_231024:
+            // No NC pins - all address lines used.  /OE becomes A16
+            break;
+
+        case CHIP_TYPE_2704:
+            // Physical pin 22 = A9.  NC 
+            if (info->pins->addr[9] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr[9]);
+            }
+            // Also 2708 pins:
+        
+        // Fall through
+        case CHIP_TYPE_2708:
+            // Physical pins 19 = A10 and 21 = A12.  NC.
+            // 2364 A11 = /CE so ignore
+            if (info->pins->addr[10] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr[10]);
+            }
+
+        // Fall through
+        case CHIP_TYPE_2716:
+            // Physical pin 21 is Vpp.
+            if (info->pins->addr[12] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr[12]);
+            }
+            break;
+
+        case CHIP_TYPE_2732:
+            // Physical pin 21 is A11 (not A12), and is used.  No NC.
+            break;
+
+        case CHIP_TYPE_2764:
+            // Pin 26 = NC = A13
+            if (info->pins->addr[13] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr[13]);
+            }
+
+        // Fall through
+        case CHIP_TYPE_27128:
+            // Pin 27 = PGM = A14
+            if (info->pins->addr[14] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr[14]);
+            }
+
+        // Fall through
+        case CHIP_TYPE_23128:
+        case CHIP_TYPE_23256:
+        case CHIP_TYPE_27256:
+            // Pin 1 = A15 = Vpp
+            if (info->pins->addr[15] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr[15]);
+            }
+            break;
+
+        case CHIP_TYPE_27512:
+            // No NC pins - all address lines used.
+            break;
+
+        case CHIP_TYPE_27C301:
+            // As per 27C010
+
+        // Fall through
+        case CHIP_TYPE_27C010:
+            // Pin 30 = NC = A17
+            if (info->pins->addr2[17-16] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr2[17-16]);
+            }
+
+        // Fall through
+        case CHIP_TYPE_27C020:
+            // Pin 31 = PGM = A18
+            if (info->pins->addr2[18-16] < MAX_USED_GPIOS) {
+                APIO_GPIO_FORCE_INPUT_LOW(info->pins->addr2[18-16]);
+            }
+            break;
+
+        case CHIP_TYPE_27C040:
+            // No NC pins - all address lines used.
+            break;
+
+        case CHIP_TYPE_27C080:
+            // No NC pins - all address lines used.
+            break;
+
+        case CHIP_TYPE_27C400:
+            // No NC pins - all address lines used.
+            break;
+
+        default:
+            ERR("Invalid ROM Type # %d", set->roms[0]->rom_type);
+            limp_mode(LIMP_MODE_INVALID_CONFIG);
+    }
+}
+
 // Configure and start the Autonomous PIO/DMA ROM serving implementation.
 int piorom(
     const sdrr_info_t *info,
@@ -1965,6 +2091,9 @@ int piorom(
     // - Data pins start at GPIO 0
     // - Address pins start at GPIO 8
     piorom_set_gpio_func(&config);
+
+    // Force any address pins to zero as required
+    piorom_force_unused_addr_pins_to_zero(info, runtime, set, &config);
 
     // Load and configure the PIO programs
     // - 2 CS pins

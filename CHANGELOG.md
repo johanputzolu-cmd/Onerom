@@ -11,9 +11,20 @@ All notables changes between versions are documented in this file.
 This releases adds support for One ROM 32 including:
 - Hardware revision fire-32-a
 - EPROM types 27C010, 27C020, 27C040 and 27C301
-- Support for 27C080 is included allowing two physically stacked One ROMs to be configured, each to serve half of the 27C080.  The one serving the lower 512KB should have cs1 set active low and the other one should have cs1 active high in their respective ROM configs. 
+- Support for 27C080 is included allowing two physically stacked One ROMs to be configured, each to serve half of the 27C080.  The one serving the lower 512KB should have cs1 set active low and the other one should have cs1 active high in their respective ROM configs.
+  Implemented #131.
 
-All supported ROM types and CS configurations are now fully PIO tested as part of automated (CI) regression testing, for all Fire hardware revisions.
+All supported ROM types and CS configurations are now fully PIO tested as part of automated (CI) regression testing, for all Fire hardware revisions.  Implemented #149.
+
+Changed default HW_REV/MCU in Makefile to fire-24-e/rp2350 (from ice-24-f/f401rc).
+
+Forced unused address lines to be driven low for appropriate ROM types, to fix #154.
+
+Improved regular (not 16 bit forced) /BYTE serving algorithm for 40 pin ROM, #153.
+
+Fixed support for 2 ROM multi-ROM sets, for Fire boards in PIO mode, #110.
+
+Resolved deficiencies in fire-24-a and fire-24-b PIO serving modes, #94.  All function is now supported on these boards, except for dynamic bank switching, which will likely remain unimplemented on these boards due to the lack of contiguity between X1/X2 and the CS pins.
 
 ## v0.6.5 - 2026-02-22
 

@@ -393,7 +393,7 @@ void check_data_pins_driven(epio_t *epio, uint8_t bit_mode) {
         uint8_t pin = data_pins[ii];
         if (pin < MAX_USED_GPIOS) {
             if (!(driven & (1ULL << pin))) {
-                uint64_t level = epio_read_gpios_ext(epio);
+                uint64_t level = epio_read_pin_states(epio);
                 TST_LOG("Data pin %d (GPIO %d) not driven when it should be at 0x%08X GPIOs driven: 0x%016llX levels: 0x%016llX", ii, pin, get_progress(), driven, level);
                 assert(0 && "Data pin not driven");
             }
@@ -407,7 +407,7 @@ void check_data_pins_undriven(epio_t *epio, uint8_t bit_mode) {
         uint8_t pin = data_pins[ii];
         if (pin < MAX_USED_GPIOS) {
             if (driven & (1ULL << pin)) {
-                uint64_t level = epio_read_gpios_ext(epio);
+                uint64_t level = epio_read_pin_states(epio);
                 TST_LOG("Data pin %d (GPIO %d) driven when it shouldn't be at 0x%08X GPIO driven: 0x%016llX levels: 0x%016llX", ii, pin, get_progress(), driven, level);
                 assert(0 && "Data pin driven when it shouldn't be");
             }

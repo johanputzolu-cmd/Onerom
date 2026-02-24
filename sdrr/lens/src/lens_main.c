@@ -346,7 +346,7 @@ EPIO_EXPORT void onerom_release_pins(void) {
 EPIO_EXPORT uint32_t onerom_read_data(uint8_t data_bits) {
     if (!g_epio) return 0;
     
-    uint64_t gpio_state = epio_read_gpios_ext(g_epio);
+    uint64_t gpio_state = epio_read_pin_states(g_epio);
     uint32_t data = 0;
     
     for (int ii = 0; ii < data_bits; ii++) {
@@ -356,12 +356,6 @@ EPIO_EXPORT uint32_t onerom_read_data(uint8_t data_bits) {
     }
     
     return data;
-}
-
-// Read all GPIO states as a 64-bit value
-EPIO_EXPORT uint64_t onerom_read_gpios(void) {
-    if (!g_epio) return 0;
-    return epio_read_gpios_ext(g_epio);
 }
 
 // Get the GPIO number for a specific address pin

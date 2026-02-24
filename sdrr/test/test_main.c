@@ -176,7 +176,7 @@ static int check_rom_read(
     check_data_pins_driven(epio, bit_mode);
 
     // Read the data lines
-    uint64_t gpio_out = epio_read_gpios_ext(epio);
+    uint64_t gpio_out = epio_read_pin_states(epio);
     uint32_t data = get_byte_from_gpio(gpio_out, bit_mode);
 
     // Test whether we got the expected data

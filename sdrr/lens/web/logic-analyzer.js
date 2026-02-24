@@ -196,11 +196,6 @@ class WASMModule {
             [this.epioHandle]);
     }
     
-    epioReadGPIOsExt() {
-        return BigInt(this.module.ccall('epio_read_gpios_ext', 'number', ['number'], 
-            [this.epioHandle]));
-    }
-
     epioReadPinStates() {
         return BigInt(this.module.ccall('epio_read_pin_states', 'number', ['number'], 
             [this.epioHandle]));
@@ -252,7 +247,7 @@ class WASMModule {
     }
 
     epioGetGpioInverted(pin) {
-        return this.module.ccall('epio_get_gpio_inverted', 'number', ['number', 'number'], 
+        return this.module.ccall('epio_get_gpio_input_inverted', 'number', ['number', 'number'], 
             [this.epioHandle, pin]);
     }
 }
