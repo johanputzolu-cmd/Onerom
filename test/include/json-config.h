@@ -34,6 +34,8 @@ typedef struct {
     uint8_t pin_23256;
     uint8_t pin_23512;
     uint8_t pin_231024;
+    uint8_t pin_2704;
+    uint8_t pin_2708;
     uint8_t pin_2716;
     uint8_t pin_2732;
     uint8_t pin_2764;

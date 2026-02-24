@@ -76,6 +76,16 @@ static void init_address_mangler(
             mangler->cs1_pin = config->mcu.pins.cs1.pin_231024;
             break;
 
+        case CHIP_TYPE_2704:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_2704;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_2704;
+            break;
+
+        case CHIP_TYPE_2708:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_2708;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_2708;
+            break;
+
         case CHIP_TYPE_2716:
             mangler->cs1_pin = config->mcu.pins.ce.pin_2716;
             mangler->cs2_pin = config->mcu.pins.oe.pin_2716;
@@ -463,6 +473,8 @@ const char* rom_type_to_string(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_23256: return "23256";
         case CHIP_TYPE_23512: return "23512";
         case CHIP_TYPE_231024: return "231024";
+        case CHIP_TYPE_2704: return "2704";
+        case CHIP_TYPE_2708: return "2708";
         case CHIP_TYPE_2716: return "2716";
         case CHIP_TYPE_2732: return "2732";
         case CHIP_TYPE_2764: return "2764";
@@ -488,6 +500,8 @@ uint8_t get_num_cs(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_2332:
         case CHIP_TYPE_23256:
         case CHIP_TYPE_23512:
+        case CHIP_TYPE_2704:
+        case CHIP_TYPE_2708:
         case CHIP_TYPE_2716:
         case CHIP_TYPE_2732:
         case CHIP_TYPE_2764:
@@ -553,6 +567,8 @@ size_t get_expected_rom_size(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_23256: return 32768;
         case CHIP_TYPE_23512: return 65536;
         case CHIP_TYPE_231024: return 131072;
+        case CHIP_TYPE_2704: return 512;
+        case CHIP_TYPE_2708: return 1024;
         case CHIP_TYPE_2716: return 2048;
         case CHIP_TYPE_2732: return 4096;
         case CHIP_TYPE_2764: return 8192;

@@ -118,6 +118,8 @@ static void get_gpio_drive_from_addr_cs(
     uint8_t ce_pin = sdrr_info.pins->ce;
     switch (rom_type) {
         case CHIP_TYPE_2316:
+        case CHIP_TYPE_2704:
+        case CHIP_TYPE_2708:
         case CHIP_TYPE_2716:
         case CHIP_TYPE_2732:
             // Flip CS2 and CS3 pin for all 24 pin ROMs except 2332 and 2364

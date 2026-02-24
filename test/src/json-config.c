@@ -69,6 +69,8 @@ static void parse_cs_config(json_object* cs_obj, cs_config_t* cs_config) {
     cs_config->pin_23256 = 255;
     cs_config->pin_23512 = 255;
     cs_config->pin_231024 = 255;
+    cs_config->pin_2704 = 255;
+    cs_config->pin_2708 = 255;
     cs_config->pin_2716 = 255;
     cs_config->pin_2732 = 255;
     cs_config->pin_2764 = 255;
@@ -103,6 +105,12 @@ static void parse_cs_config(json_object* cs_obj, cs_config_t* cs_config) {
     }
     if (json_object_object_get_ex(cs_obj, "231024", &pin_obj)) {
         cs_config->pin_231024 = json_object_get_int(pin_obj);
+    }
+    if (json_object_object_get_ex(cs_obj, "2704", &pin_obj)) {
+        cs_config->pin_2704 = json_object_get_int(pin_obj);
+    }
+    if (json_object_object_get_ex(cs_obj, "2708", &pin_obj)) {
+        cs_config->pin_2708 = json_object_get_int(pin_obj);
     }
     if (json_object_object_get_ex(cs_obj, "2716", &pin_obj)) {
         cs_config->pin_2716 = json_object_get_int(pin_obj);

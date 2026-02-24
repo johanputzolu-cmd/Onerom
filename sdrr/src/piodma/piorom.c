@@ -1447,6 +1447,8 @@ static void piorom_finish_config(
             config->num_cs_pins = 3;
             break;
 
+        case CHIP_TYPE_2704:
+        case CHIP_TYPE_2708:
         case CHIP_TYPE_2716:
         case CHIP_TYPE_2732:
         case CHIP_TYPE_2764:
@@ -1587,6 +1589,8 @@ static void piorom_finish_config(
             break;
 
         // 27 series ROMs - use OE/CE lines
+        case CHIP_TYPE_2704:
+        case CHIP_TYPE_2708:
         case CHIP_TYPE_2716:
         case CHIP_TYPE_2732:
         case CHIP_TYPE_2764:

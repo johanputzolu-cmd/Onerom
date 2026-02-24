@@ -61,6 +61,8 @@ test_24_all_rom_types() {
     run_test   $hw_rev images/test/rand_8192.rom trunc,type=2316 3 "$extra_flags"
     run_test   $hw_rev images/test/rand_8192.rom trunc,type=2332 2 "$extra_flags"
     run_test   $hw_rev images/test/rand_8192.rom type=2364       1 "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_8192.rom trunc,type=2704   "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_8192.rom trunc,type=2708   "$extra_flags"
     run_no_cs  $hw_rev images/test/rand_8192.rom trunc,type=2716   "$extra_flags"
     run_no_cs  $hw_rev images/test/rand_8192.rom trunc,type=2732   "$extra_flags"
 }
@@ -171,6 +173,7 @@ test_40pin fire-40-a -DFORCE_16_BIT
 test_24_config old-config/c64-no-destestmax.mk
 test_24_config old-config/pet-4-40-50.mk
 test_24_config old-config/vic20-pal.mk
+test_24_config old-config/test/24-random-27xx.mk
 
 # Test multi-ROM sets on revisions C+.  A/B do not support multi-ROM sets with
 # PIO support due to a lack of contiguity between CS and X pins.
