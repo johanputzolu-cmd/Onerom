@@ -279,6 +279,14 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                             break;
                         }
                     }
+#if defined(RP_PIO)
+                    // Invert sense of CS1, X1 and X2 when using PIO serving.
+                    // We do this after the above logic, which is based on
+                    // real CS1/X1/X2 values.
+                    cs1 = cs1 ^ 1;
+                    x1 = x1 ^ 1;
+                    x2 = x2 ^ 1;
+#endif // RP_PIO
                 } else {
                     // Bank switched set or single ROM set in RP2350 case
                     uint sel_x1, sel_x2;

@@ -125,7 +125,7 @@ test-hw-rev-F:HW_REV=f,MCU=f411re,CONFIG=old-config/test-sdrr-0.mk
 
 # Test each set config - HW_REV=ice-24-f only
 test-set-c64-f411re:HW_REV=ice-24-f,MCU=f411re,CONFIG=old-config/set-c64.mk
-test-set-vic20-pal-rp2350:HW_REV=fire-24-a,MCU=rp2350,CONFIG=old-config/set-vic20-pal.mk
+test-set-vic20-pal-rp2350:HW_REV=fire-24-e,MCU=rp2350,CONFIG=old-config/set-vic20-pal.mk
 
 # Test each bank switching config
 bank-1541-f405rg:MCU=f405rg,HW_REV=f,CONFIG=old-config/bank-1541.mk
