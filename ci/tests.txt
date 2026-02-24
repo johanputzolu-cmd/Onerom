@@ -181,13 +181,16 @@ fire-231024:HW_REV=fire-28-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_128KB
 #ice-28-a-f446rc-c1541ii:HW_REV=ice-28-a,MCU=f446rc,CONFIG=old-config/28-1541ii.mk
 
 # Test fire-32-a
-fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C010"
-fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C020"
+fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,trunc,type=27C010"
+fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,trunc,type=27C020"
 fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C040"
-fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C301"
+fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,trunc,type=27C301"
+fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C080,cs1=0"
+fire-32-a:HW_REV=fire-32-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C080,cs1=1"
 
 # Test fire-40-a
 fire-40-a:HW_REV=fire-40-a,MCU=rp2350,ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C400"
+fire-40-a:HW_REV=fire-40-a,MCU=rp2350,EXTRA_C_FLAGS="-DFORCE_16_BIT",ROM_CONFIGS="file=images/test/rand_512KB.rom,type=27C400"
 
 # Test third party configs - put them last as they often fail for me
 test-3p-ti994a-f411re:HW_REV=ice-24-f,MCU=f411re,CONFIG=old-config/third-party/ti994a.mk
