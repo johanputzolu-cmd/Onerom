@@ -4,35 +4,37 @@ All notables changes between versions are documented in this file.
 
 ## v0.6.6 - 2026-??-??
 
-!!!
-!!! Modified regular 40 pin algorithm - must test it live
-!!!
-!!! Forced unused address pins to zero in hardware - live test all pin counts, and variety of image types
-!!!
+The headline for this release is "bug fixes and other improvements".
 
-The headline for this release is One ROM 32 pin support for 27C010, 27C020, 27C040, 27C301 and 27C080 (via a pair of stacked One ROM 32s).
-
-There are also a significant number of fixes and improvements to the remainder of the One ROM fold.
-
-- This releases adds support for One ROM 32 including:
-  - Hardware revision fire-32-a
-  - EPROM types 27C010, 27C020, 27C040 and 27C301
-  - Support for 27C080 is included allowing two physically stacked One ROMs to be configured, each to serve half of the 27C080.  The one serving the lower 512KB should have cs1 set active low and the other one should have cs1 active high in their respective ROM configs.
-  Implemented #131.
-
-- All supported ROM types and CS configurations are now fully PIO tested as part of automated (CI) regression testing, for all Fire hardware revisions.  Implemented #149.
-
-- Changed default HW_REV/MCU in Makefile to fire-24-e/rp2350 (from ice-24-f/f401rc).
-
-- Forced unused address lines to be driven low for appropriate ROM types, to fix #154.
+There are also a significant number of fixes and improvements to the remainder of the One ROM fold, including some changes to existing behaviour, listed first:
 
 - Improved regular (not 16 bit forced) /BYTE serving algorithm for 40 pin ROM, #153.
 
-- Fixed support for 2 ROM multi-ROM sets, for Fire boards in PIO mode, #110.
+  This algorithm is marginally slower than previously but more robust.  If a faster algorithm is required, sacrifice /BYTE low handling with firmware_overrides->fire->force_16_bit = true in the ROM config.
 
 - Resolved deficiencies in fire-24-a and fire-24-b PIO serving modes, #94.  All function is now supported on these boards, except for dynamic bank switching, which will likely remain unimplemented on these boards due to the lack of contiguity between X1/X2 and the CS pins.
 
+  As a result fire-24-a and fire-24-b now default to PIO serving.  If CPU is desired (for example, for dynamic bank switching support), use firmware_overrides in the JSON config file.
+
+- Changed default HW_REV/MCU in Makefile to fire-24-e/rp2350 (from ice-24-f/f401rc).  This only impacts using the old style `make` builds, not `scripts/onerom.sh` builds.
+
+- All supported ROM types and CS configurations are now fully PIO tested as part of automated (CI) regression testing, for all Fire hardware revisions, #149.
+
+- Fixed support for 2 ROM multi-ROM sets, for Fire boards in PIO mode, #110.  This impacted all Fire revisions in PIO mode - in particular the provided 1541 multi-ROM config did not work (and now does). 
+
+- Forced unused address lines to appear driven low to the MCU for appropriate ROM types, to fix #154.
+
+  This probably doesn't have any external impact, but if so it would be to 27 series ROMs and/or 2 set multi-ROM sets (24 pin only).  All supported 27 series ROM types have been tested manually with this change, as has 2 ROM multi-ROM sets on 24 pin boards.
+
 - Implemented 2704 and 2708 ROM support on all existing Ice and Fire 24 pin boards, #156.
+
+  2704/2708 support was tested on a T48 EPROM reader (with Pin Detect disabled), as a 2716 (as the T48 software doesn't support 2704/2708).  The 2704 image was correctly duplicaetd 4 times in the 2716 space and the 2708 twice.  Support tested on fire-24-a and fire-24-e, both with PIO serving.  Ice 2704/2708 is untested.
+
+- This releases adds _prototype_ support for One ROM 32 #131 including:
+  - Hardware revision fire-32-a
+  - EPROM types 27C010, 27C020, 27C040 and 27C301
+  - Support for 27C080 is included allowing two physically stacked One ROMs to be configured, each to serve half of the 27C080.  The one serving the lower 512KB should have cs1 set active low and the other one should have cs1 active high in their respective ROM configs.
+  This support has been tested using the PIO emulator, but has not been tested with real hardware.  It is expected that bug fixes will be required when testing is done with real hardware, and One ROM 32 will be formally supported in a later release.
 
 ## v0.6.5 - 2026-02-22
 

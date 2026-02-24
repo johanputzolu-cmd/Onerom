@@ -310,7 +310,11 @@ void get_gpio_drive(
 
         cs1 = inactive_cs;
         x1 = inactive_cs;
-        x2 = inactive_cs;
+        if (rom_count > 2) {
+            x2 = inactive_cs;
+        } else {
+            x2 = 2; // Not used, so we won't drive it
+        }
         if (cs_active < 2) {
             // We want to actually drive the active rom index's CS line
             // either inactive or active

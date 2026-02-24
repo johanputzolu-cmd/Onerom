@@ -88,6 +88,6 @@
                 "port": "0"
             }
         },
-        "serve_mode": "cpu"
+        "serve_mode": "pio"
     }
 }

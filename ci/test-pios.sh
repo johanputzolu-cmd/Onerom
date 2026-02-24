@@ -123,8 +123,8 @@ test_config() {
 test_24_config() {
     local config=$1
 
-    test_config fire-24-a "$config" -DRP_PIO
-    test_config fire-24-b "$config" -DRP_PIO
+    test_config fire-24-a "$config"
+    test_config fire-24-b "$config"
     test_config fire-24-c "$config"
     test_config fire-24-d "$config"
     test_config fire-24-e "$config"
@@ -152,8 +152,8 @@ test_32_config() {
 
 # Test every ROM type on every Fire 24 hardware revision.  This tests a single
 # ROM image/set
-test_24_all_rom_types fire-24-a -DRP_PIO
-test_24_all_rom_types fire-24-b -DRP_PIO
+test_24_all_rom_types fire-24-a
+test_24_all_rom_types fire-24-b
 test_24_all_rom_types fire-24-c
 test_24_all_rom_types fire-24-d
 test_24_all_rom_types fire-24-e

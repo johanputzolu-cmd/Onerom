@@ -1948,6 +1948,11 @@ static void piorom_force_unused_addr_pins_to_zero(
     if (config->multi_rom_mode) {
         if (set->rom_count < 3) {
             if (info->pins->x2 < MAX_USED_GPIOS) {
+                // Multi-ROM CS works opposite to regular CS.  CS pins are
+                // inverted if necessary so that non zero = serve.  As X2
+                // is not being used, it should never contribute to serving,
+                // so should always be low.
+                DEBUG("Force X2 pin %d low", info->pins->x2);
                 APIO_GPIO_FORCE_INPUT_LOW(info->pins->x2);
             }
         }

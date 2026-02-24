@@ -52,6 +52,6 @@
         "sel_jumper_pull": [0, 0, 0],
         "status": 26
     },
-    "serve_mode": "cpu"
+    "serve_mode": "pio"
   }
 }

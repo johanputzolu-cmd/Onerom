@@ -1,0 +1,54 @@
+{
+    "$schema": "https://images.onerom.org/configs/schema.json",
+    "version": 1,
+    "name": "24-random-27xx",
+    "description": "27x series ROM test",
+    "categories": [
+    ],
+    "rom_sets": [
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "2704",
+                    "file": "images/test/rand_8192.rom",
+                    "type": "2704",
+                    "size_handling": "truncate"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "2708",
+                    "file": "images/test/rand_65536.rom",
+                    "type": "2708",
+                    "size_handling": "truncate"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "2716",
+                    "file": "images/test/rand_512KB.rom",
+                    "type": "2716",
+                    "size_handling": "truncate"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "roms": [
+                {
+                    "description": "2732",
+                    "file": "images/test/rand_512KB_alt.rom",
+                    "type": "2732",
+                    "size_handling": "truncate"
+                }
+            ]
+        }
+    ]
+}

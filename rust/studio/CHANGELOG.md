@@ -2,7 +2,8 @@
 
 ## v0.1.15 2026-??-??
 
-- Added One ROM 32 support
+- Added One ROM 32 support (27C010, 27C020, 27C040, 27C301 and 27C080 via stacked One ROM 32s).
+- Added 2704/2708 ROM support.
 
 ## v0.1.14 2026-02-22
 
