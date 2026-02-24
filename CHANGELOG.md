@@ -28,7 +28,7 @@ There are also a significant number of fixes and improvements to the remainder o
 
 - Implemented 2704 and 2708 ROM support on all existing Ice and Fire 24 pin boards, #156.
 
-  2704/2708 support was tested on a T48 EPROM reader (with Pin Detect disabled), as a 2716 (as the T48 software doesn't support 2704/2708).  The 2704 image was correctly duplicaetd 4 times in the 2716 space and the 2708 twice.  Support tested on fire-24-a and fire-24-e, both with PIO serving.  Ice 2704/2708 is untested.
+  2704/2708 support was tested on a T48 EPROM reader (with Pin Detect disabled), as a 2716 (as the T48 software doesn't support 2704/2708).  The 2704 image was correctly duplicaetd 4 times in the 2716 space and the 2708 twice.  Support for 2704/2708/2716 and 2732 was tested on fire-24-a and fire-24-e, both with PIO serving, and ice-24-j.
 
 - This releases adds _prototype_ support for One ROM 32 #131 including:
   - Hardware revision fire-32-a
