@@ -51,7 +51,11 @@ sdrr_runtime_info_t sdrr_runtime_info SECTION_SDRR_RUNTIME_INFO = {
 #else // !FORCE_16_BIT
     .force_16_bit = 0,
 #endif // FORCE_16_BIT
-    .reserved = 0
+    .peri_en = 0,
+    .system_plugin_context = NULL,
+    .user_plugin_context = NULL,
+    .timer0_irq_0_handler = NULL,
+    .usbctrl_irq_handler = NULL,
 };
 
 // This function checks the state of the image select pins, and returns an
@@ -283,11 +287,26 @@ int firmware_main(void) {
         LOG_INIT();
     }
 
+#if defined(RP235X)
+    // Do initial plugin parsing.  The system plugin can potentially override
+    // USB DFU support, which is why we do it now.
+    DEBUG("Initial plugin parse");
+    uint8_t disable_vbus_det = initial_plugin_parse();
+#endif // RP235X
+
     // Set up VBUS detect interrupt.  Done next, so we can enter DFU mode as 
     // soon as USB plugged in
     if (sdrr_info.extra->usb_dfu) {
+#if defined(RP235X)
+        if (!disable_vbus_det) {
+#endif // RP235X
         DEBUG("Init VBUS det");
         setup_vbus_interrupt();
+#if defined(RP235X)
+        } else {
+            LOG("Plugin disabled VBUS detect");
+        }
+#endif // RP235X
     }
 
     // Read image select pin values - we need this to check whether to enter

@@ -1,5 +1,15 @@
 {
     "chip_types": {
+        "Plugin": {
+            "description": "One ROM Plugin",
+            "function": "Plugin",
+            "bit_modes": [],
+            "pins": 0,
+            "size": 65536,
+            "address": [],
+            "data": [],
+            "control": {}
+        },
         "2316": {
             "description": "2KB mask ROM with 3 configurable CS lines",
             "function": "ROM",

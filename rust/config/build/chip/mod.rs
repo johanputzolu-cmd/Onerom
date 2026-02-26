@@ -163,6 +163,8 @@ fn generate_lib_rs(config: &ChipTypesConfig) -> String {
                 }
             } else if chip_type.function == ChipFunction::Ram {
                 ram_chips.push(entry);
+            } else if chip_type.function == ChipFunction::Plugin {
+                // Skip plugins for now - they don't fit into the standard categories
             } else {
                 panic!("Unsupported chip type {} - needs adding", type_name);
             }
@@ -353,6 +355,10 @@ pub enum ChipFunction {
     /// Random-Access Memory (RAM) chip
     #[serde(rename = "RAM")]
     Ram,
+
+    /// One ROM Plugin (not a chip)
+    #[serde(rename = "Plugin")]
+    Plugin,
 }"#
 }
 
@@ -748,6 +754,7 @@ fn generate_chip_function_method(config: &ChipTypesConfig) -> String {
                 match chip_type.function {
                     ChipFunction::Rom => "Rom",
                     ChipFunction::Ram => "Ram",
+                    ChipFunction::Plugin => "Plugin",
                 }
             ));
         }
@@ -818,10 +825,17 @@ fn generate_supports_bit_mode_method(config: &ChipTypesConfig) -> String {
                 .map(|mode| mode.to_string())
                 .collect::<Vec<String>>()
                 .join(" | ");
-            code.push_str(&format!(
-                "            ChipType::Chip{} => matches!(mode, {}),\n",
-                type_name, modes
-            ));
+            if modes.is_empty() {
+                code.push_str(&format!(
+                    "            ChipType::Chip{} => false,\n",
+                    type_name
+                ));
+            } else {
+                code.push_str(&format!(
+                    "            ChipType::Chip{} => matches!(mode, {}),\n",
+                    type_name, modes 
+                ));
+            }
         }
     }
 

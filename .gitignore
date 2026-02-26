@@ -27,6 +27,7 @@ onerom-config/user/*
 sdrr-pcb/panels/*
 !sdrr-pcb/panels/README.md
 rust/config/src/rom
+tinyusb/*
 
 dist/
 output/

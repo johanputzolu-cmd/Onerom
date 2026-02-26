@@ -45,13 +45,13 @@ void (* const g_pfnVectors[])(void) = {
 
     // Peripheral interrupt handlers follow 0-15 above.
     // 16-19
-    Default_Handler, Default_Handler, Default_Handler, Default_Handler,
+    irq_handler_timer0_irq_0, Default_Handler, Default_Handler, Default_Handler,
     // 20-23
     Default_Handler, Default_Handler, Default_Handler, Default_Handler,
     // 24-27
     Default_Handler, Default_Handler, Default_Handler, Default_Handler,
     // 28-31
-    Default_Handler, Default_Handler, Default_Handler, Default_Handler,
+    Default_Handler, Default_Handler, irq_handler_usbctrl_irq, Default_Handler,
     // 32-35
     Default_Handler, Default_Handler, Default_Handler, Default_Handler,
     // 36-39

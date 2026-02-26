@@ -474,6 +474,27 @@ impl Chip {
         result
     }
 
+    // Gets the actual byte at the actual address into the image.  This is
+    // used for plugins, where the address/bytes are not mangled/demangled,
+    // but rather stored on flash as-is so they can be executed.
+    fn get_byte_raw(
+        &self,
+        address: usize,
+    ) -> u8 {
+        let data = self
+            .data
+            .as_ref()
+            .expect("Shouldn't be called get_byte_raw on empty image");
+
+        data.get(address).copied().unwrap_or_else(|| {
+            panic!(
+                "Address {} out of bounds for Chip image of size {}",
+                address,
+                data.len()
+            )
+        })
+    }
+
     // Get byte at the given address with both address and data
     // transformations applied.
     //
@@ -555,6 +576,7 @@ impl Chip {
             ChipType::Chip27C400 => 19,
             ChipType::Chip6116 => 20,
             ChipType::Chip27C301 => 21,
+            ChipType::ChipPlugin => 22,
         }
     }
 }
@@ -827,7 +849,11 @@ impl ChipSet {
         if (!self.has_data()) && (self.chip_function() == ChipFunction::Ram) {
             return Chip::byte_mangled(PAD_RAM_BYTE, board);
         }
-        // Early return above
+        if self.chip_function() == ChipFunction::Plugin {
+            return self.chips[0].get_byte_raw(address);
+        }
+
+        // Early returns above
 
         // Hard-coded assumption that X1/X2 (STM32F4) are pins 14/15 for
         // single chip sets and banked chip sets.  However, for RP2350 they may

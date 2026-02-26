@@ -26,10 +26,8 @@ void get_clock_config(rp235x_clock_config_t *config);
 uint8_t get_vreg_from_target_mhz(uint16_t target_mhz);
 void setup_xosc(void);
 void setup_pll(rp235x_clock_config_t *config);
-void setup_usb_pll(void);
 void setup_qmi(rp235x_clock_config_t *config);
 void setup_vreg(rp235x_clock_config_t *config);
-void setup_adc(void);
 void setup_cp(void);
 void final_checks(rp235x_clock_config_t *config);
 uint16_t get_temp(void);
@@ -440,7 +438,21 @@ void setup_pll(rp235x_clock_config_t *config) {
     while ((CLOCK_SYS_SELECTED & (1 << 1)) == 0);
 }
 
+void setup_usb_controller(void) {
+    // Route USB clock to PLL_USB
+    CLOCK_CLK_USB_CTRL = CLOCK_USB_CTRL_ENABLE | CLOCK_USB_CTRL_AUXSRC_PLL_USB;
+
+    // Release USB controller from reset
+    RESET_RESET &= ~RESET_USBCTRL;
+    while (!(RESET_DONE & RESET_USBCTRL));
+}
+
 void setup_usb_pll(void) {
+    if (sdrr_runtime_info.peri_en & 1) {
+        DEBUG("USB PLL already enabled");
+        return;
+    }
+
     DEBUG("Setting up USB PLL");
 
     // Release PLL_USB from reset
@@ -450,7 +462,7 @@ void setup_usb_pll(void) {
     // Power down the PLL, set the feedback divider
     PLL_USB_PWR = PLL_PWR_PD | PLL_PWR_VCOPD;
 
-    // For 48MHz: 12MHz × 40 ÷ 10 ÷ 1 = 48MHz
+    // For 48MHz: 12MHz × 40 ÷ 5 ÷ 2 = 48MHz
     PLL_USB_FBDIV_INT = 40;
     PLL_USB_CS = PLL_CS_REFDIV(1);
 
@@ -460,14 +472,20 @@ void setup_usb_pll(void) {
     // Wait for lock
     while (!(PLL_USB_CS & PLL_CS_LOCK));
 
-    // Set post dividers: 40 × 12MHz = 480MHz → ÷10 ÷1 = 48MHz
-    PLL_USB_PRIM = PLL_PRIM_POSTDIV1(10) | PLL_PRIM_POSTDIV2(1);
+    // Set post dividers: 40 × 12MHz = 480MHz → ÷5 ÷2 = 48MHz
+    PLL_USB_PRIM = PLL_PRIM_POSTDIV1(5) | PLL_PRIM_POSTDIV2(2);
 
     // Power up
     PLL_USB_PWR = 0;
+    sdrr_runtime_info.peri_en |= 1;
 }
 
 void setup_adc(void) {
+    if (sdrr_runtime_info.peri_en & (1 << 1)) {
+        DEBUG("ADC already enabled");
+        return;
+    }
+
     DEBUG("Setting up ADC");
 
     // Route USB PLL to ADC (USB is the default source so no need to set)
@@ -483,6 +501,7 @@ void setup_adc(void) {
     DEBUG("ADC out of reset");
     ADC_CS |= ADC_CS_TS_EN | ADC_CS_EN;
     while (!(ADC_CS & ADC_CS_READY));          
+    sdrr_runtime_info.peri_en |= (1 << 1);
 
     DEBUG("ADC ready");
 }
@@ -1076,5 +1095,30 @@ void setup_xosc(void) {
     while ((CLOCK_REF_SELECTED & CLOCK_REF_SRC_SEL_XOSC) != CLOCK_REF_SRC_SEL_XOSC);
 }
 #endif // !TEST_BUILD
+
+uint8_t initial_plugin_parse(void) {
+    uint8_t disable_vbus_det = 0;
+
+    // Right now we just check for a system plugin
+    if (sdrr_info.metadata_header->rom_set_count >= 1) {
+        const sdrr_rom_set_t *set = &sdrr_info.metadata_header->rom_sets[0];
+        if (set->roms[0]->rom_type == CHIP_TYPE_PLUGIN) {
+            const ora_plugin_header_t *header = (ora_plugin_header_t *)(uintptr_t)(set->data);
+            if (check_plugin_valid(header)) {
+                disable_vbus_det = header->overrides1 & ORA_OVERRIDE1_DISABLE_VBUS_DETECT ? 1 : 0;
+                LOG("Valid plugin detected, disable_vbus_det=%d", disable_vbus_det);
+            } else {
+                ERR("Invalid plugin detected");
+            }
+            // check_plugin_valid logs if invalid
+        } else {
+            DEBUG("ROM is not a plugin, skipping plugin parsing");
+        }
+    } else {
+        DEBUG("No ROM sets defined, skipping plugin parsing");
+    }
+
+    return disable_vbus_det;
+}
 
 #endif // RP235X

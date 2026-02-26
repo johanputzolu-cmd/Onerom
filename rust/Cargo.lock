@@ -4698,7 +4698,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "onerom-config"
-version = "0.4.4"
+version = "0.4.5"
 dependencies = [
  "schemars",
  "serde",
@@ -4731,7 +4731,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-fw"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4751,7 +4751,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-gen"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "onerom-config",
  "schemars",
@@ -4813,7 +4813,7 @@ dependencies = [
 
 [[package]]
 name = "onerom-studio"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "arc-swap",
  "built",
@@ -6199,7 +6199,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-fw-parser"
-version = "0.6.6"
+version = "0.6.7"
 dependencies = [
  "airfrog-rpc",
  "deku 0.19.1",
@@ -6229,7 +6229,7 @@ dependencies = [
 
 [[package]]
 name = "sdrr-info"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "chrono",

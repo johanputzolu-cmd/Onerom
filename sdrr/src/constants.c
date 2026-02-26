@@ -58,4 +58,5 @@ const uint32_t chip_size_from_type[NUM_CHIP_TYPES] = {
     524288, // CHIP_TYPE_27C400
     2048,   // CHIP_TYPE_6116
     131072, // CHIP_TYPE_27C301
+    65536,  // CHIP_TYPE_PLUGIN
 };

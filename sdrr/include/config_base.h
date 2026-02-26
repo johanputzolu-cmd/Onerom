@@ -9,6 +9,7 @@
 #define CONFIG_BASE_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 // Pull in enums
 #include "enums.h"
@@ -568,10 +569,36 @@ typedef struct sdrr_runtime_info_t {
     // Offset: 38
     uint8_t force_16_bit;
 
-    uint8_t reserved;
+    // Peripherals/PLLs enabled
+    // Bit 0 = LSB = USB PLL
+    // Bit 1 = ADC
+    // Offset: 39
+    uint8_t peri_en;
 
-    // Length = 40 bytes
+    // Pointer to system plugin context
+    // CANNOT MUST NOT MOVE!
+    // Offset: 40
+    void *system_plugin_context;
+
+    // Pointer to user plugin context
+    // CANNOT MUST NOT MOVE!
+    // Offset: 44
+    void *user_plugin_context;
+
+    // Pointer to TIMER0_IRQ_0 handler
+    // Offset: 48
+    void (*timer0_irq_0_handler)(void);
+
+    // Pointer to USBCTRL_IRQ handler
+    // Offset: 52
+    void (*usbctrl_irq_handler)(void);
+
+    // Length = 56 bytes
 } sdrr_runtime_info_t;
+// Check system plug context is at 0x40, and the user at 0x44.  These CANNOT
+// move without breaking the plugin API.
+_Static_assert(offsetof(sdrr_runtime_info_t, system_plugin_context) == 40, "system_plugin_context must be at offset 0x40");
+_Static_assert(offsetof(sdrr_runtime_info_t, user_plugin_context) == 44, "user_plugin_context must be at offset 0x44");
 
 // One ROM Metadata Header
 //

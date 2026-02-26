@@ -58,6 +58,8 @@ pub enum ChipFunction {
     Rom,
     #[serde(rename = "RAM")]
     Ram,
+    #[serde(rename = "Plugin")]
+    Plugin,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -244,7 +246,53 @@ impl ChipTypesConfig {
 }
 
 impl ChipType {
+    fn validate_plugin_type(&self, type_name: &str) -> Result<(), ValidationError> {
+        if self.size != 65536 {
+            return Err(ValidationError::AddressSizeMismatch {
+                chip_type: type_name.to_string(),
+                address_lines: self.address.len(),
+                expected_size: 65536,
+                actual_size: self.size,
+            });
+        }
+        if !self.bit_modes.is_empty() {
+            return Err(ValidationError::InvalidDataLineCount {
+                chip_type: type_name.to_string(),
+                count: self.bit_modes.len(),
+            });
+        }
+        if self.pins != 0 {
+            return Err(ValidationError::InvalidPackagePinCount {
+                chip_type: type_name.to_string(),
+                pins: self.pins,
+            });
+        }
+        if !self.address.is_empty() {
+            return Err(ValidationError::TooManyAddressLines {
+                chip_type: type_name.to_string(),
+                count: self.address.len(),
+            });
+        }
+        if !self.data.is_empty() {
+            return Err(ValidationError::InvalidDataLineCount {
+                chip_type: type_name.to_string(),
+                count: self.data.len(),
+            });
+        }
+        if !self.control.is_empty() {
+            return Err(ValidationError::UnknownControlLine {
+                chip_type: type_name.to_string(),
+                line_name: "control lines should be empty".to_string(),
+            });
+        }
+        Ok(())
+    }
+
     pub fn validate(&self, type_name: &str) -> Result<(), ValidationError> {
+        if matches!(self.function, ChipFunction::Plugin) {
+            return self.validate_plugin_type(type_name)
+        }
+
         if !VALID_PIN_COUNTS.contains(&self.pins) {
             return Err(ValidationError::InvalidPackagePinCount {
                 chip_type: type_name.to_string(),
