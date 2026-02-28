@@ -26,6 +26,7 @@
 #include "tusb.h"
 #include "usb_descriptors.h"
 #include "usb_plugin.h"
+#include "picobootx.h"
 
 /* A combination of interfaces must have a unique product id, since PC will save device driver after the first plug.
  * Same VID/PID with different interface e.g MSC (first), then CDC (later) will possibly cause system error on PC.
@@ -89,16 +90,21 @@ enum
 uint8_t const desc_configuration[] =
 {
   // Config number, interface count, string index, total length, attribute, power in mA
-  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
+  TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x80, 250),
 
-  // Interface number, string index, EP Out & IN address, EP size
-  0x09, 0x04, ITF_NUM_DUMMY, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
+  // Hand rolled interface descriptor for the dummy interface.  This ensures
+  // picoboot gets interface 1, as required by picotool (if there's more than
+  // one interface).  This MUST have bInterfaceClass of 0xFF (vendor
+  // specific), bInterfaceSubClass of 0x00, and bInterfaceProtocol of 0x00,
+  // or picotool will not recognise the device, even though picotool does not
+  // use this interface.
+  0x09, 0x04, ITF_NUM_DUMMY, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x04,
 
   // Interface number, string index, EP Out & IN address, EP size
   TUD_VENDOR_DESCRIPTOR(ITF_NUM_VENDOR, 5, EPNUM_VENDOR_OUT, 0x80 | EPNUM_VENDOR_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
 
   // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
-  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, 0x80 | EPNUM_CDC_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
+  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 6, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, 0x80 | EPNUM_CDC_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
 
 };
 
@@ -145,7 +151,6 @@ uint8_t const * tud_descriptor_bos_cb(void)
 {
   return desc_bos;
 }
-
 
 uint8_t const desc_ms_os_20[] =
 {
@@ -196,13 +201,12 @@ static char const *string_desc_arr[] =
   "piers.rocks",                 // 1: Manufacturer
   "One ROM",                     // 2: Product
   NULL,                          // 3: Serials will use unique ID if possible
-  "One ROM Serial",              // 4: CDC Interface
-  "One ROM Control"              // 5: Vendor Interface
+  "One ROM, the most flexible replacement ROM for your retro system", // 4: Dummy interface
+  "One ROM Control",             // 5: Vendor Interface
+  "One ROM Serial",              // 6: CDC Interface
 };
 
-static uint16_t _desc_str[32 + 1];
-
-extern size_t usb_get_serial(uint16_t *buffer, size_t max_len);
+static uint16_t _desc_str[64 + 1];
 
 // Invoked when received GET STRING DESCRIPTOR request
 // Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
@@ -217,7 +221,7 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
       break;
 
     case STRID_SERIAL:
-      chr_count = usb_get_serial(_desc_str + 1, 32);
+      chr_count = picoboot_get_serial(_desc_str + 1, 32);
       break;
 
     default:

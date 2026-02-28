@@ -7,9 +7,8 @@
 #include "include.h"
 #include "usb_plugin.h"
 #include "tusb.h"
-#include "picoboot.h"
 #include "usb_descriptors.h"
-#include "usb_picoboot.h"
+#include "usb_picobootx.h"
 
 // Optimisations:
 // - Reduce USB_MAX_ENDPOINTS to minimum
@@ -185,19 +184,14 @@ bool tud_vendor_control_xfer_cb(
     uint8_t stage,
     tusb_control_request_t const *request
 ) {
-    //DEBUG("Control transfer received: rhport %u stage %u bRequest 0x%02X wIndex 0x%04X wLength %u",
-    //    rhport, stage, request->bRequest, request->wIndex, request->wLength);
-
     // Try PICOBOOT first
-    if (usb_picoboot_control_xfer_cb(rhport, stage, request)) {
+    if (app_picoboot_control_xfer_cb(rhport, stage, request)) {
         return true;
     }
 
-    if (stage != CONTROL_STAGE_SETUP) {
-        return true;
-    }
-
-    if (request->bRequest == VENDOR_REQUEST_MICROSOFT) {
+    // Handle MS OS 2.0 descriptor request, for WCID on Windoows 8.1+.  Avoids
+    // the need for Zadig to setup WinUSB on Windows.
+    if ((request->bRequest == VENDOR_REQUEST_MICROSOFT) && (stage == CONTROL_STAGE_SETUP)) {
         if (request->wIndex == 7) {
             // Return MS OS 2.0 descriptor
             return tud_control_xfer(rhport, request, (void *)desc_ms_os_20, MS_OS_20_DESC_LEN);

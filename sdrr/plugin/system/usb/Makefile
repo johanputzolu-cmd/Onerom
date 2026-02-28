@@ -34,6 +34,10 @@ PICO_SDK_INCLUDE := \
 BUILD_DIR := build
 
 include tinyusb.mk
+include picobootx/picobootx.mk
+
+PICOBOOTX_SRC_C := $(addprefix picobootx/,$(PICOBOOTX_SRC_C))
+PICOBOOTX_INCLUDE_DIRS := $(addprefix picobootx/,$(PICOBOOTX_INCLUDE_DIRS))
 
 PLUGIN_BASE   := 0x10010000
 PLUGIN_PREFIX := plugin_system_usb
@@ -41,7 +45,7 @@ PLUGIN_PREFIX := plugin_system_usb
 ELF := $(BUILD_DIR)/$(PLUGIN_PREFIX).elf
 BIN := $(BUILD_DIR)/$(PLUGIN_PREFIX).bin
 
-SRC := usb_descriptors.c picoboot_vendor.c  usb_picoboot.c  picoboot.c usb_main.c
+SRC := usb_descriptors.c usb_picobootx.c usb_main.c
 
 CFLAGS := -mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 \
           -O2 -Wall -Wextra -Werror \
@@ -49,7 +53,8 @@ CFLAGS := -mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 \
           -MMD -MP \
           $(SDRR_INCLUDE) $(SEGGER_INCLUDE) $(ORA_INCLUDE) $(PLUGIN_INCLUDE) \
 		  $(PICO_SDK_INCLUDE) \
-          $(addprefix -I,$(TINYUSB_INCLUDE_DIRS))
+          $(addprefix -I,$(TINYUSB_INCLUDE_DIRS)) \
+		  $(addprefix -I,$(PICOBOOTX_INCLUDE_DIRS))
 
 LDFLAGS := -nostdlib \
            -T usb.ld \
@@ -59,7 +64,8 @@ LDFLAGS := -nostdlib \
 
 PLUGIN_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC))
 TINYUSB_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(TINYUSB_SRC_C))
-ALL_OBJ     := $(PLUGIN_OBJ) $(TINYUSB_OBJ)
+PICOBOOTX_OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(PICOBOOTX_SRC_C))
+ALL_OBJ     := $(PLUGIN_OBJ) $(TINYUSB_OBJ) $(PICOBOOTX_OBJ)
 
 .PHONY: all clean
 
