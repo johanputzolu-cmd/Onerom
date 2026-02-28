@@ -7,7 +7,9 @@
 #include "include.h"
 #include "usb_plugin.h"
 #include "tusb.h"
+#include "picoboot.h"
 #include "usb_descriptors.h"
+#include "usb_picoboot.h"
 
 // Optimisations:
 // - Reduce USB_MAX_ENDPOINTS to minimum
@@ -33,6 +35,7 @@ const ora_plugin_header_t ora_plugin_header = { \
 
 // Plugin context, stored in .bss
 usb_plugin_context_t context;
+
 
 void init_data_bss(void) {
     extern uint32_t __data_start;
@@ -102,12 +105,6 @@ size_t usb_get_serial(uint16_t *desc_str, size_t max_chars) {
     return len;
 }
 
-void plugin_task(ora_lookup_fn_t ora_lookup_fn) {
-    // Nothing to do in the main loop for this plugin, but we need to define this
-    // function to be able to call it from core 1 after USB setup.
-    (void)ora_lookup_fn;
-}
-
 // Main plugin entry point
 void usb_main(
     ora_lookup_fn_t ora_lookup_fn,
@@ -135,26 +132,13 @@ void usb_main(
     // Can't log until we have the log functions
     DEBUG("USB plugin started");
 
-    DEBUG("PLL_USB_CS: 0x%08x", PLL_USB_CS);
-    DEBUG("PLL_USB_PWR: 0x%08x", PLL_USB_PWR);
-    DEBUG("PLL_USB_FBDIV_INT: 0x%08x", PLL_USB_FBDIV_INT);
-    DEBUG("PLL_USB_PRIM: 0x%08x", PLL_USB_PRIM);
-    DEBUG("CLOCK_CLK_USB_CTRL: 0x%08x", CLOCK_CLK_USB_CTRL);
-
     // Set up USB.  tinyusb will register its own IRQ handler, using the API
     // functions we provide.
     setup_usb();
 
-    DEBUG("PLL_USB_CS: 0x%08x", PLL_USB_CS);
-    DEBUG("PLL_USB_PWR: 0x%08x", PLL_USB_PWR);
-    DEBUG("PLL_USB_FBDIV_INT: 0x%08x", PLL_USB_FBDIV_INT);
-    DEBUG("PLL_USB_PRIM: 0x%08x", PLL_USB_PRIM);
-    DEBUG("CLOCK_CLK_USB_CTRL: 0x%08x", CLOCK_CLK_USB_CTRL);
-
     // Set up timer0
     register_irq(ORA_IRQ_TIMER0_IRQ_0, timer0_irq_0_handler);
     uint32_t clkref_mhz = get_clkref_mhz();
-    DEBUG("CLKREF frequency: %u MHz", clkref_mhz);
     setup_timer0(clkref_mhz);
     enable_irq(ORA_IRQ_TIMER0_IRQ_0, 1);
 
@@ -164,19 +148,16 @@ void usb_main(
     };
     tusb_init(BOARD_TUD_RHPORT, &dev_init);
 
-    LOG("USB plugin setup complete");
+    usb_picoboot_init(EPNUM_VENDOR_OUT, EPNUM_VENDOR_IN);
 
-    uint32_t iter = 0;
+    DEBUG("USB plugin setup complete");
+
     while (1) {
         tud_task();
-        plugin_task(ora_lookup_fn);
-        iter++;
-        if (iter % 1000000 == 0) {
-            DEBUG("USB plugin main loop iteration %u timer_ms %u", iter, board_millis());
-        }
+        usb_picoboot_task();
     }
 
-    LOG("USB plugin exiting");
+    ERR("USB plugin exiting");
     return;
 }
 
@@ -197,19 +178,20 @@ void tud_cdc_rx_cb(uint8_t itf) {
     LOG("CDC received %u bytes on interface %u", count, itf);
 }
 
-// Invoked when vendor data is received
-void tud_vendor_rx_cb(uint8_t itf, uint8_t const *buf, uint32_t count) {
-    (void)itf;
-    (void)buf;
-    (void)count;
-    LOG("Vendor data received on interface %u, count %u", itf, count);
-}
-
 // Invoked when a control transfer is received on vendor interface
 // Used to respond to MS OS 2.0 descriptor request from Windows
-bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
-    LOG("Control transfer received: rhport %u stage %u bRequest 0x%02X wIndex 0x%04X wLength %u",
-        rhport, stage, request->bRequest, request->wIndex, request->wLength);
+bool tud_vendor_control_xfer_cb(
+    uint8_t rhport,
+    uint8_t stage,
+    tusb_control_request_t const *request
+) {
+    //DEBUG("Control transfer received: rhport %u stage %u bRequest 0x%02X wIndex 0x%04X wLength %u",
+    //    rhport, stage, request->bRequest, request->wIndex, request->wLength);
+
+    // Try PICOBOOT first
+    if (usb_picoboot_control_xfer_cb(rhport, stage, request)) {
+        return true;
+    }
 
     if (stage != CONTROL_STAGE_SETUP) {
         return true;
@@ -275,3 +257,4 @@ void __assert_func(const char *file, int line, const char *func, const char *exp
     ERR("Assertion failed: %s, at %s:%d in function %s", expr, file, line, func);
     while (1);
 }
+

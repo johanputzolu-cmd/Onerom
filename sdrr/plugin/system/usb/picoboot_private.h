@@ -44,33 +44,40 @@ typedef enum {
 // ---------------------------------------------------------------------------
 
 typedef enum {
-    PB_STATE_IDLE,       // waiting for a 32-byte command on BULK_OUT
-    PB_STATE_DATA_OUT,   // accumulating host->device data (WRITE, OTP_WRITE)
-    PB_STATE_DATA_IN,    // streaming device->host data (READ, GET_INFO, OTP_READ)
-    PB_STATE_AWAIT_ZLP,  // ZLP queued, waiting for TX buffer to drain
-    PB_STATE_STALLED,    // bulk endpoints stalled; awaiting GET_COMMAND_STATUS
+    PB_STATE_IDLE,        // waiting for a 32-byte command on BULK_OUT
+    PB_STATE_DATA_OUT,    // accumulating host->device data (WRITE, OTP_WRITE)
+    PB_STATE_DATA_IN,     // streaming device->host data (READ, GET_INFO, OTP_READ)
+    PB_STATE_AWAIT_ZLP,   // ZLP sent on IN; waiting for tx completion callback
+                          // before taking any post-command action (e.g. REBOOT2)
+    PB_STATE_AWAIT_ACK,   // IN data transfer complete; waiting for host's
+                          // completion packet on OUT (IN-direction commands only)
+    PB_STATE_STALLED,     // bulk endpoints stalled; awaiting GET_COMMAND_STATUS
 } pb_state_t;
+
+const char *pb_state_to_str[] = {
+    "IDLE",
+    "DATA_OUT",
+    "DATA_IN",
+    "AWAIT_ZLP",
+    "AWAIT_ACK",
+    "STALLED"
+};
 
 // ---------------------------------------------------------------------------
 // Per-command in-progress state (union — only one active at a time)
 // ---------------------------------------------------------------------------
 
-// IN: READ — stream directly from source memory
 typedef struct {
-    const uint8_t *src_ptr;      // current read position in flash/RAM/ROM
-    uint32_t       remaining;    // bytes left to send
+    uint32_t addr;               // current read address
+    uint32_t remaining;          // bytes left to send
 } pb_in_read_t;
 
-// IN: GET_INFO — call get_sys_info() one flag at a time.
-// The first word of the response is the total significant word count, computed
-// from the static flag->word_count table before any data is sent.
 typedef struct {
     uint32_t remaining_flags;    // bitmask of requested flags not yet sent
     uint32_t transfer_remaining; // bytes still owed to host
     bool     header_sent;        // true once the leading count word has been sent
 } pb_in_get_info_t;
 
-// IN: OTP_READ — call otp_access() incrementally, up to TX buffer space
 typedef struct {
     uint16_t current_row;        // next row to read
     uint16_t rows_remaining;     // rows not yet sent
@@ -78,7 +85,6 @@ typedef struct {
     uint32_t transfer_remaining; // bytes still owed to host
 } pb_in_otp_read_t;
 
-// OUT: WRITE / OTP_WRITE — accumulate into flash_write_buf
 typedef struct {
     uint32_t received;           // bytes accumulated so far
     uint32_t expected;           // total bytes expected from host
@@ -93,7 +99,6 @@ struct pb_state_block {
     const picoboot_ops_t        *ops;             // 4 bytes
     const picoboot_custom_ops_t *custom;          // 4 bytes
     uint8_t                     *flash_write_buf; // 4 bytes; NULL = WRITE disabled
-                                                  // must be 4-byte aligned
     void                        *ctx;             // 4 bytes
 
     // State machine
@@ -119,7 +124,11 @@ struct pb_state_block {
         pb_in_otp_read_t otp_read; // 12 bytes
         pb_out_write_t   write;    //  8 bytes
     } xfer;                        // 12 bytes
-};                                 // total: 72 bytes on 32-bit ARM
+
+    // ZLP buffer: usbd_edpt_xfer requires a non-NULL pointer even for
+    // zero-length transfers on some hardware. 1 byte, owned by state block.
+    uint8_t                      zlp_buf[1];      // 1 byte (+3 padding = 4)
+};                                                // total: 76 bytes on 32-bit ARM
 
 // Verify PICOBOOT_STATE_SIZE matches the actual struct size.
 // If this fires, update PICOBOOT_STATE_SIZE in picoboot.h.

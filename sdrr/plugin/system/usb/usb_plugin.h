@@ -5,7 +5,10 @@
 #ifndef USB_PLUGIN_H
 #define USB_PLUGIN_H
 
+#include <stdint.h>
+#include <stdbool.h>
 #include "plugin.h"
+#include "tusb.h"
 
 // Context structure for our plugin
 typedef struct {
@@ -18,6 +21,17 @@ typedef struct {
 
 // Forward declaration of the context, which we define in usb_main.c
 extern usb_plugin_context_t context;
+
+// Forward declaration of plugin's Picoboot functions, from usb_picoboot.c
+void usb_picoboot_init(uint8_t ep_out, uint8_t ep_in);
+bool usb_picoboot_control_xfer_cb(
+    uint8_t rhport,
+    uint8_t stage,
+    tusb_control_request_t const *request
+);
+void usb_picoboot_tx_cb(uint8_t idx, uint32_t sent_bytes);
+void usb_picoboot_rx_cb(uint8_t idx, uint8_t const *buf, uint32_t count);
+void usb_picoboot_task(void);
 
 // Logging macros
 #if defined(DEBUG)

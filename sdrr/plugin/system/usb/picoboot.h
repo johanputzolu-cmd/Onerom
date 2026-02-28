@@ -9,9 +9,29 @@
 #include <stdbool.h>
 #include "tusb.h"
 
+// tusb.h must be included before this header.
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// ---------------------------------------------------------------------------
+// tinyusb configuration checkes
+//
+// This section consists of static asserts to verify the tinyusb configuration
+// is correctly configured for use as a picoboot backend.
+//
+// Items which cannot be asserted:
+// - The picoboot interface must be Class 0xFF, SubClass 0x00, Protocol, 0x00
+// - If you have a single interface, the picoboot interface must be interface
+//   0.
+// - If you have multiple interfaces, the picoboot interface must be interface
+//   1.  Strictly, this is not required by the spec, but is required by the
+//   current picotool implementation.  If you require a pair of CDC
+//   interfaces, it is recommended you add a dummy/unused/other interface as
+//   interface 0, then picoboot as interface 1, then CDC as interfaces 2/3.
+// ---------------------------------------------------------------------------
+_Static_assert(CFG_TUD_ENDPOINT0_SIZE == 64, "The picoboot protocol requires bMaxPacketSize0 of 64 in the device descriptor");
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -26,7 +46,7 @@ extern "C" {
 // Size of pb_state_block_t in bytes. Use this to allocate storage without
 // needing to include picoboot_private.h. Verified by _Static_assert in
 // picoboot_private.h.
-#define PICOBOOT_STATE_SIZE     72u
+#define PICOBOOT_STATE_SIZE     76u
 
 // ---------------------------------------------------------------------------
 // GET_INFO info types
@@ -38,6 +58,18 @@ typedef enum {
     PB_INFO_UF2_TARGET       = 0x03,
     PB_INFO_UF2_STATUS       = 0x04,
 } pb_info_type_t;
+_Static_assert(sizeof(pb_info_type_t) == 1, "pb_get_info_args_t size mismatch");
+
+// ---------------------------------------------------------------------------
+// EXCLUSIVE_ACCESS types
+// ---------------------------------------------------------------------------
+
+typedef enum {
+    PB_EA_NOT_EXCL          = 0x00,
+    PB_EA_EXCL              = 0x01,
+    PB_EA_EXCL_AND_EJECT    = 0x02,
+} pb_ea_type_t;
+_Static_assert(sizeof(pb_ea_type_t) == 1, "pb_ea_type_t size mismatch");
 
 // ---------------------------------------------------------------------------
 // Status codes (returned via GET_COMMAND_STATUS control request)
@@ -63,6 +95,7 @@ typedef enum {
     PB_STATUS_NOT_FOUND            = 16,
     PB_STATUS_UNSUPPORTED_MOD      = 17,
 } pb_status_t;
+_Static_assert(sizeof(pb_status_t) == 1, "pb_status_t size mismatch");
 
 // ---------------------------------------------------------------------------
 // Wire structs
@@ -93,7 +126,7 @@ typedef struct __attribute__((packed)) {
 // ---------------------------------------------------------------------------
 
 typedef struct __attribute__((packed)) {
-    uint8_t exclusive;  // 0=NOT_EXCLUSIVE, 1=EXCLUSIVE, 2=EXCLUSIVE_AND_EJECT
+    pb_ea_type_t ea_type;
 } pb_exclusive_access_args_t;
 
 typedef struct __attribute__((packed)) {
@@ -125,67 +158,117 @@ typedef struct __attribute__((packed)) {
 // Callback interfaces
 // ---------------------------------------------------------------------------
 
-// Standard PICOBOOT ops (magic == PICOBOOT_MAGIC).
-//
-// No-data-phase callbacks return pb_status_t directly.
-//
-// IN callbacks (read, get_info_sys, otp_read) receive a buffer to fill and
-// must set *bytes_written on PB_STATUS_OK.  The library calls get_info_sys
-// once per requested flag with a buffer sized to that flag's known word
-// count; the callback must call get_sys_info() and return only the data
-// words (not the leading supported-flags word from get_sys_info).
-//
-// OUT callbacks (write, otp_write) receive the fully-accumulated data buffer.
-// write() will not be called if flash_write_buf was NULL at picoboot_init();
-// the library returns PB_STATUS_NOT_PERMITTED automatically in that case.
-//
-// post_reboot2 is called after the ZLP for REBOOT2 has been queued, so the
-// integrator can defer the actual reboot until USB has quiesced. May be NULL
-// if the reboot2 callback handles deferral itself.
 typedef struct {
-    // No data phase
+    // Management functions
     pb_status_t (*exclusive_access)(const pb_exclusive_access_args_t *args, void *ctx);
-    pb_status_t (*flash_erase)     (const pb_addr_size_args_t *args, void *ctx);
-    pb_status_t (*reboot2)         (const pb_reboot2_args_t *args, void *ctx);
+    pb_status_t (*exit_xip)(void *ctx);
+    pb_status_t (*enter_xip)(void *ctx);
+    pb_status_t (*reboot2_prepare)(const pb_reboot2_args_t *args, void *ctx);
+    void (*reboot2_execute)(const pb_reboot2_args_t *args, void *ctx);
+    pb_status_t (*get_info_sys)(
+        uint32_t flags,
+        uint8_t *buf,
+        uint32_t buf_len,
+        uint32_t *bytes_written,
+        void *ctx
+    );
 
-    // OUT data phase (host -> device); write buffer is always 256 bytes
-    pb_status_t (*write)           (const pb_addr_size_args_t *args,
-                                    const uint8_t *buf, uint32_t len, void *ctx);
-    pb_status_t (*otp_write)       (const pb_otp_args_t *args,
-                                    const uint8_t *buf, uint32_t len, void *ctx);
+    // Read functions
+    pb_status_t (*read_validate)(uint32_t addr, uint32_t size, void *ctx);
+    pb_status_t (*read)(
+        uint32_t addr,
+        uint8_t *buf,
+        uint32_t len,
+        void *ctx
+    );
+    pb_status_t (*otp_read)(
+        const pb_otp_args_t *args,
+        uint8_t *buf,
+        uint32_t buf_len,
+        uint32_t *bytes_written,
+        void *ctx
+    );
 
-    // IN data phase (device -> host)
-    pb_status_t (*read)            (const pb_addr_size_args_t *args,
-                                    uint8_t *buf, uint32_t buf_len,
-                                    uint32_t *bytes_written, void *ctx);
-    pb_status_t (*get_info_sys)    (uint32_t flags,
-                                    uint8_t *buf, uint32_t buf_len,
-                                    uint32_t *bytes_written, void *ctx);
-    pb_status_t (*otp_read)        (const pb_otp_args_t *args,
-                                    uint8_t *buf, uint32_t buf_len,
-                                    uint32_t *bytes_written, void *ctx);
+    // Flash erase
+    pb_status_t (*flash_erase)(const pb_addr_size_args_t *args, void *ctx);
 
-    // Post-ZLP hook for REBOOT2 (may be NULL)
-    void        (*post_reboot2)    (const pb_reboot2_args_t *args, void *ctx);
+    // Write functions.  Only supported if picoboot is initialised with a flash_write_buf.
+    pb_status_t (*write)(uint32_t addr, const uint8_t *buf, uint32_t len, void *ctx);
+    pb_status_t (*otp_write)(const pb_otp_args_t *args, const uint8_t *buf, uint32_t len, void *ctx);
 } picoboot_ops_t;
 
-// Custom / extended command dispatch (alternative magic value).
-// The library handles framing, token tracking, ZLP, and stall.
-// The integrator owns all command routing and data buffer management.
-// For IN-direction commands, bytes_written must be set on PB_STATUS_OK.
+// Custom / extended command dispatch (alternative magic value).  Not yet supported
 typedef struct {
     uint32_t    magic;
-    pb_status_t (*dispatch)(const picoboot_cmd_t *cmd,
-                            uint8_t *buf, uint32_t buf_len,
-                            uint32_t *bytes_written, void *ctx);
+    pb_status_t (*dispatch)(
+        const picoboot_cmd_t *cmd,
+        uint8_t *buf,
+        uint32_t buf_len,
+        uint32_t *bytes_written,
+        void *ctx
+    );
 } picoboot_custom_ops_t;
+
+// ---------------------------------------------------------------------------
+// Default callback implementations
+// ---------------------------------------------------------------------------
+
+// Returns PB_STATUS_OK for all EXCLUSIVE_ACCESS types, or PB_STATUS_INVALID_ARG
+// for unknown types.
+pb_status_t picoboot_default_exclusive_access(
+    const pb_exclusive_access_args_t *args, 
+    void *ctx
+);
+
+// Returns PB_STATUS_OK.
+pb_status_t picoboot_default_exit_xip(void *ctx);
+
+// Returns PB_STATUS_OK.
+pb_status_t picoboot_default_enter_xip(void *ctx);
+
+// Returns PB_STATUS_OK.  Does not check arguments or reboot.
+pb_status_t picoboot_default_reboot2_prepare(
+    const pb_reboot2_args_t *args, 
+    void *ctx
+);
+
+// Reboots into BOOTSEL using the provided arguments.
+void picoboot_default_reboot2_execute(
+    const pb_reboot2_args_t *args, 
+    void *ctx
+);
+
+// Validates standard set of addresses for an RP2350
+pb_status_t picoboot_default_validate_read(
+    uint32_t addr, 
+    uint32_t size, 
+    void *ctx
+);
+
+// Reads data from the specified address. Does not perform any validation.
+pb_status_t picoboot_default_read(
+    uint32_t addr, 
+    uint8_t *buf, 
+    uint32_t size, 
+    void *ctx
+);
+
+// Retrieves system information using the ROM's get_sys_info function
+pb_status_t picoboot_default_get_info_sys(
+    uint32_t  flag,
+    uint8_t  *buf,
+    uint32_t  buf_size,
+    uint32_t *bytes_written,
+    void     *ctx
+);
 
 // ---------------------------------------------------------------------------
 // State block — integrator allocates, library owns contents
 // ---------------------------------------------------------------------------
 
 // Opaque to integrators. Allocate PICOBOOT_STATE_SIZE bytes with at least
-// 4-byte alignment (required for OTP buffer reuse via otp_access()).
+// 4-byte alignment.
+//
 // Example static allocation:
 //   static uint32_t picoboot_state_buf[PICOBOOT_STATE_SIZE / 4];
 //   #define picoboot_state ((pb_state_block_t *)picoboot_state_buf)
@@ -202,8 +285,9 @@ typedef struct pb_state_block pb_state_block_t;
 //   custom          : extended magic dispatch; may be NULL
 //   flash_write_buf : 256-byte, 4-byte-aligned buffer for write accumulation;
 //                     NULL disables WRITE and OTP_WRITE (PB_STATUS_NOT_PERMITTED)
-//   ep_out          : BULK OUT endpoint address (from your USB descriptor)
-//   ep_in           : BULK IN endpoint address (from your USB descriptor)
+//   rhport          : TinyUSB root hub port (0 on RP2350)
+//   ep_out          : BULK OUT endpoint address
+//   ep_in           : BULK IN endpoint address
 //   ctx             : passed verbatim to all callbacks
 void picoboot_init(pb_state_block_t            *state,
                    const picoboot_ops_t        *ops,
@@ -222,6 +306,12 @@ bool picoboot_control_xfer_cb(pb_state_block_t             *state,
                                uint8_t                       rhport,
                                uint8_t                       stage,
                                tusb_control_request_t const *req);
+
+// Call from your app_picoboot_tx_cb().
+void picoboot_tx_cb(pb_state_block_t *state, uint32_t sent_bytes);
+
+// Call from your app_picoboot_rx_cb().
+void picoboot_rx_cb(pb_state_block_t *state, uint32_t count);
 
 #ifdef __cplusplus
 }

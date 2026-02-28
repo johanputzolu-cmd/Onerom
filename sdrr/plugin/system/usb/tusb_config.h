@@ -38,8 +38,6 @@
  extern "C" {
 #endif
 
-#include "usb_plugin.h"
-
 // One ROM specific configuration
 #define __not_in_flash(x)
 #define CFG_TUD_TASK_QUEUE_SZ     4

@@ -41,7 +41,7 @@ PLUGIN_PREFIX := plugin_system_usb
 ELF := $(BUILD_DIR)/$(PLUGIN_PREFIX).elf
 BIN := $(BUILD_DIR)/$(PLUGIN_PREFIX).bin
 
-SRC := usb_main.c usb_descriptors.c picoboot.c
+SRC := usb_descriptors.c picoboot_vendor.c  usb_picoboot.c  picoboot.c usb_main.c
 
 CFLAGS := -mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 \
           -O2 -Wall -Wextra -Werror \

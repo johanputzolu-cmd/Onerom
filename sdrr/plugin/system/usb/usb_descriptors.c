@@ -48,13 +48,13 @@ static tusb_desc_device_t const desc_device =
 
     // Use Interface Association Descriptor (IAD) for CDC
     // As required by USB Specs IAD's subclass must be common class (2) and protocol must be IAD (1)
-    .bDeviceClass       = TUSB_CLASS_MISC,
-    .bDeviceSubClass    = MISC_SUBCLASS_COMMON,
-    .bDeviceProtocol    = MISC_PROTOCOL_IAD,
+    .bDeviceClass       = 0,
+    .bDeviceSubClass    = 0,
+    .bDeviceProtocol    = 0,
     .bMaxPacketSize0    = CFG_TUD_ENDPOINT0_SIZE,
 
-    .idVendor           = 0xCafe,
-    .idProduct          = 0x0001,
+    .idVendor           = ONE_ROM_USB_SYSTEM_PLUGIN_VID,
+    .idProduct          = ONE_ROM_USB_SYSTEM_PLUGIN_PID,
     .bcdDevice          = 0x0100,
 
     .iManufacturer      = 0x01,
@@ -77,63 +77,29 @@ uint8_t const * tud_descriptor_device_cb(void)
 //--------------------------------------------------------------------+
 enum
 {
-  ITF_NUM_CDC = 0,
-  ITF_NUM_CDC_DATA,
+  ITF_NUM_DUMMY = 0,
   ITF_NUM_VENDOR,
+  ITF_NUM_CDC,
+  ITF_NUM_CDC_DATA,
   ITF_NUM_TOTAL
 };
 
-#define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_VENDOR_DESC_LEN)
-
-#if CFG_TUSB_MCU == OPT_MCU_LPC175X_6X || CFG_TUSB_MCU == OPT_MCU_LPC177X_8X || CFG_TUSB_MCU == OPT_MCU_LPC40XX
-  // LPC 17xx and 40xx endpoint type (bulk/interrupt/iso) are fixed by its number
-  // 0 control, 1 In, 2 Bulk, 3 Iso, 4 In etc ...
-  #define EPNUM_CDC_NOTIF  0x81
-  #define EPNUM_CDC_OUT    0x02
-  #define EPNUM_CDC_IN     0x82
-
-  #define EPNUM_VENDOR_OUT 0x05
-  #define EPNUM_VENDOR_IN  0x85
-
-#elif CFG_TUSB_MCU == OPT_MCU_CXD56
-  // CXD56 USB driver has fixed endpoint type (bulk/interrupt/iso) and direction (IN/OUT) by its number
-  // 0 control (IN/OUT), 1 Bulk (IN), 2 Bulk (OUT), 3 In (IN), 4 Bulk (IN), 5 Bulk (OUT), 6 In (IN)
-  #define EPNUM_CDC_NOTIF   0x83
-  #define EPNUM_CDC_OUT     0x02
-  #define EPNUM_CDC_IN      0x81
-
-  #define EPNUM_VENDOR_OUT  0x05
-  #define EPNUM_VENDOR_IN   0x84
-
-#elif defined(TUD_ENDPOINT_ONE_DIRECTION_ONLY)
-  // MCUs that don't support a same endpoint number with different direction IN and OUT defined in tusb_mcu.h
-  //    e.g EP1 OUT & EP1 IN cannot exist together
-  #define EPNUM_CDC_NOTIF   0x81
-  #define EPNUM_CDC_OUT     0x02
-  #define EPNUM_CDC_IN      0x83
-
-  #define EPNUM_VENDOR_OUT  0x04
-  #define EPNUM_VENDOR_IN   0x85
-
-#else
-  #define EPNUM_CDC_NOTIF   0x81
-  #define EPNUM_CDC_OUT     0x02
-  #define EPNUM_CDC_IN      0x82
-
-  #define EPNUM_VENDOR_OUT  0x03
-  #define EPNUM_VENDOR_IN   0x83
-#endif
+#define CONFIG_TOTAL_LEN    (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_VENDOR_DESC_LEN + 9)
 
 uint8_t const desc_configuration[] =
 {
   // Config number, interface count, string index, total length, attribute, power in mA
   TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN, 0x00, 100),
 
+  // Interface number, string index, EP Out & IN address, EP size
+  0x09, 0x04, ITF_NUM_DUMMY, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
+
+  // Interface number, string index, EP Out & IN address, EP size
+  TUD_VENDOR_DESCRIPTOR(ITF_NUM_VENDOR, 5, EPNUM_VENDOR_OUT, 0x80 | EPNUM_VENDOR_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
+
   // Interface number, string index, EP notification address and size, EP data address (out, in) and size.
   TUD_CDC_DESCRIPTOR(ITF_NUM_CDC, 4, EPNUM_CDC_NOTIF, 8, EPNUM_CDC_OUT, 0x80 | EPNUM_CDC_IN, TUD_OPT_HIGH_SPEED ? 512 : 64),
 
-  // Interface number, string index, EP Out & IN address, EP size
-  TUD_VENDOR_DESCRIPTOR(ITF_NUM_VENDOR, 5, EPNUM_VENDOR_OUT, 0x80 | EPNUM_VENDOR_IN, TUD_OPT_HIGH_SPEED ? 512 : 64)
 };
 
 // Invoked when received GET CONFIGURATION DESCRIPTOR
