@@ -28,6 +28,7 @@ sdrr-pcb/panels/*
 !sdrr-pcb/panels/README.md
 rust/config/src/rom
 sdrr/plugin/system/usb/tinyusb
+sdrr/plugin/system/usb/tinyusb-old
 sdrr/plugin/system/usb/picobootx
 
 dist/

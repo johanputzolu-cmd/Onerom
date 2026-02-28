@@ -170,6 +170,14 @@ void tud_umount_cb(void) {
     LOG("USB unmounted");
 }
 
+void tud_suspend_cb(bool remote_wakeup_en) {
+    LOG("USB bus suspended, remote wakeup %s", remote_wakeup_en ? "enabled" : "disabled");
+}
+
+void tud_resume_cb(void) {
+    LOG("USB bus resumed");
+}
+
 // Invoked when CDC data is received
 void tud_cdc_rx_cb(uint8_t itf) {
     uint8_t buf[64];
@@ -251,4 +259,3 @@ void __assert_func(const char *file, int line, const char *func, const char *exp
     ERR("Assertion failed: %s, at %s:%d in function %s", expr, file, line, func);
     while (1);
 }
-
