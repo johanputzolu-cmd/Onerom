@@ -136,7 +136,9 @@ typedef struct {
     uint8_t reserved6[168];
 
 } sdrr_pins_t;
+#if !defined(TEST_BUILD)
 _Static_assert(sizeof(sdrr_pins_t) == 256, "sdrr_pins_t must be 256 bytes");
+#endif // !TEST_BUILD
 
 // Forward declarations
 struct onerom_metadata_header_t;
@@ -315,7 +317,9 @@ typedef enum {
     SERVE_ADDR_ON_ANY_CS,
 } sdrr_serve_t;
 #define SERVE_DEFAULT_1_ROM  SERVE_ADDR_ON_CS
+#if !defined(TEST_BUILD)
 _Static_assert(sizeof(sdrr_serve_t) == 1, "sdrr_serve_t must be 1 byte");
+#endif // !TEST_BUILD
 
 // ROM information structure
 typedef struct {
@@ -597,8 +601,10 @@ typedef struct sdrr_runtime_info_t {
 } sdrr_runtime_info_t;
 // Check system plug context is at 0x40, and the user at 0x44.  These CANNOT
 // move without breaking the plugin API.
+#if !defined(TEST_BUILD)
 _Static_assert(offsetof(sdrr_runtime_info_t, system_plugin_context) == 40, "system_plugin_context must be at offset 0x40");
 _Static_assert(offsetof(sdrr_runtime_info_t, user_plugin_context) == 44, "user_plugin_context must be at offset 0x44");
+#endif // !TEST_BUILD
 
 // One ROM Metadata Header
 //
