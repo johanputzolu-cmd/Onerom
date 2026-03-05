@@ -51,9 +51,9 @@ typedef enum {
 
     /**
      * @brief Get One ROM information
-     * @sa ora_get_onerom_info_fn_t
+     * @sa ora_get_firmware_info_fn_t
      */
-    ORA_ID_ONEROM_INFO = 0x00000002,
+    ORA_ID_GET_FIRMWARE_INFO = 0x00000002,
 
     /**
      * @brief Log a message
@@ -132,6 +132,18 @@ typedef enum {
     * @sa ora_get_clkref_mhz_fn_t
     */
     ORA_ID_GET_CLKREF_MHZ = 0x0000000F,
+
+    /**
+     * @brief Get a pointer to the runtime info structure
+      * @sa ora_get_runtime_info_fn_t
+     */
+    ORA_ID_GET_RUNTIME_INFO = 0x00000010,
+
+    /**
+     * @brief Get the size of a ROM from its type
+      * @sa ora_get_chip_size_from_type_fn_t
+     */
+    ORA_ID_GET_CHIP_SIZE_FROM_TYPE = 0x00000011,
 
     /** Invalid API identifier */
     ORA_ID_INVALID = 0xFFFFFFFF,
@@ -307,7 +319,7 @@ typedef void *(*ora_alloc_fn_t)(size_t size);
  * This function may be deprecated in a future version of the API with
  * additional targetted API calls replacing it.
  */
-typedef void *(*ora_get_onerom_info_fn_t)(void);
+typedef const void *(*ora_get_firmware_info_fn_t)(void);
 
 /**
  * @brief Log a message
@@ -461,6 +473,33 @@ typedef void (*ora_enable_irq_fn_t)(ora_irq_t irq, uint8_t enable);
  * Currently returns a fixed 12 MHz.
  */
 typedef uint32_t (*ora_get_clkref_mhz_fn_t)(void);
+
+/**
+ * @brief Get a pointer to the runtime info structure
+ * @sa ORA_ID_GET_RUNTIME_INFO
+ *
+ * Returns a pointer to the runtime info structure, which contains information
+ * about the current state of the firmware and device that may be useful for
+ * plugins. The exact structure of this data is defined by the One ROM firmware
+ * - see `sdrr_runtime_info_t` in `sdrr/include/config_base.h` for details.
+ *
+ * Plugins must consider this data and any data pointed to it as read-only.
+ * Some of the data resides on flash, and other data in SRAM.  However, the
+ * firmware itself may rely on the immutability of any data contained within.
+ */
+typedef const void *(*ora_get_runtime_info_fn_t)(void);
+
+/**
+ * @brief Get the size of a chip type
+ *
+ * This is used by plugins to get the size of a chip type in bytes, for use in
+ * memory management and bounds checking.
+ *
+ * @param chip_type The chip type to get the size of
+ * @return The size of the specified chip type in bytes, or 0 if the chip type
+ * is invalid
+ */
+typedef uint32_t (*ora_get_chip_size_from_type_fn_t)(uint32_t chip_type);
 
 /** @} */ // plugin_api_functions
 

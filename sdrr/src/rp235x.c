@@ -1085,7 +1085,7 @@ void setup_xosc(void) {
     // - Set the startup delay to 1ms
     // - Enable the XOSC giving it the appropriate frequency range (1-15MHz)
     // - Wait for the XOSC to be enabled and stable
-    XOSC_STARTUP = 47;
+    XOSC_STARTUP = XOSC_STARTUP_DELAY_1MS;
     XOSC_CTRL = XOSC_ENABLE | XOSC_RANGE_1_15MHz;
     while (!(XOSC_STATUS & XOSC_STATUS_STABLE));
     DEBUG("XOSC enabled");
@@ -1096,8 +1096,9 @@ void setup_xosc(void) {
 }
 #endif // !TEST_BUILD
 
-uint8_t initial_plugin_parse(void) {
-    uint8_t disable_vbus_det = 0;
+uint8_t initial_plugin_parse(uint8_t *disable_vbus_det) {
+    uint8_t plugins = 0;
+    *disable_vbus_det = 0;
 
     // Right now we just check for a system plugin
     if (sdrr_info.metadata_header->rom_set_count >= 1) {
@@ -1105,20 +1106,28 @@ uint8_t initial_plugin_parse(void) {
         if (set->roms[0]->rom_type == CHIP_TYPE_PLUGIN) {
             const ora_plugin_header_t *header = (ora_plugin_header_t *)(uintptr_t)(set->data);
             if (check_plugin_valid(header)) {
-                disable_vbus_det = header->overrides1 & ORA_OVERRIDE1_DISABLE_VBUS_DETECT ? 1 : 0;
-                LOG("Valid plugin detected, disable_vbus_det=%d", disable_vbus_det);
-            } else {
-                ERR("Invalid plugin detected");
-            }
-            // check_plugin_valid logs if invalid
+                *disable_vbus_det = header->overrides1 & ORA_OVERRIDE1_DISABLE_VBUS_DETECT ? 1 : 0;
+                LOG("Valid plugin detected, disable_vbus_det=%d", *disable_vbus_det);
+            } // check_plugin_valid logs if invalid
+
+            // Have system plugin (1)
+            plugins |= 1;
         } else {
             DEBUG("ROM is not a plugin, skipping plugin parsing");
+        }
+
+        if (sdrr_info.metadata_header->rom_set_count > 1) {
+            if (set->roms[1]->rom_type == CHIP_TYPE_PLUGIN) {
+                // Have user plugin (2)
+                DEBUG("User plugin");
+                plugins |= 2;
+            }
         }
     } else {
         DEBUG("No ROM sets defined, skipping plugin parsing");
     }
 
-    return disable_vbus_det;
+    return plugins;
 }
 
 #endif // RP235X

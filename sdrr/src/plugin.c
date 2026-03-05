@@ -24,8 +24,13 @@ void *ora_alloc(size_t size) {
     return NULL;
 }
 
-void *ora_get_onerom_info(void) {
+void *ora_get_firmware_info(void) {
     void *info = (void *)&sdrr_info;
+    return info;
+}
+
+void *ora_get_runtime_info(void) {
+    void *info = (void *)&sdrr_runtime_info;
     return info;
 }
 
@@ -150,14 +155,21 @@ uint32_t ora_get_clkref_mhz(void) {
     return (CLKREF_MHZ / clk_ref_div);
 }
 
+uint32_t ora_get_chip_size_from_type(uint32_t chip_type) {
+    if (chip_type < NUM_CHIP_TYPES) {
+        return chip_size_from_type[chip_type];
+    }
+    return 0u;
+}
+
 void *ora_fn_lookup(api_id_t id) {
     switch (id) {
         case ORA_ID_REBOOT_BOOTSEL:
             return ora_reboot_bootsel;
         case ORA_ID_ALLOC:
             return ora_alloc;
-        case ORA_ID_ONEROM_INFO:
-            return ora_get_onerom_info;
+        case ORA_ID_GET_FIRMWARE_INFO:
+            return ora_get_firmware_info;
         case ORA_ID_LOG:
             return ora_log;
         case ORA_ID_ERR_LOG:
@@ -184,6 +196,10 @@ void *ora_fn_lookup(api_id_t id) {
             return ora_enable_irq;
         case ORA_ID_GET_CLKREF_MHZ:
             return ora_get_clkref_mhz;
+        case ORA_ID_GET_RUNTIME_INFO:
+            return ora_get_runtime_info;
+        case ORA_ID_GET_CHIP_SIZE_FROM_TYPE:
+            return ora_get_chip_size_from_type;
         default:
             return NULL;
     }

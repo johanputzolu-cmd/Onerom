@@ -287,26 +287,24 @@ int firmware_main(void) {
         LOG_INIT();
     }
 
+    uint8_t disable_vbus_det = 0;
+    uint8_t plugins = 0;
 #if defined(RP235X)
     // Do initial plugin parsing.  The system plugin can potentially override
     // USB DFU support, which is why we do it now.
     DEBUG("Initial plugin parse");
-    uint8_t disable_vbus_det = initial_plugin_parse();
+    plugins = initial_plugin_parse(&disable_vbus_det);
 #endif // RP235X
 
     // Set up VBUS detect interrupt.  Done next, so we can enter DFU mode as 
     // soon as USB plugged in
     if (sdrr_info.extra->usb_dfu) {
-#if defined(RP235X)
         if (!disable_vbus_det) {
-#endif // RP235X
-        DEBUG("Init VBUS det");
-        setup_vbus_interrupt();
-#if defined(RP235X)
+            DEBUG("Init VBUS det");
+            setup_vbus_interrupt();
         } else {
             LOG("Plugin disabled VBUS detect");
         }
-#endif // RP235X
     }
 
     // Read image select pin values - we need this to check whether to enter
@@ -329,7 +327,9 @@ int firmware_main(void) {
         log_roms(sdrr_info.metadata_header);
     }
 #endif
-    if (md && (sdrr_info.metadata_header->rom_set_count > 0)) {
+    uint8_t num_plugins = plugins & 1 ? 1 : 0;
+    num_plugins += plugins & 2 ? 1 : 0;
+    if (md && (sdrr_info.metadata_header->rom_set_count > num_plugins)) {
         // Find out if extra_info is set to 1 on the first set.  If it is, the
         // set structures are 0.6.0+ and are the size of sdrr_rom_set_t (64
         // bytes), otherwise they are pre 0.6.0 (probably created by an old
@@ -345,7 +345,7 @@ int firmware_main(void) {
         size_t stride = (extra_info == 1) ? sizeof(sdrr_rom_set_t) : 16;
 
         // Figure out what ROM set to use
-        sdrr_runtime_info.rom_set_index = get_rom_set_index(sel_pins, sel_mask);
+        sdrr_runtime_info.rom_set_index = get_rom_set_index(sel_pins, sel_mask, plugins);
 
         // Get pointer to the selected ROM set
         set = (const sdrr_rom_set_t *)(base + (stride * sdrr_runtime_info.rom_set_index));

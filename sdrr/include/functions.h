@@ -75,7 +75,7 @@ void dfu(void);
 void setup_usb_controller(void);
 void setup_usb_pll(void);
 void setup_adc(void);
-uint8_t initial_plugin_parse(void);
+uint8_t initial_plugin_parse(uint8_t *disable_vbus_det);
 #endif // RP235X
 
 // pio.c
@@ -112,7 +112,7 @@ extern void main_loop(
     sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 );
-extern uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask);
+extern uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask, uint8_t plugins);
 extern void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_set_t *set);
 #endif // !TIMER_TEST && !TOGGLE_PA4
 
