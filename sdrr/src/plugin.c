@@ -6,11 +6,24 @@
 
 #include "include.h"
 
-#if defined(RP235X) && !defined(TEST_BUILD)
+#if defined(RP235X)
 
 #define RP235X_INCLUDES
 
 #include "plugin.h"
+
+uint8_t check_plugin_valid(const ora_plugin_header_t *header) {
+    if (header->magic != ORA_PLUGIN_MAGIC) {
+        ERR("Invalid plugin - bad magic");
+        return 0;
+    } else if (header->version != ORA_PLUGIN_VERSION_1) {
+        ERR("Invalid plugin - unsupported version");
+        return 0;
+    }
+    return 1;
+}
+
+#if !defined(TEST_BUILD)
 
 void ora_reboot_bootsel(void) {
     enter_bootloader();
@@ -288,17 +301,6 @@ void launch_core1(ora_plugin_entry_t plugin_entry) {
     fifo_push_blocking(entry);
 }
 
-uint8_t check_plugin_valid(const ora_plugin_header_t *header) {
-    if (header->magic != ORA_PLUGIN_MAGIC) {
-        ERR("Invalid plugin - bad magic");
-        return 0;
-    } else if (header->version != ORA_PLUGIN_VERSION_1) {
-        ERR("Invalid plugin - unsupported version");
-        return 0;
-    }
-    return 1;
-}
-
 void ora_launch_plugins(const sdrr_info_t *info) {
     // Launch any available system plugin on core 1
     uint8_t system_plugin = 0;
@@ -360,4 +362,5 @@ void irq_handler_usbctrl_irq(void) {
     }
 }
 
+#endif // !TEST_BUILD
 #endif // RP235X

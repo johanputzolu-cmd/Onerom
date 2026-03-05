@@ -148,7 +148,9 @@ typedef enum {
     /** Invalid API identifier */
     ORA_ID_INVALID = 0xFFFFFFFF,
 } api_id_t;
+#if !defined(TEST_BUILD)
 _Static_assert(sizeof(api_id_t) == 4, "api_id_t must be 4 bytes");
+#endif // !TEST_BUILD
 
 /** @} */ // plugin_api_ids
 
@@ -601,7 +603,9 @@ typedef struct {
      */
     uint8_t reserved[18];
 } ora_plugin_header_t;
+#if !defined(TEST_BUILD)
 _Static_assert(sizeof(ora_plugin_header_t) == 32, "ora_plugin_header_t must be 32 bytes");
+#endif // !TEST_BUILD
 
 /**
  * @brief Firmware override flag for VBUS detect
