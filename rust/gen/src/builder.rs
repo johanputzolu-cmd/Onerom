@@ -22,7 +22,7 @@ pub const MAX_SUPPORTED_FIRMWARE_VERSION: FirmwareVersion = FirmwareVersion::new
 
 const UNSUPPORTED_FIRMWARE_VERSIONS: [FirmwareVersion; 1] = [FirmwareVersion::new(0, 6, 3, 0)];
 
-pub const SUPPORTED_CHIP_TYPES: &[ChipType; 23] = &[
+pub const SUPPORTED_CHIP_TYPES: &[ChipType; 24] = &[
     ChipType::Chip2316,
     ChipType::Chip2716,
     ChipType::Chip6116,
@@ -45,7 +45,8 @@ pub const SUPPORTED_CHIP_TYPES: &[ChipType; 23] = &[
     ChipType::Chip27C301,
     ChipType::Chip2704,
     ChipType::Chip2708,
-    ChipType::ChipPlugin,
+    ChipType::SystemPlugin,
+    ChipType::UserPlugin,
 ];
 
 pub(crate) use crate::firmware::*;

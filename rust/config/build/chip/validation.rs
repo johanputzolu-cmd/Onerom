@@ -58,8 +58,14 @@ pub enum ChipFunction {
     Rom,
     #[serde(rename = "RAM")]
     Ram,
-    #[serde(rename = "Plugin")]
-    Plugin,
+    SystemPlugin,
+    UserPlugin,
+}
+
+impl ChipFunction {
+    pub fn is_plugin(&self) -> bool {
+        matches!(self, ChipFunction::SystemPlugin | ChipFunction::UserPlugin)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -289,7 +295,7 @@ impl ChipType {
     }
 
     pub fn validate(&self, type_name: &str) -> Result<(), ValidationError> {
-        if matches!(self.function, ChipFunction::Plugin) {
+        if self.function.is_plugin() {
             return self.validate_plugin_type(type_name)
         }
 

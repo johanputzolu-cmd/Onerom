@@ -301,33 +301,37 @@ uint8_t check_plugin_valid(const ora_plugin_header_t *header) {
 
 void ora_launch_plugins(const sdrr_info_t *info) {
     // Launch any available system plugin on core 1
+    uint8_t system_plugin = 0;
     if (info->metadata_header->rom_set_count >= 1) {
-        const sdrr_rom_set_t *set1 = &info->metadata_header->rom_sets[0];
-        if (set1->roms[0]->rom_type == CHIP_TYPE_PLUGIN) {
-            ora_plugin_header_t *header = (ora_plugin_header_t *)set1->data;
+        const sdrr_rom_set_t *set0 = &info->metadata_header->rom_sets[0];
+        if (set0->roms[0]->rom_type == CHIP_TYPE_SYSTEM_PLUGIN) {
+            ora_plugin_header_t *header = (ora_plugin_header_t *)set0->data;
             if (!check_plugin_valid(header)) {
                 ERR("Invalid system plugin");
             } else {
-                const char *filename = set1->roms[0]->filename;
+                const char *filename = set0->roms[0]->filename;
                 if (filename != NULL) {
                     LOG("Launching system plugin: %s", filename);
                 } else {
                     LOG("Launching system plugin");
                 }
                 launch_core1(header->entry);
+                system_plugin = 1;
             }
         }
     }
 
     // Launch any available user plugin on core 0 (this core)
     if (info->metadata_header->rom_set_count >= 2) {
-        const sdrr_rom_set_t *set2 = &info->metadata_header->rom_sets[1];
-        if (set2->roms[0]->rom_type == CHIP_TYPE_PLUGIN) {
-            ora_plugin_header_t *header = (ora_plugin_header_t *)set2->data;
+        const sdrr_rom_set_t *set1 = &info->metadata_header->rom_sets[1];
+        if (set1->roms[0]->rom_type == CHIP_TYPE_USER_PLUGIN) {
+            ora_plugin_header_t *header = (ora_plugin_header_t *)set1->data;
             if (!check_plugin_valid(header)) {
                 ERR("Invalid user plugin");
+            } else if (!system_plugin) {
+                ERR("User plugin present but no valid system plugin - not launching");
             } else {
-                const char *filename = set2->roms[0]->filename;
+                const char *filename = set1->roms[0]->filename;
                 if (filename != NULL) {
                     LOG("Lauching user plugin: %s", filename);
                 } else {

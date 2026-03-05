@@ -99,7 +99,7 @@ There are also some other inconsistencies between types:
     doc.push_str("## Detailed Pinouts\n\n");
     let sorted_roms = get_sorted_chip_types(config);
     for (type_name, chip_type) in sorted_roms {
-        if chip_type.function == ChipFunction::Plugin {
+        if chip_type.function.is_plugin() {
             continue; // Skip plugins for now - they don't fit into the standard categories
         }
         doc.push_str(&generate_detailed_pinout(type_name, chip_type));

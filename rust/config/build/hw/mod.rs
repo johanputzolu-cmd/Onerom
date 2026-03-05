@@ -1273,9 +1273,9 @@ fn generate_supports_chip_type_method(_configs: &[HwConfigData]) -> String {
     let mut code = String::new();
 
     code.push_str("    /// Check if this board supports a given Chip type\n");
-    code.push_str("    /// All boards support ChipType::ChipPlugin\n");
+    code.push_str("    /// All boards support plugin types\n");
     code.push_str("    pub const fn supports_chip_type(&self, chip_type: ChipType) -> bool {\n");
-    code.push_str("        if matches!(chip_type, ChipType::ChipPlugin) {\n");
+    code.push_str("        if chip_type.is_plugin() {\n");
     code.push_str("            return true;\n");
     code.push_str("        }\n");
     code.push_str("        let board_pins = self.chip_pins();\n");

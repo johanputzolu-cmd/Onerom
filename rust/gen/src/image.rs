@@ -576,7 +576,8 @@ impl Chip {
             ChipType::Chip27C400 => 19,
             ChipType::Chip6116 => 20,
             ChipType::Chip27C301 => 21,
-            ChipType::ChipPlugin => 22,
+            ChipType::SystemPlugin => 22,
+            ChipType::UserPlugin => 23,
         }
     }
 }
@@ -849,7 +850,7 @@ impl ChipSet {
         if (!self.has_data()) && (self.chip_function() == ChipFunction::Ram) {
             return Chip::byte_mangled(PAD_RAM_BYTE, board);
         }
-        if self.chip_function() == ChipFunction::Plugin {
+        if self.chip_function().is_plugin() {
             return self.chips[0].get_byte_raw(address);
         }
 
