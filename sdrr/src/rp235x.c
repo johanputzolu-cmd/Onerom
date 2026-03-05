@@ -1117,7 +1117,8 @@ uint8_t initial_plugin_parse(uint8_t *disable_vbus_det) {
         }
 
         if (sdrr_info.metadata_header->rom_set_count > 1) {
-            if (set->roms[1]->rom_type == CHIP_TYPE_USER_PLUGIN) {
+            const sdrr_rom_set_t *other_set = &sdrr_info.metadata_header->rom_sets[1];
+            if (other_set->roms[0]->rom_type == CHIP_TYPE_USER_PLUGIN) {
                 if (plugins & 0x01) {
                     // Have user plugin (2)
                     DEBUG("User plugin");
