@@ -51,6 +51,8 @@ There is **no** guarantee of the [One ROM plugin API](sdrr/ora/api.h) remaining 
 
 In this release, only system plugins are first class citizens - there is no user plugin RAM allocation (including no .data or .bss) and the dynamic RAM allocation API always returns NULL.  Limited stack space is available - each core is allocated 1KB of stack, including the stack used to launch the plugin.  There is no policing of the stack, nor any other sandboxes of plugins.
 
+The only supported IRQs for plugins in this release are TIMER0_IRQ_0 and USBCTRL_IRQ, both of which are used by the USB system plugin.
+
 ## v0.6.6 - 2026-02-25
 
 The headline for this release is "bug fixes and other improvements".
