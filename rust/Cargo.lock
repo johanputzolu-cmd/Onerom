@@ -1860,7 +1860,20 @@ dependencies = [
  "critical-section",
  "defmt 0.3.100",
  "document-features",
- "embassy-executor-macros",
+ "embassy-executor-macros 0.6.2",
+]
+
+[[package]]
+name = "embassy-executor"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06070468370195e0e86f241c8e5004356d696590a678d47d6676795b2e439c6b"
+dependencies = [
+ "cortex-m",
+ "critical-section",
+ "document-features",
+ "embassy-executor-macros 0.7.0",
+ "embassy-executor-timer-queue",
 ]
 
 [[package]]
@@ -1868,6 +1881,18 @@ name = "embassy-executor-macros"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3577b1e9446f61381179a330fc5324b01d511624c55f25e3c66c9e3c626dbecf"
+dependencies = [
+ "darling 0.20.11",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.115",
+]
+
+[[package]]
+name = "embassy-executor-macros"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfdddc3a04226828316bf31393b6903ee162238576b1584ee2669af215d55472"
 dependencies = [
  "darling 0.20.11",
  "proc-macro2",
@@ -2111,6 +2136,18 @@ name = "embedded-alloc"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f2de9133f68db0d4627ad69db767726c99ff8585272716708227008d3f1bddd"
+dependencies = [
+ "const-default",
+ "critical-section",
+ "linked_list_allocator",
+ "rlsf",
+]
+
+[[package]]
+name = "embedded-alloc"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2db634e07f552215f7a3572dc0a4d29760c637fcea5a8c18d2cc291f782c216c"
 dependencies = [
  "const-default",
  "critical-section",
@@ -4769,14 +4806,45 @@ dependencies = [
  "cortex-m-rt",
  "critical-section",
  "csv",
- "embassy-executor",
+ "embassy-executor 0.7.0",
  "embassy-futures",
  "embassy-rp",
  "embassy-stm32",
  "embassy-sync",
  "embassy-time",
  "embassy-usb",
- "embedded-alloc",
+ "embedded-alloc 0.6.0",
+ "embedded-hal 1.0.0",
+ "hex",
+ "hex-literal",
+ "log",
+ "onerom-database 0.1.1",
+ "onerom-protocol 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "panic-probe",
+ "panic-rtt-target",
+ "portable-atomic",
+ "rtt-target",
+ "sha1",
+ "static_cell",
+]
+
+[[package]]
+name = "onerom-lab-new"
+version = "0.1.0"
+dependencies = [
+ "airfrog-rpc",
+ "built",
+ "cortex-m",
+ "cortex-m-rt",
+ "critical-section",
+ "csv",
+ "embassy-executor 0.9.1",
+ "embassy-futures",
+ "embassy-rp",
+ "embassy-sync",
+ "embassy-time",
+ "embassy-usb",
+ "embedded-alloc 0.7.0",
  "embedded-hal 1.0.0",
  "hex",
  "hex-literal",
@@ -6186,11 +6254,11 @@ dependencies = [
  "critical-section",
  "defmt 1.0.1",
  "defmt-rtt",
- "embassy-executor",
+ "embassy-executor 0.7.0",
  "embassy-futures",
  "embassy-stm32",
  "embassy-time",
- "embedded-alloc",
+ "embedded-alloc 0.6.0",
  "embedded-hal 1.0.0",
  "panic-probe",
  "portable-atomic",

@@ -6,7 +6,7 @@ All notables changes between versions are documented in this file.
 
 
 
-!!! Other ROM types see below
+!!! Test other 32 pin ROM types see below
 
 
 
@@ -52,6 +52,10 @@ There is **no** guarantee of the [One ROM plugin API](sdrr/ora/api.h) remaining 
 In this release, only system plugins are first class citizens - there is no user plugin RAM allocation (including no .data or .bss) and the dynamic RAM allocation API always returns NULL.  Limited stack space is available - each core is allocated 1KB of stack, including the stack used to launch the plugin.  There is no policing of the stack, nor any other sandboxes of plugins.
 
 The only supported IRQs for plugins in this release are TIMER0_IRQ_0 and USBCTRL_IRQ, both of which are used by the USB system plugin.
+
+### Other Changes
+
+- A new version of [One ROM Lab](rust/lab-new/README.md) has been started and is used to test One ROM Fire 40 boards prior to shipping.  This is expected to replace other testers soon, and completely supercede the old version of One ROM Lab over time.
 
 ## v0.6.6 - 2026-02-25
 
