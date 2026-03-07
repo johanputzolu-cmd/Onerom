@@ -6,13 +6,16 @@ A new version of One ROM Lab, rebuilt:
 
 In time it is expected this will replace the existing Lab implementation.
 
-To use to test a One ROM Fire 40:
+To use to test a One ROM Fire 40 build using the feature corresponding to the test board hardware revision, for example, one of the following:
 
 ```bash
-cargo run --release
+cargo run --no-default-features --features fire-40-a --release
+cargo run --no-default-features --features fire-32-a --release
+cargo run --no-default-features --features fire-28-a --release
+cargo run --no-default-features --features fire-24-e --release
 ```
 
-Output serving [images/test/rand_512KB.rom](../../images/test/rand_512KB.rom).
+Sample output from a One ROM 40 test serving [images/test/rand_512KB.rom](../../images/test/rand_512KB.rom).
 
 ```text
 14:47:51.720: INFO  [onerom_lab_fire] -----

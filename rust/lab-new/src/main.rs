@@ -12,6 +12,9 @@ extern crate alloc;
 #[allow(unused_imports)]
 use log::{debug, error, info, trace, warn};
 
+use alloc::format;
+use alloc::vec::Vec;
+
 use embassy_executor::Spawner;
 use embassy_executor::main as embassy_main;
 use embassy_rp::{clocks::ClockConfig, config::Config};
@@ -25,7 +28,11 @@ mod hw;
 mod logs;
 mod rom;
 
-pub use error::Error;
+use hw::Board;
+#[cfg(feature = "eprom-16bit")]
+use rom::Rom27C400;
+#[cfg(feature = "eprom-8bit")]
+use rom::RomEprom8;
 
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -61,8 +68,11 @@ async fn main(_spawner: Spawner) -> ! {
 
     debug!("Clocks configured to 150MHz");
 
+    // Get the board object
+    let board = hw::get_board();
+
     // Set up the LED
-    let led_pins = hw::led_pins();
+    let led_pins = board.led_pins();
     let [mut led] = led_pins;
 
     // Flash LED to show we're alive
@@ -75,26 +85,38 @@ async fn main(_spawner: Spawner) -> ! {
     }
 
     // Get the other pins
-    let addr_pins = hw::addr_pins();
-    let data_pins = hw::data_pins();
-    let [ce, oe] = hw::cs_pins();
-    let [byte_n] = hw::special_pins();
+    let addr_pins = board.addr_pins();
+    let data_pins = board.data_pins();
+    let cs_pins = board.cs_pins();
+    #[cfg(feature = "eprom-16bit")]
+    let special_pins = board.special_pins();
 
     // Create the ROM object
-    let mut rom = rom::Rom27C400::new(addr_pins, data_pins, ce, oe, byte_n);
+    #[cfg(feature = "eprom-16bit")]
+    let mut rom = Rom27C400::new(addr_pins, data_pins, cs_pins, special_pins);
+    #[cfg(feature = "eprom-8bit")]
+    let mut rom = RomEprom8::new(addr_pins, data_pins, cs_pins);
     rom.init();
 
     debug!("-----");
 
     loop {
-        info!("Reading {} ...", rom::Rom27C400::type_as_str());
-
-        let ((sha1_8, csum_8, ts_fail_8), (sha1_16, csum_16, ts_fail_16)) = rom.read();
-
-        info!("8-bit  SHA1: {} checksum: {:#010X}", hex::encode(sha1_8), csum_8);
-        info!("16-bit SHA1: {} checksum: {:#010X}", hex::encode(sha1_16), csum_16);
-        info!("Match: {}", sha1_8 == sha1_16 && csum_8 == csum_16);
-        info!("Tristate failures: 8-bit: {} 16-bit: {}", ts_fail_8, ts_fail_16);
+        info!("Reading {} ...", rom.type_as_str());
+        let results = rom.read();
+        for r in &results {
+            info!("{} SHA1: {} checksum: {:#010X}",
+                r.mode,
+                hex::encode(r.sha1), r.checksum);
+        }
+        if results.len() >= 2 {
+            let match_ok = results.windows(2).all(|w| w[0].sha1 == w[1].sha1 && w[0].checksum == w[1].checksum);
+            info!("Match: {}", match_ok);
+        }
+        let ts_failures = results.iter()
+            .map(|r| format!("{}: {}", r.mode, r.failures))
+            .collect::<Vec<_>>()
+            .join(", ");
+        info!("Tristate failures: {ts_failures}");
         info!("-----");
         embassy_time::Timer::after_secs(1).await;
     }
