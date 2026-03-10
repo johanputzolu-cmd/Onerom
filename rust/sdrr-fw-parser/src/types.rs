@@ -290,6 +290,18 @@ pub enum SdrrRomType {
     // 27C301
     #[deku(id = "21")]
     Rom27C301,
+
+    // System Plugin
+    #[deku(id = "22")]
+    SystemPlugin,
+
+    // User Plugin
+    #[deku(id = "23")]
+    UserPlugin,
+
+    // SST39SF040
+    #[deku(id = "24")]
+    RomSst39sf040,
 }
 
 impl fmt::Display for SdrrRomType {
@@ -317,6 +329,9 @@ impl fmt::Display for SdrrRomType {
             SdrrRomType::Rom27C400 => write!(f, "27C400"),
             SdrrRomType::Ram6116 => write!(f, "6116 (RAM)"),
             SdrrRomType::Rom27C301 => write!(f, "27C301"),
+            SdrrRomType::SystemPlugin => write!(f, "System Plugin"),
+            SdrrRomType::UserPlugin => write!(f, "User Plugin"),
+            SdrrRomType::RomSst39sf040 => write!(f, "SST39SF040"),
         }
     }
 }
@@ -355,6 +370,9 @@ impl SdrrRomType {
             SdrrRomType::Rom27C400 => 512,
             SdrrRomType::Ram6116 => 2,
             SdrrRomType::Rom27C301 => 128,
+            SdrrRomType::SystemPlugin => 64,
+            SdrrRomType::UserPlugin => 64,
+            SdrrRomType::RomSst39sf040 => 512,
         }
     }
 
@@ -383,6 +401,9 @@ impl SdrrRomType {
             SdrrRomType::Rom27C400 => 40,
             SdrrRomType::Ram6116 => 24,
             SdrrRomType::Rom27C301 => 32,
+            SdrrRomType::SystemPlugin => 64,
+            SdrrRomType::UserPlugin => 64,
+            SdrrRomType::RomSst39sf040 => 512,
         }
     }
 
@@ -416,6 +437,9 @@ impl SdrrRomType {
             SdrrRomType::Rom27C400 => false,
             SdrrRomType::Ram6116 => false,
             SdrrRomType::Rom27C301 => false,
+            SdrrRomType::SystemPlugin => false,
+            SdrrRomType::UserPlugin => false,
+            SdrrRomType::RomSst39sf040 => false,
         }
     }
 
@@ -444,6 +468,9 @@ impl SdrrRomType {
             SdrrRomType::Rom27C400 => false,
             SdrrRomType::Ram6116 => false,
             SdrrRomType::Rom27C301 => false,
+            SdrrRomType::SystemPlugin => false,
+            SdrrRomType::UserPlugin => false,
+            SdrrRomType::RomSst39sf040 => false,
         }
     }
 }

@@ -266,7 +266,10 @@ impl SdrrInfo {
                 pin_to_addr_map[pins.cs1 as usize] = Some(17);
                 0x1FFFF
             }
-            SdrrRomType::Rom27C010
+            SdrrRomType::RomSst39sf040
+            | SdrrRomType::SystemPlugin
+            | SdrrRomType::UserPlugin
+            | SdrrRomType::Rom27C010
             | SdrrRomType::Rom27C020
             | SdrrRomType::Rom27C040
             | SdrrRomType::Rom27C080

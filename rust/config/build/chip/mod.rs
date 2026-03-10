@@ -154,7 +154,7 @@ fn generate_lib_rs(config: &ChipTypesConfig) -> String {
                         chip_type.pins, type_name
                     );
                 }
-            } else if type_name.starts_with("27") && chip_type.function == ChipFunction::Rom {
+            } else if (type_name.starts_with("27") || type_name.starts_with("SST39SF")) && chip_type.function == ChipFunction::Rom {
                 if chip_type.pins == 24 {
                     eprom_24pin.push(entry);
                 } else if chip_type.pins == 28 {
@@ -655,6 +655,9 @@ fn generate_chip_type_impl(config: &ChipTypesConfig) -> String {
     code.push_str("\n\n");
 
     code.push_str(&generate_is_plugin_method(config));
+    code.push_str("\n\n");
+
+    code.push_str(&generate_chip_type_is_supported_fn(config));
     code.push_str("\n\n");
 
     code.push_str("}\n");
@@ -1317,6 +1320,40 @@ fn generate_is_plugin_method(config: &ChipTypesConfig) -> String {
                 "            ChipType::{} => {},\n",
                 variant_name(type_name, chip_type),
                 chip_type.function.is_plugin()
+            ));
+        }
+    }
+
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+
+    code
+}
+
+fn generate_chip_type_is_supported_fn(config: &ChipTypesConfig) -> String {
+    let mut code = String::new();
+
+    code.push_str("    /// Check if this ChipType is supported by the library\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// This checks if the ChipType is one of the known variants defined in this module.\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// # Examples\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// ```\n");
+    code.push_str("    /// use onerom_config::chip::ChipType;\n");
+    code.push_str("    ///\n");
+    code.push_str("    /// assert!(ChipType::Chip2364.is_supported());\n");
+    code.push_str("    /// assert!(!ChipType::try_from_str(\"unknown\").is_some());\n");
+    code.push_str("    /// ```\n");
+    code.push_str("    pub const fn is_supported(&self) -> bool {\n");
+    code.push_str("        match self {\n");
+
+    for (type_name, _chip_type) in get_sorted_chip_types(config) {
+        if let Some(chip_type) = config.chip_types.get(type_name) {
+            code.push_str(&format!(
+                "            ChipType::{} => {},\n",
+                variant_name(type_name, chip_type),
+                chip_type.supported
             ));
         }
     }

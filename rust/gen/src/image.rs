@@ -578,6 +578,7 @@ impl Chip {
             ChipType::Chip27C301 => 21,
             ChipType::SystemPlugin => 22,
             ChipType::UserPlugin => 23,
+            ChipType::ChipSST39SF040 => 24,
         }
     }
 }

@@ -71,10 +71,13 @@ impl ChipFunction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChipType {
     pub description: String,
+    #[serde(default = "default_supported")]
+    pub supported: bool,
     pub aliases: Option<Vec<String>>,
     pub function: ChipFunction,
     pub bit_modes: Vec<u8>,
     pub pins: u8,
+
     pub size: usize,
     pub address: Vec<u8>,
     pub data: Vec<u8>,
@@ -85,6 +88,10 @@ pub struct ChipType {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub power: Option<Vec<PowerPin>>,
+}
+
+fn default_supported() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

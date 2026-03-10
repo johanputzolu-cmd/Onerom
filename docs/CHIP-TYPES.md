@@ -134,32 +134,32 @@ There are also some other inconsistencies between types:
 
 ### 32-pin Package
 
-| Pin | 27C010 | 27C301 | 27C020 | 27C040 | 27C080 |
-|-----|------|------|------|------|------|
-| 1 | VPP | VPP | VPP | VPP | A19 |
-| 2 | A16 | /OE | A16 | A16 | A16 |
-| 3 | A15 | A15 | A15 | A15 | A15 |
-| 4 | A12 | A12 | A12 | A12 | A12 |
-| 5 | A7 | A7 | A7 | A7 | A7 |
-| 6 | A6 | A6 | A6 | A6 | A6 |
-| 7 | A5 | A5 | A5 | A5 | A5 |
-| 8 | A4 | A4 | A4 | A4 | A4 |
-| 9 | A3 | A3 | A3 | A3 | A3 |
-| 10 | A2 | A2 | A2 | A2 | A2 |
-| 11 | A1 | A1 | A1 | A1 | A1 |
-| 12 | A0 | A0 | A0 | A0 | A0 |
-| 13 | D0 | D0 | D0 | D0 | D0 |
-| 14 | D1 | D1 | D1 | D1 | D1 |
-| 15 | D2 | D2 | D2 | D2 | D2 |
-| 16 | GND | GND | GND | GND | GND |
-| 17 | D3 | D3 | D3 | D3 | D3 |
-| 18 | D4 | D4 | D4 | D4 | D4 |
-| 19 | D5 | D5 | D5 | D5 | D5 |
-| 20 | D6 | D6 | D6 | D6 | D6 |
-| 21 | D7 | D7 | D7 | D7 | D7 |
-| 22 | /CE | /CE | /CE | /CE+/PGM | /CE+/PGM |
-| 23 | A10 | A10 | A10 | A10 | A10 |
-| 24 | /OE | A16 | /OE | /OE | /OE+VPP |
+| Pin | 27C010 | 27C301 | 27C020 | 27C040 | SST39SF040 | 27C080 |
+|-----|------|------|------|------|------|------|
+| 1 | VPP | VPP | VPP | VPP | A18 | A19 |
+| 2 | A16 | /OE | A16 | A16 | A16 | A16 |
+| 3 | A15 | A15 | A15 | A15 | A15 | A15 |
+| 4 | A12 | A12 | A12 | A12 | A12 | A12 |
+| 5 | A7 | A7 | A7 | A7 | A7 | A7 |
+| 6 | A6 | A6 | A6 | A6 | A6 | A6 |
+| 7 | A5 | A5 | A5 | A5 | A5 | A5 |
+| 8 | A4 | A4 | A4 | A4 | A4 | A4 |
+| 9 | A3 | A3 | A3 | A3 | A3 | A3 |
+| 10 | A2 | A2 | A2 | A2 | A2 | A2 |
+| 11 | A1 | A1 | A1 | A1 | A1 | A1 |
+| 12 | A0 | A0 | A0 | A0 | A0 | A0 |
+| 13 | D0 | D0 | D0 | D0 | D0 | D0 |
+| 14 | D1 | D1 | D1 | D1 | D1 | D1 |
+| 15 | D2 | D2 | D2 | D2 | D2 | D2 |
+| 16 | GND | GND | GND | GND | GND | GND |
+| 17 | D3 | D3 | D3 | D3 | D3 | D3 |
+| 18 | D4 | D4 | D4 | D4 | D4 | D4 |
+| 19 | D5 | D5 | D5 | D5 | D5 | D5 |
+| 20 | D6 | D6 | D6 | D6 | D6 | D6 |
+| 21 | D7 | D7 | D7 | D7 | D7 | D7 |
+| 22 | /CE | /CE | /CE | /CE+/PGM | /CE | /CE+/PGM |
+| 23 | A10 | A10 | A10 | A10 | A10 | A10 |
+| 24 | /OE | A16 | /OE | /OE | /OE | /OE+VPP |
 
 ### 40-pin Package
 
@@ -540,6 +540,22 @@ There are also some other inconsistencies between types:
 | VCC | 21 | +5V |
 | GND | 11 | 0V |
 | GND | 30 | 0V |
+
+### SST39SF040 - 512KB flash with fixed active-low CE/OE and different pinout to 27C040
+
+**Package:** 32-pin DIP  
+**Capacity:** 524288 bytes  
+**Control:** /CE, /OE, /WRITE  
+
+| Function | Pins | Notes |
+|----------|------|-------|
+| Address (A0-A18) | 12,11,10,9,8,7,6,5,27,26,23,25,4,28,29,3,2,30,1 | 19 address lines |
+| Data (D0-D7) | 13,14,15,17,18,19,20,21 | 8 data lines |
+| CE | 22 | Active low |
+| OE | 24 | Active low |
+| WRITE | 31 | Active low |
+| VCC | 32 | +5V |
+| GND | 16 | 0V |
 
 ### 27C080 - 1MB EPROM with fixed active-low CE/OE
 

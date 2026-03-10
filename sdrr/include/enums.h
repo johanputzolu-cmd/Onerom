@@ -33,6 +33,7 @@ typedef enum {
     CHIP_TYPE_27C301 = 21,
     CHIP_TYPE_SYSTEM_PLUGIN = 22,
     CHIP_TYPE_USER_PLUGIN = 23,
+    CHIP_TYPE_SST39SF040 = 24,      // Not supported
     NUM_CHIP_TYPES,
     INVALID_CHIP_TYPE = 0xFF
 } sdrr_rom_type_t;
