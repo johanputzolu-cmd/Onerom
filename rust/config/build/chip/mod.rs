@@ -124,20 +124,15 @@ fn generate_lib_rs(config: &ChipTypesConfig) -> String {
 
     for (type_name, _chip_type) in get_sorted_chip_types(config) {
         if let Some(chip_type) = config.chip_types.get(type_name) {
-            let entry = format!(
+            let mut entry = format!(
                 "//! - **{}**: {} ({})\n",
                 type_name,
-                chip_type
-                    .description
-                    .split(" with ")
-                    .next()
-                    .unwrap_or(&chip_type.description),
-                chip_type
-                    .description
-                    .split(" with ")
-                    .nth(1)
-                    .unwrap_or("see datasheet")
+                chip_type.description.split(" with ").next().unwrap_or(&chip_type.description),
+                chip_type.description.split(" with ").nth(1).unwrap_or("see datasheet")
             );
+            if let Some(aliases) = &chip_type.aliases && !aliases.is_empty() {
+                entry.push_str(&format!("//!   Aliases: {}\n", aliases.join(", ")));
+            }
 
             if type_name.starts_with("23") && chip_type.function == ChipFunction::Rom {
                 if chip_type.pins == 24 {
@@ -558,10 +553,20 @@ fn generate_chip_type_enum(config: &ChipTypesConfig) -> String {
                     type_name, snake_name, vname
                 ));
             } else {
-                // Non-plugin: accept "Chip2364" or "2364"
+                // Non-plugin: accept "Chip2364", "2364", and all aliases
+                let mut patterns = vec![format!("\"{}\"", vname), format!("\"{}\"", type_name)];
+                if let Some(aliases) = &chip_type.aliases {
+                    for alias in aliases {
+                        let aliased = format!("\"{}\"", alias);
+                        if !patterns.contains(&aliased) {
+                            patterns.push(aliased);
+                        }
+                    }
+                }
                 code.push_str(&format!(
-                    "            \"{}\" | \"{}\" => Ok(ChipType::{}),\n",
-                    vname, type_name, vname
+                    "            {} => Ok(ChipType::{}),\n",
+                    patterns.join(" | "),
+                    vname
                 ));
             }
         }
@@ -678,28 +683,45 @@ fn generate_try_from_str(config: &ChipTypesConfig) -> String {
 
     code.push_str("    /// Parse Chip type from string identifier\n");
     code.push_str("    ///\n");
+    code.push_str("    /// Matching is case-insensitive and aliases are also accepted.\n");
+    code.push_str("    ///\n");
     code.push_str("    /// # Examples\n");
     code.push_str("    ///\n");
     code.push_str("    /// ```\n");
     code.push_str("    /// use onerom_config::chip::ChipType;\n");
     code.push_str("    ///\n");
-    code.push_str(
-        "    /// assert_eq!(ChipType::try_from_str(\"2364\"), Some(ChipType::Chip2364));\n",
-    );
-    code.push_str(
-        "    /// assert_eq!(ChipType::try_from_str(\"27128\"), Some(ChipType::Chip27128));\n",
-    );
+    code.push_str("    /// assert_eq!(ChipType::try_from_str(\"2364\"), Some(ChipType::Chip2364));\n");
+    code.push_str("    /// assert_eq!(ChipType::try_from_str(\"27128\"), Some(ChipType::Chip27128));\n");
+    code.push_str("    /// assert_eq!(ChipType::try_from_str(\"2016\"), Some(ChipType::Chip6116)); // alias\n");
     code.push_str("    /// assert_eq!(ChipType::try_from_str(\"invalid\"), None);\n");
     code.push_str("    /// ```\n");
     code.push_str("    pub fn try_from_str(s: &str) -> Option<Self> {\n");
-    code.push_str("        match s {\n");
+    code.push_str("        match s.to_ascii_lowercase().as_str() {\n");
 
     for (type_name, _chip_type) in get_sorted_chip_types(config) {
         if let Some(chip_type) = config.chip_types.get(type_name.as_str()) {
+            let vname = variant_name(type_name, chip_type);
+
+            // Collect all names: primary + aliases
+            let mut names = vec![type_name.to_ascii_lowercase()];
+            if let Some(aliases) = &chip_type.aliases {
+                for alias in aliases {
+                    let lower = alias.to_ascii_lowercase();
+                    if !names.contains(&lower) {
+                        names.push(lower);
+                    }
+                }
+            }
+
+            let pattern = names
+                .iter()
+                .map(|n| format!("\"{}\"", n))
+                .collect::<Vec<_>>()
+                .join(" | ");
+
             code.push_str(&format!(
-                "            \"{}\" => Some(ChipType::{}),\n",
-                type_name,
-                variant_name(type_name, chip_type)
+                "            {} => Some(ChipType::{}),\n",
+                pattern, vname
             ));
         }
     }
@@ -743,35 +765,31 @@ fn generate_name_method(config: &ChipTypesConfig) -> String {
 fn generate_aliases_method(config: &ChipTypesConfig) -> String {
     let mut code = String::new();
 
-    code.push_str("    /// Get any alternative names or aliases for this Chip type\n");
+    code.push_str("    /// Get all names for this Chip type, including the primary name and any aliases\n");
     code.push_str("    ///\n");
     code.push_str("    /// # Examples\n");
     code.push_str("    ///\n");
     code.push_str("    /// ```\n");
     code.push_str("    /// use onerom_config::chip::ChipType;\n");
     code.push_str("    ///\n");
-    code.push_str("    /// assert_eq!(ChipType::Chip6116.aliases(), &[\"2016\"]);\n");
+    code.push_str("    /// assert_eq!(ChipType::Chip6116.aliases(), &[\"6116\", \"2016\"]);\n");
+    code.push_str("    /// assert_eq!(ChipType::Chip2364.aliases(), &[\"2364\", \"4764\"]);\n");
     code.push_str("    /// ```\n");
     code.push_str("    pub const fn aliases(&self) -> &'static [&'static str] {\n");
     code.push_str("        match self {\n");
 
     for (type_name, _chip_type) in get_sorted_chip_types(config) {
         if let Some(chip_type) = config.chip_types.get(type_name) {
-            let aliases = chip_type
-                .aliases
-                .as_ref()
-                .map(|aliases| {
-                    aliases
-                        .iter()
-                        .map(|alias| format!("\"{}\"", alias))
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                })
-                .unwrap_or_default();
+            let mut all_names = vec![format!("\"{}\"", type_name)];
+            if let Some(aliases) = &chip_type.aliases {
+                for alias in aliases {
+                    all_names.push(format!("\"{}\"", alias));
+                }
+            }
             code.push_str(&format!(
                 "            ChipType::{} => &[{}],\n",
                 variant_name(type_name, chip_type),
-                aliases
+                all_names.join(", ")
             ));
         }
     }
@@ -780,7 +798,6 @@ fn generate_aliases_method(config: &ChipTypesConfig) -> String {
     code.push_str("    }\n");
     code
 }
-
 fn generate_chip_function_method(config: &ChipTypesConfig) -> String {
     let mut code = String::new();
 

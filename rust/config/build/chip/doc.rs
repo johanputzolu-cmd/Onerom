@@ -155,8 +155,8 @@ fn generate_family_comparison_table(
     let mut table = String::new();
 
     table.push_str(&format!("## {}\n\n", title));
-    table.push_str("| Chip Type | Size | Address Lines | Control Lines | Programming |\n");
-    table.push_str("|----------|------|---------------|---------------|-------------|\n");
+    table.push_str("| Chip Type | Aliases | Size | Address Lines | Control Lines | Programming | Supported |\n");
+    table.push_str("|-----------|---------|------|---------------|---------------|-------------|-----------|\n");
 
     for (type_name, chip_type) in roms {
         let size_str = format_size(chip_type.size);
@@ -169,9 +169,14 @@ fn generate_family_comparison_table(
         let control_str = format_control_lines(chip_type);
         let prog_str = format_programming_pins(chip_type);
 
+        let aliases_str = chip_type.aliases
+            .as_ref()
+            .map(|a| a.join(", "))
+            .unwrap_or_default();
+        let supported_str = if chip_type.supported { "✓" } else { "✗" };
         table.push_str(&format!(
-            "| {} | {} | {} | {} | {} |\n",
-            type_name, size_str, addr_lines, control_str, prog_str
+            "| {} | {} | {} | {} | {} | {} | {} |\n",
+            type_name, aliases_str, size_str, addr_lines, control_str, prog_str, supported_str
         ));
     }
 

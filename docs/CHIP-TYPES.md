@@ -27,50 +27,50 @@ There are also some other inconsistencies between types:
 
 ## 24-pin Mask ROM Family (23xx)
 
-| Chip Type | Size | Address Lines | Control Lines | Programming |
-|----------|------|---------------|---------------|-------------|
-| 2316 | 2KB | 11 (A0-A10) | CS1 (pin 20), CS2 (pin 18), CS3 (pin 21) | None |
-| 2332 | 4KB | 12 (A0-A11) | CS1 (pin 20), CS2 (pin 21) | None |
-| 2364 | 8KB | 13 (A0-A12) | CS1 (pin 20) | None |
+| Chip Type | Aliases | Size | Address Lines | Control Lines | Programming | Supported |
+|-----------|---------|------|---------------|---------------|-------------|-----------|
+| 2316 | 9316 | 2KB | 11 (A0-A10) | CS1 (pin 20), CS2 (pin 18), CS3 (pin 21) | None | ✓ |
+| 2332 | 9332, 4732 | 4KB | 12 (A0-A11) | CS1 (pin 20), CS2 (pin 21) | None | ✓ |
+| 2364 | 4764 | 8KB | 13 (A0-A12) | CS1 (pin 20) | None | ✓ |
 
 ## 28-pin Mask ROM Family (23xx)
 
-| Chip Type | Size | Address Lines | Control Lines | Programming |
-|----------|------|---------------|---------------|-------------|
-| 23128 | 16KB | 14 (A0-A13) | CS1 (pin 20), CS2 (pin 22), CS3 (pin 27) | None |
-| 23256 | 32KB | 15 (A0-A14) | CS1 (pin 20), CS2 (pin 22) | None |
-| 23512 | 64KB | 16 (A0-A15) | CS1 (pin 20), CS2 (pin 22) | None |
-| 231024 | 128KB | 17 (A0-A16) | CS1 (pin 20) | None |
+| Chip Type | Aliases | Size | Address Lines | Control Lines | Programming | Supported |
+|-----------|---------|------|---------------|---------------|-------------|-----------|
+| 23128 |  | 16KB | 14 (A0-A13) | CS1 (pin 20), CS2 (pin 22), CS3 (pin 27) | None | ✓ |
+| 23256 |  | 32KB | 15 (A0-A14) | CS1 (pin 20), CS2 (pin 22) | None | ✓ |
+| 23512 |  | 64KB | 16 (A0-A15) | CS1 (pin 20), CS2 (pin 22) | None | ✓ |
+| 231024 |  | 128KB | 17 (A0-A16) | CS1 (pin 20) | None | ✓ |
 
 ## 24-pin EPROM Family (27xx)
 
-| Chip Type | Size | Address Lines | Control Lines | Programming |
-|----------|------|---------------|---------------|-------------|
-| 2704 | 512B | 9 (A0-A8) | /CE (pin 18), /OE (pin 20) | VPP: pin 18 (Low during read) |
-| 2708 | 1KB | 10 (A0-A9) | /CE (pin 18), /OE (pin 20) | VPP: pin 18 (Low during read) |
-| 2716 | 2KB | 11 (A0-A10) | /CE (pin 18), /OE (pin 20) | VPP: pin 21 (VCC during read) |
-| 2732 | 4KB | 12 (A0-A11) | /CE (pin 18), /OE (pin 20) | VPP: pin 20 (Acts as /OE) |
+| Chip Type | Aliases | Size | Address Lines | Control Lines | Programming | Supported |
+|-----------|---------|------|---------------|---------------|-------------|-----------|
+| 2704 |  | 512B | 9 (A0-A8) | /CE (pin 18), /OE (pin 20) | VPP: pin 18 (Low during read) | ✓ |
+| 2708 |  | 1KB | 10 (A0-A9) | /CE (pin 18), /OE (pin 20) | VPP: pin 18 (Low during read) | ✓ |
+| 2716 |  | 2KB | 11 (A0-A10) | /CE (pin 18), /OE (pin 20) | VPP: pin 21 (VCC during read) | ✓ |
+| 2732 | 27C32 | 4KB | 12 (A0-A11) | /CE (pin 18), /OE (pin 20) | VPP: pin 20 (Acts as /OE) | ✓ |
 
 ## 28-pin EPROM Family (27xx)
 
-| Chip Type | Size | Address Lines | Control Lines | Programming |
-|----------|------|---------------|---------------|-------------|
-| 2764 | 8KB | 13 (A0-A12) | /CE (pin 20), /OE (pin 22) | VPP: pin 1 (VCC during read); /PGM: pin 27 (High during read) |
-| 27128 | 16KB | 14 (A0-A13) | /CE (pin 20), /OE (pin 22) | VPP: pin 1 (VCC during read); /PGM: pin 27 (High during read) |
-| 27256 | 32KB | 15 (A0-A14) | /CE (pin 20), /OE (pin 22) | VPP: pin 1 (VCC during read) |
-| 27512 | 64KB | 16 (A0-A15) | /CE (pin 20), /OE (pin 22) | VPP: pin 22 (VCC during read) |
-| 27C010 | 128KB | 17 (A0-A16) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 31 (x) |
-| 27C301 | 128KB | 17 (A0-A16) | /CE (pin 22), /OE (pin 2) | VPP: pin 1 (x); /PGM: pin 31 (x) |
-| 27C020 | 256KB | 18 (A0-A17) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 31 (x) |
-| 27C040 | 512KB | 19 (A0-A18) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 22 (Acts as /OE) |
-| 27C400 | 512KB | 19 (A0-A18) | /BYTE (pin 31), /CE (pin 10), /OE (pin 12) | VPP: pin 31 (word_size); /PGM: pin 10 (Acts as /OE) |
-| 27C080 | 1024KB | 20 (A0-A19) | /CE (pin 22), /OE (pin 24) | VPP: pin 24 (Acts as /OE); /PGM: pin 22 (Acts as /OE) |
+| Chip Type | Aliases | Size | Address Lines | Control Lines | Programming | Supported |
+|-----------|---------|------|---------------|---------------|-------------|-----------|
+| 2764 | 27C64, 27LC64 | 8KB | 13 (A0-A12) | /CE (pin 20), /OE (pin 22) | VPP: pin 1 (VCC during read); /PGM: pin 27 (High during read) | ✓ |
+| 27128 | 27C128, 27LC128 | 16KB | 14 (A0-A13) | /CE (pin 20), /OE (pin 22) | VPP: pin 1 (VCC during read); /PGM: pin 27 (High during read) | ✓ |
+| 27256 | 27C256, 27LC256, 27SF256 | 32KB | 15 (A0-A14) | /CE (pin 20), /OE (pin 22) | VPP: pin 1 (VCC during read) | ✓ |
+| 27512 | 27C512, 27LC512, 27SF512 | 64KB | 16 (A0-A15) | /CE (pin 20), /OE (pin 22) | VPP: pin 22 (VCC during read) | ✓ |
+| 27C010 | 27C1001, SST39SF010 | 128KB | 17 (A0-A16) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 31 (x) | ✓ |
+| 27C301 | 27C1000 | 128KB | 17 (A0-A16) | /CE (pin 22), /OE (pin 2) | VPP: pin 1 (x); /PGM: pin 31 (x) | ✓ |
+| 27C020 | 27C2001, SST39SF020 | 256KB | 18 (A0-A17) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 31 (x) | ✓ |
+| 27C040 | 27C4001 | 512KB | 19 (A0-A18) | /CE (pin 22), /OE (pin 24) | VPP: pin 1 (x); /PGM: pin 22 (Acts as /OE) | ✓ |
+| 27C400 |  | 512KB | 19 (A0-A18) | /BYTE (pin 31), /CE (pin 10), /OE (pin 12) | VPP: pin 31 (word_size); /PGM: pin 10 (Acts as /OE) | ✓ |
+| 27C080 | 27C801 | 1024KB | 20 (A0-A19) | /CE (pin 22), /OE (pin 24) | VPP: pin 24 (Acts as /OE); /PGM: pin 22 (Acts as /OE) | ✗ |
 
 ## RAM Chips
 
-| Chip Type | Size | Address Lines | Control Lines | Programming |
-|----------|------|---------------|---------------|-------------|
-| 6116 | 2KB | 11 (A0-A10) | /CE (pin 18), /OE (pin 20), /WRITE (pin 21) | None |
+| Chip Type | Aliases | Size | Address Lines | Control Lines | Programming | Supported |
+|-----------|---------|------|---------------|---------------|-------------|-----------|
+| 6116 | 2016 | 2KB | 11 (A0-A10) | /CE (pin 18), /OE (pin 20), /WRITE (pin 21) | None | ✓ |
 
 ## Pin Function Comparison
 
