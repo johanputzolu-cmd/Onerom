@@ -1100,15 +1100,14 @@ uint8_t initial_plugin_parse(uint8_t *disable_vbus_det) {
     uint8_t plugins = 0;
     *disable_vbus_det = 0;
 
-    // Right now we just check for a system plugin
     if (sdrr_info.metadata_header->rom_set_count >= 1) {
         const sdrr_rom_set_t *set = &sdrr_info.metadata_header->rom_sets[0];
         if (set->roms[0]->rom_type == CHIP_TYPE_SYSTEM_PLUGIN) {
             const ora_plugin_header_t *header = (ora_plugin_header_t *)(uintptr_t)(set->data);
-            if (check_plugin_valid(header)) {
+            if (check_plugin_valid(header, ORA_PLUGIN_TYPE_SYSTEM, 0)) {
                 *disable_vbus_det = header->overrides1 & ORA_OVERRIDE1_DISABLE_VBUS_DETECT ? 1 : 0;
                 LOG("Valid plugin detected, disable_vbus_det=%d", *disable_vbus_det);
-            } // check_plugin_valid logs if invalid
+            }
 
             // Have system plugin (1)
             plugins |= 1;
@@ -1120,7 +1119,12 @@ uint8_t initial_plugin_parse(uint8_t *disable_vbus_det) {
             const sdrr_rom_set_t *other_set = &sdrr_info.metadata_header->rom_sets[1];
             if (other_set->roms[0]->rom_type == CHIP_TYPE_USER_PLUGIN) {
                 if (plugins & 0x01) {
-                    // Have user plugin (2)
+                    // Have user plugin (2) so check it
+                    const ora_plugin_header_t *header = (ora_plugin_header_t *)(uintptr_t)(set->data);
+                    if (check_plugin_valid(header, ORA_PLUGIN_TYPE_USER, 1)) {
+                        *disable_vbus_det = header->overrides1 & ORA_OVERRIDE1_DISABLE_VBUS_DETECT ? 1 : 0;
+                        LOG("Valid plugin detected, disable_vbus_det=%d", *disable_vbus_det);
+                    }
                     DEBUG("User plugin");
                     plugins |= 2;
                 } else {

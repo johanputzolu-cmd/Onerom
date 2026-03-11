@@ -1,0 +1,43 @@
+[package]
+name = "onerom-cli"
+version = "0.1.0"
+edition = "2024"
+authors = ["Piers Finlayson <piers@piers.rocks>"]
+license = "MIT"
+description = "Command line interface for One ROM - the flexible retro ROM replacement"
+repository = "https://github.com/piersfinlayson/one-rom"
+homepage = "https://onerom.org"
+documentation = "https://docs.rs/onerom-cli"
+keywords = ["retro", "rom", "commodore", "embedded"]
+categories = ["embedded", "hardware-support"]
+
+[lib]
+name = "onerom_cli"
+path = "src/lib/mod.rs"
+
+[[bin]]
+name = "onerom-cli"
+path = "src/main.rs"
+
+[dependencies]
+onerom-config = { path="../config", version = "0.4.6" }
+onerom-fw = { path="../fw", version = "0.1.17" }
+onerom-gen = { path="../gen", version = "0.5.5" }
+sdrr-fw-parser = { path="../sdrr-fw-parser", version = "0.6.8" }
+
+picoboot = { path = "../../../picoboot", version = "0.2.0", features = ["reader"] }
+
+base64 = { version = "0.22" }
+bytes = "1.10"
+clap = { version = "4.5", features = ["derive"] }
+env_logger = "0.11"
+hex = { version = "0.4" }
+log = "0.4"
+nusb = { version = "0.2", features = ["smol"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "charset", "blocking", "rustls-tls"] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = "1.0"
+smol = { version = "2.0" }
+thiserror = "2.0"
+wildmatch = "2.6"
+zip = "8.2"

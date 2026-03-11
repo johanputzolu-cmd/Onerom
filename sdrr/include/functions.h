@@ -99,7 +99,11 @@ extern int pioram(
     uint32_t rom_table_addr
 );
 // plugin.c
-extern uint8_t check_plugin_valid(const ora_plugin_header_t *header);
+extern uint8_t check_plugin_valid(
+    const ora_plugin_header_t *header,
+    const ora_plugin_type_t expected_type,
+    uint8_t index
+);
 extern void ora_launch_plugins(const sdrr_info_t *info);
 extern void irq_handler_timer0_irq_0(void);
 extern void irq_handler_usbctrl_irq(void);

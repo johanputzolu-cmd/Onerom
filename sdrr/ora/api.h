@@ -166,7 +166,11 @@ _Static_assert(sizeof(api_id_t) == 4, "api_id_t must be 4 bytes");
 typedef enum {
     ORA_PLUGIN_TYPE_SYSTEM = 0,
     ORA_PLUGIN_TYPE_USER   = 1,
+    ORA_PLUGIN_TYPE_PIO    = 2,
 } ora_plugin_type_t;
+#if !defined(TEST_BUILD)
+_Static_assert(sizeof(ora_plugin_type_t) == 1, "ora_plugin_type_t must be 1 byte");
+#endif // !TEST_BUILD
 
 /**
  * @brief MCU Cores
@@ -175,6 +179,9 @@ typedef enum {
     ORA_CORE_0 = 0,
     ORA_CORE_1 = 1,
 } ora_core_t;
+#if !defined(TEST_BUILD)
+_Static_assert(sizeof(ora_core_t) == 1, "ora_core_t must be 1 byte");
+#endif // !TEST_BUILD
 
 /**
  * @brief IRQ numbers
@@ -184,6 +191,9 @@ typedef enum {
     ORA_IRQ_USBCTRL_IRQ = 14,
     ORA_IRQ_INVALID = 0xFF,
 } ora_irq_t;
+#if !defined(TEST_BUILD)
+_Static_assert(sizeof(ora_irq_t) == 1, "ora_irq_t must be 1 byte");
+#endif // !TEST_BUILD
 
 /**
  * @brief IRQ handler function type
@@ -559,6 +569,12 @@ typedef struct {
     ora_plugin_entry_t entry;
 
     /**
+     * @brief Plugin type
+     * @sa ora_plugin_type_t
+     */
+    ora_plugin_type_t plugin_type;
+
+    /**
      * @brief Statically allocated memory usage
      * 
      * Each type of plugin is reserved a portion of SRAM at link time, so it
@@ -601,10 +617,11 @@ typedef struct {
      *
      * This field is reserved for future use and must be set to 0.
      */
-    uint8_t reserved[18];
+    uint8_t reserved[241];
 } ora_plugin_header_t;
+#define ORA_PLUGIN_HEADER_SIZE 256  // Must not change without version bump
 #if !defined(TEST_BUILD)
-_Static_assert(sizeof(ora_plugin_header_t) == 32, "ora_plugin_header_t must be 32 bytes");
+_Static_assert(sizeof(ora_plugin_header_t) == ORA_PLUGIN_HEADER_SIZE, "ora_plugin_header_t must be 256 bytes");
 #endif // !TEST_BUILD
 
 /**

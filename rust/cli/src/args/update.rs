@@ -1,0 +1,94 @@
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
+//
+// MIT License
+
+//! Argument definitions for `onerom update`.
+
+use clap::{Args, Subcommand};
+
+#[derive(Debug, Args)]
+pub struct UpdateArgs {
+    #[command(subcommand)]
+    pub command: UpdateCommands,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum UpdateCommands {
+    /// Write a ROM image to a flash slot on the device (not yet supported).
+    ///
+    /// Writes the specified ROM image to the given flash slot. This
+    /// persists across power cycles. The ROM type and chip-select
+    /// configuration must match the slot's existing configuration, or
+    /// the slot must be empty.
+    ///
+    /// Example:
+    ///   onerom update flash --slot 2 --image kernal.bin
+    Flash(UpdateFlashArgs),
+
+    /// Commit a volatile RAM image to flash (not yet supported).
+    ///
+    /// Persists the currently active RAM image to its corresponding
+    /// flash slot so it survives power cycles.
+    ///
+    /// Example:
+    ///   onerom update commit
+    ///   onerom update commit --slot 2
+    Commit(UpdateCommitArgs),
+
+    /// Assign a user-friendly name to a One ROM device (not yet supported).
+    ///
+    /// The name is stored on the device and can subsequently be used
+    /// with the --device option to identify this device in all commands.
+    ///
+    /// Example:
+    ///   onerom update rename my-c64
+    ///   onerom update rename cpu-low
+    Rename(UpdateRenameArgs),
+
+    /// Read or write One-Time Programmable (OTP) memory (not yet supported).
+    ///
+    /// Manages RP2350 OTP memory, including One ROM-specific USB
+    /// configuration and other device identity data.
+    ///
+    /// This is an advanced operation. Incorrect OTP writes are
+    /// irreversible.
+    #[command(hide = true)]
+    Otp(UpdateOtpArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct UpdateFlashArgs {
+    /// Flash slot index to write (0-15).
+    #[arg(long, short, value_name = "INDEX", required = true)]
+    pub slot: u8,
+
+    /// ROM image file to write to the slot.
+    #[arg(long, short, value_name = "FILE", required = true)]
+    pub image: String,
+}
+
+#[derive(Debug, Args)]
+pub struct UpdateCommitArgs {
+    /// Slot index to commit. Commits the currently active slot if omitted.
+    #[arg(long, short, value_name = "INDEX")]
+    pub slot: Option<u8>,
+}
+
+#[derive(Debug, Args)]
+pub struct UpdateRenameArgs {
+    /// The name to assign to this device.
+    #[arg(value_name = "NAME")]
+    pub name: String,
+}
+
+#[derive(Debug, Args)]
+pub struct UpdateOtpArgs {
+    /// Read OTP memory and display its contents.
+    #[arg(long, conflicts_with = "write")]
+    pub read: bool,
+
+    /// Write a value to an OTP row. Format: <row>=<value>
+    /// WARNING: OTP writes are irreversible.
+    #[arg(long, value_name = "ROW=VALUE", conflicts_with = "read")]
+    pub write: Option<String>,
+}

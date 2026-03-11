@@ -578,7 +578,8 @@ impl Chip {
             ChipType::Chip27C301 => 21,
             ChipType::SystemPlugin => 22,
             ChipType::UserPlugin => 23,
-            ChipType::ChipSST39SF040 => 24,
+            ChipType::PioPlugin => 24,
+            ChipType::ChipSST39SF040 => 25,
         }
     }
 }
@@ -1137,11 +1138,12 @@ impl ChipSet {
             offset += 1;
 
             // Write the CS states
-            buf[offset] = chip.cs_config.cs1_logic().c_enum_val();
+            let is_plugin = chip.chip_type.chip_function().is_plugin();
+            buf[offset] = if is_plugin { CsLogic::Ignore.c_enum_val() } else { chip.cs_config.cs1_logic().c_enum_val() };
             offset += 1;
-            buf[offset] = chip.cs_config.cs2_logic().map_or(2, |cs| cs.c_enum_val());
+            buf[offset] = if is_plugin { CsLogic::Ignore.c_enum_val() } else { chip.cs_config.cs2_logic().map_or(2, |cs| cs.c_enum_val()) };
             offset += 1;
-            buf[offset] = chip.cs_config.cs3_logic().map_or(2, |cs| cs.c_enum_val());
+            buf[offset] = if is_plugin { CsLogic::Ignore.c_enum_val() } else { chip.cs_config.cs3_logic().map_or(2, |cs| cs.c_enum_val()) };
             offset += 1;
 
             // Add filename if required

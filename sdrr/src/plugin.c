@@ -12,14 +12,33 @@
 
 #include "plugin.h"
 
-uint8_t check_plugin_valid(const ora_plugin_header_t *header) {
+uint8_t check_plugin_valid(
+    const ora_plugin_header_t *header,
+    const ora_plugin_type_t expected_type,
+    uint8_t index
+) {
     if (header->magic != ORA_PLUGIN_MAGIC) {
-        ERR("Invalid plugin - bad magic");
-        return 0;
-    } else if (header->version != ORA_PLUGIN_VERSION_1) {
-        ERR("Invalid plugin - unsupported version");
+        ERR("Invalid plugin - badmagic 0x%08x", header->magic);
         return 0;
     }
+    if (header->version != ORA_PLUGIN_VERSION_1) {
+        ERR("Invalid plugin - version 0x%08x", header->version);
+        return 0;
+    }
+    if (header->plugin_type != expected_type) {
+        ERR("Invalid plugin - type %d, expected %d", header->plugin_type, expected_type);
+        return 0;
+    }
+    
+    // A plugin is expected to be located at 0x10010000, 0x10020000, etc based
+    // on the specific ROM set it is.
+    uint32_t expected_launch_region = (0x1001 + index) << 16;
+    uint32_t entry_addr = (uint32_t)(uintptr_t)header->entry;
+    if ((entry_addr & ~expected_launch_region) >= 0x10000) {
+        ERR("Invalid plugin - ep 0x%08x", entry_addr, expected_launch_region);
+        return 0;
+    }
+
     return 1;
 }
 
@@ -308,7 +327,7 @@ void ora_launch_plugins(const sdrr_info_t *info) {
         const sdrr_rom_set_t *set0 = &info->metadata_header->rom_sets[0];
         if (set0->roms[0]->rom_type == CHIP_TYPE_SYSTEM_PLUGIN) {
             ora_plugin_header_t *header = (ora_plugin_header_t *)set0->data;
-            if (!check_plugin_valid(header)) {
+            if (!check_plugin_valid(header, ORA_PLUGIN_TYPE_SYSTEM, 0)) {
                 ERR("Invalid system plugin");
             } else {
                 const char *filename = set0->roms[0]->filename;
@@ -328,7 +347,7 @@ void ora_launch_plugins(const sdrr_info_t *info) {
         const sdrr_rom_set_t *set1 = &info->metadata_header->rom_sets[1];
         if (set1->roms[0]->rom_type == CHIP_TYPE_USER_PLUGIN) {
             ora_plugin_header_t *header = (ora_plugin_header_t *)set1->data;
-            if (!check_plugin_valid(header)) {
+            if (!check_plugin_valid(header, ORA_PLUGIN_TYPE_USER, 1)) {
                 ERR("Invalid user plugin");
             } else if (!system_plugin) {
                 ERR("User plugin present but no valid system plugin - not launching");

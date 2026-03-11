@@ -385,6 +385,11 @@ impl core::fmt::Display for Release {
 }
 
 impl Release {
+    pub fn url(&self, board: &HwBoard, mcu: &McuVariant) -> Result<String, Error> {
+        let path = self.path(board.name(), &mcu.to_string())?;
+        Ok(format!("https://{}/{}/firmware.bin", FIRMWARE_SITE_BASE, path))
+    }
+
     pub fn supports_hw(&self, board: &HwBoard, mcu: &McuVariant) -> bool {
         self.board_str(&board.name().to_ascii_lowercase())
             .and_then(|b| b.mcu(&mcu.to_string().to_ascii_lowercase()))

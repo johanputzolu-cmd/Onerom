@@ -1,0 +1,80 @@
+// Copyright (C) 2026 Piers Finlayson <piers@piers.rocks>
+//
+// MIT License
+
+//! onerom - One ROM command-line interface
+
+use clap::{CommandFactory, FromArgMatches};
+#[allow(unused_imports)]
+use log::{debug, error, info, trace, warn};
+
+mod args;
+mod control;
+mod firmware;
+mod inspect;
+mod program;
+mod scan;
+mod update;
+mod utils;
+
+use args::Cli;
+use args::Commands;
+use args::control::ControlCommands;
+use args::firmware::FirmwareCommands;
+use args::inspect::InspectCommands;
+use args::update::UpdateCommands;
+
+use onerom_cli::Error;
+
+fn main() {
+    if let Err(e) = smol::block_on(sub_main()) {
+        eprintln!();
+        eprintln!("Error: {e}");
+        std::process::exit(1);
+    }
+}
+
+async fn sub_main() -> Result<(), Error> {
+    // We need to convoluted call into clap so we can change the binary name to
+    // onerom.
+    let cli = Cli::from_arg_matches(&Cli::command().bin_name("onerom").get_matches())
+        .unwrap_or_else(|e: clap::Error| e.exit());
+    let options = cli.try_into_options().await?;
+
+    utils::init_logging(&options);
+
+    debug!("One ROM CLI v{}", env!("CARGO_PKG_VERSION"));
+
+    match &cli.command {
+        Commands::Scan(args) => scan::cmd_scan(&options, args).await,
+        Commands::Firmware(args) => match &args.command {
+            FirmwareCommands::Build(args) => firmware::cmd_build(&options, args).await,
+            FirmwareCommands::Inspect(args) => firmware::cmd_inspect(&options, args).await,
+            FirmwareCommands::Releases(args) => firmware::cmd_releases(&options, args).await,
+            FirmwareCommands::Download(args) => firmware::cmd_download(&options, args).await,
+        },
+        Commands::Program(args) => program::cmd_program(&options, args).await,
+        Commands::Inspect(args) => match &args.command {
+            InspectCommands::Info(args) => inspect::cmd_info(&options, args).await,
+            InspectCommands::Telemetry(args) => inspect::cmd_telemetry(&options, args).await,
+            InspectCommands::Slots(args) => inspect::cmd_slots(&options, args).await,
+            InspectCommands::Image(args) => inspect::cmd_image(&options, args).await,
+            InspectCommands::Live(args) => inspect::cmd_live(&options, args).await,
+            InspectCommands::Memory(args) => inspect::cmd_memory(&options, args).await,
+            InspectCommands::Gpio(args) => inspect::cmd_gpio(&options, args).await,
+        },
+        Commands::Control(args) => match &args.command {
+            ControlCommands::Blink(args) => control::cmd_blink(&options, args).await,
+            ControlCommands::Reboot(args) => control::cmd_reboot(&options, args).await,
+            ControlCommands::Reset(args) => control::cmd_reset(&options, args).await,
+            ControlCommands::Select(args) => control::cmd_select(&options, args).await,
+            ControlCommands::Gpio(args) => control::cmd_gpio(&options, args).await,
+        },
+        Commands::Update(args) => match &args.command {
+            UpdateCommands::Flash(args) => update::cmd_flash(&options, args).await,
+            UpdateCommands::Commit(args) => update::cmd_commit(&options, args).await,
+            UpdateCommands::Rename(args) => update::cmd_rename(&options, args).await,
+            UpdateCommands::Otp(args) => update::cmd_otp(&options, args).await,
+        },
+    }
+}

@@ -2,7 +2,7 @@
     "chip_types": {
         "SystemPlugin": {
             "description": "One ROM System Plugin",
-            "function": "SystemPlugin",
+            "function": "Plugin",
             "bit_modes": [],
             "pins": 0,
             "size": 65536,
@@ -12,7 +12,18 @@
         },
         "UserPlugin": {
             "description": "One ROM User Plugin",
-            "function": "UserPlugin",
+            "function": "Plugin",
+            "bit_modes": [],
+            "pins": 0,
+            "size": 65536,
+            "address": [],
+            "data": [],
+            "control": {}
+        },
+        "PioPlugin": {
+            "description": "One ROM PIO Plugin",
+            "function": "Plugin",
+            "supported": false,
             "bit_modes": [],
             "pins": 0,
             "size": 65536,

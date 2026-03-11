@@ -7,16 +7,6 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-// Blink patterns for limp mode
-typedef enum limp_mode_pattern {
-    LIMP_MODE_NONE = 0,
-    LIMP_MODE_NO_ROMS = 1,
-    LIMP_MODE_INVALID_CONFIG = 2,
-    LIMP_MODE_INVALID_BUILD = 3,
-    NUM_LIMP_MODE_PATTERNS 
-} limp_mode_pattern_t;
-_Static_assert(sizeof(limp_mode_pattern_t) == 1, "limp_mode_pattern_t should be 1 byte");
-
 typedef struct {
     uint32_t on_time;
     uint32_t off_time;

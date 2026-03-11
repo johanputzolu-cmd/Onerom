@@ -56,6 +56,7 @@ sdrr_runtime_info_t sdrr_runtime_info SECTION_SDRR_RUNTIME_INFO = {
     .user_plugin_context = NULL,
     .timer0_irq_0_handler = NULL,
     .usbctrl_irq_handler = NULL,
+    .limp_mode = LIMP_MODE_NONE,
 };
 
 // This function checks the state of the image select pins, and returns an
@@ -168,6 +169,8 @@ uint8_t metadata_present(const sdrr_info_t *info) {
 #if !defined(TEST_BUILD)
 void limp_mode(limp_mode_pattern_t pattern) {
     LOG("Limp mode %d", pattern);
+
+    sdrr_runtime_info.limp_mode = pattern;
 
     uint32_t on_time, off_time;
 

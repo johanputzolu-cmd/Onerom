@@ -18,6 +18,18 @@
 #include "test/stub.h"
 #endif // TEST_BUILD
 
+// Blink patterns for limp mode
+typedef enum limp_mode_pattern {
+    LIMP_MODE_NONE = 0,
+    LIMP_MODE_NO_ROMS = 1,
+    LIMP_MODE_INVALID_CONFIG = 2,
+    LIMP_MODE_INVALID_BUILD = 3,
+    NUM_LIMP_MODE_PATTERNS 
+} limp_mode_pattern_t;
+#if !defined(TEST_BUILD)
+_Static_assert(sizeof(limp_mode_pattern_t) == 1, "limp_mode_pattern_t should be 1 byte");
+#endif // TEST_BUILD
+
 // Pin allocations
 //
 // All pin numbers are physical pins - allocated from the configured STM32F4
@@ -574,6 +586,7 @@ typedef struct sdrr_runtime_info_t {
     uint8_t force_16_bit;
 
     // Peripherals/PLLs enabled
+    // 0.6.7
     // Bit 0 = LSB = USB PLL
     // Bit 1 = ADC
     // Offset: 39
@@ -597,7 +610,12 @@ typedef struct sdrr_runtime_info_t {
     // Offset: 52
     void (*usbctrl_irq_handler)(void);
 
-    // Length = 56 bytes
+    // Whether device is in limp mode
+    // Offset 56
+    limp_mode_pattern_t limp_mode;
+    uint8_t pad[3];
+
+    // Length = 60 bytes
 } sdrr_runtime_info_t;
 // Check system plug context is at 0x40, and the user at 0x44.  These CANNOT
 // move without breaking the plugin API.

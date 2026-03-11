@@ -58,13 +58,12 @@ pub enum ChipFunction {
     Rom,
     #[serde(rename = "RAM")]
     Ram,
-    SystemPlugin,
-    UserPlugin,
+    Plugin,
 }
 
 impl ChipFunction {
     pub fn is_plugin(&self) -> bool {
-        matches!(self, ChipFunction::SystemPlugin | ChipFunction::UserPlugin)
+        matches!(self, ChipFunction::Plugin)
     }
 }
 

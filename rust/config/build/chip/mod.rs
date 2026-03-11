@@ -695,14 +695,14 @@ fn generate_try_from_str(config: &ChipTypesConfig) -> String {
     code.push_str("    /// assert_eq!(ChipType::try_from_str(\"2016\"), Some(ChipType::Chip6116)); // alias\n");
     code.push_str("    /// assert_eq!(ChipType::try_from_str(\"invalid\"), None);\n");
     code.push_str("    /// ```\n");
-    code.push_str("    pub fn try_from_str(s: &str) -> Option<Self> {\n");
-    code.push_str("        match s.to_ascii_lowercase().as_str() {\n");
 
+    code.push_str("    pub fn try_from_str(s: &str) -> Option<Self> {\n");
+
+    let mut first = true;
     for (type_name, _chip_type) in get_sorted_chip_types(config) {
         if let Some(chip_type) = config.chip_types.get(type_name.as_str()) {
             let vname = variant_name(type_name, chip_type);
 
-            // Collect all names: primary + aliases
             let mut names = vec![type_name.to_ascii_lowercase()];
             if let Some(aliases) = &chip_type.aliases {
                 for alias in aliases {
@@ -713,22 +713,24 @@ fn generate_try_from_str(config: &ChipTypesConfig) -> String {
                 }
             }
 
-            let pattern = names
+            let condition = names
                 .iter()
-                .map(|n| format!("\"{}\"", n))
+                .map(|n| format!("s.eq_ignore_ascii_case(\"{}\")", n))
                 .collect::<Vec<_>>()
-                .join(" | ");
+                .join(" || ");
 
-            code.push_str(&format!(
-                "            {} => Some(ChipType::{}),\n",
-                pattern, vname
-            ));
+            let keyword = if first { "if" } else { "} else if" };
+            first = false;
+            code.push_str(&format!("        {} {} {{\n", keyword, condition));
+            code.push_str(&format!("            Some(ChipType::{})\n", vname));
         }
     }
 
-    code.push_str("            _ => None,\n");
+    code.push_str("        } else {\n");
+    code.push_str("            None\n");
     code.push_str("        }\n");
     code.push_str("    }\n");
+
     code
 }
 
@@ -821,8 +823,7 @@ fn generate_chip_function_method(config: &ChipTypesConfig) -> String {
                 match chip_type.function {
                     ChipFunction::Rom => "Rom",
                     ChipFunction::Ram => "Ram",
-                    ChipFunction::SystemPlugin => "Plugin",
-                    ChipFunction::UserPlugin => "Plugin",
+                    ChipFunction::Plugin => "Plugin",
                 }
             ));
         }
