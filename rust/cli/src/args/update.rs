@@ -4,7 +4,9 @@
 
 //! Argument definitions for `onerom update`.
 
+use crate::args::CommandTrait;
 use clap::{Args, Subcommand};
+use enum_dispatch::enum_dispatch;
 
 #[derive(Debug, Args)]
 pub struct UpdateArgs {
@@ -12,6 +14,13 @@ pub struct UpdateArgs {
     pub command: UpdateCommands,
 }
 
+impl CommandTrait for UpdateArgs {
+    fn requires_device(&self) -> bool {
+        self.command.requires_device()
+    }
+}
+
+#[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum UpdateCommands {
     /// Write a ROM image to a flash slot on the device (not yet supported).
@@ -67,6 +76,12 @@ pub struct UpdateFlashArgs {
     pub image: String,
 }
 
+impl CommandTrait for UpdateFlashArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct UpdateCommitArgs {
     /// Slot index to commit. Commits the currently active slot if omitted.
@@ -74,11 +89,23 @@ pub struct UpdateCommitArgs {
     pub slot: Option<u8>,
 }
 
+impl CommandTrait for UpdateCommitArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct UpdateRenameArgs {
     /// The name to assign to this device.
     #[arg(value_name = "NAME")]
     pub name: String,
+}
+
+impl CommandTrait for UpdateRenameArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Args)]
@@ -91,4 +118,10 @@ pub struct UpdateOtpArgs {
     /// WARNING: OTP writes are irreversible.
     #[arg(long, value_name = "ROW=VALUE", conflicts_with = "read")]
     pub write: Option<String>,
+}
+
+impl CommandTrait for UpdateOtpArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
 }

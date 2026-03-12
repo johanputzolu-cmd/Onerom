@@ -4,6 +4,7 @@
 
 //! Argument definitions for `onerom scan`.
 
+use crate::args::CommandTrait;
 use clap::Args;
 
 /// Discover and list all connected One ROM devices.
@@ -23,4 +24,16 @@ pub struct ScanArgs {
     /// List all known board types.
     #[arg(long, conflicts_with = "board")]
     pub list_boards: bool,
+
+    /// Filters based on serial number.
+    ///
+    /// Supports * and ? wildcards.
+    #[arg(long, short, value_name = "SERIAL")]
+    pub serial: Option<String>,
+}
+
+impl CommandTrait for ScanArgs {
+    fn requires_device(&self) -> bool {
+        false
+    }
 }

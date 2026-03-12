@@ -8,6 +8,8 @@
 //! handles argument parsing and output formatting; this library owns
 //! everything in between.
 
+use clap::ValueEnum;
+
 pub mod device;
 pub mod error;
 pub mod scan;
@@ -16,8 +18,19 @@ pub mod usb;
 pub use device::{Device, DeviceState};
 pub use error::Error;
 
+#[derive(ValueEnum, Clone, Default, Debug)]
+pub enum LogLevel {
+    #[default]
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
 pub struct Options {
     pub verbose: bool,
-    pub debug: bool,
+    pub log_level: LogLevel,
+    pub yes: bool,
+    pub unrecognised: bool,
     pub device: Option<Device>,
 }

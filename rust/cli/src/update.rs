@@ -2,38 +2,38 @@
 //
 // MIT License
 
-use crate::{args, utils};
+use crate::{args, utils::check_device};
 use onerom_cli::{Error, Options};
 
 pub async fn cmd_flash(
     options: &Options,
-    _args: &args::update::UpdateFlashArgs,
+    args: &args::update::UpdateFlashArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("update flash".to_string()))
 }
 
 pub async fn cmd_commit(
     options: &Options,
-    _args: &args::update::UpdateCommitArgs,
+    args: &args::update::UpdateCommitArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("update commit".to_string()))
 }
 
 pub async fn cmd_rename(
     options: &Options,
-    _args: &args::update::UpdateRenameArgs,
+    args: &args::update::UpdateRenameArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("update rename".to_string()))
 }
 
-pub async fn cmd_otp(options: &Options, _args: &args::update::UpdateOtpArgs) -> Result<(), Error> {
-    utils::check_device(options)?;
+pub async fn cmd_otp(options: &Options, args: &args::update::UpdateOtpArgs) -> Result<(), Error> {
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("update otp".to_string()))
 }

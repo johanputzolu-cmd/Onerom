@@ -14,11 +14,7 @@ use onerom_config::hw::Board;
 /// Returns all discovered devices. The board_filter argument is reserved
 /// for future use when additional device metadata is available post-scan.
 pub async fn scan(options: &Options, board_filter: Option<Board>) -> Result<Vec<Device>, Error> {
-    if options.device.is_some() && board_filter.is_some() {
-        return Err(Error::DeviceAndBoard);
-    }
-
-    let mut devices = enumerate_devices().await?;
+    let mut devices = enumerate_devices(options.unrecognised).await?;
 
     // Now filter based on the board_type
     if let Some(board) = board_filter.as_ref() {

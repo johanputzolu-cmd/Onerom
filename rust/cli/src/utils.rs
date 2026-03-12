@@ -4,7 +4,8 @@
 
 use std::io::Write;
 
-use onerom_cli::{Error, Options};
+use crate::args::CommandTrait;
+use onerom_cli::{DeviceState, Error, LogLevel, Options};
 
 pub fn get_supported_boards() -> String {
     onerom_config::hw::BOARDS
@@ -15,19 +16,29 @@ pub fn get_supported_boards() -> String {
 }
 
 pub fn init_logging(options: &Options) {
-    let debug = options.debug;
+    let log_level = &options.log_level;
 
     let mut log_builder = env_logger::Builder::from_default_env();
 
-    if debug {
-        log_builder.filter_level(log::LevelFilter::Debug);
-        // nusb is very noisy at debug level
-        log_builder.filter_module("nusb", log::LevelFilter::Info);
-    } else {
-        log_builder.filter_level(log::LevelFilter::Info);
-        // nusb is noisy at info level
-        log_builder.filter_module("nusb", log::LevelFilter::Warn);
+    match log_level {
+        LogLevel::Warn => {
+            log_builder.filter_level(log::LevelFilter::Warn);
+        }
+        LogLevel::Info => {
+            log_builder.filter_level(log::LevelFilter::Info);
+            // nusb is noisy at info level
+            log_builder.filter_module("nusb", log::LevelFilter::Warn);
+        }
+        LogLevel::Debug => {
+            log_builder.filter_level(log::LevelFilter::Debug);
+            // nusb is very noisy at debug level
+            log_builder.filter_module("nusb", log::LevelFilter::Info);
+        }
+        LogLevel::Trace => {
+            log_builder.filter_level(log::LevelFilter::Trace);
+        }
     }
+
     log_builder.format(|buf, record| {
         let level = format!("{}: ", record.level());
         writeln!(buf, "{:07}{}", level, record.args())
@@ -42,15 +53,9 @@ pub fn check_device_nand_board(options: &Options, board_arg: &Option<String>) ->
     Ok(())
 }
 
-pub fn check_no_device(options: &Options) -> Result<(), Error> {
-    if options.device.is_some() {
-        return Err(Error::Device);
-    }
-    Ok(())
-}
-
-pub fn check_device(options: &Options) -> Result<(), Error> {
-    if options.device.is_none() {
+/// Checks that a device is required and present if the command needs one.
+pub fn check_device(options: &Options, args: &impl CommandTrait) -> Result<(), Error> {
+    if args.requires_device() && options.device.is_none() {
         return Err(Error::NoDevice);
     }
     Ok(())
@@ -62,6 +67,15 @@ pub fn parse_u32(s: &str) -> Result<u32, std::num::ParseIntError> {
         u32::from_str_radix(hex, 16)
     } else {
         s.parse::<u32>()
+    }
+}
+
+pub fn parse_u8(s: &str) -> Result<u8, std::num::ParseIntError> {
+    let s = s.replace('_', "");
+    if let Some(hex) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+        u8::from_str_radix(hex, 16)
+    } else {
+        s.parse::<u8>()
     }
 }
 
@@ -109,4 +123,39 @@ pub fn print_hex_dump(address: u32, data: &[u8]) {
         }
         println!("|");
     }
+}
+
+/// Checks an address offset and length for validity against this particular
+/// device.
+///
+/// Checks the device is running and can accept live reads/writes.
+/// Checks that the offset is valid for the ROM currently being served by
+/// the devce.
+///
+/// Returns the actual device start address to read/write.
+pub fn check_live_read_write(
+    options: &Options,
+    offset: u32,
+    length: u32,
+    args: &impl CommandTrait,
+) -> Result<u32, Error> {
+    const LIVE_ROM_BASE: u32 = 0x9000_0000;
+    const LIVE_ROM_MAX_OFFSET: u32 = 0x0008_0000;
+
+    check_device(options, args)?;
+    let device = options.device.as_ref().unwrap();
+
+    if device.state != DeviceState::Running {
+        return Err(Error::NotRunning);
+    }
+
+    let end_offset = offset + length;
+    if end_offset >= LIVE_ROM_MAX_OFFSET {
+        return Err(Error::InvalidMemoryRange(offset, length));
+    }
+
+    // To do: check the address range is within the correct size for this ROM
+    // type
+
+    Ok(LIVE_ROM_BASE + offset)
 }

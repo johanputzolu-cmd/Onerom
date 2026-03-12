@@ -4,6 +4,7 @@
 
 //! Argument definitions for `onerom program`.
 
+use crate::args::CommandTrait;
 use clap::Args;
 
 /// Build and flash One ROM firmware to a connected device.
@@ -68,4 +69,10 @@ pub struct ProgramArgs {
     /// flashing it. Required when no device is connected.
     #[arg(long, short, value_name = "FILE")]
     pub out: Option<String>,
+}
+
+impl CommandTrait for ProgramArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
 }

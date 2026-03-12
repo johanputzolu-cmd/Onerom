@@ -27,7 +27,7 @@ pub const FLASH_READ_SIZE_BYTES: u32 = FLASH_READ_SIZE_KB * 1024;
 /// Enumerate all connected One ROM Fire (RP2350) devices.
 ///
 /// Returns an empty Vec rather than an error if no devices are found.
-pub async fn enumerate_devices() -> Result<Vec<Device>, Error> {
+pub async fn enumerate_devices(unrecognised: bool) -> Result<Vec<Device>, Error> {
     let fire_targets = [Target::Rp2350];
     let device_infos = Picoboot::list_devices(Some(&fire_targets))
         .await
@@ -55,10 +55,14 @@ pub async fn enumerate_devices() -> Result<Vec<Device>, Error> {
         };
 
         if let Err(e) = read_device_info(&mut device).await {
-            warn!("Failed to read flash header on {device:?}: {e}");
+            warn!("Failed to read device info on {device:?}: {e}");
         }
 
-        devices.push(device);
+        if device.is_recognised() || unrecognised {
+            devices.push(device);
+        } else {
+            debug!("Excluding unrecognised device: {device:?}");
+        }
     }
 
     Ok(devices)
@@ -138,19 +142,35 @@ pub async fn reboot(device: &Device, mode: RebootMode) -> Result<(), Error> {
         .map_err(|e| Error::Usb(e.to_string()))
 }
 
+enum MemoryType {
+    /// RP2350 bootrom, never writeable
+    BootRom,
+    /// RP2350 flash, readable at all times, writeable but only through
+    /// specific methods
+    Flash,
+    /// RP2350 physical SRAM, readable and writeable at all times.
+    Ram,
+    /// Virtual One ROM addresses that are read write at all times when One
+    /// ROM is running
+    VirtualRw,
+}
+
 // A valid One ROM MCU memory region
 struct MemoryRegion {
     _name: &'static str,
     start: u32,
     len: u32,
+    // true if only accessible when device is in Running state
+    mem_type: MemoryType,
 }
 
 impl MemoryRegion {
-    const fn new(name: &'static str, start: u32, len: u32) -> Self {
+    const fn new(name: &'static str, start: u32, len: u32, mem_type: MemoryType) -> Self {
         Self {
             _name: name,
             start,
             len,
+            mem_type,
         }
     }
 
@@ -161,31 +181,82 @@ impl MemoryRegion {
 
 const VALID_REGIONS: &[MemoryRegion] = &[
     // 2MB of flash
-    MemoryRegion::new("Flash", 0x1000_0000, 0x0020_0000),
+    MemoryRegion::new("Flash", 0x1000_0000, 0x0020_0000, MemoryType::Flash),
     // 520KB of SRAM
-    MemoryRegion::new("SRAM", 0x2000_0000, 0x0008_2000),
+    MemoryRegion::new("SRAM", 0x2000_0000, 0x0008_2000, MemoryType::Ram),
     // 32KB of Boot ROM
-    MemoryRegion::new("ROM", 0x0000_0000, 0x0000_8000),
+    MemoryRegion::new("ROM", 0x0000_0000, 0x0000_8000, MemoryType::BootRom),
     // 512KB of live ROM data
-    MemoryRegion::new("Live", 0x9000_0000, 0x0008_0000),
+    MemoryRegion::new(
+        "Live ROM Image",
+        0x9000_0000,
+        0x0008_0000,
+        MemoryType::VirtualRw,
+    ),
 ];
 
-fn check_memory_range(address: u32, length: u32) -> Result<(), Error> {
-    VALID_REGIONS
-        .iter()
-        .any(|r| r.contains(address, length))
-        .then_some(())
-        .ok_or(Error::InvalidMemoryRange(address, length))
+fn check_memory_range(
+    device: &Device,
+    address: u32,
+    length: u32,
+    write: bool,
+    flash_writes_allowed: bool,
+) -> Result<(), Error> {
+    for region in VALID_REGIONS {
+        if region.contains(address, length) {
+            return match region.mem_type {
+                MemoryType::BootRom => {
+                    if write {
+                        Err(Error::MemoryNotWriteable)
+                    } else {
+                        Ok(())
+                    }
+                }
+                MemoryType::Flash => {
+                    if !write || flash_writes_allowed {
+                        Ok(())
+                    } else {
+                        Err(Error::MemoryNotWriteable)
+                    }
+                }
+                MemoryType::Ram => Ok(()),
+                MemoryType::VirtualRw => {
+                    if device.is_running() {
+                        Ok(())
+                    } else {
+                        Err(Error::MemoryDeviceNotRunning)
+                    }
+                }
+            };
+        }
+    }
+    Err(Error::InvalidMemoryRange(address, length))
 }
 
 /// Read bytes from device memory
 pub async fn read_memory(device: &Device, address: u32, length: u32) -> Result<Vec<u8>, Error> {
-    check_memory_range(address, length)?;
+    check_memory_range(device, address, length, false, false)?;
 
     let mut picoboot = get_picoboot(device).await?;
 
     picoboot
-        .flash_read(address, length)
+        .read(address, length)
+        .await
+        .map_err(|e| Error::Usb(e.to_string()))
+}
+
+/// Write bytes to device memory.
+///
+/// Flash writes are not permitted via this path — use the update subcommands
+/// for persistent flash writes. SRAM and virtual (live ROM) addresses are
+/// both accepted.
+pub async fn write_memory(device: &Device, address: u32, data: &[u8]) -> Result<(), Error> {
+    check_memory_range(device, address, data.len() as u32, true, false)?;
+
+    let mut picoboot = get_picoboot(device).await?;
+
+    picoboot
+        .write(address, data)
         .await
         .map_err(|e| Error::Usb(e.to_string()))
 }

@@ -75,7 +75,7 @@ impl std::fmt::Display for Device {
             let fw_version = &info.version;
             format!("{model} {chip_pins} {hw_rev} - Firmware: {fw_version}")
         } else {
-            "Unknown Model/Firmware -".to_string()
+            "Unknown   - Firmware: n/a  ".to_string()
         };
         write!(f, "{info_str} Serial: {serial} State: {}", self.state)
     }
@@ -94,6 +94,21 @@ impl std::fmt::Debug for Device {
 }
 
 impl Device {
+    /// Returns whether this is a recognised One ROM device.
+    ///
+    /// A recognised device has valid One ROM flash or RAM information
+    /// available.
+    pub fn is_recognised(&self) -> bool {
+        self.onerom
+            .as_ref()
+            .map(|o| o.flash.is_some() || o.ram.is_some())
+            .unwrap_or(false)
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.state == DeviceState::Running
+    }
+
     pub fn update_onerom(&mut self, onerom: Sdrr) {
         self.onerom = Some(onerom);
         self.update_state();
@@ -118,14 +133,24 @@ impl Device {
     }
 }
 
+/// Returns whether a serial number matches a given pattern, which may include
+/// wildcards.
+pub fn matches_serial(serial: Option<&str>, pattern: &str) -> bool {
+    let pattern_upper = pattern.to_uppercase();
+    let matcher = WildMatch::new(&pattern_upper);
+    serial
+        .map(|s| matcher.matches(&s.to_uppercase()))
+        .unwrap_or(false)
+}
+
 /// Enumerate connected devices and select one based on an optional serial
 /// number selector.
 ///
 /// - No selector, one device found: returns that device.
 /// - No selector, multiple devices found: returns an error listing serials.
 /// - Selector provided: matches against serial number, errors if not found.
-pub async fn select_device(selector: Option<&str>) -> Result<Device, Error> {
-    let devices = enumerate_devices().await?;
+pub async fn select_device(selector: Option<&str>, unrecognised: bool) -> Result<Device, Error> {
+    let devices = enumerate_devices(unrecognised).await?;
 
     if devices.is_empty() {
         return Err(Error::NoDevices);
@@ -146,16 +171,9 @@ pub async fn select_device(selector: Option<&str>) -> Result<Device, Error> {
             }
         }
         Some(pattern) => {
-            let pattern_upper = pattern.to_uppercase();
-            let matcher = WildMatch::new(&pattern_upper);
             let mut matched: Vec<Device> = devices
                 .into_iter()
-                .filter(|d| {
-                    d.serial
-                        .as_deref()
-                        .map(|s| matcher.matches(&s.to_uppercase()))
-                        .unwrap_or(false)
-                })
+                .filter(|d| matches_serial(d.serial.as_deref(), pattern))
                 .collect();
             match matched.len() {
                 0 => Err(Error::DeviceNotFound(pattern.to_string())),

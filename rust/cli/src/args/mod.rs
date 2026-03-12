@@ -23,15 +23,36 @@ pub mod scan;
 pub mod update;
 
 use clap::{Parser, Subcommand};
+use enum_dispatch::enum_dispatch;
+use log::debug;
+use onerom_cli::LogLevel;
 
 use onerom_cli::{Error, Options};
 
-use control::ControlArgs;
-use firmware::FirmwareArgs;
-use inspect::InspectArgs;
+use control::{
+    ControlArgs, ControlBlinkArgs, ControlCommands, ControlGpioArgs, ControlPokeArgs,
+    ControlPokeCommands, ControlPokeLiveArgs, ControlPokeMemoryArgs, ControlRebootArgs,
+    ControlResetArgs, ControlSelectArgs,
+};
+use firmware::{
+    FirmwareArgs, FirmwareBuildArgs, FirmwareCommands, FirmwareDownloadArgs, FirmwareInspectArgs,
+    FirmwareReleasesArgs,
+};
+use inspect::{
+    InspectArgs, InspectCommands, InspectGpioArgs, InspectImageArgs, InspectInfoArgs,
+    InspectPeekArgs, InspectPeekCommands, InspectPeekLiveArgs, InspectPeekMemoryArgs,
+    InspectSlotsArgs, InspectTelemetryArgs,
+};
 use program::ProgramArgs;
 use scan::ScanArgs;
-use update::UpdateArgs;
+use update::{
+    UpdateArgs, UpdateCommands, UpdateCommitArgs, UpdateFlashArgs, UpdateOtpArgs, UpdateRenameArgs,
+};
+
+#[enum_dispatch]
+pub trait CommandTrait {
+    fn requires_device(&self) -> bool;
+}
 
 /// One ROM command-line interface.
 ///
@@ -43,19 +64,44 @@ use update::UpdateArgs;
 #[derive(Debug, Parser)]
 #[command(name = "onerom", version = concat!("v", env!("CARGO_PKG_VERSION")), about, long_about = None)]
 pub struct Cli {
-    /// Select a specific One ROM device by serial number.  Required when
-    /// multiple devices are connected. If omitted and exactly one device is
-    /// connected, that device is used automatically.
+    /// Select a specific One ROM device by serial number.
+    ///
+    /// Required when multiple devices are connected.
+    /// Accepts * and ? wildcards for partial matching.
+    /// If omitted and exactly one device is connected, that device is used automatically.
     #[arg(global = true, long, short, value_name = "DEVICE")]
     pub device: Option<String>,
+
+    /// Allow management of unrecognised RP2350 devices and unprogrammed One ROMs.
+    ///
+    /// This is a global flag that can be used with any command to allow
+    /// this tool to manage RP2350 devices that do not have a known One ROM
+    /// firmware signature or VID/PID.
+    ///
+    /// Use with caution as this allows programming of any non-One ROM RP2350
+    /// devices that are attached.
+    #[arg(global = true, visible_alias = "unrecognized", long, short)]
+    pub unrecognised: bool,
+
+    /// Auto-confirm all prompts with "yes".
+    ///
+    /// This is a global flag that can be used with any command to
+    /// automatically answer "yes" to all prompts, allowing for non-interactive
+    /// use.
+    ///
+    /// Use with caution, as it may lead to unintended consequences if used
+    /// without fully understanding the implications of the command being
+    /// run.
+    #[arg(global = true, long, short)]
+    pub yes: bool,
 
     /// Enable verbose output.
     #[arg(global = true, long, short)]
     pub verbose: bool,
 
-    /// Enable debug logging output.
-    #[arg(global = true, long)]
-    pub debug: bool,
+    /// Set logging level.
+    #[arg(global = true, long, value_enum, default_value_t = LogLevel::Warn)]
+    pub log_level: LogLevel,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -63,17 +109,51 @@ pub struct Cli {
 
 impl Cli {
     pub async fn try_into_options(&self) -> Result<Options, Error> {
+        // Built the options struct first.
         let mut options = Options {
-            debug: self.debug,
+            log_level: self.log_level.clone(),
             verbose: self.verbose,
+            yes: self.yes,
+            unrecognised: self.unrecognised,
             device: None,
         };
 
+        let requires_device = self.command.requires_device();
+
+        // Check if command needs a device
+        if let Some(device) = self.device.as_ref()
+            && !requires_device
+        {
+            if options.verbose {
+                println!(
+                    "Warning: --device option specified, but selected command does not require a device. Ignoring --device option."
+                );
+            }
+            debug!(
+                "Device {device} specified with --device, but  command does not require a device. Ignoring --device option."
+            );
+            return Ok(options);
+        }
+
+        // If a device was specified, select it and add it to the options
         if let Some(device) = self.device.as_ref() {
             if options.verbose {
                 println!("Scanning for device '{}' ...", device);
             }
-            let device = onerom_cli::device::select_device(Some(device)).await?;
+            let device =
+                onerom_cli::device::select_device(Some(device), options.unrecognised).await?;
+            if options.verbose {
+                println!("Found device: {device}");
+            }
+            options.device = Some(device);
+        }
+
+        // If no device was specified, attempt to detect one
+        if options.device.is_none() && requires_device {
+            if options.verbose {
+                println!("No device specified, scanning for connected devices ...");
+            }
+            let device = onerom_cli::device::select_device(None, options.unrecognised).await?;
             if options.verbose {
                 println!("Found device: {device}");
             }
@@ -84,6 +164,7 @@ impl Cli {
     }
 }
 
+#[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum Commands {
     /// Discover and list connected One ROM devices.
@@ -114,8 +195,7 @@ pub enum Commands {
     /// Perform transient actions on a connected One ROM device.
     ///
     /// These actions affect the device's current state but do not persist
-    /// across power cycles, with the exception of operations that explicitly
-    /// write to flash.
+    /// across power cycles.
     #[command(
         subcommand_value_name = "COMMAND",
         subcommand_help_heading = "Commands"
@@ -131,4 +211,32 @@ pub enum Commands {
         subcommand_help_heading = "Commands"
     )]
     Update(UpdateArgs),
+
+    /// Read data from One ROM's SRAM or the live ROM image.
+    ///
+    /// Top-level alias for `inspect peek`. See `onerom inspect peek --help`
+    /// for full documentation.
+    ///
+    /// Example:
+    ///   onerom peek memory --address 0x20000000 --length 128
+    ///   onerom peek live --address 0x100 --length 64
+    #[command(
+        subcommand_value_name = "COMMAND",
+        subcommand_help_heading = "Commands"
+    )]
+    Peek(InspectPeekArgs),
+
+    /// Write data to One ROM's SRAM or the live ROM image.
+    ///
+    /// Top-level alias for `control poke`. See `onerom control poke --help`
+    /// for full documentation.
+    ///
+    /// Example:
+    ///   onerom poke memory --address 0x20000010 --value 0xFF
+    ///   onerom poke live --address 0x100 --input patch.bin
+    #[command(
+        subcommand_value_name = "COMMAND",
+        subcommand_help_heading = "Commands"
+    )]
+    Poke(ControlPokeArgs),
 }

@@ -4,7 +4,9 @@
 
 //! Argument definitions for `onerom firmware`.
 
+use crate::args::CommandTrait;
 use clap::{Args, Subcommand};
+use enum_dispatch::enum_dispatch;
 
 #[derive(Debug, Args)]
 pub struct FirmwareArgs {
@@ -12,6 +14,13 @@ pub struct FirmwareArgs {
     pub command: FirmwareCommands,
 }
 
+impl CommandTrait for FirmwareArgs {
+    fn requires_device(&self) -> bool {
+        self.command.requires_device()
+    }
+}
+
+#[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum FirmwareCommands {
     /// Build a One ROM firmware binary from a ROM configuration (not yet supported).
@@ -88,6 +97,12 @@ pub struct FirmwareBuildArgs {
     pub out: String,
 }
 
+impl CommandTrait for FirmwareBuildArgs {
+    fn requires_device(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct FirmwareInspectArgs {
     /// Firmware binary file to inspect.
@@ -95,11 +110,23 @@ pub struct FirmwareInspectArgs {
     pub file: String,
 }
 
+impl CommandTrait for FirmwareInspectArgs {
+    fn requires_device(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Debug, Args)]
 pub struct FirmwareReleasesArgs {
     /// Show only releases for this board type.
     #[arg(long, value_name = "BOARD")]
     pub board: Option<String>,
+}
+
+impl CommandTrait for FirmwareReleasesArgs {
+    fn requires_device(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Args)]
@@ -119,4 +146,10 @@ pub struct FirmwareDownloadArgs {
     /// Output file path. Defaults to onerom-<board>-<mcu>-<version>.bin.
     #[arg(long, short, value_name = "FILE")]
     pub out: Option<String>,
+}
+
+impl CommandTrait for FirmwareDownloadArgs {
+    fn requires_device(&self) -> bool {
+        false
+    }
 }

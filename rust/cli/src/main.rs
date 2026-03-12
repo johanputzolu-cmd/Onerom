@@ -19,9 +19,9 @@ mod utils;
 
 use args::Cli;
 use args::Commands;
-use args::control::ControlCommands;
+use args::control::{ControlCommands, ControlPokeCommands};
 use args::firmware::FirmwareCommands;
-use args::inspect::InspectCommands;
+use args::inspect::{InspectCommands, InspectPeekCommands};
 use args::update::UpdateCommands;
 
 use onerom_cli::Error;
@@ -59,9 +59,11 @@ async fn sub_main() -> Result<(), Error> {
             InspectCommands::Telemetry(args) => inspect::cmd_telemetry(&options, args).await,
             InspectCommands::Slots(args) => inspect::cmd_slots(&options, args).await,
             InspectCommands::Image(args) => inspect::cmd_image(&options, args).await,
-            InspectCommands::Live(args) => inspect::cmd_live(&options, args).await,
-            InspectCommands::Memory(args) => inspect::cmd_memory(&options, args).await,
             InspectCommands::Gpio(args) => inspect::cmd_gpio(&options, args).await,
+            InspectCommands::Peek(args) => match &args.command {
+                InspectPeekCommands::Live(args) => inspect::cmd_peek_live(&options, args).await,
+                InspectPeekCommands::Memory(args) => inspect::cmd_peek_memory(&options, args).await,
+            },
         },
         Commands::Control(args) => match &args.command {
             ControlCommands::Blink(args) => control::cmd_blink(&options, args).await,
@@ -69,12 +71,24 @@ async fn sub_main() -> Result<(), Error> {
             ControlCommands::Reset(args) => control::cmd_reset(&options, args).await,
             ControlCommands::Select(args) => control::cmd_select(&options, args).await,
             ControlCommands::Gpio(args) => control::cmd_gpio(&options, args).await,
+            ControlCommands::Poke(args) => match &args.command {
+                ControlPokeCommands::Memory(args) => control::cmd_poke_memory(&options, args).await,
+                ControlPokeCommands::Live(args) => control::cmd_poke_live(&options, args).await,
+            },
         },
         Commands::Update(args) => match &args.command {
             UpdateCommands::Flash(args) => update::cmd_flash(&options, args).await,
             UpdateCommands::Commit(args) => update::cmd_commit(&options, args).await,
             UpdateCommands::Rename(args) => update::cmd_rename(&options, args).await,
             UpdateCommands::Otp(args) => update::cmd_otp(&options, args).await,
+        },
+        Commands::Peek(args) => match &args.command {
+            InspectPeekCommands::Live(args) => inspect::cmd_peek_live(&options, args).await,
+            InspectPeekCommands::Memory(args) => inspect::cmd_peek_memory(&options, args).await,
+        },
+        Commands::Poke(args) => match &args.command {
+            ControlPokeCommands::Live(args) => control::cmd_poke_live(&options, args).await,
+            ControlPokeCommands::Memory(args) => control::cmd_poke_memory(&options, args).await,
         },
     }
 }

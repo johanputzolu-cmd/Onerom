@@ -3,17 +3,17 @@
 // MIT License
 
 use crate::args::inspect::{
-    InspectGpioArgs, InspectImageArgs, InspectInfoArgs, InspectLiveArgs, InspectMemoryArgs,
+    InspectGpioArgs, InspectImageArgs, InspectInfoArgs, InspectPeekLiveArgs, InspectPeekMemoryArgs,
     InspectSlotsArgs, InspectTelemetryArgs,
 };
-use crate::utils;
+use crate::utils::{check_device, check_live_read_write, print_hex_dump};
 use onerom_cli::usb::read_memory;
-use onerom_cli::{Device, DeviceState, Error, Options};
+use onerom_cli::{Device, Error, Options};
 use sdrr_fw_parser::SdrrCsState;
 
-pub async fn cmd_info(options: &Options, _args: &InspectInfoArgs) -> Result<(), Error> {
+pub async fn cmd_info(options: &Options, args: &InspectInfoArgs) -> Result<(), Error> {
     // Print the device summary
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let device = options.device.as_ref().unwrap();
 
     println!("{device}");
@@ -37,14 +37,14 @@ pub async fn cmd_info(options: &Options, _args: &InspectInfoArgs) -> Result<(), 
     Ok(())
 }
 
-pub async fn cmd_telemetry(options: &Options, _args: &InspectTelemetryArgs) -> Result<(), Error> {
-    utils::check_device(options)?;
+pub async fn cmd_telemetry(options: &Options, args: &InspectTelemetryArgs) -> Result<(), Error> {
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("inspect telemetry".into()))
 }
 
-pub async fn cmd_slots(options: &Options, _args: &InspectSlotsArgs) -> Result<(), Error> {
-    utils::check_device(options)?;
+pub async fn cmd_slots(options: &Options, args: &InspectSlotsArgs) -> Result<(), Error> {
+    check_device(options, args)?;
     let device = options.device.as_ref().unwrap();
 
     println!("{device}");
@@ -92,8 +92,8 @@ pub async fn cmd_slots(options: &Options, _args: &InspectSlotsArgs) -> Result<()
     }
 }
 
-pub async fn cmd_image(options: &Options, _args: &InspectImageArgs) -> Result<(), Error> {
-    utils::check_device(options)?;
+pub async fn cmd_image(options: &Options, args: &InspectImageArgs) -> Result<(), Error> {
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("inspect image".into()))
 }
@@ -109,42 +109,26 @@ async fn read_and_output(
     if let Some(filename) = out {
         std::fs::write(filename, &data)?;
     } else {
-        utils::print_hex_dump(address, &data);
+        print_hex_dump(address, &data);
     }
 
     Ok(())
 }
 
-pub async fn cmd_live(options: &Options, args: &InspectLiveArgs) -> Result<(), Error> {
-    const LIVE_ROM_BASE: u32 = 0x9000_0000;
-    const LIVE_ROM_MAX_OFFSET: u32 = 0x0008_0000;
-
-    utils::check_device(options)?;
+pub async fn cmd_peek_live(options: &Options, args: &InspectPeekLiveArgs) -> Result<(), Error> {
+    let address = check_live_read_write(options, args.address, args.length, args)?;
     let device = options.device.as_ref().unwrap();
-
-    if device.state != DeviceState::Running {
-        return Err(Error::NotRunning);
-    }
-
-    if args.address >= LIVE_ROM_MAX_OFFSET {
-        return Err(Error::InvalidMemoryRange(args.address, args.length));
-    }
-
-    // To do: check the address range is within the correct size for this ROM
-    // type
-
-    let address = LIVE_ROM_BASE + args.address;
     read_and_output(device, address, args.length, args.out.as_ref()).await
 }
 
-pub async fn cmd_memory(options: &Options, args: &InspectMemoryArgs) -> Result<(), Error> {
-    utils::check_device(options)?;
+pub async fn cmd_peek_memory(options: &Options, args: &InspectPeekMemoryArgs) -> Result<(), Error> {
+    check_device(options, args)?;
     let device = options.device.as_ref().unwrap();
     read_and_output(device, args.address, args.length, args.out.as_ref()).await
 }
 
-pub async fn cmd_gpio(options: &Options, _args: &InspectGpioArgs) -> Result<(), Error> {
-    utils::check_device(options)?;
+pub async fn cmd_gpio(options: &Options, args: &InspectGpioArgs) -> Result<(), Error> {
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("inspect gpio".into()))
 }

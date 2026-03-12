@@ -2,15 +2,18 @@
 //
 // MIT License
 
-use crate::{args, utils};
-use onerom_cli::usb::{RebootMode, reboot};
+use crate::{
+    args,
+    utils::{check_device, check_live_read_write},
+};
+use onerom_cli::usb::{RebootMode, reboot, write_memory};
 use onerom_cli::{Error, Options};
 
 pub async fn cmd_blink(
     options: &Options,
-    _args: &args::control::ControlBlinkArgs,
+    args: &args::control::ControlBlinkArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("control blink".to_string()))
 }
@@ -19,7 +22,7 @@ pub async fn cmd_reboot(
     options: &Options,
     args: &args::control::ControlRebootArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let device = options.device.as_ref().unwrap();
     assert!(
         !(args.stopped && args.running),
@@ -32,8 +35,6 @@ pub async fn cmd_reboot(
     };
     if options.verbose {
         println!("Rebooting device: {device}");
-    } else {
-        println!("Rebooting device")
     }
     reboot(device, mode).await?;
     println!("Rebooted device into {mode} mode");
@@ -49,27 +50,79 @@ pub async fn cmd_reboot(
 
 pub async fn cmd_reset(
     options: &Options,
-    _args: &args::control::ControlResetArgs,
+    args: &args::control::ControlResetArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("control reset".to_string()))
 }
 
 pub async fn cmd_select(
     options: &Options,
-    _args: &args::control::ControlSelectArgs,
+    args: &args::control::ControlSelectArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("control select".to_string()))
 }
 
 pub async fn cmd_gpio(
     options: &Options,
-    _args: &args::control::ControlGpioArgs,
+    args: &args::control::ControlGpioArgs,
 ) -> Result<(), Error> {
-    utils::check_device(options)?;
+    check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("control gpio".to_string()))
+}
+
+// Resolve poke input — either a single byte value or the contents of a file.
+//
+// The ArgGroup on the args structs guarantees exactly one of these is Some.
+fn poke_data(value: Option<u8>, input: Option<&String>) -> Result<Vec<u8>, Error> {
+    if let Some(byte) = value {
+        Ok(vec![byte])
+    } else if let Some(path) = input {
+        std::fs::read(path).map_err(|e| Error::Other(e.to_string()))
+    } else {
+        // Clap ArgGroup ensures this is unreachable, but be explicit
+        Err(Error::Other("No data source specified".to_string()))
+    }
+}
+
+pub async fn cmd_poke_memory(
+    options: &Options,
+    args: &args::control::ControlPokeMemoryArgs,
+) -> Result<(), Error> {
+    check_device(options, args)?;
+    let device = options.device.as_ref().unwrap();
+
+    let data = poke_data(args.byte, args.input.as_ref())?;
+    write_memory(device, args.address, &data).await?;
+
+    if options.verbose {
+        println!("Wrote {} byte(s) to 0x{:08x}", data.len(), args.address);
+    }
+
+    Ok(())
+}
+
+pub async fn cmd_poke_live(
+    options: &Options,
+    args: &args::control::ControlPokeLiveArgs,
+) -> Result<(), Error> {
+    let data = poke_data(args.byte, args.input.as_ref())?;
+    let address = check_live_read_write(options, args.address, data.len() as u32, args)?;
+
+    let device = options.device.as_ref().unwrap();
+    write_memory(device, address, &data).await?;
+
+    if options.verbose {
+        println!(
+            "Wrote {} byte(s) to live ROM offset 0x{:08x}",
+            data.len(),
+            args.address
+        );
+    }
+
+    Ok(())
 }

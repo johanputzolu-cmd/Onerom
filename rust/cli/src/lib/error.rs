@@ -12,7 +12,7 @@ pub enum Error {
     #[error("No One ROM devices found")]
     NoDevices,
 
-    #[error("Multiple devices found - use --device to select one\n  Found: {}", .0.join(", "))]
+    #[error("Multiple devices found - use --device to select one.\n  Found: {}", .0.join(", "))]
     MultipleDevices(Vec<String>),
 
     #[error("Device not found: {0}")]
@@ -41,6 +41,12 @@ pub enum Error {
 
     #[error("An unsupported memory region was queried: address {0:#010x} length {1:#010x}")]
     InvalidMemoryRange(u32, u32),
+
+    #[error("The specified memory range is not accessible when One ROM isn't running")]
+    MemoryDeviceNotRunning,
+
+    #[error("The specificied memory range is not writeable")]
+    MemoryNotWriteable,
 
     #[error("This operation can only be performed on a One ROM that is running")]
     NotRunning,

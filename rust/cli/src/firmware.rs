@@ -5,22 +5,25 @@
 use onerom_config::mcu::Variant;
 use onerom_fw::net::Releases;
 
-use crate::{args, utils};
+use crate::{
+    args,
+    utils::{check_device, check_device_nand_board, get_supported_boards},
+};
 use onerom_cli::{Error, Options};
 
 pub async fn cmd_build(
     options: &Options,
     args: &args::firmware::FirmwareBuildArgs,
 ) -> Result<(), Error> {
-    utils::check_device_nand_board(options, &args.board)?;
+    check_device_nand_board(options, &args.board)?;
     Err(Error::Unimplemented("firmware build".to_string()))
 }
 
 pub async fn cmd_inspect(
     options: &Options,
-    _args: &args::firmware::FirmwareInspectArgs,
+    args: &args::firmware::FirmwareInspectArgs,
 ) -> Result<(), Error> {
-    utils::check_no_device(options)?;
+    check_device(options, args)?;
     Err(Error::Unimplemented("firmware inspect".to_string()))
 }
 
@@ -28,7 +31,7 @@ pub async fn cmd_releases(
     options: &Options,
     args: &args::firmware::FirmwareReleasesArgs,
 ) -> Result<(), Error> {
-    utils::check_device_nand_board(options, &args.board)?;
+    check_device_nand_board(options, &args.board)?;
 
     let board = if let Some(device) = options.device.as_ref() {
         let board = device
@@ -42,7 +45,7 @@ pub async fn cmd_releases(
         Some(board)
     } else if let Some(board) = &args.board {
         let board = onerom_config::hw::Board::try_from_str(board)
-            .ok_or_else(|| Error::InvalidBoard(board.clone(), utils::get_supported_boards()))?;
+            .ok_or_else(|| Error::InvalidBoard(board.clone(), get_supported_boards()))?;
         Some(board)
     } else {
         None
@@ -105,7 +108,7 @@ pub async fn cmd_download(
     options: &Options,
     args: &args::firmware::FirmwareDownloadArgs,
 ) -> Result<(), Error> {
-    utils::check_device_nand_board(options, &Some(args.board.clone()))?;
+    check_device_nand_board(options, &Some(args.board.clone()))?;
 
     Err(Error::Unimplemented("firmware download".to_string()))
 }
