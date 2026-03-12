@@ -27,19 +27,21 @@ pub enum Error {
     #[error("Unknown board type: {0}\nBoard types: {1}")]
     InvalidBoard(String, String),
 
-    #[error("Cannot specify both device and board together")]
+    #[error("Cannot specify both --device and --board together")]
     DeviceAndBoard,
 
-    #[error("Operation does not apply to device")]
+    #[error("Operation does not apply to --device")]
     Device,
 
-    #[error("No device was specified")]
+    #[error("No --device was specified")]
     NoDevice,
 
-    #[error("Command {0} has not been implemented")]
+    #[error("Command '{0}' has not been implemented")]
     Unimplemented(String),
 
-    #[error("An unsupported memory region was queried: address {0:#010x} length {1:#010x}")]
+    #[error(
+        "The operation attempted to access an unsupported memory region: address {0:#010x} length {1:#010x}"
+    )]
     InvalidMemoryRange(u32, u32),
 
     #[error("The specified memory range is not accessible when One ROM isn't running")]
@@ -50,6 +52,14 @@ pub enum Error {
 
     #[error("This operation can only be performed on a One ROM that is running")]
     NotRunning,
+
+    #[error("This operation cannot be performed as the ROM type is unknown")]
+    UnknownRomType,
+
+    #[error(
+        "The operation attempted to access past the end of a live ROM image\n  ROM type {0} image size is {1} bytes"
+    )]
+    LiveOutOfBounds(String, usize),
 }
 
 impl From<onerom_fw::Error> for Error {

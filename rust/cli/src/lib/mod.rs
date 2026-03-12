@@ -18,6 +18,9 @@ pub mod usb;
 pub use device::{Device, DeviceState};
 pub use error::Error;
 
+pub const LIVE_ROM_BASE: u32 = 0x9000_0000;
+pub const LIVE_ROM_MAX_OFFSET: u32 = 0x0008_0000;
+
 #[derive(ValueEnum, Clone, Default, Debug)]
 pub enum LogLevel {
     #[default]

@@ -23,7 +23,7 @@ impl CommandTrait for UpdateArgs {
 #[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum UpdateCommands {
-    /// Write a ROM image to a flash slot on the device (not yet supported).
+    /// Write a ROM image to a slot (ROM set) on the device (not yet supported).
     ///
     /// Writes the specified ROM image to the given flash slot. This
     /// persists across power cycles. The ROM type and chip-select
@@ -31,16 +31,19 @@ pub enum UpdateCommands {
     /// the slot must be empty.
     ///
     /// Example:
+    ///
     ///   onerom update flash --slot 2 --image kernal.bin
-    Flash(UpdateFlashArgs),
+    Slot(UpdateSlotArgs),
 
-    /// Commit a volatile RAM image to flash (not yet supported).
+    /// Commit a Live ROM image to flash (not yet supported).
     ///
     /// Persists the currently active RAM image to its corresponding
     /// flash slot so it survives power cycles.
     ///
     /// Example:
+    ///
     ///   onerom update commit
+    ///
     ///   onerom update commit --slot 2
     Commit(UpdateCommitArgs),
 
@@ -50,7 +53,9 @@ pub enum UpdateCommands {
     /// with the --device option to identify this device in all commands.
     ///
     /// Example:
+    ///
     ///   onerom update rename my-c64
+    ///
     ///   onerom update rename cpu-low
     Rename(UpdateRenameArgs),
 
@@ -66,7 +71,7 @@ pub enum UpdateCommands {
 }
 
 #[derive(Debug, Args)]
-pub struct UpdateFlashArgs {
+pub struct UpdateSlotArgs {
     /// Flash slot index to write (0-15).
     #[arg(long, short, value_name = "INDEX", required = true)]
     pub slot: u8,
@@ -76,7 +81,7 @@ pub struct UpdateFlashArgs {
     pub image: String,
 }
 
-impl CommandTrait for UpdateFlashArgs {
+impl CommandTrait for UpdateSlotArgs {
     fn requires_device(&self) -> bool {
         true
     }

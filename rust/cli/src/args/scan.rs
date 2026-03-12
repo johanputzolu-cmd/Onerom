@@ -13,7 +13,9 @@ use clap::Args;
 /// (if set), board type, MCU, and currently loaded firmware version.
 ///
 /// Example:
+///
 ///   onerom scan
+///
 ///   onerom scan --board fire-24-e
 #[derive(Debug, Args)]
 pub struct ScanArgs {

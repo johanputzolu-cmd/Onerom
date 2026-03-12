@@ -31,6 +31,7 @@ pub enum InspectCommands {
     ///
     /// Example:
     ///   onerom inspect info
+    ///
     ///   onerom --device my-c64 inspect info
     Info(InspectInfoArgs),
 
@@ -49,6 +50,7 @@ pub enum InspectCommands {
     /// configured image slot, and indicates which slot is currently active.
     ///
     /// Example:
+    ///
     ///   onerom inspect slots
     Slots(InspectSlotsArgs),
 
@@ -57,10 +59,24 @@ pub enum InspectCommands {
     /// Displays or saves the ROM image data from the specified slot.
     /// If no slot is specified, reads the image currently being served.
     ///
-    /// Example:
+    /// Examples:
+    ///
     ///   onerom inspect image --slot 2
-    ///   onerom inspect image --slot 2 --out kernal-backup.bin
+    ///
+    ///   onerom inspect image --slot 2 --output kernal-backup.bin
     Image(InspectImageArgs),
+
+    /// Read and display the live ROM image currently being served.
+    ///
+    /// Use "inspect peek live" for a more extensive list of options for reading
+    /// the live ROM image.
+    ///
+    /// Examples:
+    ///
+    ///   onerom inspect live
+    ///
+    ///   onerom inspect live --output live-image.bin
+    Live(InspectLiveArgs),
 
     /// Read data from One ROM's SRAM or the live ROM image.
     ///
@@ -68,8 +84,10 @@ pub enum InspectCommands {
     /// for SRAM reads and `inspect peek live` for reads from the ROM image
     /// currently being served.
     ///
-    /// Example:
+    /// Examples:
+    ///
     ///   onerom inspect peek memory --address 0x20000000 --length 128
+    ///
     ///   onerom inspect peek live --address 0x100 --length 64
     #[command(
         subcommand_value_name = "COMMAND",
@@ -82,6 +100,7 @@ pub enum InspectCommands {
     /// Displays the direction and logic level of each exposed GPIO pin.
     ///
     /// Example:
+    ///
     ///   onerom inspect gpio
     Gpio(InspectGpioArgs),
 }
@@ -124,11 +143,24 @@ pub struct InspectImageArgs {
     pub slot: Option<u8>,
 
     /// Save the image data to this file.
-    #[arg(long, short, value_name = "FILE", value_parser = parse_u32)]
-    pub out: Option<String>,
+    #[arg(long, short, visible_alias = "out", value_name = "FILE", value_parser = parse_u32)]
+    pub output: Option<String>,
 }
 
 impl CommandTrait for InspectImageArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct InspectLiveArgs {
+    /// Save the live ROM image data to this file.
+    #[arg(long, short, visible_alias = "out", value_name = "FILE")]
+    pub output: Option<String>,
+}
+
+impl CommandTrait for InspectLiveArgs {
     fn requires_device(&self) -> bool {
         true
     }
@@ -159,7 +191,7 @@ pub enum InspectPeekCommands {
     ///
     /// Example:
     ///   onerom inspect peek live --address 0x100 --length 64
-    ///   onerom inspect peek live --address 0 --length 8192 --out rom-image.bin
+    ///   onerom inspect peek live --address 0 --length 8192 --output rom-image.bin
     Live(InspectPeekLiveArgs),
 
     /// Read and display One ROM's SRAM contents.
@@ -174,7 +206,7 @@ pub enum InspectPeekCommands {
     ///
     /// Example:
     ///   onerom inspect peek memory --address 0x20000000 --length 128
-    ///   onerom inspect peek memory --address 0x10000000 --length 8192 --out flash-start.bin
+    ///   onerom inspect peek memory --address 0x10000000 --length 8192 --output flash-start.bin
     Memory(InspectPeekMemoryArgs),
 }
 
@@ -183,18 +215,21 @@ pub struct InspectPeekLiveArgs {
     /// Read from the ROM image at this logical address, starting from 0.
     ///
     /// Accepts decimal and hexadecimal (0x prefix) formats.
-    #[arg(long, short, value_name = "ADDRESS", value_parser = parse_u32)]
+    #[arg(long, short, value_name = "ADDRESS", value_parser = parse_u32, default_value = "0")]
     pub address: u32,
 
     /// Read this many bytes of data from the ROM image.
     ///
     /// Accepts decimal and hexadecimal (0x prefix) formats.
+    ///
+    /// If not specified the command reads from the --address to the end of
+    /// the live ROM image
     #[arg(long, short, value_name = "LENGTH", value_parser = parse_u32)]
-    pub length: u32,
+    pub length: Option<u32>,
 
     /// Save the image data to this file.
-    #[arg(long, short, value_name = "FILE")]
-    pub out: Option<String>,
+    #[arg(long, short, visible_alias = "out", value_name = "FILE")]
+    pub output: Option<String>,
 }
 
 impl CommandTrait for InspectPeekLiveArgs {
@@ -218,8 +253,8 @@ pub struct InspectPeekMemoryArgs {
     pub length: u32,
 
     /// Save the data to this file.
-    #[arg(long, short, value_name = "FILE")]
-    pub out: Option<String>,
+    #[arg(long, short, visible_alias = "out", value_name = "FILE")]
+    pub output: Option<String>,
 }
 
 impl CommandTrait for InspectPeekMemoryArgs {

@@ -6,7 +6,7 @@ use crate::{
     args,
     utils::{check_device, check_live_read_write},
 };
-use onerom_cli::usb::{RebootMode, reboot, write_memory};
+use onerom_cli::usb::{RebootMode, read_memory, reboot, write_memory};
 use onerom_cli::{Error, Options};
 
 pub async fn cmd_blink(
@@ -111,12 +111,59 @@ pub async fn cmd_poke_live(
     args: &args::control::ControlPokeLiveArgs,
 ) -> Result<(), Error> {
     let data = poke_data(args.byte, args.input.as_ref())?;
-    let address = check_live_read_write(options, args.address, data.len() as u32, args)?;
-
+    let (address, _length) =
+        check_live_read_write(options, args.address, Some(data.len() as u32), args)?;
     let device = options.device.as_ref().unwrap();
-    write_memory(device, address, &data).await?;
 
-    if options.verbose {
+    if args.delta {
+        let current = read_memory(device, address, data.len() as u32).await?;
+
+        // Build runs of consecutive changed bytes
+        let mut runs: Vec<(u32, Vec<u8>)> = Vec::new();
+        for (i, b) in data.iter().copied().enumerate() {
+            if current.get(i).copied().unwrap_or(!b) != b {
+                let addr = address + i as u32;
+                #[allow(clippy::collapsible_if)]
+                if let Some((start, bytes)) = runs.last_mut() {
+                    if *start + bytes.len() as u32 == addr {
+                        bytes.push(b);
+                        continue;
+                    }
+                }
+                runs.push((addr, vec![b]));
+            }
+        }
+
+        let dry_run_str = if args.dry_run { "[dry-run] " } else { "" };
+
+        // Write the deltas
+        let delta_count: usize = runs.iter().map(|(_, b)| b.len()).sum();
+        for (addr, bytes) in &runs {
+            if options.verbose {
+                println!(
+                    "{dry_run_str}Writing {} byte(s) to 0x{addr:08x}",
+                    bytes.len()
+                );
+            }
+            if !args.dry_run {
+                write_memory(device, *addr, bytes).await?;
+            }
+        }
+
+        if runs.is_empty() {
+            println!("{dry_run_str}No differences found - no data written.");
+        } else {
+            if options.verbose {
+                println!("{dry_run_str}{} contiguous blocks written", runs.len())
+            }
+            println!(
+                "{dry_run_str}Applied {delta_count} delta byte(s) of {} to live ROM offset 0x{:08x}",
+                data.len(),
+                args.address
+            );
+        }
+    } else {
+        write_memory(device, address, &data).await?;
         println!(
             "Wrote {} byte(s) to live ROM offset 0x{:08x}",
             data.len(),

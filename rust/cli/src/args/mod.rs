@@ -40,13 +40,13 @@ use firmware::{
 };
 use inspect::{
     InspectArgs, InspectCommands, InspectGpioArgs, InspectImageArgs, InspectInfoArgs,
-    InspectPeekArgs, InspectPeekCommands, InspectPeekLiveArgs, InspectPeekMemoryArgs,
-    InspectSlotsArgs, InspectTelemetryArgs,
+    InspectLiveArgs, InspectPeekArgs, InspectPeekCommands, InspectPeekLiveArgs,
+    InspectPeekMemoryArgs, InspectSlotsArgs, InspectTelemetryArgs,
 };
 use program::ProgramArgs;
 use scan::ScanArgs;
 use update::{
-    UpdateArgs, UpdateCommands, UpdateCommitArgs, UpdateFlashArgs, UpdateOtpArgs, UpdateRenameArgs,
+    UpdateArgs, UpdateCommands, UpdateCommitArgs, UpdateOtpArgs, UpdateRenameArgs, UpdateSlotArgs,
 };
 
 #[enum_dispatch]
@@ -67,7 +67,9 @@ pub struct Cli {
     /// Select a specific One ROM device by serial number.
     ///
     /// Required when multiple devices are connected.
+    ///
     /// Accepts * and ? wildcards for partial matching.
+    ///
     /// If omitted and exactly one device is connected, that device is used automatically.
     #[arg(global = true, long, short, value_name = "DEVICE")]
     pub device: Option<String>,
@@ -124,15 +126,7 @@ impl Cli {
         if let Some(device) = self.device.as_ref()
             && !requires_device
         {
-            if options.verbose {
-                println!(
-                    "Warning: --device option specified, but selected command does not require a device. Ignoring --device option."
-                );
-            }
-            debug!(
-                "Device {device} specified with --device, but  command does not require a device. Ignoring --device option."
-            );
-            return Ok(options);
+            debug!("Device {device} specified but not required, retrieving it anyway");
         }
 
         // If a device was specified, select it and add it to the options
@@ -177,12 +171,45 @@ pub enum Commands {
     )]
     Firmware(FirmwareArgs),
 
-    /// Build and flash One ROM firmware in a single operation (not yet supported).
+    /// Build and flash One ROM firmware to a connected device.
     ///
-    /// This is the primary workflow for most users. The board and MCU type
-    /// are inferred from the connected device if not specified. With a JSON
-    /// config file or explicit --rom arguments, the firmware is built and
-    /// flashed in one step.
+    /// This is the primary workflow for most users. The board and MCU type are
+    /// inferred from the connected device if not specified explicitly.
+    ///
+    /// With a single device connected and a config file:
+    ///
+    ///   onerom program --config c64.json
+    ///
+    /// With multiple devices connected, using a wildcard to select the target
+    /// device:
+    ///
+    ///   onerom program --device '5*' --config c64.json
+    ///
+    /// With explicit ROM arguments instead of a config file:
+    ///
+    ///   onerom program --board fire-24-e \
+    ///       --rom image=kernal.bin,type=2364,cs=active_low \
+    ///       --rom image=basic.bin,type=2364,cs=active_low
+    ///
+    /// Using a local, pre-built firmware binary, containing the ROM metadata and
+    /// images:
+    ///
+    ///   onerom program --firmware firmware.bin
+    ///
+    /// Using a local, pre-built minimal firmware, with no ROM metadata or images,
+    /// and specifying the ROMs via arguments:
+    ///
+    ///   onerom program --firmware minimal.bin \
+    ///       --rom image=kernal.bin,type=2364,cs=active_low \
+    ///       --rom image=basic.bin,type=2364,cs=active_low
+    ///
+    /// To save the firmware to file, **as well** as programming the device, use
+    /// --out.
+    ///
+    ///   onerom program --config c64.json --out firmware.bin
+    ///
+    /// To generate a firmware binary without programming a device, use the
+    /// 'firmware' command.
     Program(ProgramArgs),
 
     /// Read-only inspection of a connected One ROM device.
@@ -217,8 +244,10 @@ pub enum Commands {
     /// Top-level alias for `inspect peek`. See `onerom inspect peek --help`
     /// for full documentation.
     ///
-    /// Example:
+    /// Examples:
+    ///
     ///   onerom peek memory --address 0x20000000 --length 128
+    ///
     ///   onerom peek live --address 0x100 --length 64
     #[command(
         subcommand_value_name = "COMMAND",
@@ -231,12 +260,27 @@ pub enum Commands {
     /// Top-level alias for `control poke`. See `onerom control poke --help`
     /// for full documentation.
     ///
-    /// Example:
-    ///   onerom poke memory --address 0x20000010 --value 0xFF
+    /// Examples:
+    ///
+    ///   onerom poke memory --address 0x20000010 --byte 0xFF
+    ///
     ///   onerom poke live --address 0x100 --input patch.bin
     #[command(
         subcommand_value_name = "COMMAND",
         subcommand_help_heading = "Commands"
     )]
     Poke(ControlPokeArgs),
+
+    /// Reboot the One ROM.
+    ///
+    /// Restarts the One ROM firmware. The device will re-initialise and
+    /// resume serving ROM images after the reboot.
+    ///
+    /// By default, this command pauses after a reboot to give the device time
+    /// to re-enumerate.
+    ///
+    /// Example:
+    ///
+    ///   onerom reboot
+    Reboot(ControlRebootArgs),
 }

@@ -7,6 +7,11 @@ CC      := $(if $(TOOLCHAIN),$(TOOLCHAIN)/arm-none-eabi-gcc,arm-none-eabi-gcc)
 OBJCOPY := $(if $(TOOLCHAIN),$(TOOLCHAIN)/arm-none-eabi-objcopy,arm-none-eabi-objcopy)
 OBJDUMP := $(if $(TOOLCHAIN),$(TOOLCHAIN)/arm-none-eabi-objdump,arm-none-eabi-objdump)
 
+MAJOR_VERSION := 0
+MINOR_VERSION := 1
+PATCH_VERSION := 0
+BUILD_VERSION := 0
+
 TINYUSB_DIR   := tinyusb
 PICOBOOTX_DIR := picobootx
 PICO_SDKLESS_DIR := pico-sdkless
@@ -42,6 +47,8 @@ CFLAGS := -mcpu=cortex-m33 -mthumb -mfloat-abi=hard -mfpu=fpv5-sp-d16 \
           -O2 -Wall -Wextra -Werror \
           -ffunction-sections -fdata-sections \
           -MMD -MP \
+		  -DMAJOR_VERSION=$(MAJOR_VERSION) -DMINOR_VERSION=$(MINOR_VERSION) \
+		  -DPATCH_VERSION=$(PATCH_VERSION) -DBUILD_VERSION=$(BUILD_VERSION) \
           $(SDRR_INCLUDE) $(SEGGER_INCLUDE) $(ORA_INCLUDE) $(PLUGIN_INCLUDE) \
 		  -Iinclude -I$(PICO_SDKLESS_DIR)/include \
           $(addprefix -I,$(TINYUSB_INCLUDE_DIRS)) \

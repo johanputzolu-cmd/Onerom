@@ -74,7 +74,7 @@ async fn get_picoboot(device: &Device) -> Result<Picoboot, Error> {
         .map_err(|e| Error::Usb(e.to_string()))?;
 
     picoboot.set_timeouts(Timeouts {
-        endpoint: Duration::from_millis(500),
+        endpoint: Duration::from_millis(2500),
         ..Timeouts::default()
     });
 

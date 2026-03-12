@@ -21,8 +21,8 @@ uint8_t check_plugin_valid(
         ERR("Invalid plugin - badmagic 0x%08x", header->magic);
         return 0;
     }
-    if (header->version != ORA_PLUGIN_VERSION_1) {
-        ERR("Invalid plugin - version 0x%08x", header->version);
+    if (header->api_version != ORA_PLUGIN_VERSION_1) {
+        ERR("Invalid plugin - version 0x%08x", header->api_version);
         return 0;
     }
     if (header->plugin_type != expected_type) {

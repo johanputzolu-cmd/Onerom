@@ -30,7 +30,9 @@ pub enum FirmwareCommands {
     /// file or individual --rom arguments.
     ///
     /// Examples:
+    ///
     ///   onerom firmware build --config c64.json --board fire-24-e --out firmware.bin
+    ///
     ///   onerom firmware build --board fire-24-e --mcu rp2350 \
     ///       --rom image=kernal.bin,type=2364,cs=active_low \
     ///       --out firmware.bin
@@ -42,6 +44,7 @@ pub enum FirmwareCommands {
     /// embedded ROM images and metadata.
     ///
     /// Example:
+    ///
     ///   onerom firmware inspect firmware.bin
     Inspect(FirmwareInspectArgs),
 
@@ -51,6 +54,7 @@ pub enum FirmwareCommands {
     /// firmware versions with their supported board types and MCUs.
     ///
     /// Example:
+    ///
     ///   onerom firmware releases
     Releases(FirmwareReleasesArgs),
 
@@ -61,6 +65,7 @@ pub enum FirmwareCommands {
     /// a complete firmware with ROM images in one step.
     ///
     /// Example:
+    ///
     ///   onerom firmware download --version 0.6.5 --board fire-24-e --out firmware.bin
     Download(FirmwareDownloadArgs),
 }
@@ -72,15 +77,18 @@ pub struct FirmwareBuildArgs {
     pub config: Option<String>,
 
     /// ROM image specification. May be repeated for multiple images.
+    ///
     /// Format: image=<file>,type=<romtype>,cs=<csconfig>
+    ///
     /// Example: --rom image=kernal.bin,type=2364,cs=active_low
+    ///
     /// Mutually exclusive with --config.
     #[arg(long, value_name = "SPEC", conflicts_with = "config")]
     pub rom: Vec<String>,
 
     /// Target board type (e.g. fire-24-e). Required when not inferrable
     /// from a connected device.
-    #[arg(long, value_name = "BOARD")]
+    #[arg(long, short, value_name = "BOARD")]
     pub board: Option<String>,
 
     /// Target MCU variant (e.g. rp2350). Required when not inferrable
@@ -119,7 +127,7 @@ impl CommandTrait for FirmwareInspectArgs {
 #[derive(Debug, Args)]
 pub struct FirmwareReleasesArgs {
     /// Show only releases for this board type.
-    #[arg(long, value_name = "BOARD")]
+    #[arg(long, short, value_name = "BOARD")]
     pub board: Option<String>,
 }
 
@@ -136,7 +144,7 @@ pub struct FirmwareDownloadArgs {
     pub version: Option<String>,
 
     /// Target board type (e.g. fire-24-e).
-    #[arg(long, value_name = "BOARD", required = true)]
+    #[arg(long, short, value_name = "BOARD", required = true)]
     pub board: String,
 
     /// Target MCU variant (e.g. rp2350).

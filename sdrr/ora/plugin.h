@@ -131,8 +131,12 @@
  *
  * @param base  Base load address of the plugin
  * @param fn    Plugin main function @ref ora_plugin_entry_t
+ * @param major Plugin major version number
+ * @param minor Plugin minor version number
+ * @param patch Plugin patch version number
+ * @param build Plugin build version number
  */
-#define ORA_DEFINE_PLUGIN_HEADER(base, fn) \
+#define ORA_DEFINE_PLUGIN_HEADER(plugin, fn, major, minor, patch, build) \
     void fn( \
         ora_lookup_fn_t ora_lookup_fn, \
         ora_plugin_type_t plugin_type, \
@@ -141,8 +145,13 @@
     __attribute__((section(".plugin_header"))) \
     const ora_plugin_header_t ora_plugin_header = { \
         .magic    = ORA_PLUGIN_MAGIC, \
-        .version  = ORA_PLUGIN_VERSION_1, \
+        .api_version  = ORA_PLUGIN_VERSION_1, \
+        .major_version = major, \
+        .minor_version = minor, \
+        .patch_version = patch, \
+        .build_version = build, \
         .entry  = fn, \
+        .plugin_type = plugin, \
         .sam_usage = 0, \
         .overrides1 = 0, \
         .reserved = {0}, \
@@ -156,11 +165,15 @@
  * required by the One ROM firmware at the correct location in the binary.
  *
  * @param fn    Plugin main function
+ * @param major Plugin major version number
+ * @param minor Plugin minor version number
+ * @param patch Plugin patch version number
+ * @param build Plugin build version number
  *
- * @sa ORA_DEFINE_USER_PLUGIN
+ * @sa ORA_DEFINE_USER_PLUGIN, ORA_DEFINE_PIO_PLUGIN
  */
-#define ORA_DEFINE_SYSTEM_PLUGIN(fn) \
-    ORA_DEFINE_PLUGIN_HEADER(ORA_SYSTEM_PLUGIN_BASE, fn)
+#define ORA_DEFINE_SYSTEM_PLUGIN(fn, major, minor, patch, build) \
+    ORA_DEFINE_PLUGIN_HEADER(ORA_PLUGIN_TYPE_SYSTEM, fn, major, minor, patch, build)
 
 /**
  * @brief Define the header for a One ROM user plugin
@@ -170,10 +183,32 @@
  * required by the One ROM firmware at the correct location in the binary.
  *
  * @param fn    Plugin main function
+ * @param major Plugin major version number
+ * @param minor Plugin minor version number
+ * @param patch Plugin patch version number
+ * @param build Plugin build version number
  *
- * @sa ORA_DEFINE_SYSTEM_PLUGIN
+ * @sa ORA_DEFINE_SYSTEM_PLUGIN, ORA_DEFINE_PIO_PLUGIN
  */
-#define ORA_DEFINE_USER_PLUGIN(fn) \
-    ORA_DEFINE_PLUGIN_HEADER(ORA_USER_PLUGIN_BASE, fn)
+#define ORA_DEFINE_USER_PLUGIN(fn, major, minor, patch, build) \
+    ORA_DEFINE_PLUGIN_HEADER(ORA_PLUGIN_TYPE_USER, fn, major, minor, patch, build)
+
+/**
+ * @brief Define the header for a One ROM PIO plugin
+ *
+ * Place this macro at the top of your plugin's main source file, passing the
+ * name of your main function.  It generates the @ref ora_plugin_header_t
+ * required by the One ROM firmware at the correct location in the binary.
+ *
+ * @param fn    Plugin main function
+ * @param major Plugin major version number
+ * @param minor Plugin minor version number
+ * @param patch Plugin patch version number
+ * @param build Plugin build version number
+ *
+ * @sa ORA_DEFINE_SYSTEM_PLUGIN, ORA_DEFINE_USER_PLUGIN
+ */
+#define ORA_DEFINE_PIO_PLUGIN(fn, major, minor, patch, build) \
+    ORA_DEFINE_PLUGIN_HEADER(ORA_PLUGIN_TYPE_PIO, fn, major, minor, patch, build)
 
 #endif /* ORA_PLUGIN_H */

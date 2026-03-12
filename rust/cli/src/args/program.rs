@@ -7,28 +7,8 @@
 use crate::args::CommandTrait;
 use clap::Args;
 
-/// Build and flash One ROM firmware to a connected device.
-///
-/// This is the primary workflow for most users. The board and MCU type are
-/// inferred from the connected device if not specified explicitly.
-///
-/// With a single device connected and a config file:
-///   onerom program --config c64.json
-///
-/// With multiple devices connected:
-///   onerom program --device my-c64 --config c64.json
-///
-/// With explicit ROM arguments instead of a config file:
-///   onerom program --board fire-24-e \
-///       --rom image=kernal.bin,type=2364,cs=active_low \
-///       --rom image=basic.bin,type=2364,cs=active_low
-///
-/// Using a pre-built firmware binary:
-///   onerom program --firmware firmware.bin
-///
-/// With no device connected, --out is required and the firmware is written
-/// to a file rather than flashed:
-///   onerom program --config c64.json --out firmware.bin
+// See Commands::Program in args/mod.rs for the top-level documentation of
+// this command and examples.
 #[derive(Debug, Args)]
 pub struct ProgramArgs {
     /// ROM configuration JSON file. Mutually exclusive with --rom.
@@ -36,13 +16,17 @@ pub struct ProgramArgs {
     pub config: Option<String>,
 
     /// ROM image specification. May be repeated for multiple images.
+    ///
     /// Format: image=<file>,type=<romtype>,cs=<csconfig>
+    ///
     /// Example: --rom image=kernal.bin,type=2364,cs=active_low
+    ///
     /// Mutually exclusive with --config.
     #[arg(long, value_name = "SPEC", conflicts_with = "config")]
     pub rom: Vec<String>,
 
     /// Use a pre-built firmware binary instead of building from a config.
+    ///
     /// Mutually exclusive with --config and --rom.
     #[arg(
         long,
@@ -65,10 +49,14 @@ pub struct ProgramArgs {
     #[arg(long, value_name = "VERSION")]
     pub version: Option<String>,
 
-    /// Write the built firmware to this file instead of (or in addition to)
-    /// flashing it. Required when no device is connected.
+    /// Write the built firmware to this file in addition to flashing it.
     #[arg(long, short, value_name = "FILE")]
     pub out: Option<String>,
+
+    /// After flashing, reboot the device into stopped mode, insead of
+    /// running.
+    #[arg(long, short)]
+    pub stopped: bool,
 }
 
 impl CommandTrait for ProgramArgs {

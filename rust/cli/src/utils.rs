@@ -6,6 +6,7 @@ use std::io::Write;
 
 use crate::args::CommandTrait;
 use onerom_cli::{DeviceState, Error, LogLevel, Options};
+use onerom_cli::{LIVE_ROM_BASE, LIVE_ROM_MAX_OFFSET};
 
 pub fn get_supported_boards() -> String {
     onerom_config::hw::BOARDS
@@ -83,11 +84,14 @@ pub fn print_hex_dump(address: u32, data: &[u8]) {
     const BYTES_PER_ROW: usize = 16;
     const GROUP_SIZE: usize = 4;
 
+    // Figure out how many nibbles/characters of the address to output
+    let max_addr = address + data.len() as u32;
+    let nibbles = (32 - max_addr.leading_zeros()).div_ceil(4).max(4) as usize;
+
     for (row_idx, row) in data.chunks(BYTES_PER_ROW).enumerate() {
         let row_addr = address + (row_idx * BYTES_PER_ROW) as u32;
 
-        // Address
-        print!("0x{:08x}  ", row_addr);
+        print!("0x{:0width$x}  ", row_addr, width = nibbles);
 
         // Hex bytes in groups of 4
         for (i, chunk) in row.chunks(GROUP_SIZE).enumerate() {
@@ -132,16 +136,13 @@ pub fn print_hex_dump(address: u32, data: &[u8]) {
 /// Checks that the offset is valid for the ROM currently being served by
 /// the devce.
 ///
-/// Returns the actual device start address to read/write.
+/// Returns the actual device start address to read/write and length.
 pub fn check_live_read_write(
     options: &Options,
     offset: u32,
-    length: u32,
+    length: Option<u32>,
     args: &impl CommandTrait,
-) -> Result<u32, Error> {
-    const LIVE_ROM_BASE: u32 = 0x9000_0000;
-    const LIVE_ROM_MAX_OFFSET: u32 = 0x0008_0000;
-
+) -> Result<(u32, u32), Error> {
     check_device(options, args)?;
     let device = options.device.as_ref().unwrap();
 
@@ -149,13 +150,25 @@ pub fn check_live_read_write(
         return Err(Error::NotRunning);
     }
 
+    let rom_type = device.get_active_rom_type().ok_or(Error::UnknownRomType)?;
+    let rom_size = device.get_active_rom_size().ok_or(Error::UnknownRomType)?;
+
+    let length = if let Some(len) = length {
+        len
+    } else {
+        // If length is not specified (read only) read to the end of the ROM
+        // image
+        if offset as usize >= rom_size {
+            return Err(Error::LiveOutOfBounds(rom_type.to_string(), rom_size));
+        }
+        (rom_size as u32) - offset
+    };
+
     let end_offset = offset + length;
-    if end_offset >= LIVE_ROM_MAX_OFFSET {
-        return Err(Error::InvalidMemoryRange(offset, length));
+    assert!(rom_size <= LIVE_ROM_MAX_OFFSET as usize);
+    if end_offset as usize > rom_size {
+        return Err(Error::LiveOutOfBounds(rom_type.to_string(), rom_size));
     }
 
-    // To do: check the address range is within the correct size for this ROM
-    // type
-
-    Ok(LIVE_ROM_BASE + offset)
+    Ok((LIVE_ROM_BASE + offset, length))
 }

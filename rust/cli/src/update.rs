@@ -5,10 +5,7 @@
 use crate::{args, utils::check_device};
 use onerom_cli::{Error, Options};
 
-pub async fn cmd_flash(
-    options: &Options,
-    args: &args::update::UpdateFlashArgs,
-) -> Result<(), Error> {
+pub async fn cmd_slot(options: &Options, args: &args::update::UpdateSlotArgs) -> Result<(), Error> {
     check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("update flash".to_string()))

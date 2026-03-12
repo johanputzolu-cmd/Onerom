@@ -7,7 +7,7 @@
 
 #include "plugin.h"
 
-ORA_DEFINE_USER_PLUGIN(plugin_main);
+ORA_DEFINE_USER_PLUGIN(plugin_main, 0, 1, 0, 0);
 
 void plugin_main(
     ora_lookup_fn_t ora_lookup_fn,

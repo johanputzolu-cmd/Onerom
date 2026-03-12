@@ -64,6 +64,7 @@ async fn sub_main() -> Result<(), Error> {
                 InspectPeekCommands::Live(args) => inspect::cmd_peek_live(&options, args).await,
                 InspectPeekCommands::Memory(args) => inspect::cmd_peek_memory(&options, args).await,
             },
+            InspectCommands::Live(args) => inspect::cmd_live(&options, args).await,
         },
         Commands::Control(args) => match &args.command {
             ControlCommands::Blink(args) => control::cmd_blink(&options, args).await,
@@ -77,7 +78,7 @@ async fn sub_main() -> Result<(), Error> {
             },
         },
         Commands::Update(args) => match &args.command {
-            UpdateCommands::Flash(args) => update::cmd_flash(&options, args).await,
+            UpdateCommands::Slot(args) => update::cmd_slot(&options, args).await,
             UpdateCommands::Commit(args) => update::cmd_commit(&options, args).await,
             UpdateCommands::Rename(args) => update::cmd_rename(&options, args).await,
             UpdateCommands::Otp(args) => update::cmd_otp(&options, args).await,
@@ -90,5 +91,6 @@ async fn sub_main() -> Result<(), Error> {
             ControlPokeCommands::Live(args) => control::cmd_poke_live(&options, args).await,
             ControlPokeCommands::Memory(args) => control::cmd_poke_memory(&options, args).await,
         },
+        Commands::Reboot(args) => control::cmd_reboot(&options, args).await,
     }
 }

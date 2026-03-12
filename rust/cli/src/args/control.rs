@@ -30,18 +30,23 @@ pub enum ControlCommands {
     /// identify which physical device corresponds to a given serial number
     /// or board type.
     ///
-    /// Example:
+    /// Examples:
+    ///
     ///   onerom control blink
+    ///
     ///   onerom --device my-c64 control blink
     Blink(ControlBlinkArgs),
 
     /// Reboot the One ROM.
     ///
     /// Restarts the One ROM firmware. The device will re-initialise and
-    /// resume serving ROM images after the reboot.  This command pauses after
-    /// a reboot to give the device time to re-enumerate
+    /// resume serving ROM images after the reboot.
+    ///
+    /// By default, this command pauses after a reboot to give the device time
+    /// to re-enumerate.
     ///
     /// Example:
+    ///
     ///   onerom control reboot
     Reboot(ControlRebootArgs),
 
@@ -51,8 +56,10 @@ pub enum ControlCommands {
     /// installed in. Useful in scripted workflows to reset the host after
     /// programming a new ROM image.
     ///
-    /// Example:
+    /// Examples:
+    ///
     ///   onerom control reset
+    ///
     ///   onerom control reset --hold 500
     Reset(ControlResetArgs),
 
@@ -63,6 +70,7 @@ pub enum ControlCommands {
     /// the device firmware is configured to do so.
     ///
     /// Example:
+    ///
     ///   onerom control select --slot 2
     Select(ControlSelectArgs),
 
@@ -71,7 +79,9 @@ pub enum ControlCommands {
     /// Sets the specified GPIO pin to high, low, or high-impedance (z).
     ///
     /// Example:
+    ///
     ///   onerom control gpio --pin 3 --state high
+    ///
     ///   onerom control gpio --pin 3 --state z
     Gpio(ControlGpioArgs),
 
@@ -83,9 +93,13 @@ pub enum ControlCommands {
     /// Data can be written as a single byte value or from a binary file.
     ///
     /// Example:
-    ///   onerom control poke memory --address 0x20000010 --value 0xFF
+    ///
+    ///   onerom control poke memory --address 0x20000010 --byte 0xFF
+    ///
     ///   onerom control poke memory --address 0x20000010 --input patch.bin
-    ///   onerom control poke live --address 0x100 --value 0xEA
+    ///
+    ///   onerom control poke live --address 0x100 --byte 0xEA
+    ///
     ///   onerom control poke live --address 0x100 --input patch.bin
     #[command(
         subcommand_value_name = "COMMAND",
@@ -249,7 +263,13 @@ pub struct ControlPokeMemoryArgs {
     /// Write the contents of this binary file.
     ///
     /// Mutually exclusive with --value.
-    #[arg(long, short, value_name = "FILE", group = "poke_source")]
+    #[arg(
+        long,
+        short,
+        visible_alias = "in",
+        value_name = "FILE",
+        group = "poke_source"
+    )]
     pub input: Option<String>,
 }
 
@@ -265,7 +285,7 @@ pub struct ControlPokeLiveArgs {
     /// Write to this logical ROM address, starting from 0.
     ///
     /// Accepts decimal and hexadecimal (0x prefix) formats.
-    #[arg(long, short, value_name = "ADDRESS", value_parser = parse_u32)]
+    #[arg(long, short, value_name = "ADDRESS", value_parser = parse_u32, default_value = "0")]
     pub address: u32,
 
     /// Write this single byte value.
@@ -278,8 +298,26 @@ pub struct ControlPokeLiveArgs {
     /// Write the contents of this binary file.
     ///
     /// Mutually exclusive with --value.
-    #[arg(long, short, value_name = "FILE", group = "poke_source")]
+    #[arg(
+        long,
+        short,
+        visible_alias = "in",
+        value_name = "FILE",
+        group = "poke_source"
+    )]
     pub input: Option<String>,
+
+    /// Only write bytes that differ from the current device's ROM content.
+    ///
+    /// Requires --input.
+    #[arg(long, requires = "input", visible_alias = "deltas")]
+    pub delta: bool,
+
+    /// Show what would be written without actually writing.
+    ///
+    /// Requires --delta.
+    #[arg(long, requires = "delta", visible_alias = "dryrun")]
+    pub dry_run: bool,
 }
 
 impl CommandTrait for ControlPokeLiveArgs {

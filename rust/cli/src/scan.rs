@@ -43,7 +43,7 @@ pub async fn cmd_scan(options: &Options, args: &args::scan::ScanArgs) -> Result<
     }
 
     println!(
-        "found {} connected One ROM{}:",
+        "found {} connected device{}:",
         devices.len(),
         if devices.len() == 1 { "" } else { "s" }
     );

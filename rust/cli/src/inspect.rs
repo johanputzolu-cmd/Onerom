@@ -3,10 +3,11 @@
 // MIT License
 
 use crate::args::inspect::{
-    InspectGpioArgs, InspectImageArgs, InspectInfoArgs, InspectPeekLiveArgs, InspectPeekMemoryArgs,
-    InspectSlotsArgs, InspectTelemetryArgs,
+    InspectGpioArgs, InspectImageArgs, InspectInfoArgs, InspectLiveArgs, InspectPeekLiveArgs,
+    InspectPeekMemoryArgs, InspectSlotsArgs, InspectTelemetryArgs,
 };
 use crate::utils::{check_device, check_live_read_write, print_hex_dump};
+use onerom_cli::LIVE_ROM_BASE;
 use onerom_cli::usb::read_memory;
 use onerom_cli::{Device, Error, Options};
 use sdrr_fw_parser::SdrrCsState;
@@ -109,26 +110,36 @@ async fn read_and_output(
     if let Some(filename) = out {
         std::fs::write(filename, &data)?;
     } else {
-        print_hex_dump(address, &data);
+        print_hex_dump(address - LIVE_ROM_BASE, &data);
     }
 
     Ok(())
 }
 
 pub async fn cmd_peek_live(options: &Options, args: &InspectPeekLiveArgs) -> Result<(), Error> {
-    let address = check_live_read_write(options, args.address, args.length, args)?;
+    let (address, length) = check_live_read_write(options, args.address, args.length, args)?;
+
     let device = options.device.as_ref().unwrap();
-    read_and_output(device, address, args.length, args.out.as_ref()).await
+    read_and_output(device, address, length, args.output.as_ref()).await
 }
 
 pub async fn cmd_peek_memory(options: &Options, args: &InspectPeekMemoryArgs) -> Result<(), Error> {
     check_device(options, args)?;
     let device = options.device.as_ref().unwrap();
-    read_and_output(device, args.address, args.length, args.out.as_ref()).await
+    read_and_output(device, args.address, args.length, args.output.as_ref()).await
 }
 
 pub async fn cmd_gpio(options: &Options, args: &InspectGpioArgs) -> Result<(), Error> {
     check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("inspect gpio".into()))
+}
+
+pub async fn cmd_live(options: &Options, args: &InspectLiveArgs) -> Result<(), Error> {
+    let peek_live_args = InspectPeekLiveArgs {
+        address: 0,
+        length: None,
+        output: args.output.clone(),
+    };
+    cmd_peek_live(options, &peek_live_args).await
 }

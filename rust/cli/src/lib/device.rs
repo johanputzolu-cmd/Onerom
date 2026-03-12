@@ -73,9 +73,9 @@ impl std::fmt::Display for Device {
                 .unwrap_or("(unknown revision)")
                 .to_uppercase();
             let fw_version = &info.version;
-            format!("{model} {chip_pins} {hw_rev} - Firmware: {fw_version}")
+            format!("One ROM {model} {chip_pins} {hw_rev} - Firmware: {fw_version}")
         } else {
-            "Unknown   - Firmware: n/a  ".to_string()
+            "Unknown           - Firmware: n/a  ".to_string()
         };
         write!(f, "{info_str} Serial: {serial} State: {}", self.state)
     }
@@ -130,6 +130,30 @@ impl Device {
                 },
             },
         };
+    }
+
+    /// Returns the active ROM set if available.
+    pub fn get_active_rom_set(&self) -> Option<&sdrr_fw_parser::SdrrRomSet> {
+        let flash_info = self.onerom.as_ref().and_then(|o| o.flash.as_ref())?;
+        let ram_info = self.onerom.as_ref().and_then(|o| o.ram.as_ref())?;
+        let active_set_index = ram_info.rom_set_index as usize;
+        flash_info.rom_sets.get(active_set_index)
+    }
+
+    /// Returns the active ROM type if available.
+    pub fn get_active_rom_type(&self) -> Option<sdrr_fw_parser::SdrrRomType> {
+        if !self.is_running() {
+            return None;
+        }
+        self.get_active_rom_set()
+            .and_then(|set| set.roms.first())
+            .map(|rom| rom.rom_type)
+    }
+
+    /// Returns the active ROM size if available
+    pub fn get_active_rom_size(&self) -> Option<usize> {
+        self.get_active_rom_type()
+            .map(|rom_type| rom_type.rom_size())
     }
 }
 

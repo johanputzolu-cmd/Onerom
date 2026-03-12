@@ -558,7 +558,27 @@ typedef struct {
      * @brief Plugin API version
      * @sa ORA_PLUGIN_VERSION
      */
-    uint32_t version;
+    uint32_t api_version;
+
+    /** 
+     * @brief Plugin's major version
+     */
+     uint16_t major_version;
+
+    /**
+     * @brief Plugin's minor version
+     */
+    uint16_t minor_version;
+
+    /**
+    * @brief Plugin's patch version
+    */
+    uint16_t patch_version;
+
+    /**
+    * @brief Plugin's build version
+    */
+    uint16_t build_version;
 
     /**
      * @brief Plugin's main function location.
@@ -617,7 +637,7 @@ typedef struct {
      *
      * This field is reserved for future use and must be set to 0.
      */
-    uint8_t reserved[241];
+    uint8_t reserved[233];
 } ora_plugin_header_t;
 #define ORA_PLUGIN_HEADER_SIZE 256  // Must not change without version bump
 #if !defined(TEST_BUILD)
