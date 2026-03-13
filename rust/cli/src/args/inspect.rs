@@ -32,7 +32,7 @@ pub enum InspectCommands {
     /// Example:
     ///   onerom inspect info
     ///
-    ///   onerom --device my-c64 inspect info
+    ///   onerom --serial 1234abcd inspect info
     Info(InspectInfoArgs),
 
     /// Display runtime telemetry from a One ROM device (not yet supported).
@@ -139,7 +139,7 @@ impl CommandTrait for InspectSlotsArgs {
 #[derive(Debug, Args)]
 pub struct InspectImageArgs {
     /// Slot index to read (0-15). Reads the currently active slot if omitted.
-    #[arg(long, short, value_name = "INDEX", value_parser = parse_u32)]
+    #[arg(long, short='l', value_name = "INDEX", value_parser = parse_u32)]
     pub slot: Option<u8>,
 
     /// Save the image data to this file.

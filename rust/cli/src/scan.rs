@@ -4,7 +4,6 @@
 
 use crate::utils::check_device_nand_board;
 use crate::{args, utils};
-use onerom_cli::device::matches_serial;
 use onerom_cli::{Error, Options};
 
 pub async fn cmd_scan(options: &Options, args: &args::scan::ScanArgs) -> Result<(), Error> {
@@ -27,15 +26,6 @@ pub async fn cmd_scan(options: &Options, args: &args::scan::ScanArgs) -> Result<
     };
 
     let devices = onerom_cli::scan::scan(options, board).await?;
-
-    let devices: Vec<_> = if let Some(pattern) = args.serial.as_deref() {
-        devices
-            .into_iter()
-            .filter(|d| matches_serial(d.serial.as_deref(), pattern))
-            .collect()
-    } else {
-        devices
-    };
 
     if devices.is_empty() {
         println!("no One ROM devices found.");

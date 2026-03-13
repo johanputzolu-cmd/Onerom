@@ -50,7 +50,7 @@ pub enum UpdateCommands {
     /// Assign a user-friendly name to a One ROM device (not yet supported).
     ///
     /// The name is stored on the device and can subsequently be used
-    /// with the --device option to identify this device in all commands.
+    /// with the --serial option to identify this device in all commands.
     ///
     /// Example:
     ///
@@ -73,7 +73,7 @@ pub enum UpdateCommands {
 #[derive(Debug, Args)]
 pub struct UpdateSlotArgs {
     /// Flash slot index to write (0-15).
-    #[arg(long, short, value_name = "INDEX", required = true)]
+    #[arg(long, short = 'l', value_name = "INDEX", required = true)]
     pub slot: u8,
 
     /// ROM image file to write to the slot.
@@ -90,7 +90,7 @@ impl CommandTrait for UpdateSlotArgs {
 #[derive(Debug, Args)]
 pub struct UpdateCommitArgs {
     /// Slot index to commit. Commits the currently active slot if omitted.
-    #[arg(long, short, value_name = "INDEX")]
+    #[arg(long, short = 'l', value_name = "INDEX")]
     pub slot: Option<u8>,
 }
 

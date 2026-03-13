@@ -26,12 +26,6 @@ pub struct ScanArgs {
     /// List all known board types.
     #[arg(long, conflicts_with = "board")]
     pub list_boards: bool,
-
-    /// Filters based on serial number.
-    ///
-    /// Supports * and ? wildcards.
-    #[arg(long, short, value_name = "SERIAL")]
-    pub serial: Option<String>,
 }
 
 impl CommandTrait for ScanArgs {

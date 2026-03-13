@@ -72,6 +72,25 @@ pub fn parse_u32(s: &str) -> Result<u32, std::num::ParseIntError> {
     }
 }
 
+#[allow(unused)]
+pub fn parse_u16(s: &str) -> Result<u16, std::num::ParseIntError> {
+    let s = s.replace('_', "");
+    if let Some(hex) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+        u16::from_str_radix(hex, 16)
+    } else {
+        s.parse::<u16>()
+    }
+}
+
+pub fn parse_u16_hex_only(s: &str) -> Result<u16, std::num::ParseIntError> {
+    let s = s.replace('_', "");
+    if let Some(hex) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+        u16::from_str_radix(hex, 16)
+    } else {
+        u16::from_str_radix(&s, 16)
+    }
+}
+
 pub fn parse_u8(s: &str) -> Result<u8, std::num::ParseIntError> {
     let s = s.replace('_', "");
     if let Some(hex) = s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {

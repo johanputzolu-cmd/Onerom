@@ -36,7 +36,7 @@ pub enum ControlCommands {
     ///
     ///   onerom control blink
     ///
-    ///   onerom --device my-c64 control blink
+    ///   onerom --device 1234abcd control blink
     Blink(ControlBlinkArgs),
 
     /// Reboot the One ROM.
@@ -140,7 +140,7 @@ impl CommandTrait for ControlBlinkArgs {
 #[command(group = ArgGroup::new("reboot_mode").required(true).multiple(false))]
 pub struct ControlRebootArgs {
     /// Reboot the device into stopped (bootloader) state
-    #[arg(long, short, group = "reboot_mode")]
+    #[arg(long, short = 'p', group = "reboot_mode")]
     pub stopped: bool,
 
     /// Reboot the device into running (byte serving) state
@@ -191,7 +191,7 @@ impl CommandTrait for ControlResetArgs {
 #[derive(Debug, Args)]
 pub struct ControlSelectArgs {
     /// Image slot index to activate (0-15).
-    #[arg(long, short, value_name = "INDEX", required = true)]
+    #[arg(long, short = 'l', value_name = "INDEX", required = true)]
     pub slot: u8,
 }
 

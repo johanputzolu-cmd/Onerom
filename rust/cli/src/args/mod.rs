@@ -12,7 +12,7 @@
 //!   onerom control <subcommand>  - Transient device actions
 //!   onerom update <subcommand>   - Persistent device modifications
 //!
-//! The --device option is global and can be specified at any level to select
+//! The --serial option is global and can be specified at any level to select
 //! a specific One ROM device when multiple are connected.
 
 pub mod control;
@@ -27,6 +27,7 @@ use enum_dispatch::enum_dispatch;
 use log::debug;
 use onerom_cli::LogLevel;
 
+use crate::utils::parse_u16_hex_only;
 use onerom_cli::{Error, Options};
 
 use control::{
@@ -72,7 +73,17 @@ pub struct Cli {
     ///
     /// If omitted and exactly one device is connected, that device is used automatically.
     #[arg(global = true, long, short, value_name = "DEVICE")]
-    pub device: Option<String>,
+    pub serial: Option<String>,
+
+    /// USB vendor/product ID pair (hex, e.g. 1234:abcd).
+    ///
+    /// Used to detect One ROMs using non-standard USB vendor/product IDs.  If
+    /// specified, only those VID/PID pairs specified will be matched.
+    ///
+    /// Specify multiple pairs by specifying the --vid-pid argument multiple
+    /// times.
+    #[arg(long, value_name = "VID:PID", value_parser = parse_vid_pid, action = clap::ArgAction::Append)]
+    pub vid_pid: Vec<(u16, u16)>,
 
     /// Allow management of unrecognised RP2350 devices and unprogrammed One ROMs.
     ///
@@ -109,6 +120,15 @@ pub struct Cli {
     pub command: Commands,
 }
 
+fn parse_vid_pid(s: &str) -> Result<(u16, u16), String> {
+    let (vid, pid) = s
+        .split_once(':')
+        .ok_or_else(|| format!("expected VID:PID, got '{s}'"))?;
+    let vid = parse_u16_hex_only(vid).map_err(|e| format!("invalid VID '{vid}': {e}"))?;
+    let pid = parse_u16_hex_only(pid).map_err(|e| format!("invalid PID '{pid}': {e}"))?;
+    Ok((vid, pid))
+}
+
 impl Cli {
     pub async fn try_into_options(&self) -> Result<Options, Error> {
         // Built the options struct first.
@@ -123,14 +143,14 @@ impl Cli {
         let requires_device = self.command.requires_device();
 
         // Check if command needs a device
-        if let Some(device) = self.device.as_ref()
+        if let Some(device) = self.serial.as_ref()
             && !requires_device
         {
             debug!("Device {device} specified but not required, retrieving it anyway");
         }
 
         // If a device was specified, select it and add it to the options
-        if let Some(device) = self.device.as_ref() {
+        if let Some(device) = self.serial.as_ref() {
             if options.verbose {
                 println!("Scanning for device '{}' ...", device);
             }
@@ -183,7 +203,7 @@ pub enum Commands {
     /// With multiple devices connected, using a wildcard to select the target
     /// device:
     ///
-    ///   onerom program --device '5*' --config c64.json
+    ///   onerom program --serial '5*' --config c64.json
     ///
     /// With explicit ROM arguments instead of a config file:
     ///
