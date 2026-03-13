@@ -36,8 +36,16 @@ pub async fn cmd_reboot(
     } else {
         println!("Rebooting device...");
     }
+    let serial = device.serial.clone();
     reboot(device, &reboot_args).await?;
     println!("Rebooted device into {} mode", reboot_args.mode);
+
+    if options.verbose {
+        // Rescan device to show new mode
+        let selector = serial.as_deref();
+        let device = select_device(selector, options.unrecognised).await?;
+        println!("{device}");
+    }
 
     Ok(())
 }
