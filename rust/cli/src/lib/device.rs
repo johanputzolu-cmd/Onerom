@@ -155,6 +155,12 @@ impl Device {
         self.get_active_rom_type()
             .map(|rom_type| rom_type.rom_size())
     }
+
+    /// Returns whether this device matches the provided serial pattern, which
+    /// supports * and ? wildcards
+    pub fn matches_serial(&self, pattern: &str) -> bool {
+        matches_serial(self.serial.as_deref(), pattern)
+    }
 }
 
 /// Returns whether a serial number matches a given pattern, which may include

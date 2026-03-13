@@ -18,17 +18,23 @@ pub async fn cmd_scan(options: &Options, args: &args::scan::ScanArgs) -> Result<
     let board = if let Some(board) = &args.board {
         let board = onerom_config::hw::Board::try_from_str(board)
             .ok_or_else(|| Error::InvalidBoard(board.clone(), utils::get_supported_boards()))?;
-        print!("Scanning for {board} ... ");
+        println!("Scanning for {board} ... ");
         Some(board)
     } else {
-        print!("Scanning ... ");
+        println!("Scanning ... ");
         None
     };
 
-    let devices = onerom_cli::scan::scan(options, board).await?;
+    // Scan for devices
+    let mut devices = onerom_cli::scan::scan(options, board).await?;
+
+    // Do serial number filtering if requested
+    if let Some(serial) = args.serial.as_ref() {
+        devices.retain(|d| d.matches_serial(serial));
+    }
 
     if devices.is_empty() {
-        println!("no One ROM devices found.");
+        println!("No matching One ROM devices found.");
         return Ok(());
     }
 

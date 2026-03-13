@@ -55,7 +55,11 @@ pub trait CommandTrait {
     fn requires_device(&self) -> bool;
 }
 
-/// One ROM command-line interface.
+/// Command line interface for One ROM - the most flexible retrom ROM replacement.
+///
+/// https://onerom.org/
+///
+/// Copyright (c) 2026 Piers Finlayson <piers@piers.rocks>
 ///
 /// Manage One ROM devices, firmware, and ROM images. Run `onerom help <command>`
 /// for detailed information on any subcommand.
@@ -63,7 +67,7 @@ pub trait CommandTrait {
 /// Use `onerom scan` to discover connected devices before running device
 /// commands.
 #[derive(Debug, Parser)]
-#[command(name = "onerom", version = concat!("v", env!("CARGO_PKG_VERSION")), about, long_about = None)]
+#[command(name = "onerom", version = concat!("v", env!("CARGO_PKG_VERSION")), about, long_about)]
 pub struct Cli {
     /// Select a specific One ROM device by serial number.
     ///
@@ -153,7 +157,7 @@ fn check_vid_pid_unique(vid_pid_list: &[(u16, u16)]) -> Result<(), Error> {
 }
 
 impl Cli {
-    pub async fn try_into_options(&self) -> Result<Options, Error> {
+    pub async fn try_into_options(&mut self) -> Result<Options, Error> {
         // Build the options struct first.
         let mut options = Options {
             log_level: self.log_level.clone(),
@@ -176,13 +180,18 @@ impl Cli {
             debug!("Device {device} specified but not required, retrieving it anyway");
         }
 
-        // If a device was specified, select it and add it to the options
-        if let Some(device) = self.serial.as_ref() {
+        // If a serial was specified, select it and add it to the options,
+        // unless handling a scan command (in which case we're scanning for
+        // all devices that meet some criteria).
+        if let Commands::Scan(scan) = &mut self.command {
+            // Save off the serial for special handling in the scan case.
+            scan.serial = self.serial.clone();
+        } else if let Some(serial) = self.serial.as_ref() {
             if options.verbose {
-                println!("Scanning for device '{}' ...", device);
+                println!("Scanning for device with serial '{}' ...", serial);
             }
             let device = onerom_cli::device::select_device(
-                Some(device),
+                Some(serial),
                 options.unrecognised,
                 &options.vid_pid,
             )
@@ -292,37 +301,33 @@ pub enum Commands {
     )]
     Update(UpdateArgs),
 
-    /// Read data from One ROM's SRAM or the live ROM image.
+    /// Read data from One ROM's live ROM image.
     ///
-    /// Top-level alias for `inspect peek`. See `onerom inspect peek --help`
+    /// Top-level alias for `inspect peek live`. See `onerom inspect peek live --help`
     /// for full documentation.
     ///
-    /// Examples:
-    ///
-    ///   onerom peek memory --address 0x20000000 --length 128
+    /// Example:
     ///
     ///   onerom peek live --address 0x100 --length 64
     #[command(
         subcommand_value_name = "COMMAND",
         subcommand_help_heading = "Commands"
     )]
-    Peek(InspectPeekArgs),
+    Peek(InspectPeekLiveArgs),
 
-    /// Write data to One ROM's SRAM or the live ROM image.
+    /// Write data to One ROM's live ROM image.
     ///
-    /// Top-level alias for `control poke`. See `onerom control poke --help`
+    /// Top-level alias for `control poke live`. See `onerom control poke live --help`
     /// for full documentation.
     ///
-    /// Examples:
-    ///
-    ///   onerom poke memory --address 0x20000010 --byte 0xFF
+    /// Example:
     ///
     ///   onerom poke live --address 0x100 --input patch.bin
     #[command(
         subcommand_value_name = "COMMAND",
         subcommand_help_heading = "Commands"
     )]
-    Poke(ControlPokeArgs),
+    Poke(ControlPokeLiveArgs),
 
     /// Reboot the One ROM.
     ///

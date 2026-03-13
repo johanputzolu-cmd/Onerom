@@ -38,7 +38,7 @@ async fn main() {
 async fn sub_main() -> Result<(), Error> {
     // We need to convoluted call into clap so we can change the binary name to
     // onerom.
-    let cli = Cli::from_arg_matches(&Cli::command().bin_name("onerom").get_matches())
+    let mut cli = Cli::from_arg_matches(&Cli::command().bin_name("onerom").get_matches())
         .unwrap_or_else(|e: clap::Error| e.exit());
     let mut options = cli.try_into_options().await?;
 
@@ -85,14 +85,8 @@ async fn sub_main() -> Result<(), Error> {
             UpdateCommands::Rename(args) => update::cmd_rename(&options, args).await,
             UpdateCommands::Otp(args) => update::cmd_otp(&options, args).await,
         },
-        Commands::Peek(args) => match &args.command {
-            InspectPeekCommands::Live(args) => inspect::cmd_peek_live(&options, args).await,
-            InspectPeekCommands::Memory(args) => inspect::cmd_peek_memory(&options, args).await,
-        },
-        Commands::Poke(args) => match &args.command {
-            ControlPokeCommands::Live(args) => control::cmd_poke_live(&options, args).await,
-            ControlPokeCommands::Memory(args) => control::cmd_poke_memory(&options, args).await,
-        },
+        Commands::Peek(args) => inspect::cmd_peek_live(&options, args).await,
+        Commands::Poke(args) => control::cmd_poke_live(&options, args).await,
         Commands::Reboot(args) => control::cmd_reboot(&options, args).await,
     }
 }

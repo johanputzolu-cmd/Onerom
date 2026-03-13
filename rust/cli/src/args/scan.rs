@@ -26,6 +26,11 @@ pub struct ScanArgs {
     /// List all known board types.
     #[arg(long, conflicts_with = "board")]
     pub list_boards: bool,
+
+    // Private argument to pass the serial from the parent command for
+    // filtering in the scan command.
+    #[arg(skip)]
+    pub serial: Option<String>,
 }
 
 impl CommandTrait for ScanArgs {
