@@ -103,6 +103,8 @@ pub async fn read_device_info(device: &mut Device) -> Result<(), Error> {
 /// What state One ROM should be rebooted into
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RebootMode {
+    /// Do not reboot
+    None,
     /// Stopped is bootloader/BOOTSEL mode
     Stopped { msd: bool },
     /// Running is One ROM in byte serving mode
@@ -112,34 +114,85 @@ pub enum RebootMode {
 impl std::fmt::Display for RebootMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            RebootMode::None => write!(f, "none (skip reboot)"),
             RebootMode::Stopped { msd: true } => write!(f, "stopped (MSD enabled)"),
             RebootMode::Stopped { msd: false } => write!(f, "stopped"),
             RebootMode::Running => write!(f, "running"),
         }
     }
 }
-impl From<RebootMode> for picoboot::RebootType {
-    fn from(mode: RebootMode) -> Self {
+impl TryFrom<RebootMode> for picoboot::RebootType {
+    type Error = Error;
+
+    fn try_from(mode: RebootMode) -> Result<Self, Self::Error> {
         match mode {
-            RebootMode::Stopped { msd } => picoboot::RebootType::Bootsel {
+            RebootMode::Stopped { msd } => Ok(picoboot::RebootType::Bootsel {
                 disable_msd: !msd,
                 disable_picoboot: false,
-            },
-            RebootMode::Running => picoboot::RebootType::Normal,
+            }),
+            RebootMode::Running => Ok(picoboot::RebootType::Normal),
+            RebootMode::None => Err(Error::NoReboot),
+        }
+    }
+}
+
+/// Arguments for the reboot method
+pub struct RebootArgs {
+    /// Type of reboot to perform
+    pub mode: RebootMode,
+
+    /// Whether to reboot using "fast" mode (i.e. don't wait for USB device
+    /// re-enumeration to take place)
+    pub fast: bool,
+}
+
+impl RebootArgs {
+    pub fn stopped(msd: bool, fast: bool) -> Self {
+        Self {
+            mode: RebootMode::Stopped { msd },
+            fast,
+        }
+    }
+
+    pub fn running(fast: bool) -> Self {
+        Self {
+            mode: RebootMode::Running,
+            fast,
+        }
+    }
+
+    pub fn none() -> Self {
+        Self {
+            mode: RebootMode::None,
+            fast: false,
         }
     }
 }
 
 /// Reboot the chosen One ROM
-pub async fn reboot(device: &Device, mode: RebootMode) -> Result<(), Error> {
+pub async fn reboot(device: &Device, args: &RebootArgs) -> Result<(), Error> {
     let mut picoboot = get_picoboot(device).await?;
 
-    let reboot_type = mode.into();
+    // Early return Ok(()) if no reboot requested
+    let reboot_type = if let Ok(rt) = args.mode.try_into() {
+        rt
+    } else {
+        debug!("No reboot requested, skipping");
+        return Ok(());
+    };
 
+    const REBOOT_TIMER: Duration = Duration::from_millis(10);
+    debug!("Rebooting device {device} with type {reboot_type:?} and timer {REBOOT_TIMER:?}");
     picoboot
-        .reboot(reboot_type, Duration::from_millis(500))
+        .reboot(reboot_type, REBOOT_TIMER)
         .await
-        .map_err(|e| Error::Usb(e.to_string()))
+        .map_err(|e| Error::Usb(e.to_string()))?;
+
+    if !args.fast {
+        pause_reenumeration().await;
+    }
+
+    Ok(())
 }
 
 enum MemoryType {
@@ -308,4 +361,10 @@ pub async fn flash_erase(device: &Device, offset: u32, size: u32) -> Result<(), 
         .flash_erase(address, size)
         .await
         .map_err(|e| Error::Usb(e.to_string()))
+}
+
+/// Sleep for a short time to allow the device to disconnect and reappear
+/// after a reboot.
+async fn pause_reenumeration() {
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 }

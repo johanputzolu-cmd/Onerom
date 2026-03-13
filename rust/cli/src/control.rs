@@ -7,7 +7,7 @@ use crate::{
     utils::{check_device, check_live_read_write},
 };
 use onerom_cli::device::{Device, select_device};
-use onerom_cli::usb::{FLASH_BASE, RebootMode, flash_erase, read_memory, reboot, write_memory};
+use onerom_cli::usb::{FLASH_BASE, RebootArgs, flash_erase, read_memory, reboot, write_memory};
 use onerom_cli::{Error, Options};
 use std::io::Write;
 
@@ -30,22 +30,14 @@ pub async fn cmd_reboot(
         !(args.stopped && args.running),
         "Cannot specify both --stopped and --running"
     );
-    let mode = if args.stopped {
-        RebootMode::Stopped { msd: args.msd }
-    } else {
-        RebootMode::Running
-    };
+    let reboot_args = args.into();
     if options.verbose {
         println!("Rebooting device: {device}");
+    } else {
+        println!("Rebooting device...");
     }
-    reboot(device, mode).await?;
-    println!("Rebooted device into {mode} mode");
-
-    // Wait a few seconds for the device to re-enumerate before returning
-    if !args.fast {
-        println!("Pausing for device to re-enumerate");
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    }
+    reboot(device, &reboot_args).await?;
+    println!("Rebooted device into {} mode", reboot_args.mode);
 
     Ok(())
 }
@@ -269,11 +261,10 @@ async fn ensure_stopped(options: &mut Options) -> Result<(), Error> {
         println!("Device is running, rebooting into stopped mode...");
     }
     let serial = device.serial.clone();
-    reboot(device, RebootMode::Stopped { msd: false }).await?;
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    reboot(device, &RebootArgs::stopped(false, false)).await?;
 
-    let selector = serial.as_deref().unwrap_or("*");
-    let new_device = select_device(Some(selector), true).await?;
+    let selector = serial.as_deref();
+    let new_device = select_device(selector, options.unrecognised).await?;
 
     if new_device.is_running() {
         return Err(Error::DeviceRunning);
@@ -306,14 +297,9 @@ async fn reboot_after_erase(
 ) -> Result<(), Error> {
     let device = options.device.as_ref().unwrap();
 
-    if args.reboot_stopped {
-        let mode = RebootMode::Stopped { msd: args.msd };
-        reboot(device, mode).await?;
-        println!("Rebooted device into stopped mode");
-    } else if args.reboot_running {
-        reboot(device, RebootMode::Running).await?;
-        println!("Rebooted device into running mode");
-    }
+    let reboot_args = args.into();
+    reboot(device, &reboot_args).await?;
+    println!("Rebooted device into {} mode", reboot_args.mode);
 
     Ok(())
 }

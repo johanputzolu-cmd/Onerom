@@ -6,6 +6,7 @@
 
 use crate::args::CommandTrait;
 use clap::Args;
+use onerom_cli::usb::RebootArgs;
 
 // See Commands::Program in args/mod.rs for the top-level documentation of
 // this command and examples.
@@ -82,10 +83,26 @@ pub struct ProgramArgs {
     /// Mount mass storage device when rebooting into stopped mode.
     #[arg(long, short = 'm')]
     pub msd: bool,
+
+    /// Don't pause after final reboot for the device to re-enumerate
+    #[arg(long, conflicts_with = "no_reboot")]
+    pub fast: bool,
 }
 
 impl CommandTrait for ProgramArgs {
     fn requires_device(&self) -> bool {
         true
+    }
+}
+
+impl From<&ProgramArgs> for RebootArgs {
+    fn from(args: &ProgramArgs) -> Self {
+        if args.no_reboot {
+            RebootArgs::none()
+        } else if args.stopped {
+            RebootArgs::stopped(args.msd, args.fast)
+        } else {
+            RebootArgs::running(args.fast)
+        }
     }
 }

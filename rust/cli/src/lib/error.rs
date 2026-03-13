@@ -98,6 +98,9 @@ pub enum Error {
 
     #[error("No firmware source specified. Use --config, --rom, --firmware, or --base-firmware.")]
     NoFirmwareSource,
+
+    #[error("Reboot was disabled")]
+    NoReboot,
 }
 
 impl From<onerom_fw::Error> for Error {

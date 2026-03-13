@@ -7,12 +7,10 @@ use onerom_config::mcu::Variant;
 use onerom_fw::{assemble_firmware, validate_sizes};
 
 use crate::args;
-use crate::firmware::{
-    acquire_firmware, build_rom_image, parse_firmware, verify_assembled_firmware,
-};
+use crate::firmware::{acquire_firmware, build_rom_image, verify_assembled_firmware};
 use crate::utils::{check_device, resolve_board};
 use onerom_cli::device::select_device;
-use onerom_cli::usb::{RebootMode, flash_program, flash_program_read, reboot};
+use onerom_cli::usb::{RebootArgs, flash_program, flash_program_read, reboot};
 use onerom_cli::{Error, Options};
 
 fn validate_program_args(args: &args::program::ProgramArgs) -> Result<(), Error> {
@@ -111,22 +109,10 @@ async fn acquire_program_image(
     validate_sizes(&fw_props, &firmware_data, &metadata, &image_data)?;
 
     if options.verbose && !desc.is_empty() {
-        println!("ROM configuration:\n{desc}");
+        println!("ROM configuration:\n---\n{desc}\n---");
     }
 
     assemble_firmware(firmware_data, metadata, image_data).map_err(Into::into)
-}
-
-async fn inspect_firmware(options: &Options, data: &[u8]) -> Result<(), Error> {
-    if !options.verbose {
-        return Ok(());
-    }
-
-    match parse_firmware(data).await {
-        Ok(info) => println!("Firmware version: {}", info.version),
-        Err(e) => println!("Warning: could not parse firmware: {e}"),
-    }
-    Ok(())
 }
 
 fn write_firmware_file(path: &str, data: &[u8]) -> Result<(), Error> {
@@ -143,12 +129,11 @@ async fn flash_device(options: &mut Options, data: &[u8]) -> Result<(), Error> {
             println!("Device is running, rebooting into stopped mode...");
         }
         let serial = device.serial.clone();
-        reboot(device, RebootMode::Stopped { msd: false }).await?;
-        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        reboot(device, &RebootArgs::stopped(false, false)).await?;
 
         // Re-enumerate — old device_info is stale after reboot
-        let selector = serial.as_deref().unwrap_or("*");
-        let new_device = select_device(Some(selector), true).await?;
+        let selector = serial.as_deref();
+        let new_device = select_device(selector, options.unrecognised).await?;
 
         if new_device.is_running() {
             return Err(Error::DeviceRunning);
@@ -166,56 +151,56 @@ async fn flash_device(options: &mut Options, data: &[u8]) -> Result<(), Error> {
     Ok(())
 }
 
-async fn reboot_device(options: &Options, args: &args::program::ProgramArgs) -> Result<(), Error> {
-    if args.no_reboot {
-        println!("Skipping reboot (--no-reboot)");
-        return Ok(());
-    }
-
-    let device = options.device.as_ref().unwrap();
-    let mode = if args.stopped {
-        RebootMode::Stopped { msd: args.msd }
-    } else {
-        RebootMode::Running
-    };
-
-    if options.verbose {
-        println!("Rebooting device into {mode} mode...");
-    }
-    reboot(device, mode).await?;
-    if options.verbose {
-        println!("Rebooted device into {mode} mode");
-    }
-    Ok(())
-}
-
 pub async fn cmd_program(
     options: &mut Options,
     args: &args::program::ProgramArgs,
 ) -> Result<(), Error> {
-    check_device(options, args)?;
+    // Check args
     validate_program_args(args)?;
 
+    // Ensure we have a device
+    check_device(options, args)?;
+
+    // Get the board and MCU for selected device
     let board = resolve_board(options, &args.board)?;
     let mcu = Variant::RP2350;
 
+    // Get the image to program to the device
     let data = acquire_program_image(options, args, &board, &mcu).await?;
-    verify_assembled_firmware(options, &data, args.force).await?;
-    inspect_firmware(options, &data).await?;
 
+    // Verify the image parses with no errors
+    verify_assembled_firmware(options, &data, args.force).await?;
+
+    // If requested, write the assembled firmware to a file before flashing
     if let Some(out) = &args.output {
         write_firmware_file(out, &data)?;
     }
 
+    // Flash
     println!("Programming device - DO NOT DISCONNECT");
-
     flash_device(options, &data).await?;
 
+    // If requested, verify flash by reading back and comparing to the original data
     if args.verify {
         verify_flash(options, &data).await?;
     }
 
+    // Reboot the device - we must have a device to get this far
+    let device = options.device.as_ref().unwrap();
+    if options.verbose {
+        println!("Rebooting device...");
+    }
+    let serial = device.serial.clone();
+    reboot(device, &args.into()).await?;
+
+    if options.verbose {
+        // Rescan for the device after reboot and display it
+        let selector = serial.as_deref();
+        let device = select_device(selector, options.unrecognised).await?;
+        println!("{device}");
+    }
+
     println!("Programming complete");
 
-    reboot_device(options, args).await
+    Ok(())
 }

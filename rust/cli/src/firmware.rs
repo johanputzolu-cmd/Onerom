@@ -44,7 +44,10 @@ pub async fn verify_assembled_firmware(
             return Err(Error::FirmwareValidation(detail));
         }
     } else if options.verbose {
-        println!("Assembled firmware parsed successfully with no errors");
+        println!(
+            "Assembled firmware version {} parsed successfully with no errors",
+            info.version
+        );
     }
     Ok(())
 }

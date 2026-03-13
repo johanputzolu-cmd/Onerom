@@ -9,6 +9,8 @@ use crate::utils::{parse_u8, parse_u32};
 use clap::{ArgGroup, Args, Subcommand, ValueEnum};
 use enum_dispatch::enum_dispatch;
 
+use onerom_cli::usb::RebootArgs;
+
 #[derive(Debug, Args)]
 pub struct ControlArgs {
     #[command(subcommand)]
@@ -146,7 +148,7 @@ pub struct ControlRebootArgs {
     pub running: bool,
 
     /// Don't pause after reboot for the device to re-enumerate
-    #[arg(long, short)]
+    #[arg(long)]
     pub fast: bool,
 
     /// Mount mass storage device when rebooting into stopped mode.
@@ -157,6 +159,18 @@ pub struct ControlRebootArgs {
 impl CommandTrait for ControlRebootArgs {
     fn requires_device(&self) -> bool {
         true
+    }
+}
+
+impl From<&ControlRebootArgs> for RebootArgs {
+    fn from(args: &ControlRebootArgs) -> Self {
+        if args.stopped {
+            RebootArgs::stopped(args.msd, args.fast)
+        } else if args.running {
+            RebootArgs::running(args.msd)
+        } else {
+            RebootArgs::none()
+        }
     }
 }
 
@@ -228,7 +242,7 @@ impl CommandTrait for ControlPokeArgs {
 
 #[derive(Debug, Args)]
 #[command(group = ArgGroup::new("erase_target").required(true).args(["all", "offset", "address"]))]
-#[command(group = ArgGroup::new("reboot_mode").args(["reboot_stopped", "reboot_running"]))]
+#[command(group = ArgGroup::new("reboot_mode").required(false).args(["reboot_stopped", "reboot_running"]))]
 pub struct ControlEraseArgs {
     /// Erase all flash contents.
     #[arg(long, short)]
@@ -257,21 +271,37 @@ pub struct ControlEraseArgs {
     pub size: Vec<u32>,
 
     /// Reboot into stopped (bootloader) mode after erasing.
-    #[arg(long, short = 's')]
+    #[arg(long, short = 's', conflicts_with = "reboot_running")]
     pub reboot_stopped: bool,
 
     /// Reboot into running mode after erasing.
-    #[arg(long, short = 'r')]
+    #[arg(long, short = 'r', conflicts_with = "reboot_stopped")]
     pub reboot_running: bool,
 
     /// Mount mass storage device when rebooting into stopped mode.
     #[arg(long, short = 'm', requires = "reboot_stopped")]
     pub msd: bool,
+
+    /// Don't pause after reboot for the device to re-enumerate
+    #[arg(long, requires = "reboot_mode")]
+    pub fast: bool,
 }
 
 impl CommandTrait for ControlEraseArgs {
     fn requires_device(&self) -> bool {
         true
+    }
+}
+
+impl From<&ControlEraseArgs> for RebootArgs {
+    fn from(args: &ControlEraseArgs) -> Self {
+        if args.reboot_stopped {
+            RebootArgs::stopped(args.msd, args.fast)
+        } else if args.reboot_running {
+            RebootArgs::running(args.fast)
+        } else {
+            RebootArgs::none()
+        }
     }
 }
 
