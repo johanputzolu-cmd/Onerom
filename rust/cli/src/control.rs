@@ -6,8 +6,10 @@ use crate::{
     args,
     utils::{check_device, check_live_read_write},
 };
-use onerom_cli::usb::{RebootMode, read_memory, reboot, write_memory};
+use onerom_cli::device::{Device, select_device};
+use onerom_cli::usb::{FLASH_BASE, RebootMode, flash_erase, read_memory, reboot, write_memory};
 use onerom_cli::{Error, Options};
+use std::io::Write;
 
 pub async fn cmd_blink(
     options: &Options,
@@ -29,7 +31,7 @@ pub async fn cmd_reboot(
         "Cannot specify both --stopped and --running"
     );
     let mode = if args.stopped {
-        RebootMode::Stopped
+        RebootMode::Stopped { msd: args.msd }
     } else {
         RebootMode::Running
     };
@@ -42,7 +44,7 @@ pub async fn cmd_reboot(
     // Wait a few seconds for the device to re-enumerate before returning
     if !args.fast {
         println!("Pausing for device to re-enumerate");
-        smol::Timer::after(std::time::Duration::from_secs(5)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 
     Ok(())
@@ -172,4 +174,165 @@ pub async fn cmd_poke_live(
     }
 
     Ok(())
+}
+
+const FLASH_SIZE: u32 = 2 * 1024 * 1024;
+const SECTOR_SIZE: u32 = 4096;
+
+fn build_erase_ranges(args: &args::control::ControlEraseArgs) -> Result<Vec<(u32, u32)>, Error> {
+    if args.all {
+        return Ok(vec![(0, FLASH_SIZE)]);
+    }
+
+    let offsets: Vec<u32> = if !args.address.is_empty() {
+        args.address
+            .iter()
+            .map(|&a| {
+                if a < FLASH_BASE {
+                    Err(Error::InvalidArgument(format!(
+                        "address {a:#010x} is below flash base {FLASH_BASE:#010x}"
+                    )))
+                } else {
+                    Ok(a - FLASH_BASE)
+                }
+            })
+            .collect::<Result<_, _>>()?
+    } else {
+        args.offset.clone()
+    };
+
+    if offsets.len() != args.size.len() {
+        return Err(Error::InvalidArgument(format!(
+            "got {} offset/address(es) but {} size(s)",
+            offsets.len(),
+            args.size.len()
+        )));
+    }
+
+    Ok(offsets.into_iter().zip(args.size.iter().copied()).collect())
+}
+
+fn validate_erase_ranges(ranges: &[(u32, u32)]) -> Result<(), Error> {
+    for (offset, size) in ranges {
+        if offset % SECTOR_SIZE != 0 {
+            return Err(Error::InvalidArgument(format!(
+                "offset {offset:#x} is not {SECTOR_SIZE}-byte aligned"
+            )));
+        }
+        if *size == 0 || size % SECTOR_SIZE != 0 {
+            return Err(Error::InvalidArgument(format!(
+                "size {size:#x} must be a non-zero multiple of {SECTOR_SIZE:#x}"
+            )));
+        }
+        if offset + size > FLASH_SIZE {
+            return Err(Error::InvalidArgument(format!(
+                "range {offset:#x}+{size:#x} exceeds flash size {FLASH_SIZE:#x}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn confirm_erase(options: &Options, device: &Device, ranges: &[(u32, u32)]) -> Result<bool, Error> {
+    let total_kb = ranges.iter().map(|(_, s)| s).sum::<u32>() / 1024;
+    println!(
+        "This will erase {total_kb}KB across {} range(s) on device: {device}",
+        ranges.len()
+    );
+    if options.verbose {
+        for (offset, size) in ranges {
+            println!("  {offset:#010x} + {size:#x} bytes");
+        }
+    }
+
+    if options.yes {
+        println!("Auto-accepted (--yes)");
+        return Ok(true);
+    }
+
+    print!("Are you sure? (y/N): ");
+    std::io::stdout().flush()?;
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input)?;
+
+    Ok(matches!(input.trim().to_lowercase().as_str(), "y" | "yes"))
+}
+
+async fn ensure_stopped(options: &mut Options) -> Result<(), Error> {
+    let device = options.device.as_ref().unwrap();
+    if !device.is_running() {
+        return Ok(());
+    }
+
+    if options.verbose {
+        println!("Device is running, rebooting into stopped mode...");
+    }
+    let serial = device.serial.clone();
+    reboot(device, RebootMode::Stopped { msd: false }).await?;
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let selector = serial.as_deref().unwrap_or("*");
+    let new_device = select_device(Some(selector), true).await?;
+
+    if new_device.is_running() {
+        return Err(Error::DeviceRunning);
+    }
+    options.device = Some(new_device);
+    Ok(())
+}
+
+async fn erase_ranges(options: &Options, ranges: &[(u32, u32)]) -> Result<(), Error> {
+    let device = options.device.as_ref().unwrap();
+
+    println!("Erasing flash - DO NOT DISCONNECT");
+
+    for (offset, size) in ranges {
+        if options.verbose {
+            let address = FLASH_BASE + offset;
+            println!("  Erasing {size:#x} bytes at {address:#010x}");
+        }
+        flash_erase(device, *offset, *size).await?;
+    }
+
+    let total_kb = ranges.iter().map(|(_, s)| s).sum::<u32>() / 1024;
+    println!("Erased {total_kb}KB of flash");
+    Ok(())
+}
+
+async fn reboot_after_erase(
+    options: &Options,
+    args: &args::control::ControlEraseArgs,
+) -> Result<(), Error> {
+    let device = options.device.as_ref().unwrap();
+
+    if args.reboot_stopped {
+        let mode = RebootMode::Stopped { msd: args.msd };
+        reboot(device, mode).await?;
+        println!("Rebooted device into stopped mode");
+    } else if args.reboot_running {
+        reboot(device, RebootMode::Running).await?;
+        println!("Rebooted device into running mode");
+    }
+
+    Ok(())
+}
+
+pub async fn cmd_erase(
+    options: &mut Options,
+    args: &args::control::ControlEraseArgs,
+) -> Result<(), Error> {
+    check_device(options, args)?;
+
+    let ranges = build_erase_ranges(args)?;
+    validate_erase_ranges(&ranges)?;
+
+    if !confirm_erase(options, options.device.as_ref().unwrap(), &ranges)? {
+        println!("Aborted");
+        return Ok(());
+    }
+
+    ensure_stopped(options).await?;
+    erase_ranges(options, &ranges).await?;
+    reboot_after_erase(options, args).await
 }

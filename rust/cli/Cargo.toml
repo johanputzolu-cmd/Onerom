@@ -25,7 +25,7 @@ onerom-fw = { path="../fw", version = "0.1.17" }
 onerom-gen = { path="../gen", version = "0.5.5" }
 sdrr-fw-parser = { path="../sdrr-fw-parser", version = "0.6.8" }
 
-picoboot = { path = "../../../picoboot", version = "0.2.0", features = ["reader", "smol"] }
+picoboot = { path = "../../../picoboot", version = "0.2.0", features = ["reader", "tokio"] }
 
 base64 = { version = "0.22" }
 bytes = "1.10"
@@ -34,11 +34,11 @@ enum_dispatch = "0.3"
 env_logger = "0.11"
 hex = { version = "0.4" }
 log = "0.4"
-nusb = { version = "0.2", features = ["smol"] }
+nusb = { version = "0.2", features = ["tokio"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "charset", "blocking", "rustls-tls"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
-smol = { version = "2.0" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 thiserror = "2.0"
 wildmatch = "2.6"
 zip = "8.2"

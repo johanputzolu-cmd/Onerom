@@ -7,6 +7,7 @@ use std::io::Write;
 use crate::args::CommandTrait;
 use onerom_cli::{DeviceState, Error, LogLevel, Options};
 use onerom_cli::{LIVE_ROM_BASE, LIVE_ROM_MAX_OFFSET};
+use onerom_config::hw::Board;
 
 pub fn get_supported_boards() -> String {
     onerom_config::hw::BOARDS
@@ -171,4 +172,62 @@ pub fn check_live_read_write(
     }
 
     Ok((LIVE_ROM_BASE + offset, length))
+}
+
+/// Resolves the target board type.
+///
+/// If `board_arg` is provided, it takes precedence. Otherwise the board
+/// is inferred from the connected device. Returns `None` if neither is
+/// available, leaving it to the caller to decide whether that's an error.
+pub fn resolve_board(
+    options: &Options,
+    board_arg: &Option<String>,
+) -> Result<Option<Board>, Error> {
+    if let Some(board) = board_arg {
+        Ok(Some(
+            onerom_config::hw::Board::try_from_str(board)
+                .ok_or_else(|| Error::InvalidBoard(board.clone(), get_supported_boards()))?,
+        ))
+    } else if let Some(device) = options.device.as_ref() {
+        Ok(device
+            .onerom
+            .as_ref()
+            .and_then(|o| o.flash.as_ref())
+            .and_then(|f| f.board))
+    } else {
+        Ok(None)
+    }
+}
+
+/// Figures out the firmware output filename to use
+pub fn resolve_firmware_output(
+    output: &Option<String>,
+    path: &Option<String>,
+    board: &Board,
+    version: Option<&str>,
+    config: Option<&str>,
+) -> String {
+    let version_part = version.map(|v| format!("_v{v}")).unwrap_or_default();
+
+    let config_suffix = config
+        .map(|c| {
+            std::path::Path::new(c)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(c)
+        })
+        .map(|s| format!("_{s}"))
+        .unwrap_or_default();
+
+    let default_filename = format!(
+        "onerom_{}{version_part}{config_suffix}.bin",
+        board.name().to_ascii_lowercase(),
+    );
+    if let Some(output) = output {
+        output.clone()
+    } else if let Some(path) = path {
+        format!("{}/{}", path.trim_end_matches('/'), default_filename)
+    } else {
+        default_filename
+    }
 }

@@ -444,7 +444,7 @@ void setup_usb_controller(void) {
 
     // Release USB controller from reset
     RESET_RESET &= ~RESET_USBCTRL;
-    while (!(RESET_DONE & RESET_USBCTRL));
+    while (!(RESET_DONE & RESET_USBCTRL)) {}
 }
 
 void setup_usb_pll(void) {

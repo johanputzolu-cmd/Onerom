@@ -9,7 +9,7 @@ pub enum Error {
     #[error("USB error: {0}")]
     Usb(String),
 
-    #[error("No One ROM devices found")]
+    #[error("No One ROMs found")]
     NoDevices,
 
     #[error("Multiple devices found - use --device to select one.\n  Found: {}", .0.join(", "))]
@@ -60,10 +60,54 @@ pub enum Error {
         "The operation attempted to access past the end of a live ROM image\n  ROM type {0} image size is {1} bytes"
     )]
     LiveOutOfBounds(String, usize),
+
+    #[error("Could not determine board type from connected device")]
+    NoBoardFromDevice,
+
+    #[error("Either --board or --device must be specified")]
+    NoBoardOrDevice,
+
+    #[error("Version '{0}' not found. Available releases: {1}")]
+    VersionNotFound(String, String),
+
+    #[error("No latest release found in manifest")]
+    NoLatestRelease,
+
+    #[error("License not accepted")]
+    LicenseNotAccepted,
+
+    #[error("Firmware image supplied is larger than the maximum supported: {0} bytes vs {1} bytes")]
+    FirmwareTooLarge(usize, usize),
+
+    #[error("Assembled firmware has parse errors (use --force to override):\n{0}")]
+    FirmwareValidation(String),
+
+    #[error(
+        "--base-firmware without --config or --rom requires --no-config to confirm flashing firmware with no ROM images"
+    )]
+    NoConfigNotConfirmed,
+
+    #[error("Failed to stop device, cannot proceed")]
+    DeviceRunning,
+
+    #[error("Flash verification failed at offset {0:#010x}: expected {1:#04x}, got {2:#04x}")]
+    VerifyFailed(usize, u8, u8),
+
+    #[error("Invalid argument: {0}")]
+    InvalidArgument(String),
+
+    #[error("No firmware source specified. Use --config, --rom, --firmware, or --base-firmware.")]
+    NoFirmwareSource,
 }
 
 impl From<onerom_fw::Error> for Error {
     fn from(e: onerom_fw::Error) -> Self {
         Self::Other(e.to_string())
+    }
+}
+
+impl From<onerom_config::Error> for Error {
+    fn from(e: onerom_config::Error) -> Self {
+        Self::Other(format!("{e}"))
     }
 }

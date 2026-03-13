@@ -26,8 +26,9 @@ use args::update::UpdateCommands;
 
 use onerom_cli::Error;
 
-fn main() {
-    if let Err(e) = smol::block_on(sub_main()) {
+#[tokio::main]
+async fn main() {
+    if let Err(e) = sub_main().await {
         eprintln!();
         eprintln!("Error: {e}");
         std::process::exit(1);
@@ -39,7 +40,7 @@ async fn sub_main() -> Result<(), Error> {
     // onerom.
     let cli = Cli::from_arg_matches(&Cli::command().bin_name("onerom").get_matches())
         .unwrap_or_else(|e: clap::Error| e.exit());
-    let options = cli.try_into_options().await?;
+    let mut options = cli.try_into_options().await?;
 
     utils::init_logging(&options);
 
@@ -53,7 +54,7 @@ async fn sub_main() -> Result<(), Error> {
             FirmwareCommands::Releases(args) => firmware::cmd_releases(&options, args).await,
             FirmwareCommands::Download(args) => firmware::cmd_download(&options, args).await,
         },
-        Commands::Program(args) => program::cmd_program(&options, args).await,
+        Commands::Program(args) => program::cmd_program(&mut options, args).await,
         Commands::Inspect(args) => match &args.command {
             InspectCommands::Info(args) => inspect::cmd_info(&options, args).await,
             InspectCommands::Telemetry(args) => inspect::cmd_telemetry(&options, args).await,
@@ -76,6 +77,7 @@ async fn sub_main() -> Result<(), Error> {
                 ControlPokeCommands::Memory(args) => control::cmd_poke_memory(&options, args).await,
                 ControlPokeCommands::Live(args) => control::cmd_poke_live(&options, args).await,
             },
+            ControlCommands::Erase(args) => control::cmd_erase(&mut options, args).await,
         },
         Commands::Update(args) => match &args.command {
             UpdateCommands::Slot(args) => update::cmd_slot(&options, args).await,

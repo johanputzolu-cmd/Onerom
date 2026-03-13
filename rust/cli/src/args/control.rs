@@ -106,6 +106,19 @@ pub enum ControlCommands {
         subcommand_help_heading = "Commands"
     )]
     Poke(ControlPokeArgs),
+
+    /// Erase this One ROM's flash memory.
+    ///
+    /// Permanently erases all flash contents on the device, including
+    /// firmware, metadata and ROM images.
+    ///
+    /// Once a One ROM has been erased it will subsequently boot into the
+    /// RP2350 bootloader from where it can be reprogrammed.
+    ///
+    /// Example:
+    ///
+    ///   onerom control erase
+    Erase(ControlEraseArgs),
 }
 
 #[derive(Debug, Args)]
@@ -135,6 +148,10 @@ pub struct ControlRebootArgs {
     /// Don't pause after reboot for the device to re-enumerate
     #[arg(long, short)]
     pub fast: bool,
+
+    /// Mount mass storage device when rebooting into stopped mode.
+    #[arg(long, short = 'm', conflicts_with = "running")]
+    pub msd: bool,
 }
 
 impl CommandTrait for ControlRebootArgs {
@@ -206,6 +223,55 @@ pub struct ControlPokeArgs {
 impl CommandTrait for ControlPokeArgs {
     fn requires_device(&self) -> bool {
         self.command.requires_device()
+    }
+}
+
+#[derive(Debug, Args)]
+#[command(group = ArgGroup::new("erase_target").required(true).args(["all", "offset", "address"]))]
+#[command(group = ArgGroup::new("reboot_mode").args(["reboot_stopped", "reboot_running"]))]
+pub struct ControlEraseArgs {
+    /// Erase all flash contents.
+    #[arg(long, short)]
+    pub all: bool,
+
+    /// Erase at offset(s) relative to flash base (0x10000000).
+    ///
+    /// Must be 4096-aligned. Pair each with a --size.
+    /// Can be repeated for multiple ranges.
+    /// Mutually exclusive with --address.
+    #[arg(long, short, value_name = "OFFSET", value_parser = parse_u32, action = clap::ArgAction::Append, conflicts_with = "address", requires = "size")]
+    pub offset: Vec<u32>,
+
+    /// Erase at absolute address(es).
+    ///
+    /// Must be 4096-aligned. Pair each with a --size.
+    /// Can be repeated for multiple ranges.
+    /// Mutually exclusive with --offset.
+    #[arg(long, value_name = "ADDRESS", value_parser = parse_u32, action = clap::ArgAction::Append, conflicts_with = "offset", requires = "size")]
+    pub address: Vec<u32>,
+
+    /// Size of each range to erase (paired with --offset or --address).
+    ///
+    /// Must be 4096-aligned. Specify once per --offset/--address.
+    #[arg(long, value_name = "SIZE", value_parser = parse_u32, action = clap::ArgAction::Append, conflicts_with = "all")]
+    pub size: Vec<u32>,
+
+    /// Reboot into stopped (bootloader) mode after erasing.
+    #[arg(long, short = 's')]
+    pub reboot_stopped: bool,
+
+    /// Reboot into running mode after erasing.
+    #[arg(long, short = 'r')]
+    pub reboot_running: bool,
+
+    /// Mount mass storage device when rebooting into stopped mode.
+    #[arg(long, short = 'm', requires = "reboot_stopped")]
+    pub msd: bool,
+}
+
+impl CommandTrait for ControlEraseArgs {
+    fn requires_device(&self) -> bool {
+        true
     }
 }
 

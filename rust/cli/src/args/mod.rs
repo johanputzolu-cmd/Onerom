@@ -30,9 +30,9 @@ use onerom_cli::LogLevel;
 use onerom_cli::{Error, Options};
 
 use control::{
-    ControlArgs, ControlBlinkArgs, ControlCommands, ControlGpioArgs, ControlPokeArgs,
-    ControlPokeCommands, ControlPokeLiveArgs, ControlPokeMemoryArgs, ControlRebootArgs,
-    ControlResetArgs, ControlSelectArgs,
+    ControlArgs, ControlBlinkArgs, ControlCommands, ControlEraseArgs, ControlGpioArgs,
+    ControlPokeArgs, ControlPokeCommands, ControlPokeLiveArgs, ControlPokeMemoryArgs,
+    ControlRebootArgs, ControlResetArgs, ControlSelectArgs,
 };
 use firmware::{
     FirmwareArgs, FirmwareBuildArgs, FirmwareCommands, FirmwareDownloadArgs, FirmwareInspectArgs,

@@ -4394,11 +4394,9 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0226f4db3ee78f820747cf713767722877f6449d7a0fcfbf2ec3b840969763f"
 dependencies = [
- "blocking",
  "core-foundation 0.10.1",
  "core-foundation-sys",
  "futures-core",
- "futures-io",
  "io-kit-sys",
  "linux-raw-sys 0.9.4",
  "log",
@@ -4779,13 +4777,13 @@ dependencies = [
  "onerom-config",
  "onerom-fw",
  "onerom-gen",
- "picoboot 0.2.0",
+ "picoboot",
  "reqwest",
  "sdrr-fw-parser",
  "serde",
  "serde_json",
- "smol",
  "thiserror 2.0.18",
+ "tokio",
  "wildmatch",
  "zip 8.2.0",
 ]
@@ -4955,7 +4953,7 @@ dependencies = [
  "onerom-fw",
  "onerom-gen",
  "open",
- "picoboot 0.1.2",
+ "picoboot",
  "probe-rs",
  "reqwest",
  "resvg",
@@ -5220,20 +5218,6 @@ name = "pico-args"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
-
-[[package]]
-name = "picoboot"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82f17e361e497303cc3077a798bd0712cca8dd7c9353c554cc55700ddc2da3b4"
-dependencies = [
- "deku 0.20.3",
- "log",
- "nusb 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustix 1.1.3",
- "serde",
- "thiserror 2.0.18",
-]
 
 [[package]]
 name = "picoboot"
@@ -7205,7 +7189,19 @@ dependencies = [
  "mio",
  "pin-project-lite",
  "socket2",
+ "tokio-macros",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c55a2eff8b69ce66c84f85e1da1c233edc36ceb85a2058d11b0d6a3c7e7569c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.115",
 ]
 
 [[package]]

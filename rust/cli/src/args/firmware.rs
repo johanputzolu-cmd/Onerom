@@ -23,7 +23,7 @@ impl CommandTrait for FirmwareArgs {
 #[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum FirmwareCommands {
-    /// Build a One ROM firmware binary from a ROM configuration (not yet supported).
+    /// Build a One ROM firmware binary from a ROM configuration.
     ///
     /// Produces a flashable firmware binary for the specified board and MCU.
     /// ROM images and configuration are supplied either via a JSON config
@@ -33,12 +33,12 @@ pub enum FirmwareCommands {
     ///
     ///   onerom firmware build --config c64.json --board fire-24-e --out firmware.bin
     ///
-    ///   onerom firmware build --board fire-24-e --mcu rp2350 \
+    ///   onerom firmware build --board fire-24-e \
     ///       --rom image=kernal.bin,type=2364,cs=active_low \
     ///       --out firmware.bin
     Build(FirmwareBuildArgs),
 
-    /// Inspect the contents of a One ROM firmware binary (not yet supported).
+    /// Inspect the contents of a One ROM firmware binary.
     ///
     /// Displays the firmware version, board type, MCU, and details of any
     /// embedded ROM images and metadata.
@@ -58,11 +58,15 @@ pub enum FirmwareCommands {
     ///   onerom firmware releases
     Releases(FirmwareReleasesArgs),
 
-    /// Download a One ROM firmware binary from a release (not yet supported).
+    /// Download a One ROM firmware binary from a release.
     ///
     /// Downloads the base (ROM-less) firmware binary for the specified
-    /// version, board, and MCU. Use `onerom program` to build and flash
-    /// a complete firmware with ROM images in one step.
+    /// version, board, and MCU.
+    ///
+    /// Use `program` to build and flash a complete firmware with ROM images in one step.
+    ///
+    /// Use `firmware build` to build a complete firmware with ROM images
+    /// from a config, but without flashing.
     ///
     /// Example:
     ///
@@ -71,12 +75,13 @@ pub enum FirmwareCommands {
 }
 
 #[derive(Debug, Args)]
+#[command(group = clap::ArgGroup::new("config_source").required(false).args(["config", "rom"]))]
 pub struct FirmwareBuildArgs {
     /// ROM configuration JSON file. Mutually exclusive with --rom.
     #[arg(long, value_name = "FILE", conflicts_with = "rom")]
     pub config: Option<String>,
 
-    /// ROM image specification. May be repeated for multiple images.
+    /// ROM image specification. May be repeated for multiple images.  (Not yet supported.)
     ///
     /// Format: image=<file>,type=<romtype>,cs=<csconfig>
     ///
@@ -91,18 +96,42 @@ pub struct FirmwareBuildArgs {
     #[arg(long, short, value_name = "BOARD")]
     pub board: Option<String>,
 
-    /// Target MCU variant (e.g. rp2350). Required when not inferrable
-    /// from a connected device.
-    #[arg(long, value_name = "MCU")]
-    pub mcu: Option<String>,
-
     /// Firmware version to build against. Defaults to the latest release.
     #[arg(long, value_name = "VERSION")]
     pub version: Option<String>,
 
-    /// Path for the output firmware binary.
-    #[arg(long, short, value_name = "FILE", required = true)]
-    pub out: String,
+    /// Output file path. Defaults to onerom-<board>-<version>.bin.
+    #[arg(
+        long,
+        short,
+        visible_alias = "out",
+        value_name = "FILE",
+        conflicts_with = "path"
+    )]
+    pub output: Option<String>,
+
+    /// Output directory. Uses the default filename within the given directory.
+    #[arg(long, value_name = "DIR", conflicts_with = "output")]
+    pub path: Option<String>,
+
+    /// Use a local minimal firmware binary instead of downloading from the
+    /// release server.
+    ///
+    /// This must be built with EXCLUDE_METADATA=1 and ROM_CONFIGS= in order to
+    /// be suitable for then constructing a complete firmware image with this
+    /// command.
+    #[arg(long, value_name = "FILE", conflicts_with = "version")]
+    pub base_firmware: Option<String>,
+
+    /// Continue even if the assembled firmware has parse errors.
+    #[arg(long, short)]
+    pub force: bool,
+
+    /// Confirm flashing a base firmware with no ROM configuration.
+    ///
+    /// Only needed when --base-firmware is used without --config or --rom.
+    #[arg(long)]
+    pub no_config: bool,
 }
 
 impl CommandTrait for FirmwareBuildArgs {
@@ -114,8 +143,16 @@ impl CommandTrait for FirmwareBuildArgs {
 #[derive(Debug, Args)]
 pub struct FirmwareInspectArgs {
     /// Firmware binary file to inspect.
-    #[arg(value_name = "FILE")]
-    pub file: String,
+    #[arg(long, visible_alias = "fw", value_name = "FILE")]
+    pub firmware: Option<String>,
+
+    /// Inspect release firmware for this board type.
+    #[arg(long, short, value_name = "BOARD", conflicts_with = "firmware")]
+    pub board: Option<String>,
+
+    /// Firmware version to inspect. Defaults to latest.
+    #[arg(long, value_name = "VERSION", conflicts_with = "firmware")]
+    pub version: Option<String>,
 }
 
 impl CommandTrait for FirmwareInspectArgs {
@@ -129,6 +166,10 @@ pub struct FirmwareReleasesArgs {
     /// Show only releases for this board type.
     #[arg(long, short, value_name = "BOARD")]
     pub board: Option<String>,
+
+    /// Show all releases, even if a device is attached and detected
+    #[arg(long, short, conflicts_with = "board")]
+    pub all: bool,
 }
 
 impl CommandTrait for FirmwareReleasesArgs {
@@ -144,16 +185,24 @@ pub struct FirmwareDownloadArgs {
     pub version: Option<String>,
 
     /// Target board type (e.g. fire-24-e).
-    #[arg(long, short, value_name = "BOARD", required = true)]
-    pub board: String,
+    ///
+    /// Will be inferred from device if not included.
+    #[arg(long, short, value_name = "BOARD")]
+    pub board: Option<String>,
 
-    /// Target MCU variant (e.g. rp2350).
-    #[arg(long, value_name = "MCU", required = true)]
-    pub mcu: String,
+    /// Output file path. Defaults to onerom_<board>_<version>.bin.
+    #[arg(
+        long,
+        short,
+        visible_alias = "out",
+        value_name = "FILE",
+        conflicts_with = "path"
+    )]
+    pub output: Option<String>,
 
-    /// Output file path. Defaults to onerom-<board>-<mcu>-<version>.bin.
-    #[arg(long, short, value_name = "FILE")]
-    pub out: Option<String>,
+    /// Output directory. Uses the default filename within the given directory.
+    #[arg(long, value_name = "DIR", conflicts_with = "output")]
+    pub path: Option<String>,
 }
 
 impl CommandTrait for FirmwareDownloadArgs {

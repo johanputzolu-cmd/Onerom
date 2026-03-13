@@ -104,7 +104,7 @@ pub async fn read_device_info(device: &mut Device) -> Result<(), Error> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RebootMode {
     /// Stopped is bootloader/BOOTSEL mode
-    Stopped,
+    Stopped { msd: bool },
     /// Running is One ROM in byte serving mode
     Running,
 }
@@ -112,17 +112,17 @@ pub enum RebootMode {
 impl std::fmt::Display for RebootMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RebootMode::Stopped => write!(f, "stopped"),
+            RebootMode::Stopped { msd: true } => write!(f, "stopped (MSD enabled)"),
+            RebootMode::Stopped { msd: false } => write!(f, "stopped"),
             RebootMode::Running => write!(f, "running"),
         }
     }
 }
-
 impl From<RebootMode> for picoboot::RebootType {
     fn from(mode: RebootMode) -> Self {
         match mode {
-            RebootMode::Stopped => picoboot::RebootType::Bootsel {
-                disable_msd: true,
+            RebootMode::Stopped { msd } => picoboot::RebootType::Bootsel {
+                disable_msd: !msd,
                 disable_picoboot: false,
             },
             RebootMode::Running => picoboot::RebootType::Normal,
@@ -257,6 +257,55 @@ pub async fn write_memory(device: &Device, address: u32, data: &[u8]) -> Result<
 
     picoboot
         .write(address, data)
+        .await
+        .map_err(|e| Error::Usb(e.to_string()))
+}
+
+/// Erase and write firmware to device flash.
+pub async fn flash_program(device: &Device, data: &[u8]) -> Result<(), Error> {
+    let mut picoboot = get_picoboot(device).await?;
+
+    picoboot
+        .flash_erase_and_write(FLASH_BASE, data)
+        .await
+        .map_err(|e| Error::Usb(e.to_string()))
+}
+
+/// Read firmware from device flash for verification.
+pub async fn flash_program_read(device: &Device, size: u32) -> Result<Vec<u8>, Error> {
+    let mut picoboot = get_picoboot(device).await?;
+
+    picoboot
+        .flash_read(FLASH_BASE, size)
+        .await
+        .map_err(|e| Error::Usb(e.to_string()))
+}
+
+/// Erase a region of device flash.
+///
+/// Both `offset` and `size` are relative to `FLASH_BASE` and must be
+/// multiples of 4096 (one flash sector).
+pub async fn flash_erase(device: &Device, offset: u32, size: u32) -> Result<(), Error> {
+    const SECTOR_SIZE: u32 = 4096;
+
+    if !offset.is_multiple_of(SECTOR_SIZE) {
+        return Err(Error::Other(format!(
+            "offset {offset:#x} is not sector-aligned (must be a multiple of {SECTOR_SIZE:#x})"
+        )));
+    }
+    if size == 0 || !size.is_multiple_of(SECTOR_SIZE) {
+        return Err(Error::Other(format!(
+            "size {size:#x} must be a non-zero multiple of {SECTOR_SIZE:#x}"
+        )));
+    }
+
+    let address = FLASH_BASE + offset;
+    check_memory_range(device, address, size, true, true)?;
+
+    let mut picoboot = get_picoboot(device).await?;
+
+    picoboot
+        .flash_erase(address, size)
         .await
         .map_err(|e| Error::Usb(e.to_string()))
 }
