@@ -173,8 +173,12 @@ pub fn matches_serial(serial: Option<&str>, pattern: &str) -> bool {
 /// - No selector, one device found: returns that device.
 /// - No selector, multiple devices found: returns an error listing serials.
 /// - Selector provided: matches against serial number, errors if not found.
-pub async fn select_device(selector: Option<&str>, unrecognised: bool) -> Result<Device, Error> {
-    let devices = enumerate_devices(unrecognised).await?;
+pub async fn select_device(
+    selector: Option<&str>,
+    unrecognised: bool,
+    vid_pid: &[(u16, u16)],
+) -> Result<Device, Error> {
+    let devices = enumerate_devices(unrecognised, vid_pid).await?;
 
     if devices.is_empty() {
         return Err(Error::NoDevices);

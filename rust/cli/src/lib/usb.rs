@@ -24,12 +24,28 @@ pub const RAM_BASE: u32 = 0x2000_0000;
 pub const FLASH_READ_SIZE_KB: u32 = 64;
 pub const FLASH_READ_SIZE_BYTES: u32 = FLASH_READ_SIZE_KB * 1024;
 
+pub const DEFAULT_ONEROM_PICOBOOT_TARGETS: [Target; 1] = [Target::Rp2350];
+
 /// Enumerate all connected One ROM Fire (RP2350) devices.
 ///
 /// Returns an empty Vec rather than an error if no devices are found.
-pub async fn enumerate_devices(unrecognised: bool) -> Result<Vec<Device>, Error> {
-    let fire_targets = [Target::Rp2350];
-    let device_infos = Picoboot::list_devices(Some(&fire_targets))
+pub async fn enumerate_devices(
+    unrecognised: bool,
+    vid_pid: &[(u16, u16)],
+) -> Result<Vec<Device>, Error> {
+    // Create the list of targets to use Picoboot to scan for.  We only use
+    // the default RP2350 if no custom VID/PID pairs were provided.
+    let targets: Vec<Target> = vid_pid
+        .iter()
+        .map(|&(vid, pid)| Target::Custom { vid, pid })
+        .collect();
+    let targets = if targets.is_empty() {
+        DEFAULT_ONEROM_PICOBOOT_TARGETS.to_vec()
+    } else {
+        targets
+    };
+
+    let device_infos = Picoboot::list_devices(Some(&targets))
         .await
         .map_err(|e| Error::Usb(e.to_string()))?;
 

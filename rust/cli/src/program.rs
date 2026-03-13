@@ -133,7 +133,7 @@ async fn flash_device(options: &mut Options, data: &[u8]) -> Result<(), Error> {
 
         // Re-enumerate — old device_info is stale after reboot
         let selector = serial.as_deref();
-        let new_device = select_device(selector, options.unrecognised).await?;
+        let new_device = select_device(selector, options.unrecognised, &options.vid_pid).await?;
 
         if new_device.is_running() {
             return Err(Error::DeviceRunning);
@@ -196,7 +196,7 @@ pub async fn cmd_program(
     if options.verbose {
         // Rescan for the device after reboot and display it
         let selector = serial.as_deref();
-        let device = select_device(selector, options.unrecognised).await?;
+        let device = select_device(selector, options.unrecognised, &options.vid_pid).await?;
         println!("{device}");
     }
 

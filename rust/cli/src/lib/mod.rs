@@ -36,4 +36,5 @@ pub struct Options {
     pub yes: bool,
     pub unrecognised: bool,
     pub device: Option<Device>,
+    pub vid_pid: Vec<(u16, u16)>,
 }

@@ -43,7 +43,7 @@ pub async fn cmd_reboot(
     if options.verbose {
         // Rescan device to show new mode
         let selector = serial.as_deref();
-        let device = select_device(selector, options.unrecognised).await?;
+        let device = select_device(selector, options.unrecognised, &options.vid_pid).await?;
         println!("{device}");
     }
 
@@ -272,7 +272,7 @@ async fn ensure_stopped(options: &mut Options) -> Result<(), Error> {
     reboot(device, &RebootArgs::stopped(false, false)).await?;
 
     let selector = serial.as_deref();
-    let new_device = select_device(selector, options.unrecognised).await?;
+    let new_device = select_device(selector, options.unrecognised, &options.vid_pid).await?;
 
     if new_device.is_running() {
         return Err(Error::DeviceRunning);

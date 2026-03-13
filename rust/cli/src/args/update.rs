@@ -77,7 +77,7 @@ pub struct UpdateSlotArgs {
     pub slot: u8,
 
     /// ROM image file to write to the slot.
-    #[arg(long, short, value_name = "FILE", required = true)]
+    #[arg(long, short = 'm', value_name = "FILE", required = true)]
     pub image: String,
 }
 

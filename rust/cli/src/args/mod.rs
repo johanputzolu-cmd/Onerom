@@ -82,17 +82,27 @@ pub struct Cli {
     ///
     /// Specify multiple pairs by specifying the --vid-pid argument multiple
     /// times.
-    #[arg(long, value_name = "VID:PID", value_parser = parse_vid_pid, action = clap::ArgAction::Append)]
+    ///
+    /// Use in conjunction with --unrecognised to manage devices that do not
+    /// have a known One ROM firmware signature, such as unprogrammed or
+    /// bricked devices.
+    #[arg(global = true, long, short='i', visible_alias="id", value_name = "VID:PID", value_parser = parse_vid_pid, action = clap::ArgAction::Append)]
     pub vid_pid: Vec<(u16, u16)>,
 
     /// Allow management of unrecognised RP2350 devices and unprogrammed One ROMs.
     ///
     /// This is a global flag that can be used with any command to allow
     /// this tool to manage RP2350 devices that do not have a known One ROM
-    /// firmware signature or VID/PID.
+    /// firmware signature, such as unprogrammed or bricked devices.
+    ///
+    /// Note that even unrecognised devices must expose a valid picoboot USB
+    /// interface to be detected and managed by this tool.
     ///
     /// Use with caution as this allows programming of any non-One ROM RP2350
     /// devices that are attached.
+    ///
+    /// Use in conjunction with --vid-pid to manage devices that have
+    /// unexpected USB vendor and/or product IDs.
     #[arg(global = true, visible_alias = "unrecognized", long, short)]
     pub unrecognised: bool,
 
@@ -129,16 +139,33 @@ fn parse_vid_pid(s: &str) -> Result<(u16, u16), String> {
     Ok((vid, pid))
 }
 
+fn check_vid_pid_unique(vid_pid_list: &[(u16, u16)]) -> Result<(), Error> {
+    let mut seen = std::collections::HashSet::new();
+    for (vid, pid) in vid_pid_list {
+        if !seen.insert((*vid, *pid)) {
+            return Err(Error::InvalidArgument(format!(
+                "duplicate VID:PID pair '{:04x}:{:04x}'",
+                vid, pid
+            )));
+        }
+    }
+    Ok(())
+}
+
 impl Cli {
     pub async fn try_into_options(&self) -> Result<Options, Error> {
-        // Built the options struct first.
+        // Build the options struct first.
         let mut options = Options {
             log_level: self.log_level.clone(),
             verbose: self.verbose,
             yes: self.yes,
             unrecognised: self.unrecognised,
             device: None,
+            vid_pid: self.vid_pid.clone(),
         };
+
+        // Check for duplicate VID/PID pairs
+        check_vid_pid_unique(&options.vid_pid)?;
 
         let requires_device = self.command.requires_device();
 
@@ -154,8 +181,12 @@ impl Cli {
             if options.verbose {
                 println!("Scanning for device '{}' ...", device);
             }
-            let device =
-                onerom_cli::device::select_device(Some(device), options.unrecognised).await?;
+            let device = onerom_cli::device::select_device(
+                Some(device),
+                options.unrecognised,
+                &options.vid_pid,
+            )
+            .await?;
             if options.verbose {
                 println!("Found device: {device}");
             }
@@ -167,7 +198,9 @@ impl Cli {
             if options.verbose {
                 println!("No device specified, scanning for connected devices ...");
             }
-            let device = onerom_cli::device::select_device(None, options.unrecognised).await?;
+            let device =
+                onerom_cli::device::select_device(None, options.unrecognised, &options.vid_pid)
+                    .await?;
             if options.verbose {
                 println!("Found device: {device}");
             }
