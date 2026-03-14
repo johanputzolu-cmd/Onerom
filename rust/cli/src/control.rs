@@ -286,7 +286,11 @@ fn confirm_erase(options: &Options, device: &Device, ranges: &[(u32, u32)]) -> R
     );
     if options.verbose {
         for (offset, size) in ranges {
-            println!("  {offset:#010x} + {size:#x} bytes");
+            println!(
+                "  {size:#x} bytes ({}KB) at {:#010x}",
+                size / 1024,
+                FLASH_BASE + offset
+            );
         }
     }
 
@@ -352,7 +356,9 @@ async fn reboot_after_erase(
 
     let reboot_args = args.into();
     reboot(device, &reboot_args).await?;
-    println!("Rebooted device into {} mode", reboot_args.mode);
+    if !reboot_args.is_none() {
+        println!("Rebooted device into {} mode", reboot_args.mode);
+    }
 
     Ok(())
 }
@@ -371,7 +377,18 @@ pub async fn cmd_erase(
         return Ok(());
     }
 
-    ensure_stopped(options).await?;
+    if !args.no_reboot {
+        ensure_stopped(options).await?;
+    } else if options.verbose {
+        println!("BNot rebooting before erase");
+    }
     erase_ranges(options, &ranges).await?;
-    reboot_after_erase(options, args).await
+    if !args.no_reboot {
+        reboot_after_erase(options, args).await
+    } else {
+        if options.verbose {
+            println!("Not rebooting after erase");
+        }
+        Ok(())
+    }
 }

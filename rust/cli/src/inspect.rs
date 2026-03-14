@@ -99,10 +99,17 @@ pub async fn cmd_image(options: &Options, args: &InspectImageArgs) -> Result<(),
     Err(Error::Unimplemented("inspect image".into()))
 }
 
+// Outputs some bytes of data read from the device, either to the console as a
+// hex dump or to a file if an output path is provided.
+//
+// addr_offset is subtracted from the displayed addresses in the hex dump, so
+// it can be used to convert from a physical memory address to an offset within
+// a range.
 async fn read_and_output(
     device: &Device,
     address: u32,
     length: u32,
+    addr_offset: u32,
     out: Option<&String>,
 ) -> Result<(), Error> {
     let data = read_memory(device, address, length).await?;
@@ -110,7 +117,7 @@ async fn read_and_output(
     if let Some(filename) = out {
         std::fs::write(filename, &data)?;
     } else {
-        print_hex_dump(address - LIVE_ROM_BASE, &data);
+        print_hex_dump(address - addr_offset, &data);
     }
 
     Ok(())
@@ -120,13 +127,13 @@ pub async fn cmd_peek_live(options: &Options, args: &InspectPeekLiveArgs) -> Res
     let (address, length) = check_live_read_write(options, args.address, args.length, args)?;
 
     let device = options.device.as_ref().unwrap();
-    read_and_output(device, address, length, args.output.as_ref()).await
+    read_and_output(device, address, length, LIVE_ROM_BASE, args.output.as_ref()).await
 }
 
 pub async fn cmd_peek_memory(options: &Options, args: &InspectPeekMemoryArgs) -> Result<(), Error> {
     check_device(options, args)?;
     let device = options.device.as_ref().unwrap();
-    read_and_output(device, args.address, args.length, args.output.as_ref()).await
+    read_and_output(device, args.address, args.length, 0, args.output.as_ref()).await
 }
 
 pub async fn cmd_gpio(options: &Options, args: &InspectGpioArgs) -> Result<(), Error> {

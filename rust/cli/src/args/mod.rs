@@ -227,13 +227,6 @@ pub enum Commands {
     /// Discover and list connected One ROM devices.
     Scan(ScanArgs),
 
-    /// Build, inspect, and manage One ROM firmware binaries.
-    #[command(
-        subcommand_value_name = "COMMAND",
-        subcommand_help_heading = "Commands"
-    )]
-    Firmware(FirmwareArgs),
-
     /// Build and flash One ROM firmware to a connected device.
     ///
     /// This is the primary workflow for most users. The board and MCU type are
@@ -330,16 +323,23 @@ pub enum Commands {
     )]
     Poke(ControlPokeLiveArgs),
 
-    /// Reboot the One ROM.
+    /// Reboot a One ROM.
     ///
-    /// Restarts the One ROM firmware. The device will re-initialise and
-    /// resume serving ROM images after the reboot.
+    /// Restarts a selected One ROM device. The device re-initialises and
+    /// resumes serving ROM images after the reboot.
     ///
-    /// By default, this command pauses after a reboot to give the device time
-    /// to re-enumerate.
+    /// By default, this command briefly pauses after a reboot to give the
+    /// device time to re-enumerate.
     ///
     /// Example:
     ///
     ///   onerom reboot
     Reboot(ControlRebootArgs),
+
+    /// Build, inspect, and manage One ROM firmware binaries.
+    #[command(
+        subcommand_value_name = "COMMAND",
+        subcommand_help_heading = "Commands"
+    )]
+    Firmware(FirmwareArgs),
 }

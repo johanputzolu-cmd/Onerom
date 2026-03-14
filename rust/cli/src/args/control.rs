@@ -26,6 +26,19 @@ impl CommandTrait for ControlArgs {
 #[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum ControlCommands {
+    /// Reboot the One ROM.
+    ///
+    /// Restarts the One ROM firmware. The device will re-initialise and
+    /// resume serving ROM images after the reboot.
+    ///
+    /// By default, this command pauses after a reboot to give the device time
+    /// to re-enumerate.
+    ///
+    /// Example:
+    ///
+    ///   onerom control reboot
+    Reboot(ControlRebootArgs),
+
     /// Control the status LED on a One ROM device.
     ///
     /// Examples:
@@ -39,18 +52,27 @@ pub enum ControlCommands {
     )]
     Led(ControlLedArgs),
 
-    /// Reboot the One ROM.
+    /// Write data to One ROM's SRAM or the live ROM image.
     ///
-    /// Restarts the One ROM firmware. The device will re-initialise and
-    /// resume serving ROM images after the reboot.
+    /// Poke provides transient (non-persistent) writes to device memory. Changes
+    /// are lost on reboot. Use `update` subcommands for persistent flash writes.
     ///
-    /// By default, this command pauses after a reboot to give the device time
-    /// to re-enumerate.
+    /// Data can be written as a single byte value or from a binary file.
     ///
     /// Example:
     ///
-    ///   onerom control reboot
-    Reboot(ControlRebootArgs),
+    ///   onerom control poke memory --address 0x20000010 --byte 0xFF
+    ///
+    ///   onerom control poke memory --address 0x20000010 --input patch.bin
+    ///
+    ///   onerom control poke live --address 0x100 --byte 0xEA
+    ///
+    ///   onerom control poke live --address 0x100 --input patch.bin
+    #[command(
+        subcommand_value_name = "COMMAND",
+        subcommand_help_heading = "Commands"
+    )]
+    Poke(ControlPokeArgs),
 
     /// Assert the host reset signal via the One ROM reset GPIO (not yet supported).
     ///
@@ -87,39 +109,40 @@ pub enum ControlCommands {
     ///   onerom control gpio --pin 3 --state z
     Gpio(ControlGpioArgs),
 
-    /// Write data to One ROM's SRAM or the live ROM image.
-    ///
-    /// Poke provides transient (non-persistent) writes to device memory. Changes
-    /// are lost on reboot. Use `update` subcommands for persistent flash writes.
-    ///
-    /// Data can be written as a single byte value or from a binary file.
-    ///
-    /// Example:
-    ///
-    ///   onerom control poke memory --address 0x20000010 --byte 0xFF
-    ///
-    ///   onerom control poke memory --address 0x20000010 --input patch.bin
-    ///
-    ///   onerom control poke live --address 0x100 --byte 0xEA
-    ///
-    ///   onerom control poke live --address 0x100 --input patch.bin
-    #[command(
-        subcommand_value_name = "COMMAND",
-        subcommand_help_heading = "Commands"
-    )]
-    Poke(ControlPokeArgs),
-
     /// Erase this One ROM's flash memory.
     ///
-    /// Permanently erases all flash contents on the device, including
-    /// firmware, metadata and ROM images.
+    /// Permanently erase flash contents on the device, including firmware,
+    /// metadata and ROM images.
     ///
-    /// Once a One ROM has been erased it will subsequently boot into the
-    /// RP2350 bootloader from where it can be reprogrammed.
+    /// If a One ROM's firmware has been erased it will subsequently boot into
+    /// the RP2350 bootloader from where it can be reprogrammed.  However, you
+    /// will need to use the --unrecognized to detect and program it.
+    /// 
+    /// It is highly recommended that this command is used when One ROM is
+    /// stopped (and the default is this command will reboot the device if
+    /// required before erasing to make it so). 
+    /// 
+    /// Use with extreme caution while One ROM is running.  Erasing the core
+    /// firmware or the system plugin's flash will cause the USB stack to be
+    /// non-functional, requiring manually forcing into BOOTSEL mode using One
+    /// ROM's header pins.  In addition, erasing flash causes the device to
+    /// temporarily suspend interrupts and cause flash to become inaccessible.
+    /// Anything else running from flash (like a user plugin) may well crash
+    /// as a result.
+    /// 
+    /// For a similar reason, large erase operations while running may cause
+    /// One ROM's USB support to become unavailable and then re-enumerate
+    /// after the flash erase.  In this case, the flash likely succeeded and
+    /// can be checked with `inspect peek memory`.
+    /// 
+    /// You can use this command to erase multiple ranges in a single operation
+    /// with multiple --offset/--address and --size arguments.
     ///
     /// Example:
     ///
-    ///   onerom control erase
+    ///   onerom control erase -a
+    /// 
+    ///   onerom control erase --offset 0x20000 --length 0x1000
     Erase(ControlEraseArgs),
 }
 
@@ -184,14 +207,14 @@ impl CommandTrait for ControlLedFlameArgs {
     }
 }
 
-#[derive(Debug, Args)]
-#[command(group = ArgGroup::new("reboot_mode").required(true).multiple(false))]
+#[derive(Debug, Args, Clone)]
+#[command(group = ArgGroup::new("reboot_mode").required(false).multiple(false))]
 pub struct ControlRebootArgs {
     /// Reboot the device into stopped (bootloader) state
     #[arg(long, short = 'p', group = "reboot_mode")]
     pub stopped: bool,
 
-    /// Reboot the device into running (byte serving) state
+    /// Reboot the device into running (byte serving) state (default).
     #[arg(long, short, group = "reboot_mode")]
     pub running: bool,
 
@@ -214,10 +237,9 @@ impl From<&ControlRebootArgs> for RebootArgs {
     fn from(args: &ControlRebootArgs) -> Self {
         if args.stopped {
             RebootArgs::stopped(args.msd, args.fast)
-        } else if args.running {
-            RebootArgs::running(args.msd)
         } else {
-            RebootArgs::none()
+            // Default if unspecified
+            RebootArgs::running(args.fast)
         }
     }
 }
@@ -318,6 +340,11 @@ pub struct ControlEraseArgs {
     #[arg(long, value_name = "SIZE", value_parser = parse_u32, action = clap::ArgAction::Append, conflicts_with = "all")]
     pub size: Vec<u32>,
 
+    /// Do not reboot before or after erasing.  This can be risky, if the
+    /// device is actively accessing the flash range being erased.
+    #[arg(long, short, conflicts_with = "reboot_mode")]
+    pub no_reboot: bool,
+
     /// Reboot into stopped (bootloader) mode after erasing.
     #[arg(long, short = 'p', conflicts_with = "reboot_running")]
     pub reboot_stopped: bool,
@@ -407,13 +434,7 @@ pub struct ControlPokeMemoryArgs {
     /// Write the contents of this binary file.
     ///
     /// Mutually exclusive with --value.
-    #[arg(
-        long,
-        short,
-        visible_alias = "in",
-        value_name = "FILE",
-        group = "poke_source"
-    )]
+    #[arg(long, visible_alias = "in", value_name = "FILE", group = "poke_source")]
     pub input: Option<String>,
 }
 
@@ -442,13 +463,7 @@ pub struct ControlPokeLiveArgs {
     /// Write the contents of this binary file.
     ///
     /// Mutually exclusive with --value.
-    #[arg(
-        long,
-        short,
-        visible_alias = "in",
-        value_name = "FILE",
-        group = "poke_source"
-    )]
+    #[arg(long, visible_alias = "in", value_name = "FILE", group = "poke_source")]
     pub input: Option<String>,
 
     /// Only write bytes that differ from the current device's ROM content.

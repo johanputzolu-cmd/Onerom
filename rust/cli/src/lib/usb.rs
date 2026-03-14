@@ -185,6 +185,10 @@ impl RebootArgs {
             fast: false,
         }
     }
+
+    pub fn is_none(&self) -> bool {
+        self.mode == RebootMode::None
+    }
 }
 
 /// Reboot the chosen One ROM
