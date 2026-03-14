@@ -77,7 +77,7 @@ impl std::fmt::Display for Device {
         } else {
             "Unknown           - Firmware: n/a  ".to_string()
         };
-        write!(f, "{info_str} Serial: {serial} State: {}", self.state)
+        write!(f, "{info_str} State: {} Serial: {serial}", self.state)
     }
 }
 
