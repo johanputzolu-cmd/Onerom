@@ -13,6 +13,7 @@
 #include "picobootx_impl.h"
 #include "usb_picobootx.h"
 #include "usb_rom.h"
+#include "usb_custom_pbx.h"
 
 // Picboot state block.  Statically allocated here, but it is possible to
 // allocate it at initialization dynamically if needed.
@@ -56,12 +57,26 @@ static const picoboot_ops_t picoboot_ops = {
     .get_info_sys = picoboot_default_get_info_sys,
 };
 
+
+// One ROM picoboot protocol extenson handler
+static pb_status_t onerom_picobootx_dispatch(
+    const picoboot_cmd_t *cmd,
+    uint8_t *buf,
+    uint32_t buf_len,
+    uint32_t *bytes_written,
+    void *ctx
+);
+static const picoboot_custom_ops_t onerom_picobootx_ops = {
+    .magic    = ONEROM_PICOBOOTX_MAGIC,
+    .dispatch = onerom_picobootx_dispatch,
+};
+
 // Initialize picoboot
 void usb_picoboot_init(uint8_t ep_out, uint8_t ep_in) {
     picoboot_init(
         picoboot_state,
         &picoboot_ops,
-        NULL,
+        &onerom_picobootx_ops,
         NULL,
         0,
         ep_out,
@@ -310,4 +325,39 @@ pb_status_t app_picoboot_write(
     // No custom handler matched; must be a default range, already validated
     // in write_prepare.
     return picoboot_default_write(addr, buf, len, ctx);
+}
+
+// ---------------------------------------------------------------------------
+// One ROM picoboot protocol extension handling
+// ---------------------------------------------------------------------------
+
+static pb_status_t onerom_picobootx_dispatch(
+    const picoboot_cmd_t *cmd,
+    uint8_t *buf,
+    uint32_t buf_len,
+    uint32_t *bytes_written,
+    void *ctx
+) {
+    (void)buf; (void)buf_len; (void)bytes_written;
+
+    if (cmd->cmd_size != 0x10u || cmd->transfer_len != 0u) {
+        return PB_STATUS_INVALID_CMD_LENGTH;
+    }
+
+    usb_plugin_context_t *uctx = (usb_plugin_context_t *)ctx;
+
+    // Just store the command in context for the main firmware task to handler
+    // when scheduled later.
+    switch ((onerom_cmd_id_t)cmd->cmd_id) {
+        case ONEROM_CMD_SET_LED: {
+            const onerom_set_led_args_t *args = (const onerom_set_led_args_t *)cmd->args;
+            uctx->pending.cmd = ONEROM_PENDING_SET_LED;
+            uctx->pending.args.set_led.led_id = args->led_id;
+            uctx->pending.args.set_led.sub_cmd = (onerom_led_subcmd_t)args->sub_cmd;
+            return PB_STATUS_OK;
+        }
+
+        default:
+            return PB_STATUS_UNKNOWN_CMD;
+    }
 }

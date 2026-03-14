@@ -10,6 +10,8 @@
 #include "plugin.h"
 #include "tusb.h"
 #include "include.h"
+#include "usb_custom_pbx.h"
+#include "usb_led.h"
 
 // Context structure for our plugin
 typedef struct {
@@ -17,11 +19,14 @@ typedef struct {
     ora_log_fn_t log;
     ora_debug_log_fn_t debug;
     ora_err_log_fn_t err_log;
+    ora_set_status_led_fn_t set_status_led;
     uint32_t timer_ms;
     const sdrr_runtime_info_t *runtime;
     const sdrr_info_t *firmware;
     ora_get_chip_size_from_type_fn_t get_chip_size_from_type;
     const sdrr_rom_set_t *active_rom_set;
+    onerom_pending_t pending;
+    led_status_t led_status;
 } usb_plugin_context_t;
 
 // Forward declaration of the context, which we define in usb_main.c

@@ -96,6 +96,24 @@ void setup_timer0(uint32_t clkref_mhz) {
     TIMER0_ALARM0 = TIMER0_TIMELR + 1000;
 }
 
+void usb_plugin_task(void) {
+    // Handle incoming pending command
+    if (context.pending.cmd != ONEROM_PENDING_NONE) {
+        switch (context.pending.cmd) {
+            case ONEROM_PENDING_SET_LED:
+                led_handle_pending_set();
+                break;
+
+            default:
+                LOG("usb_plugin_task: unhandled pending cmd %u", context.pending.cmd);
+                break;
+        }
+        context.pending.cmd = ONEROM_PENDING_NONE;
+    }
+
+    led_handle_ongoing_led_modes();
+}
+
 size_t usb_get_serial(uint16_t *desc_str, size_t max_chars) {
     const char serial[] = "dummy serial";
     size_t len = strlen(serial);
@@ -134,6 +152,7 @@ void usb_main(
     ora_get_firmware_info_fn_t get_firmware_info = ora_lookup_fn(ORA_ID_GET_FIRMWARE_INFO);
     ora_get_runtime_info_fn_t get_runtime_info = ora_lookup_fn(ORA_ID_GET_RUNTIME_INFO);
     context.get_chip_size_from_type = ora_lookup_fn(ORA_ID_GET_CHIP_SIZE_FROM_TYPE);
+    context.set_status_led = ora_lookup_fn(ORA_ID_SET_STATUS_LED);
 
     // Can't log until we have the log functions
     DEBUG("USB plugin started");
@@ -166,6 +185,7 @@ void usb_main(
     while (1) {
         tud_task();
         usb_picoboot_task();
+        usb_plugin_task();
     }
 
     ERR("USB plugin exiting");
