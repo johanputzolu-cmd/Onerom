@@ -2,6 +2,7 @@
 //
 // MIT License
 
+use log::debug;
 use std::io::Write;
 
 use crate::args::CommandTrait;
@@ -203,17 +204,20 @@ pub fn resolve_board(
     board_arg: &Option<String>,
 ) -> Result<Option<Board>, Error> {
     if let Some(board) = board_arg {
+        debug!("Resolving board from argument: {board}");
         Ok(Some(
             onerom_config::hw::Board::try_from_str(board)
                 .ok_or_else(|| Error::InvalidBoard(board.clone(), get_supported_boards()))?,
         ))
     } else if let Some(device) = options.device.as_ref() {
+        debug!("Resolving board from connected device");
         Ok(device
             .onerom
             .as_ref()
             .and_then(|o| o.flash.as_ref())
             .and_then(|f| f.board))
     } else {
+        debug!("No board argument or device available to resolve board");
         Ok(None)
     }
 }

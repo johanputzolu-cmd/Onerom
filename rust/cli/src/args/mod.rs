@@ -204,7 +204,7 @@ impl Cli {
         }
 
         // If no device was specified, attempt to detect one
-        if options.device.is_none() && requires_device {
+        if options.device.is_none() {
             if options.verbose {
                 println!("No device specified, scanning for connected devices ...");
             }

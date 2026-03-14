@@ -4767,10 +4767,13 @@ name = "onerom-cli"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "built",
  "bytes",
  "clap",
+ "embed-resource",
  "enum_dispatch",
  "env_logger",
+ "git2",
  "hex",
  "log",
  "nusb 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4782,6 +4785,7 @@ dependencies = [
  "sdrr-fw-parser",
  "serde",
  "serde_json",
+ "static_vcruntime 3.0.0",
  "thiserror 2.0.18",
  "tokio",
  "wildmatch",
@@ -4963,7 +4967,7 @@ dependencies = [
  "semver 1.0.27",
  "serde",
  "serde_json",
- "static_vcruntime",
+ "static_vcruntime 2.0.0",
  "tiny-skia",
  "tokio",
  "usvg",
@@ -6829,6 +6833,12 @@ name = "static_vcruntime"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "954e3e877803def9dc46075bf4060147c55cd70db97873077232eae0269dc89b"
+
+[[package]]
+name = "static_vcruntime"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff7589a1859b09232522bb9edf076ca7fcf14ded96685d3fa629db73023ffbb7"
 
 [[package]]
 name = "stm32-fmc"

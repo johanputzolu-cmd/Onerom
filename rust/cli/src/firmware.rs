@@ -2,6 +2,7 @@
 //
 // MIT License
 
+use log::{debug, trace};
 use std::io::Write;
 
 use onerom_config::fw::{FirmwareProperties, FirmwareVersion, ServeAlg};
@@ -344,10 +345,13 @@ pub async fn cmd_releases(
     args: &args::firmware::FirmwareReleasesArgs,
 ) -> Result<(), Error> {
     let board = if args.all {
+        trace!("Showing all releases (including those for attached device if present)");
         None
     } else {
+        trace!("Resolving board to filter releases");
         resolve_board(options, &args.board)?
     };
+    debug!("Resolved board for releases: {board:?}");
 
     let releases = Releases::from_network_async().await?;
 
