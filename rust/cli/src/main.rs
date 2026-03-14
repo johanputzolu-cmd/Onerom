@@ -65,7 +65,6 @@ async fn sub_main() -> Result<(), Error> {
                 InspectPeekCommands::Live(args) => inspect::cmd_peek_live(&options, args).await,
                 InspectPeekCommands::Memory(args) => inspect::cmd_peek_memory(&options, args).await,
             },
-            InspectCommands::Live(args) => inspect::cmd_live(&options, args).await,
         },
         Commands::Control(args) => match &args.command {
             ControlCommands::Led(args) => match &args.command {

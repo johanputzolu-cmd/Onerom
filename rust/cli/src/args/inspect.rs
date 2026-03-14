@@ -66,18 +66,6 @@ pub enum InspectCommands {
     ///   onerom inspect image --slot 2 --output kernal-backup.bin
     Image(InspectImageArgs),
 
-    /// Read and display the live ROM image currently being served.
-    ///
-    /// Use "inspect peek live" for a more extensive list of options for reading
-    /// the live ROM image.
-    ///
-    /// Examples:
-    ///
-    ///   onerom inspect live
-    ///
-    ///   onerom inspect live --output live-image.bin
-    Live(InspectLiveArgs),
-
     /// Read data from One ROM's SRAM or the live ROM image.
     ///
     /// Peek provides read access to device memory. Use `inspect peek memory`
@@ -148,19 +136,6 @@ pub struct InspectImageArgs {
 }
 
 impl CommandTrait for InspectImageArgs {
-    fn requires_device(&self) -> bool {
-        true
-    }
-}
-
-#[derive(Debug, Args)]
-pub struct InspectLiveArgs {
-    /// Save the live ROM image data to this file.
-    #[arg(long, short, visible_alias = "out", value_name = "FILE")]
-    pub output: Option<String>,
-}
-
-impl CommandTrait for InspectLiveArgs {
     fn requires_device(&self) -> bool {
         true
     }

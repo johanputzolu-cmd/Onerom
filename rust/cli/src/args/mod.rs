@@ -42,8 +42,8 @@ use firmware::{
 };
 use inspect::{
     InspectArgs, InspectCommands, InspectGpioArgs, InspectImageArgs, InspectInfoArgs,
-    InspectLiveArgs, InspectPeekArgs, InspectPeekCommands, InspectPeekLiveArgs,
-    InspectPeekMemoryArgs, InspectSlotsArgs, InspectTelemetryArgs,
+    InspectPeekArgs, InspectPeekCommands, InspectPeekLiveArgs, InspectPeekMemoryArgs,
+    InspectSlotsArgs, InspectTelemetryArgs,
 };
 use program::ProgramArgs;
 use scan::ScanArgs;

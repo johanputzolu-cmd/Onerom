@@ -3,8 +3,8 @@
 // MIT License
 
 use crate::args::inspect::{
-    InspectGpioArgs, InspectImageArgs, InspectInfoArgs, InspectLiveArgs, InspectPeekLiveArgs,
-    InspectPeekMemoryArgs, InspectSlotsArgs, InspectTelemetryArgs,
+    InspectGpioArgs, InspectImageArgs, InspectInfoArgs, InspectPeekLiveArgs, InspectPeekMemoryArgs,
+    InspectSlotsArgs, InspectTelemetryArgs,
 };
 use crate::utils::{check_device, check_live_read_write, print_hex_dump};
 use onerom_cli::LIVE_ROM_BASE;
@@ -133,13 +133,4 @@ pub async fn cmd_gpio(options: &Options, args: &InspectGpioArgs) -> Result<(), E
     check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();
     Err(Error::Unimplemented("inspect gpio".into()))
-}
-
-pub async fn cmd_live(options: &Options, args: &InspectLiveArgs) -> Result<(), Error> {
-    let peek_live_args = InspectPeekLiveArgs {
-        address: 0,
-        length: None,
-        output: args.output.clone(),
-    };
-    cmd_peek_live(options, &peek_live_args).await
 }
