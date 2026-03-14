@@ -19,7 +19,7 @@ mod utils;
 
 use args::Cli;
 use args::Commands;
-use args::control::{ControlCommands, ControlPokeCommands};
+use args::control::{ControlCommands, ControlLedCommands, ControlPokeCommands};
 use args::firmware::FirmwareCommands;
 use args::inspect::{InspectCommands, InspectPeekCommands};
 use args::update::UpdateCommands;
@@ -68,7 +68,12 @@ async fn sub_main() -> Result<(), Error> {
             InspectCommands::Live(args) => inspect::cmd_live(&options, args).await,
         },
         Commands::Control(args) => match &args.command {
-            ControlCommands::Blink(args) => control::cmd_blink(&options, args).await,
+            ControlCommands::Led(args) => match &args.command {
+                ControlLedCommands::On(args) => control::cmd_led_on(&options, args).await,
+                ControlLedCommands::Off(args) => control::cmd_led_off(&options, args).await,
+                ControlLedCommands::Beacon(args) => control::cmd_led_beacon(&options, args).await,
+                ControlLedCommands::Flame(args) => control::cmd_led_flame(&options, args).await,
+            },
             ControlCommands::Reboot(args) => control::cmd_reboot(&options, args).await,
             ControlCommands::Reset(args) => control::cmd_reset(&options, args).await,
             ControlCommands::Select(args) => control::cmd_select(&options, args).await,

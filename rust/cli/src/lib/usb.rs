@@ -14,6 +14,8 @@ use sdrr_fw_parser::Parser;
 use std::time::Duration;
 
 use crate::Error;
+pub use crate::picobootx::LedSubCmd;
+use crate::picobootx::{ONEROM_CMD_SET_LED, ONEROM_MAGIC};
 use crate::{Device, DeviceState};
 
 /// Flash start address on RP2350.
@@ -383,4 +385,21 @@ pub async fn flash_erase(device: &Device, offset: u32, size: u32) -> Result<(), 
 /// after a reboot.
 async fn pause_reenumeration() {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+}
+
+/// Set the status LED on a One ROM device.
+pub async fn set_led(device: &Device, led_id: u8, sub_cmd: LedSubCmd) -> Result<(), Error> {
+    let mut args = [0u8; 16];
+    args[0] = led_id;
+    args[1] = sub_cmd as u8;
+
+    let cmd = picoboot::PicobootXCmd::new(ONEROM_MAGIC, ONEROM_CMD_SET_LED, 0x10, 0, args);
+
+    let mut picoboot = get_picoboot(device).await?;
+
+    picoboot
+        .send_picobootx_cmd(cmd, None)
+        .await
+        .map(|_| ())
+        .map_err(|e| Error::Usb(e.to_string()))
 }

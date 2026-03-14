@@ -31,9 +31,10 @@ use crate::utils::parse_u16_hex_only;
 use onerom_cli::{Error, Options};
 
 use control::{
-    ControlArgs, ControlBlinkArgs, ControlCommands, ControlEraseArgs, ControlGpioArgs,
-    ControlPokeArgs, ControlPokeCommands, ControlPokeLiveArgs, ControlPokeMemoryArgs,
-    ControlRebootArgs, ControlResetArgs, ControlSelectArgs,
+    ControlArgs, ControlCommands, ControlEraseArgs, ControlGpioArgs, ControlLedArgs,
+    ControlLedBeaconArgs, ControlLedCommands, ControlLedFlameArgs, ControlLedOffArgs,
+    ControlLedOnArgs, ControlPokeArgs, ControlPokeCommands, ControlPokeLiveArgs,
+    ControlPokeMemoryArgs, ControlRebootArgs, ControlResetArgs, ControlSelectArgs,
 };
 use firmware::{
     FirmwareArgs, FirmwareBuildArgs, FirmwareCommands, FirmwareDownloadArgs, FirmwareInspectArgs,

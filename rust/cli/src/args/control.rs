@@ -26,18 +26,18 @@ impl CommandTrait for ControlArgs {
 #[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum ControlCommands {
-    /// Blink the status LED to identify a physical One ROM device (not yet supported).
-    ///
-    /// Useful when multiple One ROM devices are connected and you need to
-    /// identify which physical device corresponds to a given serial number
-    /// or board type.
+    /// Control the status LED on a One ROM device.
     ///
     /// Examples:
     ///
-    ///   onerom control blink
+    ///   onerom control led on
     ///
-    ///   onerom --device 1234abcd control blink
-    Blink(ControlBlinkArgs),
+    ///   onerom control led off
+    #[command(
+        subcommand_value_name = "COMMAND",
+        subcommand_help_heading = "Commands"
+    )]
+    Led(ControlLedArgs),
 
     /// Reboot the One ROM.
     ///
@@ -124,13 +124,61 @@ pub enum ControlCommands {
 }
 
 #[derive(Debug, Args)]
-pub struct ControlBlinkArgs {
-    /// Duration in milliseconds to flash the LED. Defaults to 3000.
-    #[arg(long, value_name = "MS", default_value = "3000")]
-    pub duration: u32,
+pub struct ControlLedArgs {
+    #[command(subcommand)]
+    pub command: ControlLedCommands,
 }
 
-impl CommandTrait for ControlBlinkArgs {
+impl CommandTrait for ControlLedArgs {
+    fn requires_device(&self) -> bool {
+        self.command.requires_device()
+    }
+}
+
+#[enum_dispatch(CommandTrait)]
+#[derive(Debug, Subcommand)]
+pub enum ControlLedCommands {
+    /// Turn the status LED on.
+    On(ControlLedOnArgs),
+    /// Turn the status LED off.
+    Off(ControlLedOffArgs),
+    /// Beacon the status LED to identify a physical One ROM device.
+    Beacon(ControlLedBeaconArgs),
+    /// Flame the status LED.
+    Flame(ControlLedFlameArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct ControlLedOnArgs;
+
+impl CommandTrait for ControlLedOnArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ControlLedOffArgs;
+
+impl CommandTrait for ControlLedOffArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ControlLedBeaconArgs;
+
+impl CommandTrait for ControlLedBeaconArgs {
+    fn requires_device(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct ControlLedFlameArgs;
+
+impl CommandTrait for ControlLedFlameArgs {
     fn requires_device(&self) -> bool {
         true
     }
@@ -271,7 +319,7 @@ pub struct ControlEraseArgs {
     pub size: Vec<u32>,
 
     /// Reboot into stopped (bootloader) mode after erasing.
-    #[arg(long, short = 's', conflicts_with = "reboot_running")]
+    #[arg(long, short = 'p', conflicts_with = "reboot_running")]
     pub reboot_stopped: bool,
 
     /// Reboot into running mode after erasing.

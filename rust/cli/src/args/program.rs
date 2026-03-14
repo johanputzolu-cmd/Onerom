@@ -61,12 +61,16 @@ pub struct ProgramArgs {
     pub version: Option<String>,
 
     /// Write the built firmware to this file in addition to flashing it.
-    #[arg(long, short = 'p', value_name = "FILE")]
+    #[arg(long, short, visible_alias = "out", value_name = "FILE")]
     pub output: Option<String>,
 
     /// After flashing, reboot the device into stopped mode instead of running.
-    #[arg(long, short)]
+    #[arg(long, short = 'p', conflicts_with = "running")]
     pub stopped: bool,
+
+    /// After flashing, reboot the device into running mode (the default)).
+    #[arg(long, short = 'r', conflicts_with = "stopped")]
+    pub running: bool,
 
     /// Do not reboot the device after flashing.
     #[arg(long, conflicts_with = "stopped")]

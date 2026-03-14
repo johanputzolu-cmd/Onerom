@@ -7,17 +7,62 @@ use crate::{
     utils::{check_device, check_live_read_write},
 };
 use onerom_cli::device::{Device, select_device};
-use onerom_cli::usb::{FLASH_BASE, RebootArgs, flash_erase, read_memory, reboot, write_memory};
+use onerom_cli::usb::{
+    FLASH_BASE, LedSubCmd, RebootArgs, flash_erase, read_memory, reboot, set_led, write_memory,
+};
 use onerom_cli::{Error, Options};
 use std::io::Write;
 
-pub async fn cmd_blink(
+pub async fn cmd_led_on(
     options: &Options,
-    args: &args::control::ControlBlinkArgs,
+    args: &args::control::ControlLedOnArgs,
 ) -> Result<(), Error> {
     check_device(options, args)?;
-    let _device = options.device.as_ref().unwrap();
-    Err(Error::Unimplemented("control blink".to_string()))
+    let device = options.device.as_ref().unwrap();
+    set_led(device, 0, LedSubCmd::On).await?;
+    if options.verbose {
+        println!("LED on");
+    }
+    Ok(())
+}
+
+pub async fn cmd_led_off(
+    options: &Options,
+    args: &args::control::ControlLedOffArgs,
+) -> Result<(), Error> {
+    check_device(options, args)?;
+    let device = options.device.as_ref().unwrap();
+    set_led(device, 0, LedSubCmd::Off).await?;
+    if options.verbose {
+        println!("LED off");
+    }
+    Ok(())
+}
+
+pub async fn cmd_led_beacon(
+    options: &Options,
+    args: &args::control::ControlLedBeaconArgs,
+) -> Result<(), Error> {
+    check_device(options, args)?;
+    let device = options.device.as_ref().unwrap();
+    set_led(device, 0, LedSubCmd::Beacon).await?;
+    if options.verbose {
+        println!("LED beacon started");
+    }
+    Ok(())
+}
+
+pub async fn cmd_led_flame(
+    options: &Options,
+    args: &args::control::ControlLedFlameArgs,
+) -> Result<(), Error> {
+    check_device(options, args)?;
+    let device = options.device.as_ref().unwrap();
+    set_led(device, 0, LedSubCmd::Flame).await?;
+    if options.verbose {
+        println!("LED flame started");
+    }
+    Ok(())
 }
 
 pub async fn cmd_reboot(
