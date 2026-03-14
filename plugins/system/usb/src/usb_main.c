@@ -41,15 +41,25 @@ const ora_plugin_header_t ora_plugin_header = {
 usb_plugin_context_t context;
 
 void init_data_bss(void) {
+    extern uint32_t __ramfunc_start;
+    extern uint32_t __ramfunc_end;
+    extern uint32_t __ramfunc_load;
     extern uint32_t __data_start;
     extern uint32_t __data_end;
     extern uint32_t __data_load;
     extern uint32_t __bss_start;
     extern uint32_t __bss_end;
 
+    // Copy .ramfunc from LMA (flash) to VMA (RAM)
+    uint32_t *src = &__ramfunc_load;
+    uint32_t *dst = &__ramfunc_start;
+    while (dst < &__ramfunc_end) {
+        *dst++ = *src++;
+    }
+
     // Copy .data from LMA (flash) to VMA (RAM)
-    uint32_t *src = &__data_load;
-    uint32_t *dst = &__data_start;
+    src = &__data_load;
+    dst = &__data_start;
     while (dst < &__data_end) {
         *dst++ = *src++;
     }

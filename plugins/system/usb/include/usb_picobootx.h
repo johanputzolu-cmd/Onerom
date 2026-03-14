@@ -6,8 +6,19 @@
 #define USB_PICOBOOTX_H
 
 #include "picobootx.h"
+#include "picobootx_impl.h"
 
 #if defined(USB_PICOBOOTX_IMPL)
+
+
+// ---------------------------------------------------------------------------
+// Flash handling
+//
+// Protect the first 128KB for now - firmware, metadata and system plugin
+// slot.
+// ---------------------------------------------------------------------------
+#define FLASH_PROTECTED_START   RP2350_FLASH_BASE
+#define FLASH_PROTECTED_END     (RP2350_FLASH_BASE + 128u * 1024u)
 
 // ---------------------------------------------------------------------------
 // Synthetic address range bases
@@ -116,6 +127,7 @@ pb_status_t app_picoboot_read_prepare(uint32_t addr, uint32_t size, void *ctx);
 pb_status_t app_picoboot_read(uint32_t addr, uint8_t *buf, uint32_t len, void *ctx);
 pb_status_t app_picoboot_write_prepare(uint32_t addr, uint32_t size, bool *is_flash, void *ctx);
 pb_status_t app_picoboot_write(uint32_t addr, const uint8_t *buf, uint32_t len, void *ctx);
+pb_status_t app_picoboot_flash_erase_prepare(const pb_addr_size_args_t *args, void *ctx);
 const sdrr_rom_set_t *app_get_active_rom_set(const usb_plugin_context_t *ctx);
 
 #endif // USB_PICOBOOTX_H

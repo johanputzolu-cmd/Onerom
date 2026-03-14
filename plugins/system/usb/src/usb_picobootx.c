@@ -51,12 +51,14 @@ static const picoboot_ops_t picoboot_ops = {
     .read_prepare = app_picoboot_read_prepare, 
     .read = app_picoboot_read,
     .write_prepare = app_picoboot_write_prepare,
+    .flash_page_write = picoboot_default_flash_page_write,
+    .flash_erase_prepare = app_picoboot_flash_erase_prepare,
+    .flash_erase = picoboot_default_flash_erase,
     .write = app_picoboot_write,
     .otp_read = picoboot_default_otp_read,
     .otp_write = picoboot_default_otp_write,
     .get_info_sys = picoboot_default_get_info_sys,
 };
-
 
 // One ROM picoboot protocol extenson handler
 static pb_status_t onerom_picobootx_dispatch(
@@ -71,13 +73,18 @@ static const picoboot_custom_ops_t onerom_picobootx_ops = {
     .dispatch = onerom_picobootx_dispatch,
 };
 
+// A flash write buffer required by picoboot to batch flash writes so it has
+// 256 bytes to write at a time - the flash page size.  It must be 4 byte
+// aligned.
+static uint8_t write_buf[256] __attribute__((aligned(4)));
+
 // Initialize picoboot
 void usb_picoboot_init(uint8_t ep_out, uint8_t ep_in) {
     picoboot_init(
         picoboot_state,
         &picoboot_ops,
         &onerom_picobootx_ops,
-        NULL,
+        write_buf,
         0,
         ep_out,
         ep_in, 
@@ -307,6 +314,12 @@ pb_status_t app_picoboot_write_prepare(
         return st;
     }
 
+    if (addr < FLASH_PROTECTED_END &&
+        (addr + size) > RP2350_FLASH_BASE) {
+        LOG("write_prepare: address in protected flash region: addr=0x%08x size=%u", addr, size);
+        return PB_STATUS_NOT_PERMITTED;
+    }
+
     // No custom handler matched; check if it's a default range.
     return picoboot_default_write_prepare(addr, size, is_flash, ctx);
 }
@@ -325,6 +338,30 @@ pb_status_t app_picoboot_write(
     // No custom handler matched; must be a default range, already validated
     // in write_prepare.
     return picoboot_default_write(addr, buf, len, ctx);
+}
+
+// ---------------------------------------------------------------------------
+// Public flash_erase_prepare callback (wired into picoboot_ops_t)
+// ---------------------------------------------------------------------------
+
+pb_status_t app_picoboot_flash_erase_prepare(
+    const pb_addr_size_args_t *args,
+    void *ctx
+) {
+    pb_status_t st = picoboot_default_flash_erase_prepare(args, ctx);
+    if (st != PB_STATUS_OK) {
+        return st;
+    }
+
+#if 0
+    if (args->addr < FLASH_PROTECTED_END &&
+        (args->addr + args->size) > RP2350_FLASH_BASE) {
+        ERR("flash_erase_prepare: address in protected flash region: addr=0x%08x size=%u", args->addr, args->size);
+        return PB_STATUS_NOT_PERMITTED;
+    }
+#endif
+
+    return PB_STATUS_OK;
 }
 
 // ---------------------------------------------------------------------------

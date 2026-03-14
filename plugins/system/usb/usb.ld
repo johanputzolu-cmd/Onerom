@@ -24,7 +24,15 @@ SECTIONS
         __text_end = .;
     }
 
-    .data SYSTEM_PLUGIN_DATA_BASE : AT(__text_end) {
+    .ramfunc SYSTEM_PLUGIN_DATA_BASE : AT(__text_end) {
+        __ramfunc_start = .;
+        *(.ramfunc*)
+        . = ALIGN(4);
+        __ramfunc_end = .;
+    }
+    __ramfunc_load = LOADADDR(.ramfunc);
+
+    .data (__ramfunc_start + SIZEOF(.ramfunc)) : AT(__text_end + SIZEOF(.ramfunc)) {
         __data_start = .;
         *(.data*)
         . = ALIGN(4);
