@@ -58,7 +58,7 @@ pub enum FirmwareCommands {
     ///   onerom firmware releases
     Releases(FirmwareReleasesArgs),
 
-    /// Download a One ROM firmware binary from a release.
+    /// Download a specific release of One ROM firmware.
     ///
     /// Downloads the base (ROM-less) firmware binary for the specified
     /// version, board, and MCU.
@@ -154,7 +154,7 @@ pub struct FirmwareBuildArgs {
     pub save_config: Option<String>,
 
     /// Target board type (e.g. fire-24-e). Required when not inferrable
-    /// from a connected device.
+    /// from a connected One ROM.
     #[arg(long, short, value_name = "BOARD")]
     pub board: Option<String>,
 

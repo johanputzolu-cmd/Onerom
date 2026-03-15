@@ -5,15 +5,15 @@
 //! CLI argument definitions for the One ROM command-line interface.
 //!
 //! The top-level structure is:
-//!   onerom scan                  - Discover connected One ROM devices
+//!   onerom scan                  - Discover connected One ROMs
 //!   onerom firmware <subcommand> - Firmware binary management
-//!   onerom program               - Build and flash firmware to a device
-//!   onerom inspect <subcommand>  - Read-only device state and information
-//!   onerom control <subcommand>  - Transient device actions
-//!   onerom update <subcommand>   - Persistent device modifications
+//!   onerom program               - Build and flash firmware to a One ROM
+//!   onerom inspect <subcommand>  - Read-only One ROM state and information
+//!   onerom control <subcommand>  - Transient One ROM actions
+//!   onerom update <subcommand>   - Persistent One ROM modifications
 //!
 //! The --serial option is global and can be specified at any level to select
-//! a specific One ROM device when multiple are connected.
+//! a specific One ROM when multiple are connected.
 
 pub mod control;
 pub mod firmware;
@@ -60,21 +60,31 @@ pub trait CommandTrait {
 ///
 /// Copyright (c) 2026 Piers Finlayson <piers@piers.rocks>
 ///
-/// Manage One ROM devices, firmware, and ROM images. Run `onerom help <command>`
-/// for detailed information on any subcommand.
+/// Manage One ROMs, firmware, and ROM configurations. Run `onerom help
+/// <command>` for detailed information on any subcommand.
 ///
-/// Use `onerom scan` to discover connected devices before running device
+/// Use `onerom scan` to discover connected One ROMs before running One ROM
 /// commands.
+///
+/// Most CLI commands take either --board to identify the One ROM's board
+/// type, or --serial to infer it directly from the specified One ROM.  If only
+/// a single One ROM is connected and it can be identifed automatically,
+/// neither --board or --device are needed.  --board can be supplied to override
+/// the current connected One ROM's board type.
+///
+/// Unprogrammed and unrecognised (e.g. bricked) One ROMs can be managed by
+/// using the --unrecognised flag and supplying --board.
 #[derive(Debug, Parser)]
 #[command(name = "onerom", version = concat!("v", env!("CARGO_PKG_VERSION")), about, long_about)]
 pub struct Cli {
-    /// Select a specific One ROM device by serial number.
+    /// Select a specific One ROM by serial number.
     ///
-    /// Required when multiple devices are connected.
+    /// Required when multiple One ROMs are connected.
     ///
     /// Accepts * and ? wildcards for partial matching.
     ///
-    /// If omitted and exactly one device is connected, that device is used automatically.
+    /// If omitted and exactly one One ROM is connected, that One ROM is
+    /// used automatically.
     #[arg(global = true, long, short, value_name = "DEVICE")]
     pub serial: Option<String>,
 
@@ -86,25 +96,25 @@ pub struct Cli {
     /// Specify multiple pairs by specifying the --vid-pid argument multiple
     /// times.
     ///
-    /// Use in conjunction with --unrecognised to manage devices that do not
+    /// Use in conjunction with --unrecognised to manage One ROMs that do not
     /// have a known One ROM firmware signature, such as unprogrammed or
-    /// bricked devices.
+    /// bricked One ROMs.
     #[arg(global = true, long, short='i', visible_alias="id", value_name = "VID:PID", value_parser = parse_vid_pid, action = clap::ArgAction::Append)]
     pub vid_pid: Vec<(u16, u16)>,
 
-    /// Allow management of unrecognised RP2350 devices and unprogrammed One ROMs.
+    /// Allow management of unrecognised and unprogrammed One ROMs.
     ///
     /// This is a global flag that can be used with any command to allow
-    /// this tool to manage RP2350 devices that do not have a known One ROM
-    /// firmware signature, such as unprogrammed or bricked devices.
+    /// this tool to manage RP2350-based One ROMs that do not have a known One
+    /// ROM firmware signature, such as unprogrammed or bricked One ROMs.
     ///
-    /// Note that even unrecognised devices must expose a valid picoboot USB
+    /// Note that even unrecognised One ROMs must expose a valid picoboot USB
     /// interface to be detected and managed by this tool.
     ///
     /// Use with caution as this allows programming of any non-One ROM RP2350
-    /// devices that are attached.
+    /// boards that are attached.
     ///
-    /// Use in conjunction with --vid-pid to manage devices that have
+    /// Use in conjunction with --vid-pid to manage One ROMs that have
     /// unexpected USB vendor and/or product IDs.
     #[arg(global = true, visible_alias = "unrecognized", long, short)]
     pub unrecognised: bool,
@@ -242,28 +252,31 @@ impl Cli {
 #[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Discover and list connected One ROM devices.
+    /// Discover and list connected One ROM.
     Scan(ScanArgs),
 
-    /// Build and flash One ROM firmware to a connected device.
+    /// Flash One ROM firmware to a connected One ROM.
     ///
-    /// This is the primary workflow for most users. The board and MCU type are
-    /// inferred from the connected device if not specified explicitly.
+    /// This is the primary workflow for most users. The board is
+    /// inferred from the connected One ROM if not specified explicitly.
     ///
-    /// With a single device connected and a config file:
+    /// This command either flashes a provided firmware binary, or builds on
+    /// based on the configuration provided.
+    ///
+    /// With a single One ROM connected and a config file:
     ///
     ///   onerom program --config c64.json
     ///
-    /// With multiple devices connected, using a wildcard to select the target
-    /// device:
+    /// With multiple One ROMs connected, using a wildcard to select the target
+    /// One ROM:
     ///
     ///   onerom program --serial '5*' --config c64.json
     ///
     /// With explicit ROM arguments instead of a config file:
     ///
     ///   onerom program --board fire-24-e \
-    ///       --rom image=kernal.bin,type=2364,cs=active_low \
-    ///       --rom image=basic.bin,type=2364,cs=active_low
+    ///       --slot file=kernal.bin,type=2364,cs=active_low \
+    ///       --slot file=basic.bin,type=2364,cs=active_low
     ///
     /// Using a local, pre-built firmware binary, containing the ROM metadata and
     /// images:
@@ -274,28 +287,28 @@ pub enum Commands {
     /// and specifying the ROMs via arguments:
     ///
     ///   onerom program --firmware minimal.bin \
-    ///       --rom image=kernal.bin,type=2364,cs=active_low \
-    ///       --rom image=basic.bin,type=2364,cs=active_low
+    ///       --slot file=kernal.bin,type=2364,cs=active_low \
+    ///       --slot file=basic.bin,type=2364,cs=active_low
     ///
-    /// To save the firmware to file, **as well** as programming the device, use
+    /// To save the firmware to file, **as well** as programming the One ROM, use
     /// --out.
     ///
     ///   onerom program --config c64.json --out firmware.bin
     ///
-    /// To generate a firmware binary without programming a device, use the
+    /// To generate a firmware binary without programming a One ROM, use the
     /// 'firmware' command.
     Program(ProgramArgs),
 
-    /// Read-only inspection of a connected One ROM device.
+    /// Read-only inspection of a connected One .
     #[command(
         subcommand_value_name = "COMMAND",
         subcommand_help_heading = "Commands"
     )]
     Inspect(InspectArgs),
 
-    /// Perform transient actions on a connected One ROM device.
+    /// Perform transient actions on a connected One ROM.
     ///
-    /// These actions affect the device's current state but do not persist
+    /// These actions affect the One ROM's current state but do not persist
     /// across power cycles.
     #[command(
         subcommand_value_name = "COMMAND",
@@ -303,9 +316,9 @@ pub enum Commands {
     )]
     Control(ControlArgs),
 
-    /// Make persistent modifications to a connected One ROM device.
+    /// Make persistent modifications to a connected One ROM.
     ///
-    /// These operations write to the device's flash memory and survive
+    /// These operations write to the One ROM's flash memory and survive
     /// power cycles.
     #[command(
         subcommand_value_name = "COMMAND",
@@ -343,11 +356,11 @@ pub enum Commands {
 
     /// Reboot a One ROM.
     ///
-    /// Restarts a selected One ROM device. The device re-initialises and
+    /// Restarts a selected One ROM. The One ROM re-initialises and
     /// resumes serving ROM images after the reboot.
     ///
     /// By default, this command briefly pauses after a reboot to give the
-    /// device time to re-enumerate.
+    /// One ROM time to re-enumerate.
     ///
     /// Example:
     ///

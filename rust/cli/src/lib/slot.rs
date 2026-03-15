@@ -8,7 +8,7 @@
 //! converting them into a One ROM JSON configuration suitable for the builder.
 
 use crate::Error;
-use onerom_config::chip::{CHIP_TYPE_NAMES_PLUGINS, ChipType, ControlLineType};
+use onerom_config::chip::{CHIP_TYPE_NAMES_PLUGINS, ChipFunction, ChipType, ControlLineType};
 use onerom_config::hw::Board;
 use onerom_gen::SizeHandling;
 use serde_json::{Value, json};
@@ -30,7 +30,7 @@ fn expand_tilde(path: &str) -> std::borrow::Cow<'_, str> {
 
 /// Parsed and validated slot specification from a `--slot` argument.
 pub struct SlotSpec {
-    pub file: String,
+    pub file: Option<String>,
     pub chip_type: ChipType,
     pub cs1: Option<String>,
     pub cs2: Option<String>,
@@ -93,10 +93,8 @@ fn parse_slot(s: &str, board: &Board) -> Result<SlotSpec, Error> {
         }
     }
 
-    let file = file.ok_or_else(|| Error::InvalidArgument("slot missing 'file' key".to_string()))?;
     let chip_type_str = chip_type_str
         .ok_or_else(|| Error::InvalidArgument("slot missing 'type' key".to_string()))?;
-
     let chip_type = ChipType::try_from_str(&chip_type_str).ok_or_else(|| {
         let supported = supported_chip_names_for_board(board);
         Error::UnsupportedChipType(chip_type_str.clone(), supported)
@@ -108,6 +106,12 @@ fn parse_slot(s: &str, board: &Board) -> Result<SlotSpec, Error> {
             chip_type.name().to_string(),
             chip_type.aliases().join(", "),
             supported,
+        ));
+    }
+
+    if chip_type.chip_function() != ChipFunction::Ram && file.is_none() {
+        return Err(Error::InvalidArgument(
+            "slot missing 'file' key for ROM chip".to_string(),
         ));
     }
 
@@ -191,10 +195,12 @@ pub fn parse_slots(slots: &[String], board: &Board) -> Result<Vec<SlotSpec>, Err
 fn slot_to_chip_json(slot: &SlotSpec) -> Value {
     let mut chip = json!({
         "type": slot.chip_type.name(),
-        "file": slot.file,
     });
 
     let obj = chip.as_object_mut().unwrap();
+    if let Some(file) = &slot.file {
+        obj.insert("file".to_string(), json!(file));
+    }
     if let Some(cs1) = &slot.cs1 {
         obj.insert("cs1".to_string(), json!(cs1));
     }
