@@ -125,7 +125,7 @@ pub fn create_firmware(
 ) -> Result<usize, Error> {
     let buf = assemble_firmware(firmware_data, metadata, image_data)?;
     let size = buf.len();
-    std::fs::write(out_path, &buf).map_err(Error::write)?;
+    std::fs::write(out_path, &buf).map_err(|e| Error::write(out_path.to_string(), e))?;
     Ok(size)
 }
 
@@ -191,5 +191,5 @@ pub async fn get_rom_files_async(builder: &mut Builder) -> Result<(), Error> {
 
 pub fn read_rom_config(rom_config_filename: &str) -> Result<String, Error> {
     // Load the config file
-    std::fs::read_to_string(rom_config_filename).map_err(Error::read)
+    std::fs::read_to_string(rom_config_filename).map_err(|e| Error::read(rom_config_filename.to_string(), e))
 }

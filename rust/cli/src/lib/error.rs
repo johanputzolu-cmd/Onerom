@@ -19,7 +19,7 @@ pub enum Error {
     DeviceNotFound(String),
 
     #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(String),
 
     #[error("{0}")]
     Other(String),
@@ -101,6 +101,12 @@ pub enum Error {
 
     #[error("Reboot was disabled")]
     NoReboot,
+}
+
+impl Error {
+    pub fn io(path: impl AsRef<std::path::Path>, e: std::io::Error) -> Self {
+        Self::Io(format!("{}: {e}", path.as_ref().display()))
+    }
 }
 
 impl From<onerom_fw::Error> for Error {

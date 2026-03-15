@@ -68,7 +68,7 @@ async fn acquire_program_image(
         if options.verbose {
             println!("Using pre-built firmware: {firmware}");
         }
-        return std::fs::read(firmware).map_err(Error::from);
+        return std::fs::read(firmware).map_err(|e| Error::io(firmware, e));
     }
 
     if let Some(path) = args.base_firmware.as_ref()
@@ -78,7 +78,7 @@ async fn acquire_program_image(
         if options.verbose {
             println!("Flashing base firmware without ROM config: {path}");
         }
-        return std::fs::read(path).map_err(Error::from);
+        return std::fs::read(path).map_err(|e| Error::io(path, e));
     }
 
     // Build mode: acquire base firmware, build ROM image, assemble
@@ -116,7 +116,7 @@ async fn acquire_program_image(
 }
 
 fn write_firmware_file(path: &str, data: &[u8]) -> Result<(), Error> {
-    std::fs::write(path, data)?;
+    std::fs::write(path, data).map_err(|e| Error::io(path, e))?;
     println!("Firmware written to {path}");
     Ok(())
 }

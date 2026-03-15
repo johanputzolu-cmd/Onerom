@@ -115,7 +115,7 @@ async fn read_and_output(
     let data = read_memory(device, address, length).await?;
 
     if let Some(filename) = out {
-        std::fs::write(filename, &data)?;
+        std::fs::write(filename, &data).map_err(|e| Error::io(filename, e))?;
     } else {
         print_hex_dump(address - addr_offset, &data);
     }

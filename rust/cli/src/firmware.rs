@@ -98,7 +98,7 @@ pub async fn acquire_firmware(
         if options.verbose {
             println!("Using local firmware: {firmware}");
         }
-        let data = std::fs::read(firmware)?;
+        let data = std::fs::read(firmware).map_err(|e| Error::io(firmware, e))?;
         check_firmware_size(options, &data)?;
 
         let info = parse_firmware(&data).await?;
@@ -236,7 +236,7 @@ pub async fn cmd_build(
         Some(&version_str),
         args.config_file.as_deref(),
     );
-    std::fs::write(&out, &assembled)?;
+    std::fs::write(&out, &assembled).map_err(|e| Error::io(&out, e))?;
 
     if options.verbose {
         println!("Wrote {} bytes to {}", size, out);
@@ -264,10 +264,14 @@ pub async fn accept_license(options: &Options, license: &License) -> Result<(), 
     }
 
     print!("Do you accept this license? (y/N): ");
-    std::io::stdout().flush()?;
+    std::io::stdout()
+        .flush()
+        .map_err(|e| Error::Other(e.to_string()))?;
 
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| Error::Other(e.to_string()))?;
 
     match input.trim().to_lowercase().as_str() {
         "y" | "yes" => Ok(()),
@@ -283,7 +287,7 @@ pub async fn cmd_inspect(
         if options.verbose {
             println!("Inspecting local firmware: {file}");
         }
-        std::fs::read(file)?
+        std::fs::read(file).map_err(|e| Error::io(file, e))?
     } else {
         let board = resolve_board(options, &args.board)?.ok_or(Error::NoBoardOrDevice)?;
         let mcu = Variant::RP2350;
@@ -436,7 +440,7 @@ pub async fn cmd_download(
         Some(&release.version),
         None,
     );
-    std::fs::write(&out, &data)?;
+    std::fs::write(&out, &data).map_err(|e| Error::io(&out, e))?;
 
     if options.verbose {
         println!("Written {} bytes to {}", data.len(), out);

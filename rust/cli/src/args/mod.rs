@@ -47,9 +47,7 @@ use inspect::{
 };
 use program::ProgramArgs;
 use scan::ScanArgs;
-use update::{
-    UpdateArgs, UpdateCommands, UpdateCommitArgs, UpdateOtpArgs, UpdateSlotArgs,
-};
+use update::{UpdateArgs, UpdateCommands, UpdateCommitArgs, UpdateOtpArgs, UpdateSlotArgs};
 
 #[enum_dispatch]
 pub trait CommandTrait {
@@ -191,16 +189,24 @@ impl Cli {
             if options.verbose {
                 println!("Scanning for device with serial '{}' ...", serial);
             }
-            let device = onerom_cli::device::select_device(
+            match onerom_cli::device::select_device(
                 Some(serial),
                 options.unrecognised,
                 &options.vid_pid,
             )
-            .await?;
-            if options.verbose {
-                println!("Found device: {device}");
+            .await
+            {
+                Ok(device) => {
+                    if options.verbose {
+                        println!("Found device: {device}");
+                    }
+                    options.device = Some(device);
+                }
+                Err(e) => {
+                    eprintln!("Error selecting device with serial '{}': {e}", serial);
+                    std::process::exit(1);
+                }
             }
-            options.device = Some(device);
         }
 
         // If no device was specified, attempt to detect one
@@ -208,13 +214,25 @@ impl Cli {
             if options.verbose {
                 println!("No device specified, scanning for connected devices ...");
             }
-            let device =
-                onerom_cli::device::select_device(None, options.unrecognised, &options.vid_pid)
-                    .await?;
-            if options.verbose {
-                println!("Found device: {device}");
+            match onerom_cli::device::select_device(None, options.unrecognised, &options.vid_pid)
+                .await
+            {
+                Ok(device) => {
+                    if options.verbose {
+                        println!("Found device: {device}");
+                    }
+                    options.device = Some(device);
+                }
+                Err(Error::NoDevices) => {
+                    // No devices found, this may or may not be an error depending on the command.
+                    if requires_device {
+                        debug!("No devices found.");
+                    }
+                }
+                Err(e) => {
+                    return Err(e);
+                }
             }
-            options.device = Some(device);
         }
 
         Ok(options)

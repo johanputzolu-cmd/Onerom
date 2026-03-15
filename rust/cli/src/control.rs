@@ -300,10 +300,14 @@ fn confirm_erase(options: &Options, device: &Device, ranges: &[(u32, u32)]) -> R
     }
 
     print!("Are you sure? (y/N): ");
-    std::io::stdout().flush()?;
+    std::io::stdout()
+        .flush()
+        .map_err(|e| Error::Other(e.to_string()))?;
 
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| Error::Other(e.to_string()))?;
 
     Ok(matches!(input.trim().to_lowercase().as_str(), "y" | "yes"))
 }
