@@ -390,9 +390,9 @@ fn print_firmware_info(options: &Options, info: &SdrrInfo) -> Result<(), Error> 
             println!("Hardware: {hw_rev}");
         }
         println!("MCU:      {:?}", info.stm_line);
-        println!("ROM sets: {}", info.rom_set_count);
+        println!("Slots: {}", info.rom_set_count);
         for (i, set) in info.rom_sets.iter().enumerate() {
-            println!("  Set {i}: {} ROM(s), {} bytes", set.rom_count, set.size);
+            println!("  Slot {i}: {} ROM(s), {} bytes", set.rom_count, set.size);
             for (j, rom) in set.roms.iter().enumerate() {
                 let name = rom.filename.as_deref().unwrap_or("<unnamed>");
                 println!("    ROM {j}: {} {name}", rom.rom_type);
