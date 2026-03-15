@@ -27,14 +27,14 @@ pub enum FirmwareCommands {
     ///
     /// Produces a flashable firmware binary for the specified board and MCU.
     /// ROM images and configuration are supplied either via a JSON config
-    /// file or individual --rom arguments.
+    /// file or individual --slot arguments.
     ///
     /// Examples:
     ///
-    ///   onerom firmware build --config c64.json --board fire-24-e --out firmware.bin
+    ///   onerom firmware build --config-file c64.json --board fire-24-e --out firmware.bin
     ///
     ///   onerom firmware build --board fire-24-e \
-    ///       --rom image=kernal.bin,type=2364,cs=active_low \
+    ///       --slot file=kernal.bin,type=2364,cs1=active_low \
     ///       --out firmware.bin
     Build(FirmwareBuildArgs),
 
@@ -72,29 +72,86 @@ pub enum FirmwareCommands {
     ///
     ///   onerom firmware download --version 0.6.5 --board fire-24-e --out firmware.bin
     Download(FirmwareDownloadArgs),
+
+    /// List supported chip types.
+    ///
+    /// Displays the chip types supported by a specific board, or all chip types
+    /// grouped by pin count.
+    ///
+    /// Examples:
+    ///
+    ///   onerom firmware chips --board fire-24-e
+    ///
+    ///   onerom firmware chips --all
+    Chips(FirmwareChipsArgs),
 }
 
 #[derive(Debug, Args)]
-#[command(group = clap::ArgGroup::new("config_source").required(false).args(["config_file", "rom"]))]
 pub struct FirmwareBuildArgs {
-    /// ROM configuration JSON file. Mutually exclusive with --rom.
+    /// ROM configuration JSON file. Mutually exclusive with --slot,
+    /// --config-name, --config-description, --save-config, and --no-config.
     #[arg(
         long,
+        short='j',
+        visible_aliases = ["config-json", "config", "json"],
         value_name = "FILE",
-        visible_alias = "config-json",
-        conflicts_with = "rom"
+        conflicts_with_all = ["slot", "config_name", "config_description", "save_config", "no_config"]
     )]
     pub config_file: Option<String>,
 
-    /// ROM image specification. May be repeated for multiple images.  (Not yet supported.)
+    /// ROM slot specification. May be repeated for multiple slots.
     ///
-    /// Format: image=<file>,type=<romtype>,cs=<csconfig>
+    /// Format: file=<path_or_url>,type=<romtype>[,cs1=<logic>][,cs2=<logic>][,cs3=<logic>][,size_handling=<handling>]
     ///
-    /// Example: --rom image=kernal.bin,type=2364,cs=active_low
+    /// CS logic values: active_low (or 0), active_high (or 1).
     ///
-    /// Mutually exclusive with --config.
-    #[arg(long, value_name = "SPEC", conflicts_with = "config_file")]
-    pub rom: Vec<String>,
+    /// Required CS lines depend on chip type (e.g. 2332 requires cs1 and cs2).
+    ///
+    /// Size handling values: none, duplicate (or dup), truncate (or trunc), pad.
+    ///
+    /// Examples:
+    ///
+    ///   --slot file=kernal.bin,type=2364,cs1=active_low
+    ///
+    ///   --slot file=chargen.bin,type=2332,cs1=active_low,cs2=active_high
+    ///
+    ///   --slot file=https://example.com/basic.bin,type=2716
+    ///
+    ///   --slot file=small.bin,type=2364,cs1=active_low,size_handling=duplicate
+    ///
+    /// Mutually exclusive with --config-file and --no-config.
+    #[arg(
+        long,
+        value_name = "SPEC",
+        visible_alias = "rom",
+        conflicts_with_all = ["config_file", "no_config"]
+    )]
+    pub slot: Vec<String>,
+
+    /// Name for the generated ROM configuration.
+    ///
+    /// Mutually exclusive with --config-file.
+    #[arg(
+        long,
+        value_name = "NAME",
+        visible_alias = "name",
+        conflicts_with = "config_file"
+    )]
+    pub config_name: Option<String>,
+
+    /// Description for the generated ROM configuration. Defaults to
+    /// "Created by the One ROM CLI" if not specified.
+    ///
+    /// Mutually exclusive with --config-file.
+    #[arg(long, value_name = "DESC", visible_aliases=["desc", "description"], conflicts_with = "config_file")]
+    pub config_description: Option<String>,
+
+    /// Save the generated ROM configuration to a JSON file.
+    ///
+    /// Only valid with --slot or --no-config. Mutually exclusive with
+    /// --config-file.
+    #[arg(long, value_name = "FILE", conflicts_with = "config_file")]
+    pub save_config: Option<String>,
 
     /// Target board type (e.g. fire-24-e). Required when not inferrable
     /// from a connected device.
@@ -132,10 +189,14 @@ pub struct FirmwareBuildArgs {
     #[arg(long, short)]
     pub force: bool,
 
-    /// Confirm flashing a base firmware with no ROM configuration.
+    /// Confirm building a firmware with no ROM configuration.
     ///
-    /// Only needed when --base-firmware is used without --config or --rom.
-    #[arg(long)]
+    /// Only valid with --config-name and/or --config-description.
+    /// Mutually exclusive with --config-file and --slot.
+    #[arg(
+        long,
+        conflicts_with_all = ["config_file", "slot"]
+    )]
     pub no_config: bool,
 }
 
@@ -211,6 +272,23 @@ pub struct FirmwareDownloadArgs {
 }
 
 impl CommandTrait for FirmwareDownloadArgs {
+    fn requires_device(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct FirmwareChipsArgs {
+    /// Show supported chip types for this board type.
+    #[arg(long, short, value_name = "BOARD", conflicts_with = "all")]
+    pub board: Option<String>,
+
+    /// Show all supported chip types grouped by pin count.
+    #[arg(long, short, conflicts_with = "board")]
+    pub all: bool,
+}
+
+impl CommandTrait for FirmwareChipsArgs {
     fn requires_device(&self) -> bool {
         false
     }

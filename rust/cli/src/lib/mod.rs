@@ -14,6 +14,7 @@ pub mod device;
 pub mod error;
 pub mod picobootx;
 pub mod scan;
+pub mod slot;
 pub mod usb;
 
 pub use device::{Device, DeviceState};

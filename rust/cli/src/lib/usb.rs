@@ -92,13 +92,22 @@ pub async fn enumerate_devices(
     Ok(devices)
 }
 
-async fn get_picoboot(device: &Device) -> Result<Picoboot, Error> {
+async fn get_picoboot(device: &Device, long: bool) -> Result<Picoboot, Error> {
     let mut picoboot = Picoboot::new(device.device_info.clone())
         .await
         .map_err(|e| Error::Usb(e.to_string()))?;
 
+    let timeout = if long {
+        // Flash erase can take a long time, so use a longer timeout for all
+        // operations when erase is requested.
+        Duration::from_secs(20)
+    } else {
+        Duration::from_millis(2500)
+    };
+    debug!("Setting PICOBOOT timeouts to {timeout:?} (long={long})");
+
     picoboot.set_timeouts(Timeouts {
-        endpoint: Duration::from_millis(2500),
+        endpoint: timeout,
         ..Timeouts::default()
     });
 
@@ -113,7 +122,7 @@ async fn get_picoboot(device: &Device) -> Result<Picoboot, Error> {
 pub async fn read_device_info(device: &mut Device) -> Result<(), Error> {
     debug!("Reading {FLASH_READ_SIZE_KB}KB from {FLASH_BASE:#010x} on {device}");
 
-    let picoboot = get_picoboot(device).await?;
+    let picoboot = get_picoboot(device, false).await?;
     let mut reader = PicobootReader::new(picoboot).await.map_err(Error::Usb)?;
 
     // Parse the flash to get the device information
@@ -199,7 +208,7 @@ impl RebootArgs {
 
 /// Reboot the chosen One ROM
 pub async fn reboot(device: &Device, args: &RebootArgs) -> Result<(), Error> {
-    let mut picoboot = get_picoboot(device).await?;
+    let mut picoboot = get_picoboot(device, false).await?;
 
     // Early return Ok(()) if no reboot requested
     let reboot_type = if let Ok(rt) = args.mode.try_into() {
@@ -318,7 +327,7 @@ fn check_memory_range(
 pub async fn read_memory(device: &Device, address: u32, length: u32) -> Result<Vec<u8>, Error> {
     check_memory_range(device, address, length, false, false)?;
 
-    let mut picoboot = get_picoboot(device).await?;
+    let mut picoboot = get_picoboot(device, false).await?;
 
     picoboot
         .read(address, length)
@@ -334,7 +343,7 @@ pub async fn read_memory(device: &Device, address: u32, length: u32) -> Result<V
 pub async fn write_memory(device: &Device, address: u32, data: &[u8]) -> Result<(), Error> {
     check_memory_range(device, address, data.len() as u32, true, false)?;
 
-    let mut picoboot = get_picoboot(device).await?;
+    let mut picoboot = get_picoboot(device, false).await?;
 
     picoboot
         .write(address, data)
@@ -344,7 +353,7 @@ pub async fn write_memory(device: &Device, address: u32, data: &[u8]) -> Result<
 
 /// Erase and write firmware to device flash.
 pub async fn flash_program(device: &Device, data: &[u8]) -> Result<(), Error> {
-    let mut picoboot = get_picoboot(device).await?;
+    let mut picoboot = get_picoboot(device, true).await?;
 
     picoboot
         .flash_erase_and_write(FLASH_BASE, data)
@@ -354,7 +363,7 @@ pub async fn flash_program(device: &Device, data: &[u8]) -> Result<(), Error> {
 
 /// Read firmware from device flash for verification.
 pub async fn flash_program_read(device: &Device, size: u32) -> Result<Vec<u8>, Error> {
-    let mut picoboot = get_picoboot(device).await?;
+    let mut picoboot = get_picoboot(device, false).await?;
 
     picoboot
         .flash_read(FLASH_BASE, size)
@@ -383,7 +392,7 @@ pub async fn flash_erase(device: &Device, offset: u32, size: u32) -> Result<(), 
     let address = FLASH_BASE + offset;
     check_memory_range(device, address, size, true, true)?;
 
-    let mut picoboot = get_picoboot(device).await?;
+    let mut picoboot = get_picoboot(device, true).await?;
 
     picoboot
         .flash_erase(address, size)
@@ -405,7 +414,7 @@ pub async fn set_led(device: &Device, led_id: u8, sub_cmd: LedSubCmd) -> Result<
 
     let cmd = picoboot::PicobootXCmd::new(ONEROM_MAGIC, ONEROM_CMD_SET_LED, 0x10, 0, args);
 
-    let mut picoboot = get_picoboot(device).await?;
+    let mut picoboot = get_picoboot(device, false).await?;
 
     picoboot
         .send_picobootx_cmd(cmd, None)

@@ -53,6 +53,7 @@ async fn sub_main() -> Result<(), Error> {
             FirmwareCommands::Inspect(args) => firmware::cmd_inspect(&options, args).await,
             FirmwareCommands::Releases(args) => firmware::cmd_releases(&options, args).await,
             FirmwareCommands::Download(args) => firmware::cmd_download(&options, args).await,
+            FirmwareCommands::Chips(args) => firmware::cmd_chips(&options, args).await,
         },
         Commands::Program(args) => program::cmd_program(&mut options, args).await,
         Commands::Inspect(args) => match &args.command {

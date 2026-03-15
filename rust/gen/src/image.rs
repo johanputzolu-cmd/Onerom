@@ -60,10 +60,12 @@ pub enum SizeHandling {
 
     /// Duplicates the image as many times as needed to fill the Chip.  Errors
     /// if the image size is not an exact divisor of the Chip size.
+    #[serde(alias = "dup")]
     Duplicate,
 
     /// Truncates the image to fit the Chip size.  Errors if the image is an
     /// exact match size-wise.
+    #[serde(alias = "trunc")]
     Truncate,
 
     /// Pads the image out with [`PAD_BLANK_BYTE`].

@@ -37,8 +37,8 @@ use control::{
     ControlPokeMemoryArgs, ControlRebootArgs, ControlResetArgs, ControlSelectArgs,
 };
 use firmware::{
-    FirmwareArgs, FirmwareBuildArgs, FirmwareCommands, FirmwareDownloadArgs, FirmwareInspectArgs,
-    FirmwareReleasesArgs,
+    FirmwareArgs, FirmwareBuildArgs, FirmwareChipsArgs, FirmwareCommands, FirmwareDownloadArgs,
+    FirmwareInspectArgs, FirmwareReleasesArgs,
 };
 use inspect::{
     InspectArgs, InspectCommands, InspectGpioArgs, InspectImageArgs, InspectInfoArgs,

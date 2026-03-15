@@ -187,6 +187,7 @@ pub async fn select_device(
     let devices = enumerate_devices(unrecognised, vid_pid).await?;
 
     if devices.is_empty() {
+        debug!("No devices found");
         return Err(Error::NoDevices);
     }
 
@@ -197,6 +198,7 @@ pub async fn select_device(
                     .iter()
                     .map(|d| d.serial.as_deref().unwrap_or("(no serial)").to_string())
                     .collect();
+                debug!("Multiple devices found with no selector: {serials:?}");
                 Err(Error::MultipleDevices(serials))
             } else {
                 let device = devices.into_iter().next().unwrap();
@@ -217,6 +219,7 @@ pub async fn select_device(
                         .iter()
                         .map(|d| d.serial.as_deref().unwrap_or("(no serial)").to_string())
                         .collect();
+                    debug!("Multiple devices found with selector '{pattern}': {serials:?}");
                     Err(Error::MultipleDevices(serials))
                 }
             }

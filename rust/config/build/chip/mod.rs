@@ -341,6 +341,9 @@ fn generate_rust_code(config: &ChipTypesConfig) -> String {
     // Generate ChipType implementation
     code.push_str(&generate_chip_type_impl(config));
 
+    // Generate lists of ChipType variants per pin counts
+    code.push_str(&generate_chip_type_names(config));
+
     code
 }
 
@@ -1378,6 +1381,103 @@ fn generate_chip_type_is_supported_fn(config: &ChipTypesConfig) -> String {
 
     code.push_str("        }\n");
     code.push_str("    }\n");
+
+    code
+}
+
+fn generate_chip_type_names(config: &ChipTypesConfig) -> String {
+    let mut code = String::new();
+
+    // Collect names grouped by pin count, all non-plugin names, and plugin names
+    let mut by_pin: std::collections::HashMap<u8, Vec<String>> = std::collections::HashMap::new();
+    let mut all_names: Vec<String> = Vec::new();
+    let mut plugin_names: Vec<String> = Vec::new();
+
+    for (type_name, chip_type) in &config.chip_types {
+        let mut names = vec![type_name.clone()];
+        if let Some(aliases) = &chip_type.aliases {
+            names.extend(aliases.iter().cloned());
+        }
+
+        if !chip_type.supported {
+            continue; // Skip unsupported types
+        }
+
+        if chip_type.function.is_plugin() {
+            for name in &names {
+                if !plugin_names.contains(name) {
+                    plugin_names.push(name.clone());
+                }
+            }
+        } else {
+            let entry = by_pin.entry(chip_type.pins).or_default();
+            for name in &names {
+                if !entry.contains(name) {
+                    entry.push(name.clone());
+                }
+                if !all_names.contains(name) {
+                    all_names.push(name.clone());
+                }
+            }
+        }
+    }
+
+    all_names.sort_unstable();
+    plugin_names.sort_unstable();
+
+    // CHIP_TYPE_NAMES
+    code.push_str("/// All chip type names and aliases, alphabetically sorted.\n");
+    code.push_str("///\n");
+    code.push_str("/// Includes primary names and all known aliases for every supported chip type.\n");
+    code.push_str("/// Does not include plugins.\n");
+    code.push_str("pub const CHIP_TYPE_NAMES: &[&str] = &[\n");
+    for name in &all_names {
+        code.push_str(&format!("    \"{name}\",\n"));
+    }
+    code.push_str("];\n\n");
+
+    // CHIP_TYPE_NAMES_PLUGINS
+    code.push_str("/// All plugin type names and aliases, alphabetically sorted.\n");
+    code.push_str("pub const CHIP_TYPE_NAMES_PLUGINS: &[&str] = &[\n");
+    for name in &plugin_names {
+        code.push_str(&format!("    \"{name}\",\n"));
+    }
+    code.push_str("];\n\n");
+
+    // Per-pin-count arrays
+    let mut pin_counts: Vec<u8> = by_pin.keys().copied().collect();
+    pin_counts.sort_unstable();
+
+    for &pins in &pin_counts {
+        let names = by_pin.get_mut(&pins).unwrap();
+        names.sort_unstable();
+
+        code.push_str(&format!(
+            "/// All chip type names and aliases for {pins}-pin chips, alphabetically sorted.\n"
+        ));
+        code.push_str(&format!(
+            "pub const CHIP_TYPE_NAMES_{pins}_PIN: &[&str] = &[\n"
+        ));
+        for name in names {
+            code.push_str(&format!("    \"{name}\",\n"));
+        }
+        code.push_str("];\n\n");
+    }
+
+    // chip_type_names_for_pins function
+    code.push_str("/// Return the chip type names and aliases for the given pin count.\n");
+    code.push_str("///\n");
+    code.push_str("/// Returns `None` if no chip types exist for the given pin count.\n");
+    code.push_str("pub const fn chip_type_names_for_pins(pins: u8) -> Option<&'static [&'static str]> {\n");
+    code.push_str("    match pins {\n");
+    for &pins in &pin_counts {
+        code.push_str(&format!(
+            "        {pins} => Some(CHIP_TYPE_NAMES_{pins}_PIN),\n"
+        ));
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n");
 
     code
 }

@@ -211,11 +211,13 @@ pub fn resolve_board(
         ))
     } else if let Some(device) = options.device.as_ref() {
         debug!("Resolving board from connected device");
-        Ok(device
+        let board = device
             .onerom
             .as_ref()
             .and_then(|o| o.flash.as_ref())
-            .and_then(|f| f.board))
+            .and_then(|f| f.board)
+            .ok_or(Error::NoBoardFromDevice(device.to_string()))?;
+        Ok(Some(board))
     } else {
         debug!("No board argument or device available to resolve board");
         Ok(None)

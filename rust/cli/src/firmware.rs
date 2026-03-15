@@ -5,6 +5,7 @@
 use log::{debug, trace};
 use std::io::Write;
 
+use onerom_config::chip::{CHIP_TYPE_NAMES_PLUGINS, chip_type_names_for_pins};
 use onerom_config::fw::{FirmwareProperties, FirmwareVersion, ServeAlg};
 use onerom_config::hw::Board;
 use onerom_config::mcu::Variant;
@@ -15,15 +16,35 @@ use sdrr_fw_parser::{Parser, SdrrInfo, readers::MemoryReader};
 
 use crate::args;
 use crate::utils::{resolve_board, resolve_firmware_output};
+use onerom_cli::slot::{parse_slots, save_config, slots_to_config_json};
 use onerom_cli::{Error, Options};
 
-pub const EMPTY_CONFIG_FILE: &str = r#"{
-    "$schema": "https://images.onerom.org/configs/schema.json",
-    "version": 1,
-    "name": "Empty config",
-    "description": "Created by the One ROM CLI",
-    "rom_sets": []
-}"#;
+// ------------------------------- Config resolution -------------------------------
+
+/// Resolve a ROM configuration to a JSON string from any of the three sources:
+/// a config file path, a list of slot specs, or an empty config (--no-config).
+///
+/// `board` is required when `slots` is non-empty, for chip type validation.
+/// This is shared between `firmware build` and `program`.
+pub fn resolve_config_json(
+    config_file: Option<&str>,
+    slots: &[String],
+    no_config: bool,
+    board: &Board,
+    config_name: Option<&str>,
+    config_description: Option<&str>,
+) -> Result<String, Error> {
+    if let Some(path) = config_file {
+        read_rom_config(path).map_err(Error::from)
+    } else if no_config || slots.is_empty() {
+        slots_to_config_json(&[], config_name, config_description)
+    } else {
+        let parsed = parse_slots(slots, board)?;
+        slots_to_config_json(&parsed, config_name, config_description)
+    }
+}
+
+// ------------------------------- Firmware parsing and sizing -------------------------------
 
 pub async fn verify_assembled_firmware(
     options: &Options,
@@ -72,6 +93,8 @@ fn check_firmware_size(options: &Options, data: &[u8]) -> Result<(), Error> {
     Ok(())
 }
 
+// ------------------------------- Release resolution -------------------------------
+
 fn resolve_release<'a>(
     releases: &'a Releases,
     version: &Option<String>,
@@ -87,6 +110,8 @@ fn resolve_release<'a>(
     }
 }
 
+// ------------------------------- Firmware acquisition -------------------------------
+
 pub async fn acquire_firmware(
     options: &Options,
     firmware_path: &Option<String>,
@@ -95,55 +120,70 @@ pub async fn acquire_firmware(
     mcu: &Variant,
 ) -> Result<(Vec<u8>, FirmwareVersion, String), Error> {
     if let Some(firmware) = firmware_path {
-        if options.verbose {
-            println!("Using local firmware: {firmware}");
-        }
-        let data = std::fs::read(firmware).map_err(|e| Error::io(firmware, e))?;
-        check_firmware_size(options, &data)?;
-
-        let info = parse_firmware(&data).await?;
-        let version_str = format!("{}", info.version);
-        if options.verbose {
-            println!("Detected firmware version: {version_str}");
-        }
-        Ok((data, info.version, version_str))
+        acquire_local_firmware(options, firmware).await
     } else {
-        if options.verbose {
-            println!("Checking available firmware versions...");
-        }
-        let releases = Releases::from_network_async().await?;
-        let release = resolve_release(&releases, version_arg)?;
-        let version = release.firmware_version()?;
-        let version_str = release.version.clone();
-
-        if options.verbose {
-            println!(
-                "Downloading firmware v{version_str} for {}...",
-                board.name()
-            );
-        }
-        let data = releases
-            .download_firmware_async(&version, board, mcu)
-            .await?;
-        check_firmware_size(options, &data)?;
-        Ok((data, version, version_str))
+        acquire_release_firmware(options, version_arg, board, mcu).await
     }
 }
 
+async fn acquire_local_firmware(
+    options: &Options,
+    firmware: &str,
+) -> Result<(Vec<u8>, FirmwareVersion, String), Error> {
+    if options.verbose {
+        println!("Using local firmware: {firmware}");
+    }
+    let data = std::fs::read(firmware).map_err(|e| Error::io(firmware, e))?;
+    check_firmware_size(options, &data)?;
+    let info = parse_firmware(&data).await?;
+    let version_str = format!("{}", info.version);
+    if options.verbose {
+        println!("Detected firmware version: {version_str}");
+    }
+    Ok((data, info.version, version_str))
+}
+
+async fn acquire_release_firmware(
+    options: &Options,
+    version_arg: &Option<String>,
+    board: &Board,
+    mcu: &Variant,
+) -> Result<(Vec<u8>, FirmwareVersion, String), Error> {
+    if options.verbose {
+        println!("Checking available firmware versions...");
+    }
+    let releases = Releases::from_network_async().await?;
+    let release = resolve_release(&releases, version_arg)?;
+    let version = release.firmware_version()?;
+    let version_str = release.version.clone();
+    if options.verbose {
+        println!(
+            "Downloading firmware v{version_str} for {}...",
+            board.name()
+        );
+    }
+    let data = releases
+        .download_firmware_async(&version, board, mcu)
+        .await?;
+    check_firmware_size(options, &data)?;
+    Ok((data, version, version_str))
+}
+
+// ------------------------------- ROM image building -------------------------------
+
+/// Build a ROM image from a JSON configuration string.
+///
+/// Takes the config as an already-resolved JSON string (not a file path).
+/// Use [`resolve_config_json`] to obtain the JSON from any config source.
 pub async fn build_rom_image(
     options: &Options,
-    config: Option<&str>,
+    config_json: &str,
     version: FirmwareVersion,
     board: Board,
     mcu: Variant,
 ) -> Result<(FirmwareProperties, Option<Vec<u8>>, Option<Vec<u8>>, String), Error> {
-    let rom_config = if let Some(config) = config {
-        read_rom_config(config)?
-    } else {
-        EMPTY_CONFIG_FILE.to_string()
-    };
     let mut builder =
-        Builder::from_json(version, mcu.family(), &rom_config).map_err(onerom_fw::Error::parse)?;
+        Builder::from_json(version, mcu.family(), config_json).map_err(onerom_fw::Error::parse)?;
 
     for license in builder.licenses() {
         accept_license(options, &license).await?;
@@ -172,18 +212,21 @@ pub async fn build_rom_image(
     Ok((fw_props, metadata, image_data, desc))
 }
 
+// ------------------------------- firmware build command -------------------------------
+
 fn check_build_args(
     _options: &Options,
     args: &args::firmware::FirmwareBuildArgs,
 ) -> Result<(), Error> {
-    if !args.no_config && args.config_file.is_none() && args.rom.is_empty() {
+    if !args.no_config && args.config_file.is_none() && args.slot.is_empty() {
         return Err(Error::InvalidArgument(
-            "Either --config or --rom must be specified unless --no-config is set".to_string(),
+            "Either --config-file or --slot must be specified unless --no-config is set"
+                .to_string(),
         ));
     }
-    if args.no_config && (!args.rom.is_empty() || args.config_file.is_some()) {
+    if args.no_config && (!args.slot.is_empty() || args.config_file.is_some()) {
         return Err(Error::InvalidArgument(
-            "--no-config cannot be used with --rom or --config".to_string(),
+            "--no-config cannot be used with --slot or --config-file".to_string(),
         ));
     }
     Ok(())
@@ -193,35 +236,33 @@ pub async fn cmd_build(
     options: &Options,
     args: &args::firmware::FirmwareBuildArgs,
 ) -> Result<(), Error> {
-    // Build args are too complicated to fully handle via clap
     check_build_args(options, args)?;
 
+    // Board must be resolved before parsing slots for chip type validation.
     let board = resolve_board(options, &args.board)?.ok_or(Error::NoBoardOrDevice)?;
-
-    // Hardcode MCU as CLI only supports Fire boards
     let mcu = Variant::RP2350;
 
-    let config = if args.no_config {
+    let config_json = resolve_config_json(
+        args.config_file.as_deref(),
+        &args.slot,
+        args.no_config,
+        &board,
+        args.config_name.as_deref(),
+        args.config_description.as_deref(),
+    )?;
+
+    if let Some(path) = &args.save_config {
+        save_config(path, &config_json)?;
         if options.verbose {
-            println!("No config file specified, proceeding without ROM images");
+            println!("Saved ROM configuration to {path}");
         }
-        None
-    } else if let Some(config) = args.config_file.as_ref() {
-        if options.verbose {
-            println!("Using ROM config: {config}");
-        }
-        Some(config.as_str())
-    } else {
-        return Err(Error::InvalidArgument(
-            "--rom not currently supported".to_string(),
-        ));
-    };
+    }
 
     let (firmware_data, version, version_str) =
         acquire_firmware(options, &args.base_firmware, &args.version, &board, &mcu).await?;
 
     let (fw_props, metadata, image_data, desc) =
-        build_rom_image(options, config, version, board, mcu).await?;
+        build_rom_image(options, &config_json, version, board, mcu).await?;
 
     validate_sizes(&fw_props, &firmware_data, &metadata, &image_data)?;
 
@@ -239,16 +280,18 @@ pub async fn cmd_build(
     std::fs::write(&out, &assembled).map_err(|e| Error::io(&out, e))?;
 
     if options.verbose {
-        println!("Wrote {} bytes to {}", size, out);
+        println!("Wrote {size} bytes to {out}");
         if !desc.is_empty() {
             println!("---\n{desc}");
         }
     } else {
-        println!("Firmware written to {}", out);
+        println!("Firmware written to {out}");
     }
 
     Ok(())
 }
+
+// ------------------------------- License acceptance -------------------------------
 
 pub async fn accept_license(options: &Options, license: &License) -> Result<(), Error> {
     let text = fetch_license_async(&license.url).await?;
@@ -279,39 +322,56 @@ pub async fn accept_license(options: &Options, license: &License) -> Result<(), 
     }
 }
 
+// ------------------------------- firmware inspect command -------------------------------
+
 pub async fn cmd_inspect(
     options: &Options,
     args: &args::firmware::FirmwareInspectArgs,
 ) -> Result<(), Error> {
     let data = if let Some(file) = &args.firmware {
-        if options.verbose {
-            println!("Inspecting local firmware: {file}");
-        }
-        std::fs::read(file).map_err(|e| Error::io(file, e))?
+        inspect_local_firmware(options, file)?
     } else {
-        let board = resolve_board(options, &args.board)?.ok_or(Error::NoBoardOrDevice)?;
-        let mcu = Variant::RP2350;
-
-        let releases = Releases::from_network_async().await?;
-        let release = resolve_release(&releases, &args.version)?;
-        let version = release.firmware_version()?;
-
-        if options.verbose {
-            println!(
-                "Downloading firmware v{} for {}...",
-                release.version,
-                board.name()
-            );
-        }
-        releases
-            .download_firmware_async(&version, &board, &mcu)
-            .await?
+        inspect_release_firmware(options, args).await?
     };
+
     if options.verbose {
         println!("Firmware size: {} bytes", data.len());
     }
 
     let info = parse_firmware(&data).await?;
+    print_firmware_info(options, &info)
+}
+
+fn inspect_local_firmware(options: &Options, file: &str) -> Result<Vec<u8>, Error> {
+    if options.verbose {
+        println!("Inspecting local firmware: {file}");
+    }
+    std::fs::read(file).map_err(|e| Error::io(file, e))
+}
+
+async fn inspect_release_firmware(
+    options: &Options,
+    args: &args::firmware::FirmwareInspectArgs,
+) -> Result<Vec<u8>, Error> {
+    let board = resolve_board(options, &args.board)?.ok_or(Error::NoBoardOrDevice)?;
+    let mcu = Variant::RP2350;
+    let releases = Releases::from_network_async().await?;
+    let release = resolve_release(&releases, &args.version)?;
+    let version = release.firmware_version()?;
+    if options.verbose {
+        println!(
+            "Downloading firmware v{} for {}...",
+            release.version,
+            board.name()
+        );
+    }
+    releases
+        .download_firmware_async(&version, &board, &mcu)
+        .await
+        .map_err(Error::from)
+}
+
+fn print_firmware_info(options: &Options, info: &SdrrInfo) -> Result<(), Error> {
     if !info.parse_errors.is_empty() {
         eprintln!("Warning: firmware parsed with errors:");
         for error in &info.parse_errors {
@@ -320,14 +380,17 @@ pub async fn cmd_inspect(
         eprintln!();
     }
 
-    if !options.verbose {
+    if options.verbose {
+        let json = serde_json::to_string_pretty(&info).map_err(|e| Error::Other(e.to_string()))?;
+        println!("---");
+        println!("{json}");
+    } else {
         println!("Version:  {}", info.version);
         if let Some(hw_rev) = &info.hw_rev {
             println!("Hardware: {hw_rev}");
         }
         println!("MCU:      {:?}", info.stm_line);
         println!("ROM sets: {}", info.rom_set_count);
-
         for (i, set) in info.rom_sets.iter().enumerate() {
             println!("  Set {i}: {} ROM(s), {} bytes", set.rom_count, set.size);
             for (j, rom) in set.roms.iter().enumerate() {
@@ -335,14 +398,11 @@ pub async fn cmd_inspect(
                 println!("    ROM {j}: {} {name}", rom.rom_type);
             }
         }
-    } else {
-        let json = serde_json::to_string_pretty(&info).map_err(|e| Error::Other(e.to_string()))?;
-        println!("---");
-        println!("{json}");
     }
-
     Ok(())
 }
+
+// ------------------------------- firmware releases command -------------------------------
 
 pub async fn cmd_releases(
     options: &Options,
@@ -358,8 +418,18 @@ pub async fn cmd_releases(
     debug!("Resolved board for releases: {board:?}");
 
     let releases = Releases::from_network_async().await?;
+    let filtered = filter_releases(&releases, board.as_ref());
 
-    let filtered = if let Some(board) = &board {
+    if filtered.is_empty() {
+        println!("No releases found.");
+        return Ok(());
+    }
+
+    print_releases(options, &releases, &filtered, board.as_ref())
+}
+
+fn filter_releases(releases: &Releases, board: Option<&Board>) -> Vec<Release> {
+    if let Some(board) = board {
         releases
             .releases()
             .iter()
@@ -369,28 +439,29 @@ pub async fn cmd_releases(
                     .any(|b| b.name == board.name().to_ascii_lowercase())
             })
             .cloned()
-            .collect::<Vec<_>>()
+            .collect()
     } else {
         releases.releases().clone()
-    };
-
-    if filtered.is_empty() {
-        println!("No releases found.");
-        return Ok(());
     }
+}
 
-    if let Some(board) = &board {
-        println!("Available firmware releases for {board}:");
+fn print_releases(
+    options: &Options,
+    releases: &Releases,
+    filtered: &[Release],
+    board: Option<&Board>,
+) -> Result<(), Error> {
+    if let Some(board) = board {
+        println!("Available firmware releases for {}:", board.name());
     } else {
         println!("Available firmware releases:");
     }
-    for r in &filtered {
+    for r in filtered {
         let latest = if r.version == releases.latest() {
             " (latest)"
         } else {
             ""
         };
-
         println!("  v{}{latest}", r.version);
         if options.verbose {
             let boards = r
@@ -399,16 +470,67 @@ pub async fn cmd_releases(
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
-            if let Some(board) = board.as_ref() {
+            if let Some(board) = board {
                 let url = r.url(board, &Variant::RP2350)?;
                 println!("    Location: {url}");
             }
             println!("    Supported boards: {boards}");
         }
     }
+    Ok(())
+}
+
+// ------------------------------- firmware chips command -------------------------------
+
+pub async fn cmd_chips(
+    options: &Options,
+    args: &args::firmware::FirmwareChipsArgs,
+) -> Result<(), Error> {
+    let board = if args.all {
+        None
+    } else {
+        resolve_board(options, &args.board)?
+    };
+
+    if let Some(board) = board {
+        print_chips_for_board(&board);
+    } else {
+        print_all_chips();
+    }
 
     Ok(())
 }
+
+fn print_plugin_chips() {
+    println!("Supported plugin types:");
+    let names_str = CHIP_TYPE_NAMES_PLUGINS.join(", ");
+    println!("  {names_str}");
+}
+
+fn print_chips_for_board(board: &Board) {
+    println!("Supported chip types for {}:", board.name());
+    let names = board.supported_chip_type_names();
+    if names.is_empty() {
+        println!("  (none)");
+    } else {
+        let names_str = names.join(", ");
+        println!("  {names_str}");
+    }
+    print_plugin_chips();
+}
+
+fn print_all_chips() {
+    for pins in [24u8, 28, 32, 40] {
+        if let Some(names) = chip_type_names_for_pins(pins) {
+            println!("Supported {pins}-pin chips:");
+            let names_str = names.join(", ");
+            println!("  {names_str}");
+        }
+    }
+    print_plugin_chips();
+}
+
+// ------------------------------- firmware download command -------------------------------
 
 pub async fn cmd_download(
     options: &Options,
@@ -445,7 +567,7 @@ pub async fn cmd_download(
     if options.verbose {
         println!("Written {} bytes to {}", data.len(), out);
     } else {
-        println!("Firmware downloaded to {}", out);
+        println!("Firmware downloaded to {out}");
     }
 
     Ok(())

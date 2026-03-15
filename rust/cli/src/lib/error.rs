@@ -61,9 +61,6 @@ pub enum Error {
     )]
     LiveOutOfBounds(String, usize),
 
-    #[error("Could not determine board type from connected device")]
-    NoBoardFromDevice,
-
     #[error("Either --board or --device must be specified")]
     NoBoardOrDevice,
 
@@ -101,6 +98,15 @@ pub enum Error {
 
     #[error("Reboot was disabled")]
     NoReboot,
+
+    #[error("Unsupported chip type '{0}'.\nSupported types for this board: {1}")]
+    UnsupportedChipType(String, String),
+
+    #[error("Unsupported chip type '{0}' (and {1}) for this board.\nSupported types: {2}")]
+    UnsupportedBoardChipType(String, String, String),
+
+    #[error("Could not determine board type from device:\n  {0}\nSupply it with --board")]
+    NoBoardFromDevice(String),
 }
 
 impl Error {
