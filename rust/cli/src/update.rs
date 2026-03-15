@@ -20,15 +20,6 @@ pub async fn cmd_commit(
     Err(Error::Unimplemented("update commit".to_string()))
 }
 
-pub async fn cmd_rename(
-    options: &Options,
-    args: &args::update::UpdateRenameArgs,
-) -> Result<(), Error> {
-    check_device(options, args)?;
-    let _device = options.device.as_ref().unwrap();
-    Err(Error::Unimplemented("update rename".to_string()))
-}
-
 pub async fn cmd_otp(options: &Options, args: &args::update::UpdateOtpArgs) -> Result<(), Error> {
     check_device(options, args)?;
     let _device = options.device.as_ref().unwrap();

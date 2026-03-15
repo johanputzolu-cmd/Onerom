@@ -14,8 +14,8 @@ use onerom_cli::usb::RebootArgs;
 #[command(group = clap::ArgGroup::new("source").required(false).multiple(true).args(["config", "rom", "firmware", "base_firmware"]))]
 pub struct ProgramArgs {
     /// ROM configuration JSON file. Mutually exclusive with --rom and --firmware.
-    #[arg(long, value_name = "FILE", conflicts_with_all = ["rom", "firmware"])]
-    pub config: Option<String>,
+    #[arg(long, value_name = "FILE", visible_alias = "config-json", conflicts_with_all = ["rom", "firmware"])]
+    pub config_file: Option<String>,
 
     /// ROM image specification. May be repeated for multiple images.
     ///
@@ -24,13 +24,13 @@ pub struct ProgramArgs {
     /// Example: --rom image=kernal.bin,type=2364,cs=active_low
     ///
     /// Mutually exclusive with --config and --firmware.
-    #[arg(long, value_name = "SPEC", conflicts_with_all = ["config", "firmware"])]
+    #[arg(long, value_name = "SPEC", conflicts_with_all = ["config_file", "firmware"])]
     pub rom: Vec<String>,
 
     /// Flash a pre-built complete firmware binary directly.
     ///
     /// Mutually exclusive with --config, --rom, --base-firmware, and --version.
-    #[arg(long, value_name = "FILE", conflicts_with_all = ["config", "rom", "base_firmware", "version"])]
+    #[arg(long, value_name = "FILE", conflicts_with_all = ["config_file", "rom", "base_firmware", "version"])]
     pub firmware: Option<String>,
 
     /// Use a local minimal firmware binary instead of downloading from the
@@ -48,7 +48,7 @@ pub struct ProgramArgs {
     /// Confirm flashing a base firmware with no ROM configuration.
     ///
     /// Only needed when --base-firmware is used without --config or --rom.
-    #[arg(long, conflicts_with_all = ["config", "rom", "firmware"])]
+    #[arg(long, conflicts_with_all = ["config_file", "rom", "firmware"])]
     pub no_config: bool,
 
     /// Target board type (e.g. fire-24-e). Inferred from connected device

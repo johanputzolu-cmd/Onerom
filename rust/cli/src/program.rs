@@ -29,7 +29,7 @@ fn validate_program_args(args: &args::program::ProgramArgs) -> Result<(), Error>
     // Clap cannot express "this group is required unless --no-config is set",
     // so we enforce it here instead, with the group set to required(false)
     if !args.no_config
-        && args.config.is_none()
+        && args.config_file.is_none()
         && args.rom.is_empty()
         && args.firmware.is_none()
         && args.base_firmware.is_none()
@@ -72,7 +72,7 @@ async fn acquire_program_image(
     }
 
     if let Some(path) = args.base_firmware.as_ref()
-        && args.config.is_none()
+        && args.config_file.is_none()
         && args.rom.is_empty()
     {
         if options.verbose {
@@ -83,7 +83,7 @@ async fn acquire_program_image(
 
     // Build mode: acquire base firmware, build ROM image, assemble
     let board = board.as_ref().ok_or(Error::NoBoardOrDevice)?;
-    let config = if let Some(config) = &args.config {
+    let config = if let Some(config) = &args.config_file {
         if options.verbose {
             println!("Using ROM config: {config}");
         }

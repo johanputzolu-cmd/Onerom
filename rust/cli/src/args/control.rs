@@ -39,7 +39,7 @@ pub enum ControlCommands {
     ///   onerom control reboot
     Reboot(ControlRebootArgs),
 
-    /// Control the status LED on a One ROM device.
+    /// Control the status LED on a One ROM.
     ///
     /// Examples:
     ///
@@ -117,11 +117,11 @@ pub enum ControlCommands {
     /// If a One ROM's firmware has been erased it will subsequently boot into
     /// the RP2350 bootloader from where it can be reprogrammed.  However, you
     /// will need to use the --unrecognized to detect and program it.
-    /// 
+    ///
     /// It is highly recommended that this command is used when One ROM is
     /// stopped (and the default is this command will reboot the device if
-    /// required before erasing to make it so). 
-    /// 
+    /// required before erasing to make it so).
+    ///
     /// Use with extreme caution while One ROM is running.  Erasing the core
     /// firmware or the system plugin's flash will cause the USB stack to be
     /// non-functional, requiring manually forcing into BOOTSEL mode using One
@@ -129,19 +129,19 @@ pub enum ControlCommands {
     /// temporarily suspend interrupts and cause flash to become inaccessible.
     /// Anything else running from flash (like a user plugin) may well crash
     /// as a result.
-    /// 
+    ///
     /// For a similar reason, large erase operations while running may cause
     /// One ROM's USB support to become unavailable and then re-enumerate
     /// after the flash erase.  In this case, the flash likely succeeded and
     /// can be checked with `inspect peek memory`.
-    /// 
+    ///
     /// You can use this command to erase multiple ranges in a single operation
     /// with multiple --offset/--address and --size arguments.
     ///
     /// Example:
     ///
     ///   onerom control erase -a
-    /// 
+    ///
     ///   onerom control erase --offset 0x20000 --length 0x1000
     Erase(ControlEraseArgs),
 }
@@ -165,7 +165,7 @@ pub enum ControlLedCommands {
     On(ControlLedOnArgs),
     /// Turn the status LED off.
     Off(ControlLedOffArgs),
-    /// Beacon the status LED to identify a physical One ROM device.
+    /// Beacon the status LED to identify a physical One ROM.
     Beacon(ControlLedBeaconArgs),
     /// Flame the status LED.
     Flame(ControlLedFlameArgs),

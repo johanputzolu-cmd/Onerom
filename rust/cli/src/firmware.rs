@@ -176,12 +176,12 @@ fn check_build_args(
     _options: &Options,
     args: &args::firmware::FirmwareBuildArgs,
 ) -> Result<(), Error> {
-    if !args.no_config && args.config.is_none() && args.rom.is_empty() {
+    if !args.no_config && args.config_file.is_none() && args.rom.is_empty() {
         return Err(Error::InvalidArgument(
             "Either --config or --rom must be specified unless --no-config is set".to_string(),
         ));
     }
-    if args.no_config && (!args.rom.is_empty() || args.config.is_some()) {
+    if args.no_config && (!args.rom.is_empty() || args.config_file.is_some()) {
         return Err(Error::InvalidArgument(
             "--no-config cannot be used with --rom or --config".to_string(),
         ));
@@ -206,7 +206,7 @@ pub async fn cmd_build(
             println!("No config file specified, proceeding without ROM images");
         }
         None
-    } else if let Some(config) = args.config.as_ref() {
+    } else if let Some(config) = args.config_file.as_ref() {
         if options.verbose {
             println!("Using ROM config: {config}");
         }
@@ -234,7 +234,7 @@ pub async fn cmd_build(
         &args.path,
         &board,
         Some(&version_str),
-        args.config.as_deref(),
+        args.config_file.as_deref(),
     );
     std::fs::write(&out, &assembled)?;
 

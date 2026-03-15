@@ -47,18 +47,6 @@ pub enum UpdateCommands {
     ///   onerom update commit --slot 2
     Commit(UpdateCommitArgs),
 
-    /// Assign a user-friendly name to a One ROM device (not yet supported).
-    ///
-    /// The name is stored on the device and can subsequently be used
-    /// with the --serial option to identify this device in all commands.
-    ///
-    /// Example:
-    ///
-    ///   onerom update rename my-c64
-    ///
-    ///   onerom update rename cpu-low
-    Rename(UpdateRenameArgs),
-
     /// Read or write One-Time Programmable (OTP) memory (not yet supported).
     ///
     /// Manages RP2350 OTP memory, including One ROM-specific USB
@@ -95,19 +83,6 @@ pub struct UpdateCommitArgs {
 }
 
 impl CommandTrait for UpdateCommitArgs {
-    fn requires_device(&self) -> bool {
-        true
-    }
-}
-
-#[derive(Debug, Args)]
-pub struct UpdateRenameArgs {
-    /// The name to assign to this device.
-    #[arg(value_name = "NAME")]
-    pub name: String,
-}
-
-impl CommandTrait for UpdateRenameArgs {
     fn requires_device(&self) -> bool {
         true
     }

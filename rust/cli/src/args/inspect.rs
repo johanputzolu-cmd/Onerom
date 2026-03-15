@@ -24,7 +24,7 @@ impl CommandTrait for InspectArgs {
 #[enum_dispatch(CommandTrait)]
 #[derive(Debug, Subcommand)]
 pub enum InspectCommands {
-    /// Display identity and configuration information for a One ROM device.
+    /// Display identity and configuration information for a One ROM.
     ///
     /// Shows the device's serial number, user-assigned name, board type,
     /// MCU, firmware version, and hardware revision.
@@ -35,7 +35,7 @@ pub enum InspectCommands {
     ///   onerom --serial 1234abcd inspect info
     Info(InspectInfoArgs),
 
-    /// Display runtime telemetry from a One ROM device (not yet supported).
+    /// Display runtime telemetry from a One ROM (not yet supported).
     ///
     /// Shows access counts, timing statistics, and other runtime metrics
     /// collected by the device firmware.
@@ -171,7 +171,7 @@ pub enum InspectPeekCommands {
 
     /// Read and display One ROM's SRAM contents.
     ///
-    /// Can be used to read the SRAM from a One ROM device. Note that when
+    /// Can be used to read the SRAM from a One ROM. Note that when
     /// used on a device in the "Stopped" state, SRAM will not contain
     /// meaningful information.
     ///

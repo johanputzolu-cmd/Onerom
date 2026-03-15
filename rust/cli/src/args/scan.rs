@@ -7,7 +7,7 @@
 use crate::args::CommandTrait;
 use clap::Args;
 
-/// Discover and list all connected One ROM devices.
+/// Discover and list all connected One ROMs.
 ///
 /// Displays each device's serial number, USB location, user-assigned name
 /// (if set), board type, MCU, and currently loaded firmware version.

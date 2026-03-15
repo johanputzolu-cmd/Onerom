@@ -75,11 +75,16 @@ pub enum FirmwareCommands {
 }
 
 #[derive(Debug, Args)]
-#[command(group = clap::ArgGroup::new("config_source").required(false).args(["config", "rom"]))]
+#[command(group = clap::ArgGroup::new("config_source").required(false).args(["config_file", "rom"]))]
 pub struct FirmwareBuildArgs {
     /// ROM configuration JSON file. Mutually exclusive with --rom.
-    #[arg(long, value_name = "FILE", conflicts_with = "rom")]
-    pub config: Option<String>,
+    #[arg(
+        long,
+        value_name = "FILE",
+        visible_alias = "config-json",
+        conflicts_with = "rom"
+    )]
+    pub config_file: Option<String>,
 
     /// ROM image specification. May be repeated for multiple images.  (Not yet supported.)
     ///
@@ -88,7 +93,7 @@ pub struct FirmwareBuildArgs {
     /// Example: --rom image=kernal.bin,type=2364,cs=active_low
     ///
     /// Mutually exclusive with --config.
-    #[arg(long, value_name = "SPEC", conflicts_with = "config")]
+    #[arg(long, value_name = "SPEC", conflicts_with = "config_file")]
     pub rom: Vec<String>,
 
     /// Target board type (e.g. fire-24-e). Required when not inferrable

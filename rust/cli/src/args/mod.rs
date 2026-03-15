@@ -48,7 +48,7 @@ use inspect::{
 use program::ProgramArgs;
 use scan::ScanArgs;
 use update::{
-    UpdateArgs, UpdateCommands, UpdateCommitArgs, UpdateOtpArgs, UpdateRenameArgs, UpdateSlotArgs,
+    UpdateArgs, UpdateCommands, UpdateCommitArgs, UpdateOtpArgs, UpdateSlotArgs,
 };
 
 #[enum_dispatch]

@@ -86,7 +86,6 @@ async fn sub_main() -> Result<(), Error> {
         Commands::Update(args) => match &args.command {
             UpdateCommands::Slot(args) => update::cmd_slot(&options, args).await,
             UpdateCommands::Commit(args) => update::cmd_commit(&options, args).await,
-            UpdateCommands::Rename(args) => update::cmd_rename(&options, args).await,
             UpdateCommands::Otp(args) => update::cmd_otp(&options, args).await,
         },
         Commands::Peek(args) => inspect::cmd_peek_live(&options, args).await,
