@@ -26,4 +26,4 @@ echo "Testing sdrr-fw-parser..."
 cargo test -p sdrr-fw-parser
 
 echo "Testing cli..."
-cargo test -p cli
+cargo test -p onerom-cli
