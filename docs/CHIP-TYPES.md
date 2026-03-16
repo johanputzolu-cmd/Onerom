@@ -40,7 +40,7 @@ There are also some other inconsistencies between types:
 | 23128 |  | 16KB | 14 (A0-A13) | CS1 (pin 20), CS2 (pin 22), CS3 (pin 27) | None | ✓ |
 | 23256 |  | 32KB | 15 (A0-A14) | CS1 (pin 20), CS2 (pin 22) | None | ✓ |
 | 23512 |  | 64KB | 16 (A0-A15) | CS1 (pin 20), CS2 (pin 22) | None | ✓ |
-| 231024 |  | 128KB | 17 (A0-A16) | CS1 (pin 20) | None | ✓ |
+| 231024 | TC531000 | 128KB | 17 (A0-A16) | CS1 (pin 20) | None | ✓ |
 
 ## 24-pin EPROM Family (27xx)
 

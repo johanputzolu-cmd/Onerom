@@ -375,6 +375,9 @@
         "231024": {
             "description": "128KB mask ROM with 1 configurable CS line",
             "function": "ROM",
+            "aliases": [
+                "TC531000"
+            ],
             "bit_modes": [8],
             "pins": 28,
             "size": 131072,
