@@ -14,10 +14,6 @@
 // Pull in enums
 #include "enums.h"
 
-#if defined(TEST_BUILD)
-#include "test/stub.h"
-#endif // TEST_BUILD
-
 // Blink patterns for limp mode
 typedef enum limp_mode_pattern {
     LIMP_MODE_NONE = 0,
@@ -28,6 +24,10 @@ typedef enum limp_mode_pattern {
 } limp_mode_pattern_t;
 #if !defined(TEST_BUILD)
 _Static_assert(sizeof(limp_mode_pattern_t) == 1, "limp_mode_pattern_t should be 1 byte");
+#endif // TEST_BUILD
+
+#if defined(TEST_BUILD)
+#include "test/stub.h"
 #endif // TEST_BUILD
 
 // Pin allocations

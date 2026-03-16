@@ -13,8 +13,11 @@ typedef struct {
 } limp_mode_info_t;
 
 extern const limp_mode_info_t limp_mode_patterns[NUM_LIMP_MODE_PATTERNS];
+#if !defined(TEST_BUILD)
 _Static_assert(sizeof(limp_mode_patterns)/sizeof(limp_mode_patterns[0]) == NUM_LIMP_MODE_PATTERNS, 
                "limp_mode_patterns array size mismatch");
+#endif // TEST_BUILD
+
 #if defined(ONEROM_CONSTANTS)
 // Define the limp mode patterns
 //
