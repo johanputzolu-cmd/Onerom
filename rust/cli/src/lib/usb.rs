@@ -26,11 +26,15 @@ pub const RAM_BASE: u32 = 0x2000_0000;
 pub const FLASH_READ_SIZE_KB: u32 = 64;
 pub const FLASH_READ_SIZE_BYTES: u32 = FLASH_READ_SIZE_KB * 1024;
 
-pub const DEFAULT_ONEROM_PICOBOOT_TARGETS: [Target; 2] = [
+pub const DEFAULT_ONEROM_PICOBOOT_TARGETS: [Target; 3] = [
     Target::Rp2350,
     Target::Custom {
         vid: 0x2E8A,
-        pid: 0xF00F,
+        pid: 0xF540,
+    },
+    Target::Custom {
+        vid: 0x2E8A,
+        pid: 0xF542,
     },
 ];
 
