@@ -20,12 +20,13 @@ const CONFIG_SCHEMA_URL: &str = "https://images.onerom.org/configs/schema.json";
 // are passed directly to the builder as-is and won't be expanded by the
 // shell.
 fn expand_tilde(path: &str) -> std::borrow::Cow<'_, str> {
-    if let Some(rest) = path.strip_prefix("~/") {
-        if let Some(home) = std::env::var_os("HOME") {
-            return format!("{}/{}", home.to_string_lossy(), rest).into();
-        }
+    if let Some(rest) = path.strip_prefix("~/")
+        && let Some(home) = std::env::var_os("HOME")
+    {
+        format!("{}/{}", home.to_string_lossy(), rest).into()
+    } else {
+        path.into()
     }
-    path.into()
 }
 
 /// Parsed and validated slot specification from a `--slot` argument.

@@ -15,6 +15,13 @@
 //! The --serial option is global and can be specified at any level to select
 //! a specific One ROM when multiple are connected.
 
+// rustdoc doesn't like a bunch of the doc comments, which are used for clap
+// argument documentation and included in the binary.  Suppress the rustdoc
+// warnings.
+#![allow(rustdoc::broken_intra_doc_links)]
+#![allow(rustdoc::invalid_html_tags)]
+#![allow(rustdoc::bare_urls)]
+
 pub mod control;
 pub mod firmware;
 pub mod inspect;

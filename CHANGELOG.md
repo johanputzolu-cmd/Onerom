@@ -4,16 +4,13 @@ All notables changes between versions are documented in this file.
 
 ## v0.6.7 - 2026-??-??
 
-
-
 !!! Test other 32 pin ROM types see below
 
+The three headlines in this release are **prototype** support for:
 
-
-The two headlines in this release are **prototype** support for:
-
+- One ROM CLI - a command line tool for interacting with new and old One ROM Fire devices over USB
 - a USB stack running the picoboot protocol live while the One ROM is serving ROM bytes
-- One ROM plugins, used to extend One ROM's core functionality (and is how the new USB support is implemented).
+- One ROM plugins, used to extend One ROM's core functionality (and is how the new USB support is implemented)
 
 ### USB Stack
 
@@ -56,6 +53,8 @@ The only supported IRQs for plugins in this release are TIMER0_IRQ_0 and USBCTRL
 ### Other Changes
 
 - A new version of [One ROM Lab](rust/lab-new/README.md) has been started and is used to test One ROM Fire 40 boards prior to shipping.  This is expected to replace other testers soon, and completely supercede the old version of One ROM Lab over time.
+
+- Introduced fire-24-eadb01 as a possibly temporary workaround for a single fire-24-e board.  Do not rely on this hardware version, as it may be removed without warning in future.
 
 ## v0.6.6 - 2026-02-25
 
