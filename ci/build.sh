@@ -579,6 +579,11 @@ main() {
             # Release mode requires version argument
             [[ $# -ne 2 ]] && usage
             local version="$2"
+            # Validate version format (basic validation)
+            if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+                echo "ERROR: Version must be in format vX.Y.Z (e.g., v1.2.3)"
+                exit 1
+            fi
             local target_dir="${PROJECT_ROOT}/builds/${version}"
             local mode="release"
             ;;
