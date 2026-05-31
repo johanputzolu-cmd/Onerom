@@ -1,0 +1,45 @@
+name: Build USB Blink Firmware
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install build dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          dfu-util \
+          gcc-arm-none-eabi \
+          jq \
+          libcurl4-openssl-dev \
+          libjson-c-dev \
+          libzip-dev \
+          make
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Install Rust tools
+      run: |
+        cargo install wasm-pack
+
+    - name: Build firmware
+      run: |
+        chmod +x scripts/*.sh
+        scripts/onerom.sh fire-28-a onerom-config/usb-blink-test.json
+
+    - name: Upload firmware
+      uses: actions/upload-artifact@v4
+      with:
+        name: usb-blink-firmware
+        path: |
+          builds/fw/*.bin
+          builds/fw/*.elf
+          builds/fw/*.uf2
