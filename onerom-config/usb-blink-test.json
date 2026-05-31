@@ -1,0 +1,32 @@
+{
+    "$schema": "https://images.onerom.org/configs/schema.json",
+    "version": 1,
+    "description": "USB system plugin + Blink user plugin test",
+
+    "rom_sets": [
+        {
+            "type": "single",
+            "description": "USB System Plugin",
+            "roms": [
+                {
+                    "file": "plugins/system/usb/build/plugin_system_usb.bin",
+                    "description": "USB System Plugin",
+                    "type": "system_plugin",
+                    "size_handling": "pad"
+                }
+            ]
+        },
+        {
+            "type": "single",
+            "description": "Blink User Plugin",
+            "roms": [
+                {
+                    "file": "plugins/user/blink/build/plugin_user.bin",
+                    "description": "Blink User Plugin",
+                    "type": "user_plugin",
+                    "size_handling": "pad"
+                }
+            ]
+        }
+    ]
+}
